@@ -9,7 +9,7 @@ import { ATTR_GROUPS, ATTRIBUTES } from "@/lib/features";
 import { AttrToggle } from "./AttrChip";
 import { CrayonProgress } from "./Doodles";
 import { compressImage, formatMB, isVideo, safeName } from "./compress";
-import { StarPicker } from "./StarPicker";
+import { StarInput } from "../StarInput";
 
 const MAX_NEW = 12;
 const MAX_BYTES = 300 * 1024 * 1024;
@@ -187,7 +187,7 @@ export function ReviewComposer({
       </div>
 
       <Step n={1} title="How many stars?">
-        <StarPicker value={stars} onChange={setStars} />
+        <StarInput value={stars} onChange={setStars} />
       </Step>
 
       <Step n={2} title="Report card">
