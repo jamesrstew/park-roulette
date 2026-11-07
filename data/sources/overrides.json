@@ -1,0 +1,119 @@
+{
+  "_doc": "Hand decisions applied by scripts/03-build.mjs. parks: keyed by park name (bucket-list or OSM). playgrounds: keyed by OSM ref.",
+  "parks": {
+    "American Legion Community Park": {
+      "osm": "osm:way/248542140"
+    },
+    "Spruce Park": {
+      "lat": 44.30185,
+      "lng": -121.19635,
+      "loc_note": "not in OSM; placed at NW 25th St & NW Spruce Ave, the corner the park is named for (approximate)",
+      "zip": "97756"
+    },
+    "Varnish Park": {
+      "lat": 44.3067,
+      "lng": -121.18481,
+      "loc_note": "not in OSM; placed at NW 16th St & NW Varnish Ave, the corner the park is named for (approximate)",
+      "zip": "97756"
+    },
+    "Renaissance Ridge Central Park": {
+      "exclude": "subdivision (HOA) park in Renaissance Ridge; not a public park"
+    },
+    "Ochoco Pointe Basketball Court and Playground": {
+      "exclude": "Ochoco Pointe subdivision amenity (private pool next door); treated as HOA"
+    },
+    "Panorama Park": {
+      "confidence": "likely",
+      "note": "Crooked River Ranch community park, with restrooms next to the playground. Crooked River Ranch is a private association; check access rules."
+    },
+    "High Desert Sports Complex": {
+      "confidence": "likely",
+      "address": "1859 NE Maple Ave, Redmond, OR 97756",
+      "sources": [
+        "https://www.raprd.org/parks"
+      ],
+      "note": "Redmond Area Park and Recreation District sports complex."
+    },
+    "Umatilla Sports Complex": {
+      "confidence": "likely",
+      "address": "3000 SW Umatilla Ave, Redmond, OR 97756",
+      "note": "City of Redmond sports fields with a playground mapped in OpenStreetMap."
+    },
+    "Cliff Clemens Park": {
+      "confidence": "confirmed",
+      "sources": [
+        "https://nuggetnews.com/story/2011/08/23/news/new-playground-opens-in-sisters/20117.html"
+      ],
+      "note": "Quiet neighborhood park on Larch Street; its playground opened in 2011 with the first swing set in a Sisters city park.",
+      "features": [
+        "swings",
+        "quiet"
+      ]
+    },
+    "Coffield Community Center Playground": {
+      "confidence": "likely",
+      "note": "Next to Sisters Park & Recreation District's Coffield Community Center, the skate park and a disc golf course."
+    },
+    "Alpenglow Park": {
+      "zip": "97702"
+    },
+    "Fieldstone Park": {
+      "zip": "97701"
+    },
+    "Goodrich Pasture Park": {
+      "zip": "97701"
+    },
+    "Lewis & Clark Park": {
+      "zip": "97703"
+    },
+    "Little Fawn Park": {
+      "zip": "97702"
+    },
+    "Manzanita Ridge Park": {
+      "zip": "97703"
+    }
+  },
+  "playgrounds": {
+    "osm:way/568035957": {
+      "name": "Coffield Community Center Playground",
+      "kind": "standalone",
+      "group": "coffield"
+    },
+    "osm:way/554184416": {
+      "exclude": "school playground (R E Jewell Elementary)"
+    },
+    "osm:way/554184419": {
+      "exclude": "school playground (R E Jewell Elementary)"
+    },
+    "osm:way/1501237319": {
+      "exclude": "school playground (R E Jewell Elementary)"
+    },
+    "osm:way/354725924": {
+      "exclude": "school playground (Three Rivers Elementary, Sunriver)"
+    },
+    "osm:way/1085019483": {
+      "exclude": "school playground (Three Rivers Elementary, Sunriver)"
+    },
+    "osm:way/354964871": {
+      "exclude": "resort (Seventh Mountain Resort)"
+    },
+    "osm:way/514575972": {
+      "exclude": "resort (Black Butte Ranch)"
+    },
+    "osm:way/755780002": {
+      "exclude": "resort (Black Butte Ranch)"
+    },
+    "osm:way/1040258416": {
+      "exclude": "resort (Eagle Crest)"
+    },
+    "osm:way/792590031": {
+      "exclude": "subdivision amenity next to private pools"
+    },
+    "osm:way/937916870": {
+      "exclude": "motel/subdivision amenity (Trailhead Lodge area)"
+    },
+    "osm:way/1042095070": {
+      "exclude": "next to a place of worship; likely church playground"
+    }
+  }
+}

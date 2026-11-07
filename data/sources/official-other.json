@@ -1,0 +1,162 @@
+{
+  "_doc": "Parks outside the bucket list, transcribed 2026-11-06. Entries with an operator URL are official (confidence confirmed). Entries marked confidence likely/unverified rest on local press or directory listings because the city site blocks automated access (Sisters, Culver, Redmond).",
+  "parks": [
+    {
+      "name": "Crooked River Park",
+      "city": "Prineville",
+      "address": "1377 S Main St, Prineville, OR 97754",
+      "playground": true,
+      "features": [
+        "restrooms",
+        "picnic",
+        "shade",
+        "sports_courts",
+        "dog_park",
+        "water_view"
+      ],
+      "note": "Two children's play areas, river access to the Crooked River, and a fenced dog park.",
+      "url": "https://www.ccprd.org/crooked-river-park"
+    },
+    {
+      "name": "Gervais Park",
+      "city": "Prineville",
+      "address": "175 NW Meadow Lakes Dr, Prineville, OR 97754",
+      "playground": true,
+      "features": [
+        "picnic",
+        "trail",
+        "water_view"
+      ],
+      "note": "Nature park next to the Crook County Library, with a play structure and a short trail.",
+      "url": "https://www.ccprd.org/gervis-park"
+    },
+    {
+      "name": "Harwood Park",
+      "city": "Prineville",
+      "address": "755 NW Harwood Ave, Prineville, OR 97754",
+      "playground": true,
+      "features": [
+        "restrooms",
+        "picnic",
+        "shade",
+        "trail"
+      ],
+      "note": "Shady creekside park; playground installed in 2019.",
+      "url": "https://www.ccprd.org/harwood-park"
+    },
+    {
+      "name": "Ochoco Creek Park",
+      "city": "Prineville",
+      "address": "455 NE Juniper St, Prineville, OR 97754",
+      "playground": true,
+      "features": [
+        "restrooms",
+        "picnic",
+        "shade",
+        "sports_courts",
+        "trail"
+      ],
+      "note": "Home of Castle Park, Prineville's most popular park.",
+      "url": "https://www.ccprd.org/ochoco-creek-park"
+    },
+    {
+      "name": "Pioneer Park",
+      "city": "Prineville",
+      "address": "450 NE 3rd St, Prineville, OR 97754",
+      "playground": true,
+      "features": [
+        "restrooms",
+        "picnic",
+        "shade",
+        "toddler_area"
+      ],
+      "note": "Downtown by the courthouse, with a toddler playground and a log cabin museum.",
+      "url": "https://www.ccprd.org/pioneer-park"
+    },
+    {
+      "name": "Stryker Park",
+      "city": "Prineville",
+      "address": "453 NE Elm St, Prineville, OR 97754",
+      "playground": true,
+      "features": [
+        "splash_pad",
+        "toddler_area",
+        "accessible"
+      ],
+      "note": "Kiwanis Splash Park, a playground for ages 2-5, and an inclusive play area added in 2024.",
+      "url": "https://www.ccprd.org/styrker-park"
+    },
+    {
+      "name": "Yellowpine Park",
+      "city": "Prineville",
+      "address": "3199 NE Yellowpine Rd, Prineville, OR 97754",
+      "playground": true,
+      "features": [
+        "restrooms",
+        "picnic",
+        "shade"
+      ],
+      "note": "Quiet neighborhood park with a large playground.",
+      "url": "https://www.ccprd.org/yellowpine-park"
+    },
+    {
+      "name": "Finley Butte Park",
+      "city": "La Pine",
+      "address": "51390 Walling Ln, La Pine, OR 97739",
+      "playground": true,
+      "features": [
+        "restrooms",
+        "picnic",
+        "sports_courts"
+      ],
+      "note": "Sports complex with playgrounds, ball fields and pickleball courts.",
+      "url": "https://lapineparks.org/finley-butte-sports-complex-park/"
+    },
+    {
+      "name": "Frontier Heritage Park",
+      "city": "La Pine",
+      "address": "16405 1st St, La Pine, OR 97739",
+      "playground": true,
+      "features": [
+        "restrooms",
+        "picnic"
+      ],
+      "note": "Next to the La Pine Community Center.",
+      "url": "https://lapineparks.org/frontier-heritage-park/"
+    },
+    {
+      "name": "Village Green Park",
+      "city": "Sisters",
+      "address": null,
+      "playground": true,
+      "confidence": "likely",
+      "features": [
+        "restrooms",
+        "picnic",
+        "shade"
+      ],
+      "note": "Downtown Sisters park between Elm and Fir streets, with a gazebo, barbecue area and restrooms. The city won a 2019 state grant to replace the play structure.",
+      "url": "https://www.nuggetnews.com/story/2019/10/01/news/city-snapshot/29934.html",
+      "extra_sources": [
+        "https://www.sistersoregonguide.com/post/parks"
+      ],
+      "osm_name": "Village Green City Park"
+    },
+    {
+      "name": "Culver City Park",
+      "city": "Culver",
+      "address": "421 1st Ave, Culver, OR 97734",
+      "playground": true,
+      "confidence": "unverified",
+      "features": [
+        "splash_pad",
+        "sports_courts"
+      ],
+      "note": "Directory listings mention a splash pad, slides and swings; a skatepark and pickleball courts opened in October 2025. Playground not confirmed by an official source.",
+      "url": "https://park-splash-pads-nuxt.nuxt.dev/splash-pads/culver-park-culver-or",
+      "extra_sources": [
+        "https://ktvz.com/?p=1579606"
+      ]
+    }
+  ]
+}
