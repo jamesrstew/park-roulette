@@ -275,3 +275,61 @@ export const PLAY_TYPES = {
   none: { label: "Park, no playground", emoji: "🌳" },
 } as const;
 export type PlayType = keyof typeof PLAY_TYPES;
+
+/**
+ * The one rule for "what kind of park is this?" Older rows may still carry the
+ * retired status "no_playground"; read those as a park without a playground.
+ */
+export function playOf(p: { play?: string | null; status: string }): PlayType {
+  if (p.status === "no_playground") return "none";
+  return p.play && p.play in PLAY_TYPES ? (p.play as PlayType) : "playground";
+}
+
+/** Counts toward the playground quest (nature play counts, plain parks don't). */
+export const hasPlayground = (p: { play?: string | null; status: string }) =>
+  playOf(p) !== "none";
+
+/** Off the list for good: closed or private. A park without a playground isn't. */
+export const isCrossedOff = (p: { status: string }) =>
+  p.status === "closed" || p.status === "private";
+
+/** Ways to cross a park off the list (the real cross-offs only). */
+export const CROSS_OFF_KEYS = ["closed", "private"] as const;
+export type CrossOffKey = (typeof CROSS_OFF_KEYS)[number];
+
+/** A park's play type and status, with legacy rows cleaned up. */
+export function normalizePlay<T extends { play: string; status: string }>(
+  p: T,
+): T {
+  if (p.status !== "no_playground") return p;
+  return { ...p, play: "none", status: "active" };
+}
+
+export type Tally = {
+  total: number;
+  /** Visited and still on the list. */
+  coloredIn: number;
+  /** Closed or private. Still counts as done. */
+  crossedOff: number;
+  /** coloredIn + crossedOff. */
+  done: number;
+};
+
+/** The bucket-list rule: done = visited + crossed off (closed/private). */
+export function tally<T extends { status: string }>(
+  parks: T[],
+  visited: (p: T) => boolean,
+): Tally {
+  let coloredIn = 0;
+  let crossedOff = 0;
+  for (const p of parks) {
+    if (isCrossedOff(p)) crossedOff++;
+    else if (visited(p)) coloredIn++;
+  }
+  return {
+    total: parks.length,
+    coloredIn,
+    crossedOff,
+    done: coloredIn + crossedOff,
+  };
+}

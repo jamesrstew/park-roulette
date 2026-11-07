@@ -263,16 +263,18 @@ export const Wheel = forwardRef<WheelHandle, Props>(function Wheel(
           fill="#2b2a33"
           opacity="0.12"
         />
+        {/* The rim is round, so it sits outside the rotor: its filter is drawn
+            once instead of on every frame of a spin. */}
+        <circle
+          cx={C}
+          cy={C}
+          r={R + 10}
+          fill="#fffdf7"
+          stroke="#2b2a33"
+          strokeWidth="3"
+          filter="url(#wobble)"
+        />
         <g ref={rotor} style={{ willChange: "transform" }}>
-          <circle
-            cx={C}
-            cy={C}
-            r={R + 10}
-            fill="#fffdf7"
-            stroke="#2b2a33"
-            strokeWidth="3"
-            filter="url(#wobble)"
-          />
           {wedges.map(({ item, d, color, paths }, i) => {
             const mid = i * seg + seg / 2 - 90;
             const label = truncate(

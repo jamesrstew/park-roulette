@@ -1,6 +1,7 @@
 import type { getParkDetail, Me } from "@/lib/data";
+import { isCrossedOff, playOf } from "@/lib/features";
 import { averageTenths } from "@/lib/rating";
-import { CrossedOffBanner, CrossOffFooter } from "./CrossOff";
+import { CrossedOffBanner, CrossOffFooter, PlaySign } from "./CrossOff";
 import { MyReview } from "./MyReview";
 import { ParkActions } from "./ParkActions";
 import { ParkHero } from "./ParkHero";
@@ -20,7 +21,8 @@ export function ParkView({
 }) {
   const { park, reviews, myVisits } = detail;
   const signedIn = !!me;
-  const crossedOff = park.status !== "active";
+  const crossedOff = isCrossedOff(park);
+  const play = playOf(park);
   const mine = me
     ? (reviews.find((r) => r.explorer.id === me.id) ?? null)
     : null;
@@ -61,6 +63,8 @@ export function ParkView({
         visitCount={myVisits.length}
         signedIn={signedIn}
         crossedOff={crossedOff}
+        notes={park.notes?.trim() || null}
+        playground={play !== "none"}
       />
 
       <ParkActions
@@ -75,6 +79,10 @@ export function ParkView({
         visits={myVisits}
         hasMyReview={!!mine}
       />
+
+      {!crossedOff && (
+        <PlaySign parkId={park.id} play={play} signedIn={signedIn} />
+      )}
 
       <ReportCard
         parkId={park.id}
@@ -108,7 +116,9 @@ export function ParkView({
         ))}
       </section>
 
-      {!crossedOff && <CrossOffFooter parkId={park.id} signedIn={signedIn} />}
+      {!crossedOff && (
+        <CrossOffFooter parkId={park.id} play={play} signedIn={signedIn} />
+      )}
     </div>
   );
 }

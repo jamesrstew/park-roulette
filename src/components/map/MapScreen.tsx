@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ParkSummary } from "@/lib/data";
+import { hasPlayground, isCrossedOff, tally } from "@/lib/features";
+import { stampMilestone, type Milestone } from "@/lib/milestones";
+import { MilestoneCard } from "../Milestone";
 import type { LatLng } from "@/lib/geo";
 import type { ParkMapHandle } from "./ParkMap";
 import { ParkSheet } from "./ParkSheet";
@@ -32,20 +35,25 @@ export function MapScreen({
   const [locating, setLocating] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [sheetHeight, setSheetHeight] = useState(0);
+  const [milestone, setMilestone] = useState<Milestone | null>(null);
+  const closeMilestone = useCallback(() => setMilestone(null), []);
   const handle = useRef<ParkMapHandle | null>(null);
   const router = useRouter();
 
   const active = useMemo(
-    () => everything.filter((p) => p.status === "active"),
+    () => everything.filter((p) => !isCrossedOff(p)),
     [everything],
   );
   const crossed = useMemo(
-    () => everything.filter((p) => p.status !== "active"),
+    () => everything.filter((p) => isCrossedOff(p)),
     [everything],
   );
   const visitedCount = active.filter((p) => p.lastVisit).length;
-  const done = visitedCount + crossed.length;
+  // The header counts the playground quest, like the list and passport.
+  const quest = tally(everything.filter(hasPlayground), (p) => !!p.lastVisit);
+  const done = quest.done;
   const total = everything.length;
+  const playgroundsLeft = active.filter(hasPlayground).length;
 
   const shown = useMemo(() => {
     if (!signedIn || filter === "all") return active;
@@ -137,16 +145,16 @@ export function MapScreen({
                     <span className="font-sketch text-2xl font-bold">
                       {done}
                     </span>{" "}
-                    of {total} colored in
-                    {done > 0 && done === total ? " 🏆" : ""}
+                    of {quest.total} playgrounds
+                    {done > 0 && done === quest.total ? " 🏆" : ""}
                   </p>
-                  <ProgressBar value={done} max={total} />
+                  <ProgressBar value={done} max={quest.total} />
                 </>
               ) : (
                 <>
                   <p className="font-hand text-xl leading-tight">
                     <span className="font-sketch text-2xl font-bold">
-                      {active.length}
+                      {playgroundsLeft}
                     </span>{" "}
                     playgrounds to find!
                   </p>
@@ -254,7 +262,16 @@ export function MapScreen({
           here={here}
           onClose={close}
           onHeight={setSheetHeight}
+          onStamped={(id) => {
+            const m = stampMilestone(everything, id);
+            if (m) setMilestone(m);
+            return !!m;
+          }}
         />
+      )}
+
+      {milestone && (
+        <MilestoneCard milestone={milestone} onClose={closeMilestone} />
       )}
     </div>
   );

@@ -1,20 +1,27 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useCallback, useMemo, useState, useTransition } from "react";
 import { logVisit, setParkPlay, setParkStatus } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import {
   ATTRIBUTES,
+  CROSS_OFF_KEYS,
   CROSS_OFF_REASONS,
   PLAY_TYPES,
   SMART_FILTERS,
   attributeScores,
+  hasPlayground,
+  isCrossedOff,
   matchesSmartFilter,
+  playOf,
+  tally,
 } from "@/lib/features";
 import { formatMiles, milesBetween, type LatLng } from "@/lib/geo";
+import { stampMilestone, type Milestone } from "@/lib/milestones";
 import { formatStars } from "@/lib/rating";
+import { MilestoneCard } from "../Milestone";
 import { Underline } from "../Scribbles";
 
 type Show = "all" | "todo" | "done" | "crossed";
@@ -26,7 +33,7 @@ function todayLocal() {
 }
 
 function state(p: ParkSummary): "todo" | "done" | "crossed" {
-  if (p.status !== "active") return "crossed";
+  if (isCrossedOff(p)) return "crossed";
   return p.lastVisit ? "done" : "todo";
 }
 
@@ -39,8 +46,7 @@ export function BucketList({
 }) {
   const [mode, setMode] = useState<"playgrounds" | "all">("playgrounds");
   const parks = useMemo(
-    () =>
-      mode === "all" ? allParks : allParks.filter((p) => p.play !== "none"),
+    () => (mode === "all" ? allParks : allParks.filter(hasPlayground)),
     [allParks, mode],
   );
   const [q, setQ] = useState("");
@@ -52,11 +58,18 @@ export function BucketList({
   const [toast, setToast] = useState<{ text: string; href?: string } | null>(
     null,
   );
+  const [milestone, setMilestone] = useState<Milestone | null>(null);
+  const closeMilestone = useCallback(() => setMilestone(null), []);
 
   const done = parks.filter((p) => state(p) === "done").length;
   const crossed = parks.filter((p) => state(p) === "crossed").length;
   const total = parks.length;
   const resolved = done + crossed;
+  // The other count on her paper list ("Y of 90 parks total"), and vice versa.
+  const other =
+    mode === "all"
+      ? tally(allParks.filter(hasPlayground), (p) => !!p.lastVisit)
+      : tally(allParks, (p) => !!p.lastVisit);
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -127,8 +140,8 @@ export function BucketList({
           The <span className="text-crayon-blue">Bucket List</span>
         </h1>
         <Underline className="mx-auto -mt-1 h-4 w-52" color="#3aa35b" />
-        <p className="mt-1 font-hand text-xl text-ink-soft">
-          Every playground in Central Oregon. All of them.
+        <p className="mt-1 font-hand text-xl text-balance text-ink-soft">
+          Every playground in Central Oregon. Every last one.
         </p>
       </header>
 
@@ -165,6 +178,11 @@ export function BucketList({
         done={done}
         crossed={crossed}
         resolved={resolved}
+        other={
+          other.total > 0 && other.total !== total
+            ? `${mode === "all" ? "🛝" : "🌳"} ${other.done} of ${other.total} ${mode === "all" ? "playgrounds" : "parks total"}`
+            : null
+        }
       />
 
       {/* Sticky search + filters */}
@@ -182,19 +200,21 @@ export function BucketList({
             [
               ["all", `All ${total}`],
               ["todo", `To do ${total - resolved}`],
-              ["done", `✅ ${done}`],
-              ["crossed", `✗ ${crossed}`],
+              ["done", `✅ Visited ${done}`],
+              ["crossed", `✗ Crossed off ${crossed}`],
             ] as [Show, string][]
-          ).map(([k, label]) => (
-            <button
-              key={k}
-              className="chip"
-              aria-pressed={show === k}
-              onClick={() => setShow(k)}
-            >
-              {label}
-            </button>
-          ))}
+          )
+            .filter(([k]) => k !== "crossed" || crossed > 0 || show === k)
+            .map(([k, label]) => (
+              <button
+                key={k}
+                className="chip"
+                aria-pressed={show === k}
+                onClick={() => setShow(k)}
+              >
+                {label}
+              </button>
+            ))}
           <button
             className="chip"
             aria-pressed={sort === "near"}
@@ -273,12 +293,14 @@ export function BucketList({
                   here={sort === "near" ? here : null}
                   signedIn={signedIn}
                   onMenu={() => setMenuFor(p)}
-                  onStamped={() =>
+                  onStamped={() => {
+                    const m = stampMilestone(allParks, p.id);
+                    if (m) setMilestone(m);
                     flash({
                       text: `Stamped ${p.name}! ${resolved + 1} of ${total} done.`,
                       href: `/parks/${p.slug}#review`,
-                    })
-                  }
+                    });
+                  }}
                 />
               ))}
             </ul>
@@ -302,6 +324,10 @@ export function BucketList({
           onClose={() => setMenuFor(null)}
           onDone={(text) => (setMenuFor(null), flash({ text }))}
         />
+      )}
+
+      {milestone && (
+        <MilestoneCard milestone={milestone} onClose={closeMilestone} />
       )}
 
       {toast && (
@@ -330,12 +356,15 @@ function ProgressCard({
   done,
   crossed,
   resolved,
+  other,
 }: {
   noun: string;
   total: number;
   done: number;
   crossed: number;
   resolved: number;
+  /** The other count, e.g. "🌳 4 of 9 parks total". */
+  other: string | null;
 }) {
   const pct = total ? Math.round((resolved / total) * 100) : 0;
   return (
@@ -348,7 +377,9 @@ function ProgressCard({
             / {total} {noun}
           </span>
         </p>
-        <p className="font-hand text-3xl text-crayon-green">{pct}% done</p>
+        <p className="font-hand text-3xl text-crayon-green">
+          {total > 0 && resolved === total ? "🏆 100%!" : `${pct}% done`}
+        </p>
       </div>
       {/* the bar: green = colored in, gray scribble = crossed off */}
       <svg
@@ -392,9 +423,12 @@ function ProgressCard({
         )}
       </svg>
       <p className="font-hand text-lg text-ink-soft">
-        ✅ {done} colored in · ✗ {crossed} crossed off · {total - resolved} to
-        go
+        ✅ {done} colored in{crossed > 0 ? ` · ✗ ${crossed} crossed off` : ""} ·{" "}
+        {total - resolved} to go
       </p>
+      {other && (
+        <p className="-mt-1 font-hand text-lg text-ink-soft">{other}</p>
+      )}
     </div>
   );
 }
@@ -477,10 +511,10 @@ function Row({
             </span>
           ) : (
             <>
-              {park.play !== "playground" && (
+              {playOf(park) !== "playground" && (
                 <span>
-                  {PLAY_TYPES[park.play as keyof typeof PLAY_TYPES]?.emoji}{" "}
-                  {PLAY_TYPES[park.play as keyof typeof PLAY_TYPES]?.label}
+                  {PLAY_TYPES[playOf(park)].emoji}{" "}
+                  {PLAY_TYPES[playOf(park)].label}
                 </span>
               )}
               {park.avgTenths != null && (
@@ -511,7 +545,7 @@ function Row({
         </span>
       </Link>
       <button
-        className="grid h-11 w-9 shrink-0 place-items-center font-hand text-2xl text-ink-soft"
+        className="grid h-11 w-11 shrink-0 place-items-center font-hand text-2xl text-ink-soft"
         aria-label={`More for ${park.name}`}
         onClick={onMenu}
       >
@@ -540,7 +574,6 @@ function CheckBox({
         stroke="#2b2a33"
         strokeWidth="2.5"
         strokeLinejoin="round"
-        filter="url(#wobble)"
       />
       {state === "done" && (
         <path
@@ -602,7 +635,8 @@ function CrossOffSheet({
   onDone: (text: string) => void;
 }) {
   const [pending, start] = useTransition();
-  const crossed = park.status !== "active";
+  const crossed = isCrossedOff(park);
+  const play = playOf(park);
   const act = (status: "active" | keyof typeof CROSS_OFF_REASONS) =>
     start(async () => {
       const r = await setParkStatus({ parkId: park.id, status });
@@ -612,7 +646,7 @@ function CrossOffSheet({
           : status === "active"
             ? `${park.name} is back on the list!`
             : status === "no_playground"
-              ? `Got it! ${park.name} is now a park without a playground.`
+              ? `Fixed! ${park.name} is a park without a playground.`
               : `Crossed off ${park.name}. One less to go!`,
       );
     });
@@ -660,9 +694,9 @@ function CrossOffSheet({
         ) : (
           <>
             <p className="font-hand text-xl text-ink-soft">
-              Something off? Fix the list. Crossed-off parks still count!
+              Something off? Fix the list.
             </p>
-            {park.play === "none" && (
+            {play === "none" ? (
               <button
                 className="crayon-btn wax justify-start bg-crayon-green text-lg text-white"
                 disabled={pending}
@@ -670,27 +704,32 @@ function CrossOffSheet({
               >
                 🛝 Actually, there&apos;s a playground!
               </button>
+            ) : (
+              <button
+                className="crayon-btn justify-start bg-paper text-lg"
+                disabled={pending}
+                onClick={() => act("no_playground")}
+              >
+                🌳 No playground, just a park
+              </button>
             )}
-            {(
-              Object.keys(
-                CROSS_OFF_REASONS,
-              ) as (keyof typeof CROSS_OFF_REASONS)[]
-            )
-              .filter((k) => !(k === "no_playground" && park.play === "none"))
-              .map((k) => (
-                <button
-                  key={k}
-                  className="crayon-btn justify-start bg-paper text-lg"
-                  disabled={pending}
-                  onClick={() => act(k)}
-                >
-                  {CROSS_OFF_REASONS[k].emoji} {CROSS_OFF_REASONS[k].label}
-                </button>
-              ))}
+            <p className="mt-1 text-sm text-ink-soft">
+              Gone for good? Cross it off. It still counts as done.
+            </p>
+            {CROSS_OFF_KEYS.map((k) => (
+              <button
+                key={k}
+                className="crayon-btn justify-start bg-paper text-lg"
+                disabled={pending}
+                onClick={() => act(k)}
+              >
+                {CROSS_OFF_REASONS[k].emoji} {CROSS_OFF_REASONS[k].label}
+              </button>
+            ))}
           </>
         )}
         <button
-          className="font-hand text-lg text-ink-soft underline"
+          className="min-h-11 font-hand text-lg text-ink-soft underline"
           onClick={onClose}
         >
           Never mind

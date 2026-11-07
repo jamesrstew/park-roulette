@@ -60,9 +60,7 @@
     "address": "61355 SW Swarens Ave, Bend, OR 97702",
     "kind": "park",
     "play": "none",
-    "features": [
-      "trail"
-    ],
+    "features": ["trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -99,11 +97,7 @@
     "address": "166 SW Shevlin Hixon Dr, Bend, OR 97702",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms",
-      "picnic",
-      "water_view"
-    ],
+    "features": ["restrooms", "picnic", "water_view"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -147,10 +141,7 @@
     "address": "1155 Brookswood Blvd, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -169,12 +160,7 @@
     "address": "20750 Comet Ln, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["shade", "restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -193,10 +179,7 @@
     "address": "35 NW Drake Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "picnic",
-      "water_view"
-    ],
+    "features": ["picnic", "water_view"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -214,12 +197,7 @@
     "address": "1630 NE Butler Market Rd, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -239,9 +217,7 @@
     "address": "19400 Goldenwood Ct, Bend, OR 97702",
     "kind": "park",
     "play": "none",
-    "features": [
-      "trail"
-    ],
+    "features": ["trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -259,12 +235,7 @@
     "address": "264 NW Columbia St, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -283,11 +254,7 @@
     "address": "2500 NW Crossing Dr, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["shade", "restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -332,9 +299,7 @@
     "address": "NW Dohema Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "water_view"
-    ],
+    "features": ["water_view"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -352,12 +317,7 @@
     "address": "777 NW Riverside Blvd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms",
-      "picnic",
-      "water_view",
-      "trail"
-    ],
+    "features": ["restrooms", "picnic", "water_view", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -375,10 +335,7 @@
     "address": "62891 NE Nolan St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -397,9 +354,7 @@
     "address": "63145 Lancaster St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "picnic"
-    ],
+    "features": ["picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -444,12 +399,7 @@
     "address": "3750 Eagle Rd, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -467,12 +417,7 @@
     "address": "1980 NW 1st St, Bend, OR 97703",
     "kind": "park",
     "play": "nature",
-    "features": [
-      "restrooms",
-      "picnic",
-      "water_view",
-      "trail"
-    ],
+    "features": ["restrooms", "picnic", "water_view", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -490,10 +435,7 @@
     "address": "61308 Sunflower Ln, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -512,11 +454,7 @@
     "address": "61750 Darla Pl, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["shade", "restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -535,11 +473,7 @@
     "address": "941 NE Quimby Ave, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["shade", "restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -557,12 +491,7 @@
     "address": "1100 NW Harmon Blvd, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic",
-      "water_view",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "picnic", "water_view", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -581,11 +510,7 @@
     "address": "63240 NW Lavacrest St, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["shade", "restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -603,13 +528,7 @@
     "address": "2050 NW 12th St, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail",
-      "dog_park"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail", "dog_park"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -628,9 +547,7 @@
     "address": "910 NW Saginaw Ave, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms"
-    ],
+    "features": ["restrooms"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -666,12 +583,7 @@
     "address": "1235 NE Jones Rd, Bend, OR 97701",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms",
-      "picnic",
-      "trail",
-      "dog_park"
-    ],
+    "features": ["restrooms", "picnic", "trail", "dog_park"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -689,9 +601,7 @@
     "address": "19489 Hollygrape St, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms"
-    ],
+    "features": ["restrooms"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -709,11 +619,7 @@
     "address": "478 SE Railroad St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -758,10 +664,7 @@
     "address": "800 SE Centennial St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -810,10 +713,7 @@
     "address": "2520 NW Lemhi Pass Dr, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -832,13 +732,7 @@
     "address": "61012 Parrell Rd, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail",
-      "sports_courts"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -855,12 +749,7 @@
     "address": "62691 Mount Hood Dr, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -878,12 +767,7 @@
     "address": "166 SW Shevlin Hixon Dr, Bend, OR 97702",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms",
-      "picnic",
-      "water_view",
-      "trail"
-    ],
+    "features": ["restrooms", "picnic", "water_view", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -901,13 +785,7 @@
     "address": "55 NW Riverside Blvd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "water_view",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "water_view", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -925,12 +803,7 @@
     "address": "1975 NE Providence Dr, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["shade", "restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -949,12 +822,7 @@
     "address": "63800 Wellington St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic",
-      "trail",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "picnic", "trail", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -973,12 +841,7 @@
     "address": "2001 NE 6th St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["shade", "restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -997,10 +860,7 @@
     "address": "475 NW 17th St, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "picnic",
-      "dog_park"
-    ],
+    "features": ["picnic", "dog_park"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1019,10 +879,7 @@
     "address": "19150 NW Skyliners Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1040,11 +897,7 @@
     "address": "200 NW Pacific Park Ln, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "water_view",
-      "trail",
-      "quiet"
-    ],
+    "features": ["water_view", "trail", "quiet"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1062,10 +915,7 @@
     "address": "691 NW Drake Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "picnic",
-      "water_view"
-    ],
+    "features": ["picnic", "water_view"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1083,12 +933,7 @@
     "address": "1310 NE Hwy 20, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1134,9 +979,7 @@
     "address": "61250 Linfield Ct, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "climbing"
-    ],
+    "features": ["climbing"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1155,12 +998,7 @@
     "address": "1525 NW Wall St, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "water_view"
-    ],
+    "features": ["shade", "restrooms", "picnic", "water_view"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1204,11 +1042,7 @@
     "address": "1055 NE Providence Dr, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1227,12 +1061,7 @@
     "address": "2755 NW Regency St, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["shade", "restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1251,11 +1080,7 @@
     "address": "19975 Glen Vista Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms",
-      "water_view",
-      "trail"
-    ],
+    "features": ["restrooms", "water_view", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1273,9 +1098,7 @@
     "address": "61005 Snowbrush Dr, Bend, OR 97702",
     "kind": "park",
     "play": "none",
-    "features": [
-      "picnic"
-    ],
+    "features": ["picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1293,9 +1116,7 @@
     "address": "19400 Charleswood Ln, Bend, OR 97702",
     "kind": "park",
     "play": "none",
-    "features": [
-      "trail"
-    ],
+    "features": ["trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1338,9 +1159,7 @@
     "address": "2555 NE Division St, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "picnic"
-    ],
+    "features": ["picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1358,12 +1177,7 @@
     "address": "20885 Egypt Dr, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1383,12 +1197,7 @@
     "address": "62999 O.B. Riley Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms",
-      "picnic",
-      "water_view",
-      "trail"
-    ],
+    "features": ["restrooms", "picnic", "water_view", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1406,9 +1215,7 @@
     "address": "700 NW Yosemite Dr, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "trail"
-    ],
+    "features": ["trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1427,13 +1234,7 @@
     "address": "18920 NW Shevlin Park Rd, Bend, OR 97701",
     "kind": "park",
     "play": "none",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "water_view",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "water_view", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1451,12 +1252,7 @@
     "address": "19617 Mountaineer Way, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["shade", "restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1474,12 +1270,7 @@
     "address": "61531 SE Stone Creek Ln, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1498,10 +1289,7 @@
     "address": "1650 NE Watson Dr, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1519,12 +1307,7 @@
     "address": "1150 NW Promontory Dr, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "restrooms",
-      "picnic",
-      "trail",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "picnic", "trail", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1542,11 +1325,7 @@
     "address": "61141 Dayspring Dr, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["shade", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1565,9 +1344,7 @@
     "address": "990 NW Stannium Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "trail"
-    ],
+    "features": ["trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1585,11 +1362,7 @@
     "address": "2996 NW Three Sisters Dr, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "trail",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "trail", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1626,9 +1399,7 @@
     "address": "18144 Couch Market Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": [
-      "picnic"
-    ],
+    "features": ["picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1646,10 +1417,7 @@
     "address": "60955 River Rim Dr, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "picnic"
-    ],
+    "features": ["shade", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1669,11 +1437,7 @@
     "address": "61690 Woodriver Dr, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1692,14 +1456,9 @@
     "address": null,
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms"
-    ],
+    "features": ["restrooms"],
     "confidence": "likely",
-    "sources": [
-      "osm:way/1052532548",
-      "osm:way/1052532544"
-    ],
+    "sources": ["osm:way/1052532548", "osm:way/1052532544"],
     "notes": "Crooked River Ranch community park, with restrooms next to the playground. Crooked River Ranch is a private association; check access rules."
   },
   {
@@ -1711,10 +1470,7 @@
     "address": "421 1st Ave, Culver, OR 97734",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "splash_pad",
-      "sports_courts"
-    ],
+    "features": ["splash_pad", "sports_courts"],
     "confidence": "unverified",
     "sources": [
       "https://park-splash-pads-nuxt.nuxt.dev/splash-pads/culver-park-culver-or",
@@ -1732,11 +1488,7 @@
     "address": "51390 Walling Ln, La Pine, OR 97739",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "https://lapineparks.org/finley-butte-sports-complex-park/",
@@ -1753,10 +1505,7 @@
     "address": "16405 1st St, La Pine, OR 97739",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "https://lapineparks.org/frontier-heritage-park/",
@@ -1774,16 +1523,9 @@
     "address": null,
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms",
-      "sports_courts"
-    ],
+    "features": ["restrooms", "sports_courts"],
     "confidence": "confirmed",
-    "sources": [
-      "osm:way/438313014",
-      "osm:way/926835144",
-      "osm:way/353942624"
-    ],
+    "sources": ["osm:way/438313014", "osm:way/926835144", "osm:way/353942624"],
     "notes": null
   },
   {
@@ -1795,14 +1537,9 @@
     "address": null,
     "kind": "park",
     "play": "playground",
-    "features": [
-      "sports_courts"
-    ],
+    "features": ["sports_courts"],
     "confidence": "confirmed",
-    "sources": [
-      "osm:way/438300795",
-      "osm:way/408002376"
-    ],
+    "sources": ["osm:way/438300795", "osm:way/408002376"],
     "notes": null
   },
   {
@@ -1839,16 +1576,9 @@
     "address": "175 NW Meadow Lakes Dr, Prineville, OR 97754",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "picnic",
-      "water_view",
-      "trail"
-    ],
+    "features": ["picnic", "water_view", "trail"],
     "confidence": "confirmed",
-    "sources": [
-      "https://www.ccprd.org/gervis-park",
-      "nominatim"
-    ],
+    "sources": ["https://www.ccprd.org/gervis-park", "nominatim"],
     "notes": "Nature park next to the Crook County Library, with a play structure and a short trail."
   },
   {
@@ -1860,12 +1590,7 @@
     "address": "755 NW Harwood Ave, Prineville, OR 97754",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "https://www.ccprd.org/harwood-park",
@@ -1884,13 +1609,7 @@
     "address": "455 NE Juniper St, Prineville, OR 97754",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail",
-      "sports_courts"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "https://www.ccprd.org/ochoco-creek-park",
@@ -1908,12 +1627,7 @@
     "address": "450 NE 3rd St, Prineville, OR 97754",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "toddler_area",
-      "shade",
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["toddler_area", "shade", "restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "https://www.ccprd.org/pioneer-park",
@@ -1940,10 +1654,7 @@
       "sports_courts"
     ],
     "confidence": "confirmed",
-    "sources": [
-      "https://www.ccprd.org/styrker-park",
-      "osm:way/202623307"
-    ],
+    "sources": ["https://www.ccprd.org/styrker-park", "osm:way/202623307"],
     "notes": "Kiwanis Splash Park, a playground for ages 2-5, and an inclusive play area added in 2024."
   },
   {
@@ -1955,16 +1666,9 @@
     "address": "3199 NE Yellowpine Rd, Prineville, OR 97754",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["shade", "restrooms", "picnic"],
     "confidence": "confirmed",
-    "sources": [
-      "https://www.ccprd.org/yellowpine-park",
-      "census-geocoder"
-    ],
+    "sources": ["https://www.ccprd.org/yellowpine-park", "census-geocoder"],
     "notes": "Quiet neighborhood park with a large playground."
   },
   {
@@ -1976,10 +1680,7 @@
     "address": "850 SW Rimrock Way, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "climbing",
-      "sports_courts"
-    ],
+    "features": ["climbing", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -2015,14 +1716,9 @@
     "address": "725 SW Evergreen Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "none",
-    "features": [
-      "splash_pad"
-    ],
+    "features": ["splash_pad"],
     "confidence": "confirmed",
-    "sources": [
-      "bucket-list-2026-11",
-      "osm:relation/14016039"
-    ],
+    "sources": ["bucket-list-2026-11", "osm:relation/14016039"],
     "notes": "Free splash park, open daily in summer through Labor Day. No play structure."
   },
   {
@@ -2034,9 +1730,7 @@
     "address": "575 NE Quince Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "sports_courts"
-    ],
+    "features": ["sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -2054,9 +1748,7 @@
     "address": "370 NW 23rd St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "sports_courts"
-    ],
+    "features": ["sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -2074,9 +1766,7 @@
     "address": "1964 SW 35th St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "restrooms"
-    ],
+    "features": ["restrooms"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -2094,9 +1784,7 @@
     "address": "1859 NE Maple Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "sports_courts"
-    ],
+    "features": ["sports_courts"],
     "confidence": "likely",
     "sources": [
       "osm:way/1480492723",
@@ -2114,14 +1802,9 @@
     "address": "1624 SW Kalama Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "sports_courts"
-    ],
+    "features": ["sports_courts"],
     "confidence": "confirmed",
-    "sources": [
-      "bucket-list-2026-11",
-      "osm:way/304920378"
-    ],
+    "sources": ["bucket-list-2026-11", "osm:way/304920378"],
     "notes": null
   },
   {
@@ -2133,14 +1816,9 @@
     "address": "2001 SW Quartz Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "climbing"
-    ],
+    "features": ["climbing"],
     "confidence": "confirmed",
-    "sources": [
-      "bucket-list-2026-11",
-      "osm:way/1133574252"
-    ],
+    "sources": ["bucket-list-2026-11", "osm:way/1133574252"],
     "notes": "Modern playground with varied climbing, next to the skate park. New in 2023."
   },
   {
@@ -2152,9 +1830,7 @@
     "address": "1101 NW Quince Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "trail"
-    ],
+    "features": ["trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -2173,11 +1849,7 @@
     "address": "333 SW 15th St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "toddler_area",
-      "accessible",
-      "sports_courts"
-    ],
+    "features": ["toddler_area", "accessible", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -2197,9 +1869,7 @@
     "play": "playground",
     "features": [],
     "confidence": "confirmed",
-    "sources": [
-      "bucket-list-2026-11"
-    ],
+    "sources": ["bucket-list-2026-11"],
     "notes": "New in 2023."
   },
   {
@@ -2211,14 +1881,9 @@
     "address": "3000 SW Umatilla Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "sports_courts"
-    ],
+    "features": ["sports_courts"],
     "confidence": "likely",
-    "sources": [
-      "osm:way/1042394290",
-      "osm:way/304920495"
-    ],
+    "sources": ["osm:way/1042394290", "osm:way/304920495"],
     "notes": "City of Redmond sports fields with a playground mapped in OpenStreetMap."
   },
   {
@@ -2232,9 +1897,7 @@
     "play": "playground",
     "features": [],
     "confidence": "confirmed",
-    "sources": [
-      "bucket-list-2026-11"
-    ],
+    "sources": ["bucket-list-2026-11"],
     "notes": "New in 2023."
   },
   {
@@ -2246,15 +1909,9 @@
     "address": "1018 NW Rimrock Dr, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "trail",
-      "sports_courts"
-    ],
+    "features": ["trail", "sports_courts"],
     "confidence": "confirmed",
-    "sources": [
-      "bucket-list-2026-11",
-      "osm:way/135996095"
-    ],
+    "sources": ["bucket-list-2026-11", "osm:way/135996095"],
     "notes": "Playground on the Dry Canyon trail."
   },
   {
@@ -2266,10 +1923,7 @@
     "address": null,
     "kind": "park",
     "play": "playground",
-    "features": [
-      "swings",
-      "quiet"
-    ],
+    "features": ["swings", "quiet"],
     "confidence": "confirmed",
     "sources": [
       "osm:way/1037864247",
@@ -2289,9 +1943,7 @@
     "play": "playground",
     "features": [],
     "confidence": "likely",
-    "sources": [
-      "osm:way/568035957"
-    ],
+    "sources": ["osm:way/568035957"],
     "notes": "Next to Sisters Park & Recreation District's Coffield Community Center, the skate park and a disc golf course."
   },
   {
@@ -2303,11 +1955,7 @@
     "address": null,
     "kind": "park",
     "play": "playground",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["shade", "restrooms", "picnic"],
     "confidence": "likely",
     "sources": [
       "https://www.nuggetnews.com/story/2019/10/01/news/city-snapshot/29934.html",
@@ -2350,12 +1998,7 @@
     "address": "57250 Overlook Rd, Sunriver, OR 97707",
     "kind": "park",
     "play": "playground",
-    "features": [
-      "climbing",
-      "shade",
-      "restrooms",
-      "picnic"
-    ],
+    "features": ["climbing", "shade", "restrooms", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -2373,18 +2016,9 @@
     "address": "9241 NE Crooked River Dr, Terrebonne, OR 97760",
     "kind": "park",
     "play": "none",
-    "features": [
-      "shade",
-      "restrooms",
-      "picnic",
-      "trail",
-      "sports_courts"
-    ],
+    "features": ["shade", "restrooms", "picnic", "trail", "sports_courts"],
     "confidence": "confirmed",
-    "sources": [
-      "bucket-list-2026-11",
-      "osm:way/419727037"
-    ],
+    "sources": ["bucket-list-2026-11", "osm:way/419727037"],
     "notes": "No playground, but the most spectacular park near Bend: towering rock spires and river trails. About 35-40 min. Keep little ones close, there are steep drops."
   }
 ]

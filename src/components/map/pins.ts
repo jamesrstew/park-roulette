@@ -8,16 +8,31 @@ const INK = "#2b2a33";
 const STAR =
   "M12 1.8l3.1 6.4 7 1-5.1 4.9 1.2 7-6.2-3.3-6.3 3.3 1.2-7L1.9 9.2l7-1z";
 
-/** Unvisited: a scribbly crayon dot in the town's color. */
+/** Hand-wobbled circle outline (no SVG filter: dozens of pins pan smoothly). */
+const BLOB =
+  "M17 6.2 C 23.4 5.8 28.3 10.6 28 17.3 C 27.7 23.6 22.8 28.2 16.6 27.9 C 10.4 27.6 5.9 22.9 6.1 16.8 C 6.3 10.7 10.9 6.5 17 6.2 Z";
+
+/** Unvisited playground: a scribbly crayon dot in the town's color. */
 export function dotPinHtml(color: string, selected: boolean) {
   return `<div class="pin-hit${selected ? " is-selected" : ""}">
   <svg class="pin-art" viewBox="0 0 36 36" width="30" height="30" aria-hidden="true">
-    <g filter="url(#wobble)">
-      <circle cx="19.5" cy="20" r="11" fill="${INK}" />
-      <circle cx="17" cy="17" r="11" fill="${color}" stroke="${INK}" stroke-width="2.5" />
-      <path d="M10 15.5 L20 9.5 M9 20.5 L24 11 M11 24.5 L25.5 15.5 M15.5 26 L25 20"
-        stroke="#fff" stroke-opacity=".5" stroke-width="2.2" stroke-linecap="round" fill="none" />
-    </g>
+    <path d="${BLOB}" transform="translate(2.5 3)" fill="${INK}" />
+    <path d="${BLOB}" fill="${color}" stroke="${INK}" stroke-width="2.5" stroke-linejoin="round" />
+    <path d="M10 15.5 L20 9.5 M9 20.5 L24 11 M11 24.5 L25.5 15.5 M15.5 26 L25 20"
+      stroke="#fff" stroke-opacity=".5" stroke-width="2.2" stroke-linecap="round" fill="none" />
+  </svg>
+</div>`;
+}
+
+/** Unvisited park without a playground: a small crayon tree, quieter than a dot. */
+export function treePinHtml(selected: boolean) {
+  return `<div class="pin-hit${selected ? " is-selected" : ""}">
+  <svg class="pin-art" viewBox="0 0 36 36" width="26" height="26" aria-hidden="true">
+    <path d="M17 24 L17.4 32" stroke="${INK}" stroke-width="3" stroke-linecap="round" />
+    <path d="M17 4.5 C 22 5 26.5 9.5 26 15.2 C 25.6 20.4 21.4 24.6 16.6 24.4 C 11.4 24.2 7.6 19.8 8 14.6 C 8.4 9.2 12.2 4.2 17 4.5 Z"
+      fill="#7fcf95" stroke="${INK}" stroke-width="2.3" stroke-linejoin="round" />
+    <path d="M12 12 L19 8 M11 17 L22 10.5 M13.5 21 L23.5 14.5" stroke="#3aa35b" stroke-width="2"
+      stroke-linecap="round" fill="none" />
   </svg>
 </div>`;
 }

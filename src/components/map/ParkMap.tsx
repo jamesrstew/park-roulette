@@ -8,14 +8,23 @@ import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import type { LatLng } from "@/lib/geo";
-import { clusterPinHtml, dotPinHtml, mePinHtml, starPinHtml } from "./pins";
+import { hasPlayground } from "@/lib/features";
+import {
+  clusterPinHtml,
+  dotPinHtml,
+  mePinHtml,
+  starPinHtml,
+  treePinHtml,
+} from "./pins";
 
 /** Central Oregon, roughly centered on Bend/Redmond. */
 export const CENTRAL_OREGON: LatLng = { lat: 44.2, lng: -121.25 };
 /** At this zoom and closer, every pin stands on its own. */
 const NO_CLUSTER_ZOOM = 15;
-/** Pins closer than this many pixels get bunched together. */
-const CLUSTER_PX = 46;
+/** Pins closer than this many pixels get bunched together (a bubble is ~64px). */
+const CLUSTER_PX = 62;
+/** Zoomed out further than this, it's one bubble per town. */
+const TOWN_ZOOM = 12;
 /** Crossed-off parks only show up once you're zoomed in a bit. */
 const CROSSED_MIN_ZOOM = 12;
 
@@ -37,7 +46,31 @@ function clusterParks(map: L.Map, parks: ParkSummary[], zoom: number) {
   if (zoom >= NO_CLUSTER_ZOOM)
     return parks.map((p) => ({ key: `p${p.id}`, ...p, parks: [p] }));
   const groups: { x: number; y: number; parks: ParkSummary[] }[] = [];
-  for (const p of parks) {
+  if (zoom < TOWN_ZOOM) {
+    // Zoomed out: one tidy bubble per town instead of a pile-up.
+    const byTown = new Map<string, ParkSummary[]>();
+    for (const p of parks)
+      byTown.set(p.city, [...(byTown.get(p.city) ?? []), p]);
+    const towns = [...byTown.values()]
+      .map((ps) => {
+        const pts = ps.map((p) => map.project([p.lat, p.lng], zoom));
+        return {
+          x: pts.reduce((a, q) => a + q.x, 0) / pts.length,
+          y: pts.reduce((a, q) => a + q.y, 0) / pts.length,
+          parks: ps,
+        };
+      })
+      .sort((a, b) => b.parks.length - a.parks.length);
+    // Neighbor towns whose bubbles would overlap fold into the bigger one.
+    for (const t of towns) {
+      const g = groups.find(
+        (g) => Math.hypot(g.x - t.x, g.y - t.y) < CLUSTER_PX * 1.4,
+      );
+      if (g) g.parks.push(...t.parks);
+      else groups.push(t);
+    }
+  }
+  for (const p of zoom < TOWN_ZOOM ? [] : parks) {
     const pt = map.project([p.lat, p.lng], zoom);
     const g = groups.find(
       (g) => Math.hypot(g.x - pt.x, g.y - pt.y) < CLUSTER_PX,
@@ -96,6 +129,9 @@ function Pins({
   useEffect(() => {
     const onZoom = () => setZoom(map.getZoom());
     const onClick = () => onSelect(null);
+    // The first fit can land before we subscribe; catch up so bubbles are
+    // clustered for the zoom we're actually at.
+    onZoom();
     map.on("zoomend", onZoom);
     map.on("click", onClick);
     return () => {
@@ -147,17 +183,26 @@ function Pins({
             />
           );
         }
-        const towns = [...new Set(c.parks.map((p) => p.city))];
+        const counts = new Map<string, number>();
+        for (const p of c.parks)
+          counts.set(p.city, (counts.get(p.city) ?? 0) + 1);
+        const towns = [...counts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .map(([t]) => t);
         const visited = c.parks.filter((p) => p.lastVisit).length;
-        const color =
-          towns.length === 1 ? CRAYONS[townCrayon(towns[0])] : CRAYONS.purple;
+        const color = CRAYONS[townCrayon(towns[0])];
         const icon = L.divIcon({
           className: "park-pin",
           html: clusterPinHtml({
             count: c.parks.length,
             visited,
             color,
-            label: towns.length === 1 ? towns[0] : null,
+            label:
+              towns.length === 1
+                ? towns[0]
+                : zoom < TOWN_ZOOM
+                  ? `${towns[0]} +${towns.length - 1}`
+                  : null,
           }),
           iconSize: [64, 64],
           iconAnchor: [32, 32],
@@ -186,23 +231,26 @@ function ParkPin({
   onSelect: (p: ParkSummary) => void;
 }) {
   const visited = !!park.lastVisit;
+  const playground = hasPlayground(park);
   const icon = useMemo(
     () =>
       L.divIcon({
         className: "park-pin",
         html: visited
           ? starPinHtml(selected)
-          : dotPinHtml(CRAYONS[townCrayon(park.city)], selected),
+          : playground
+            ? dotPinHtml(CRAYONS[townCrayon(park.city)], selected)
+            : treePinHtml(selected),
         iconSize: [44, 44],
         iconAnchor: [22, 22],
       }),
-    [visited, selected, park.city],
+    [visited, playground, selected, park.city],
   );
   return (
     <Marker
       position={[park.lat, park.lng]}
       icon={icon}
-      title={park.name}
+      title={playground ? park.name : `${park.name} (no playground)`}
       zIndexOffset={selected ? 1000 : visited ? 100 : 0}
       keyboard
       eventHandlers={{ click: () => onSelect(park) }}

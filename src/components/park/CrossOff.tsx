@@ -2,9 +2,9 @@
 
 import confetti from "canvas-confetti";
 import { useState, useTransition } from "react";
-import { setParkStatus } from "@/lib/actions";
+import { setParkPlay, setParkStatus } from "@/lib/actions";
 import { CRAYONS } from "@/lib/crayons";
-import { CROSS_OFF_REASONS } from "@/lib/features";
+import { CROSS_OFF_REASONS, PLAY_TYPES, type PlayType } from "@/lib/features";
 import { ScribbleOut } from "./Doodles";
 import { JoinNudge } from "./JoinNudge";
 
@@ -88,21 +88,83 @@ export function CrossedOffBanner({
   );
 }
 
-/** Footer: "Cross it off the list" with a reason. Duds are progress too. */
-export function CrossOffFooter({
+/**
+ * "No playground here" is a fix, not a cross-off: a sign under the title says
+ * so, and anyone can flip it back.
+ */
+export function PlaySign({
   parkId,
+  play,
   signedIn,
 }: {
   parkId: number;
+  play: PlayType;
+  signedIn: boolean;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  if (play === "playground") return null;
+  const info = PLAY_TYPES[play];
+  return (
+    <div className="doodle-box-alt flex flex-col gap-2 bg-[color-mix(in_srgb,var(--color-crayon-green)_10%,#fffdf7)] px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className="text-3xl" aria-hidden>
+          {info.emoji}
+        </span>
+        <div className="flex-1">
+          <p className="font-hand text-xl leading-tight">
+            {play === "none" ? "Just a park, no playground" : "Nature play"}
+          </p>
+          <p className="text-sm leading-snug text-ink-soft">
+            {play === "none"
+              ? "A bonus on the every-park list. It skips the wheel unless you ask."
+              : "Logs, rocks, and dirt instead of slides. Counts as a playground!"}
+          </p>
+        </div>
+      </div>
+      {error && <p className="font-hand text-lg text-crayon-red">{error}</p>}
+      {signedIn && play === "none" && (
+        <button
+          type="button"
+          className="crayon-btn min-h-11 self-start bg-paper px-3 text-base"
+          disabled={pending}
+          onClick={() =>
+            start(async () => {
+              const res = await setParkPlay({ parkId, play: "playground" });
+              if (!res.ok) setError(res.error);
+            })
+          }
+        >
+          {pending ? "Fixing…" : "🛝 Actually, there's a playground!"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+type Fix = "no_playground" | Reason;
+
+/** Footer: "Something off?" Fix a missing playground, or cross a park off. */
+export function CrossOffFooter({
+  parkId,
+  play,
+  signedIn,
+}: {
+  parkId: number;
+  play: PlayType;
   signedIn: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [reason, setReason] = useState<Reason | null>(null);
+  const [reason, setReason] = useState<Fix | null>(null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
+  const options = (Object.keys(CROSS_OFF_REASONS) as Fix[]).filter(
+    (r) => !(r === "no_playground" && play === "none"),
+  );
+  const isFix = reason === "no_playground";
 
-  function crossOff() {
+  function submit() {
     if (!reason) return;
     setError(null);
     start(async () => {
@@ -113,19 +175,22 @@ export function CrossOffFooter({
       });
       if (!res.ok) return setError(res.error);
       setOpen(false);
+      setReason(null);
+      setNote("");
       window.scrollTo({ top: 0, behavior: "smooth" });
-      confetti({
-        particleCount: 45,
-        spread: 55,
-        origin: { y: 0.2 },
-        colors: [CRAYONS.purple, CRAYONS.pink, CRAYONS.blue],
-        disableForReducedMotion: true,
-      });
+      if (!isFix)
+        confetti({
+          particleCount: 45,
+          spread: 55,
+          origin: { y: 0.2 },
+          colors: [CRAYONS.purple, CRAYONS.pink, CRAYONS.blue],
+          disableForReducedMotion: true,
+        });
     });
   }
 
   return (
-    <section aria-label="Cross it off the list" className="flex flex-col gap-3">
+    <section aria-label="Something off?" className="flex flex-col gap-3">
       {!open ? (
         <button
           type="button"
@@ -137,10 +202,12 @@ export function CrossOffFooter({
           </span>
           <span className="flex-1">
             <span className="block font-hand text-xl leading-tight">
-              Cross it off the list
+              Something off?
             </span>
             <span className="block text-sm text-ink-soft">
-              No playground? Closed? Private? Still counts as progress.
+              {play === "none"
+                ? "Closed or private? Cross it off the list."
+                : "No playground? Closed? Private? Fix the list."}
             </span>
           </span>
           <span className="font-hand text-2xl" aria-hidden>
@@ -150,7 +217,7 @@ export function CrossOffFooter({
       ) : !signedIn ? (
         <JoinNudge
           emoji="🖍️"
-          line="Join to cross parks off the list!"
+          line="Join to fix the list!"
           onClose={() => setOpen(false)}
         />
       ) : (
@@ -158,24 +225,30 @@ export function CrossOffFooter({
           <p className="font-hand text-2xl leading-none">
             What&apos;s the story?
           </p>
-          <p className="-mt-1 text-sm text-ink-soft">
-            It comes off the wheel, and anyone can undo it.
-          </p>
           <div className="flex flex-col gap-2" role="radiogroup">
-            {(Object.keys(CROSS_OFF_REASONS) as Reason[]).map((r) => (
+            {options.map((r) => (
               <button
                 key={r}
                 type="button"
                 role="radio"
                 aria-checked={reason === r}
                 onClick={() => setReason(r)}
-                className={`chip min-h-12 justify-start text-xl ${reason === r ? "bg-crayon-purple/25 shadow-[2px_2px_0_#2b2a33]" : ""}`}
+                className={`chip min-h-12 justify-start text-xl ${reason === r ? (r === "no_playground" ? "bg-crayon-green/20" : "bg-crayon-purple/25") + " shadow-[2px_2px_0_#2b2a33]" : ""}`}
               >
                 <span aria-hidden>{CROSS_OFF_REASONS[r].emoji}</span>
-                {CROSS_OFF_REASONS[r].label}
+                {r === "no_playground"
+                  ? "No playground, just a park"
+                  : CROSS_OFF_REASONS[r].label}
               </button>
             ))}
           </div>
+          {reason && (
+            <p className="-mt-1 text-sm text-ink-soft">
+              {isFix
+                ? "It stays on the every-park list and comes off the playground count. Anyone can undo it."
+                : "It comes off the wheel and counts as done. Anyone can undo it."}
+            </p>
+          )}
           <input
             className="field"
             value={note}
@@ -197,11 +270,15 @@ export function CrossOffFooter({
             </button>
             <button
               type="button"
-              className="crayon-btn wax min-h-12 flex-1 bg-crayon-purple text-white [text-shadow:1px_1px_0_#2b2a33]"
+              className={`crayon-btn wax min-h-12 flex-1 text-white [text-shadow:1px_1px_0_#2b2a33] ${isFix ? "bg-crayon-green" : "bg-crayon-purple"}`}
               disabled={!reason || pending}
-              onClick={crossOff}
+              onClick={submit}
             >
-              {pending ? "Scribbling…" : "Cross it off ✖️"}
+              {pending
+                ? "Scribbling…"
+                : isFix
+                  ? "Fix it 🌳"
+                  : "Cross it off ✖️"}
             </button>
           </div>
         </div>

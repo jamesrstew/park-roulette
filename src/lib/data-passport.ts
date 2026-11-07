@@ -2,6 +2,7 @@ import "server-only";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { crews, explorers, media, parks, reviews, visits } from "@/db/schema";
+import { normalizePlay } from "./features";
 
 export type PassportPark = {
   id: number;
@@ -9,6 +10,8 @@ export type PassportPark = {
   name: string;
   city: string;
   features: string[];
+  /** playground | nature | none */
+  play: string;
   status: string;
 };
 
@@ -16,7 +19,8 @@ export type PassportData = Awaited<ReturnType<typeof getPassportData>>;
 
 /**
  * Everything the passport needs for one crew, in parallel. Parks include every
- * status: crossed-off parks count as "done" on the bucket list.
+ * status (crossed-off parks count as "done") and every play type (the
+ * playground quest skips play "none"; the every-park count doesn't).
  */
 export async function getPassportData(crewId: number) {
   const [crewRows, members, allParks, crewVisits, crewReviews, photos] =
@@ -42,6 +46,7 @@ export async function getPassportData(crewId: number) {
           name: parks.name,
           city: parks.city,
           features: parks.features,
+          play: parks.play,
           status: parks.status,
         })
         .from(parks)
@@ -76,7 +81,7 @@ export async function getPassportData(crewId: number) {
   return {
     crew: crewRows[0] ?? { name: "Our crew", color: "red" },
     members,
-    parks: allParks as PassportPark[],
+    parks: allParks.map(normalizePlay) as PassportPark[],
     visits: crewVisits,
     reviews: crewReviews,
     photoCount: photos[0]?.n ?? 0,

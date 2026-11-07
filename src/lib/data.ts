@@ -2,6 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { crews, explorers, media, parks, reviews, visits } from "@/db/schema";
+import { isCrossedOff, normalizePlay } from "./features";
 import { currentExplorerId } from "./session";
 
 export type Me = {
@@ -64,19 +65,21 @@ export type ParkSummary = {
   reports: Record<string, number>;
   /** playground | nature | none */
   play: string;
+  /** A line about the park ("Bend's only free splash pad"), or null. */
+  notes: string | null;
   /** "active", or why it was crossed off the bucket list. */
   status: string;
   statusNote: string | null;
 };
 
-/** Every active (still-to-play) park plus ratings and my crew's visit status. */
+/** Every park still on the list (not closed/private), with ratings and my crew's visits. */
 export async function getParkSummaries(
   crewId: number | null,
 ): Promise<ParkSummary[]> {
   return summaries(crewId, false);
 }
 
-/** The whole bucket list: active parks and crossed-off ones. */
+/** The whole bucket list: parks still on it and crossed-off ones. */
 export async function getBucketList(
   crewId: number | null,
 ): Promise<ParkSummary[]> {
@@ -148,30 +151,33 @@ async function summaries(
     .leftJoin(ratingAgg, eq(ratingAgg.parkId, parks.id))
     .leftJoin(visitAgg, eq(visitAgg.parkId, parks.id))
     .leftJoin(coverAgg, eq(coverAgg.parkId, parks.id))
-    .where(includeCrossedOff ? undefined : eq(parks.status, "active"))
     .orderBy(asc(parks.city), asc(parks.name));
   const reports = await reportsP;
 
-  return rows.map(({ park, avg, n, last, vn, cover }) => ({
-    id: park.id,
-    slug: park.slug,
-    name: park.name,
-    city: park.city,
-    lat: park.lat,
-    lng: park.lng,
-    kind: park.kind,
-    features: park.features,
-    confidence: park.confidence,
-    avgTenths: avg ?? null,
-    reviewCount: n ?? 0,
-    lastVisit: last ?? null,
-    visitCount: vn ?? 0,
-    cover: cover ?? null,
-    reports: reports.get(park.id) ?? {},
-    play: park.play,
-    status: park.status,
-    statusNote: park.statusNote,
-  }));
+  const all = rows.map(({ park, avg, n, last, vn, cover }) =>
+    normalizePlay({
+      id: park.id,
+      slug: park.slug,
+      name: park.name,
+      city: park.city,
+      lat: park.lat,
+      lng: park.lng,
+      kind: park.kind,
+      features: park.features,
+      confidence: park.confidence,
+      avgTenths: avg ?? null,
+      reviewCount: n ?? 0,
+      lastVisit: last ?? null,
+      visitCount: vn ?? 0,
+      cover: cover ?? null,
+      reports: reports.get(park.id) ?? {},
+      play: park.play,
+      notes: park.notes?.trim() || null,
+      status: park.status,
+      statusNote: park.statusNote,
+    }),
+  );
+  return includeCrossedOff ? all : all.filter((p) => !isCrossedOff(p));
 }
 
 export type ReviewView = {
@@ -192,8 +198,9 @@ export type ReviewView = {
 };
 
 export async function getParkDetail(slug: string, crewId: number | null) {
-  const park = (await db.select().from(parks).where(eq(parks.slug, slug)))[0];
-  if (!park) return null;
+  const row = (await db.select().from(parks).where(eq(parks.slug, slug)))[0];
+  if (!row) return null;
+  const park = normalizePlay(row);
 
   const reviewRows = await db
     .select({ review: reviews, explorer: explorers, crewName: crews.name })

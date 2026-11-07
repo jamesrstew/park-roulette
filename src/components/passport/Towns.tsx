@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { crayon, townCrayon } from "@/lib/crayons";
-import { isCrossedOff } from "@/lib/badges";
 import type { PassportPark } from "@/lib/data-passport";
-import { CROSS_OFF_REASONS } from "@/lib/features";
+import { CROSS_OFF_REASONS, hasPlayground, isCrossedOff } from "@/lib/features";
 import { ScribbleBar, SectionTitle } from "./bits";
 
 type Town = {
   name: string;
+  /** Playgrounds: these are what the bar counts. */
   parks: PassportPark[];
+  /** Parks without a playground: listed as a bonus, not counted. */
+  extras: PassportPark[];
   colored: number;
   crossed: number;
 };
@@ -24,17 +26,25 @@ export function Towns({
     const t = map.get(p.city) ?? {
       name: p.city,
       parks: [],
+      extras: [],
       colored: 0,
       crossed: 0,
     };
+    map.set(p.city, t);
+    if (!hasPlayground(p)) {
+      t.extras.push(p);
+      continue;
+    }
     t.parks.push(p);
     if (isCrossedOff(p)) t.crossed++;
     else if (visitedIds.has(p.id)) t.colored++;
-    map.set(p.city, t);
   }
-  const towns = [...map.values()].sort(
-    (a, b) => b.parks.length - a.parks.length || a.name.localeCompare(b.name),
-  );
+  // A town with only grassy parks has no playgrounds to count.
+  const towns = [...map.values()]
+    .filter((t) => t.parks.length > 0)
+    .sort(
+      (a, b) => b.parks.length - a.parks.length || a.name.localeCompare(b.name),
+    );
   const explored = towns.filter((t) => t.colored > 0).length;
 
   return (
@@ -55,6 +65,10 @@ export function Towns({
         {towns.map((t) => {
           const done = t.colored + t.crossed;
           const all = done === t.parks.length;
+          const rows = [
+            ...t.parks.map((p) => ({ p, extra: false })),
+            ...t.extras.map((p) => ({ p, extra: true })),
+          ];
           const color = crayon(townCrayon(t.name));
           return (
             <li key={t.name}>
@@ -63,7 +77,11 @@ export function Towns({
                   <span className="w-[7.5rem] shrink-0 truncate font-hand text-xl leading-tight">
                     {t.name}
                     {all && (
-                      <span className="ml-1 inline-block -rotate-6 text-base">
+                      <span
+                        className="ml-1 inline-block -rotate-6 text-base"
+                        role="img"
+                        aria-label="every playground done"
+                      >
                         👑
                       </span>
                     )}
@@ -88,7 +106,7 @@ export function Towns({
                 </summary>
 
                 <ul className="border-t-2 border-dashed border-ink/20 px-2 py-1">
-                  {t.parks.map((p) => {
+                  {rows.map(({ p, extra }) => {
                     const crossed = isCrossedOff(p);
                     const been = visitedIds.has(p.id);
                     const reason =
@@ -106,10 +124,18 @@ export function Towns({
                             color={color}
                           />
                           <span
-                            className={`flex-1 leading-tight ${crossed ? "text-ink-soft line-through decoration-2" : ""}`}
+                            className={`flex-1 leading-tight ${crossed ? "text-ink-soft line-through decoration-2" : extra ? "text-ink-soft" : ""}`}
                           >
                             {p.name}
                           </span>
+                          {extra && !crossed && (
+                            <span
+                              className="shrink-0 text-sm text-ink-soft"
+                              title="A park without a playground. Bonus!"
+                            >
+                              🌳 bonus
+                            </span>
+                          )}
                           {crossed && reason && (
                             <span
                               className="text-sm text-ink-soft"

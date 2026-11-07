@@ -29,9 +29,7 @@
     "High Desert Sports Complex": {
       "confidence": "likely",
       "address": "1859 NE Maple Ave, Redmond, OR 97756",
-      "sources": [
-        "https://www.raprd.org/parks"
-      ],
+      "sources": ["https://www.raprd.org/parks"],
       "note": "Redmond Area Park and Recreation District sports complex."
     },
     "Umatilla Sports Complex": {
@@ -45,10 +43,7 @@
         "https://nuggetnews.com/story/2011/08/23/news/new-playground-opens-in-sisters/20117.html"
       ],
       "note": "Quiet neighborhood park on Larch Street; its playground opened in 2011 with the first swing set in a Sisters city park.",
-      "features": [
-        "swings",
-        "quiet"
-      ]
+      "features": ["swings", "quiet"]
     },
     "Coffield Community Center Playground": {
       "confidence": "likely",

@@ -7,7 +7,14 @@ import { Stars } from "@/components/Stars";
 import { logVisit } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
-import { ATTRIBUTES, CROSS_OFF_REASONS, attributeScores } from "@/lib/features";
+import {
+  ATTRIBUTES,
+  CROSS_OFF_REASONS,
+  PLAY_TYPES,
+  attributeScores,
+  isCrossedOff,
+  playOf,
+} from "@/lib/features";
 import {
   directionsUrl,
   formatMiles,
@@ -40,12 +47,15 @@ export function ParkSheet({
   here,
   onClose,
   onHeight,
+  onStamped,
 }: {
   park: ParkSummary;
   signedIn: boolean;
   here: LatLng | null;
   onClose: () => void;
   onHeight: (h: number) => void;
+  /** Return true if the parent is throwing its own (bigger) party. */
+  onStamped?: (parkId: number) => boolean;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState(0);
@@ -69,7 +79,7 @@ export function ParkSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const crossedOff = park.status !== "active";
+  const crossedOff = isCrossedOff(park);
 
   return (
     <div
@@ -111,7 +121,12 @@ export function ParkSheet({
           {crossedOff ? (
             <CrossedOffBody park={park} />
           ) : (
-            <ActiveBody park={park} signedIn={signedIn} here={here} />
+            <ActiveBody
+              park={park}
+              signedIn={signedIn}
+              here={here}
+              onStamped={onStamped}
+            />
           )}
         </article>
       </div>
@@ -162,10 +177,12 @@ function ActiveBody({
   park,
   signedIn,
   here,
+  onStamped,
 }: {
   park: ParkSummary;
   signedIn: boolean;
   here: LatLng | null;
+  onStamped?: (parkId: number) => boolean;
 }) {
   const [pending, start] = useTransition();
   const [logged, setLogged] = useState(false);
@@ -178,6 +195,7 @@ function ActiveBody({
   const good = keys.filter((k) => ATTRIBUTES[k].kind === "good");
   const headsUp = keys.filter((k) => ATTRIBUTES[k].kind === "heads_up");
   const visited = !!park.lastVisit || logged;
+  const play = playOf(park);
 
   function stamp() {
     setError(null);
@@ -185,6 +203,7 @@ function ActiveBody({
       const r = await logVisit({ parkId: park.id, visitedOn: todayLocal() });
       if (!r.ok) return setError(r.error);
       setLogged(true);
+      if (onStamped?.(park.id)) return;
       if (!park.lastVisit)
         confetti({
           particleCount: 90,
@@ -212,6 +231,19 @@ function ActiveBody({
           </span>
         )}
       </div>
+      {park.notes && (
+        <p className="font-hand text-lg leading-snug">
+          &ldquo;{park.notes}&rdquo;
+        </p>
+      )}
+      {play !== "playground" && (
+        <p className="font-hand text-lg leading-tight">
+          {PLAY_TYPES[play].emoji}{" "}
+          {play === "none"
+            ? "Just a park, no playground. Bonus stamp!"
+            : "Nature play: logs, rocks, and dirt."}
+        </p>
+      )}
 
       {signedIn && (
         <p className="font-hand text-lg leading-tight">
@@ -258,9 +290,9 @@ function ActiveBody({
           )}
         </ul>
       )}
-      {park.confidence !== "confirmed" && (
+      {park.confidence !== "confirmed" && play === "playground" && (
         <p className="text-sm leading-snug text-ink-soft">
-          🔍 Not checked yet. Tell us if there&apos;s no playground!
+          🔍 Not checked yet. No playground? Fix it on the park page.
         </p>
       )}
 

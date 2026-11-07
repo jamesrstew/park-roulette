@@ -49,7 +49,14 @@ export function PlaygroundDoodle(p: P) {
 }
 
 /** Sky, sun, clouds, pines, and a playground: the no-photo-yet hero. */
-export function DoodleScene({ className = "" }: { className?: string }) {
+export function DoodleScene({
+  className = "",
+  playground = true,
+}: {
+  className?: string;
+  /** False for a park without a playground: just trees and sky. */
+  playground?: boolean;
+}) {
   return (
     <div
       className={`relative overflow-hidden bg-[color-mix(in_srgb,var(--color-crayon-blue)_14%,#fffdf7)] ${className}`}
@@ -58,8 +65,17 @@ export function DoodleScene({ className = "" }: { className?: string }) {
       <Sun className="absolute top-2 right-3 w-16 animate-float" />
       <Cloud className="absolute top-5 left-4 w-20" />
       <Cloud className="absolute top-14 left-32 w-12 opacity-80" />
-      <Pines className="absolute right-0 bottom-0 w-36" />
-      <PlaygroundDoodle className="absolute bottom-1 left-3 w-48" />
+      {playground ? (
+        <>
+          <Pines className="absolute right-0 bottom-0 w-36" />
+          <PlaygroundDoodle className="absolute bottom-1 left-3 w-48" />
+        </>
+      ) : (
+        <>
+          <Pines className="absolute bottom-0 left-2 w-36" />
+          <Pines className="absolute right-0 bottom-0 w-44" />
+        </>
+      )}
       <div className="absolute inset-x-0 bottom-0 h-2 bg-crayon-green/60" />
     </div>
   );

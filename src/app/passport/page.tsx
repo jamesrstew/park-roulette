@@ -12,7 +12,7 @@ import { Towns } from "@/components/passport/Towns";
 import { computeBadges, computeStats, progressOf } from "@/lib/badges";
 import { getMe, getRecentReviews } from "@/lib/data";
 import { getPassportData } from "@/lib/data-passport";
-import { ATTRIBUTES } from "@/lib/features";
+import { ATTRIBUTES, hasPlayground } from "@/lib/features";
 
 export const metadata: Metadata = { title: "Passport" };
 
@@ -31,9 +31,12 @@ async function Passport() {
   const now = new Date();
   const visitedIds = new Set(data.visits.map((v) => v.parkId));
   const progress = progressOf(data.parks, visitedIds);
-  const towns = new Set(data.parks.map((p) => p.city));
+  const every = progressOf(data.parks, visitedIds, "every");
+  // Towns count the playground quest, same as the Towns section.
+  const playgrounds = data.parks.filter(hasPlayground);
+  const towns = new Set(playgrounds.map((p) => p.city));
   const townsExplored = new Set(
-    data.parks.filter((p) => visitedIds.has(p.id)).map((p) => p.city),
+    playgrounds.filter((p) => visitedIds.has(p.id)).map((p) => p.city),
   ).size;
 
   // One stamp per park, newest visit first (visits arrive newest first).
@@ -79,6 +82,7 @@ async function Passport() {
         crew={data.crew}
         members={data.members}
         progress={progress}
+        every={every}
         townsTotal={towns.size}
       />
       <Stamps stamps={[...stampMap.values()]} />

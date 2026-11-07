@@ -16,7 +16,7 @@ export function ProgressBar({ value, max }: { value: number; max: number }) {
       aria-valuemin={0}
       aria-valuemax={max}
       aria-valuenow={value}
-      aria-label={`${value} of ${max} colored in`}
+      aria-label={`${value} of ${max} playgrounds done`}
     >
       <g filter="url(#wobble)">
         <rect

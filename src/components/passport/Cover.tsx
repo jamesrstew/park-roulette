@@ -103,16 +103,21 @@ export function Cover({
   crew,
   members,
   progress,
+  every,
   townsTotal,
 }: {
   crew: { name: string; color: string };
   members: Member[];
+  /** The playground quest. */
   progress: Progress;
+  /** Every park, playground or not (her paper list's second count). */
+  every: Progress;
   townsTotal: number;
 }) {
   const color = crayon(crew.color);
   const percent = pct(progress);
   const toGo = progress.total - progress.done;
+  const finished = progress.total > 0 && toGo === 0;
   return (
     <section
       aria-label="Passport cover"
@@ -166,13 +171,13 @@ export function Cover({
             {progress.done}
           </span>
           <span className="font-hand text-xl leading-tight text-ink-soft">
-            of {progress.total} done
+            of {progress.total} playgrounds
           </span>
           <span
-            className="highlight mt-1 font-sketch text-3xl font-bold"
+            className={`highlight mt-1 font-sketch font-bold ${finished ? "animate-float text-2xl" : "text-3xl"}`}
             style={{ ["--hl" as string]: "#f7c933" }}
           >
-            {percent}%
+            {finished ? "🏆 We did it!" : `${percent}%`}
           </span>
         </div>
       </div>
@@ -191,6 +196,14 @@ export function Cover({
           {toGo === 0 ? "🎉 All done!" : `🎯 ${toGo} to go`}
         </li>
       </ul>
+      {every.total > progress.total && (
+        <p className="mt-2 text-center font-hand text-lg text-ink-soft">
+          🌳 Every park, playground or not:{" "}
+          <span className="text-ink">
+            {every.done} of {every.total}
+          </span>
+        </p>
+      )}
 
       <div className="mt-4 flex items-center justify-between gap-2">
         <Pines className="h-10 w-24 shrink-0" />

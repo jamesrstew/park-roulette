@@ -14,10 +14,12 @@ const BBOX = "43.4,-122.0,44.95,-120.3";
 // Overpass rate-limits bursts (429/504); retry with backoff.
 async function overpass(q) {
   for (let attempt = 1; ; attempt++) {
-    try { return await overpassOnce(q); } catch (e) {
+    try {
+      return await overpassOnce(q);
+    } catch (e) {
       if (attempt >= 5) throw e;
-      console.error('overpass retry', attempt, String(e.message).slice(0, 80));
-      await new Promise(r => setTimeout(r, 30000 * attempt));
+      console.error("overpass retry", attempt, String(e.message).slice(0, 80));
+      await new Promise((r) => setTimeout(r, 30000 * attempt));
     }
   }
 }
@@ -34,8 +36,8 @@ async function overpassOnce(q) {
     throw new Error(res.status + " " + (await res.text()).slice(0, 500));
   return res.json();
 }
-if (need('osm.json')) {
-const features = await overpass(`
+if (need("osm.json")) {
+  const features = await overpass(`
 [out:json][timeout:180][bbox:${BBOX}];
 (
   nwr["leisure"="playground"];
@@ -62,32 +64,32 @@ const features = await overpass(`
 );
 out geom;
 `);
-writeFileSync(join(rawDir, "osm.json"), JSON.stringify(features));
-console.log("features", features.elements.length);
+  writeFileSync(join(rawDir, "osm.json"), JSON.stringify(features));
+  console.log("features", features.elements.length);
 }
 await new Promise((r) => setTimeout(r, 2000));
-if (need('counties.json')) {
-const counties = await overpass(`
+if (need("counties.json")) {
+  const counties = await overpass(`
 [out:json][timeout:180];
 rel["boundary"="administrative"]["admin_level"="6"]["name"~"^(Deschutes|Crook|Jefferson) County$"](43.0,-122.5,45.2,-119.5);
 out geom;
 `);
-writeFileSync(join(rawDir, "counties.json"), JSON.stringify(counties));
-console.log(
-  "counties",
-  counties.elements.map((e) => e.tags.name),
-);
+  writeFileSync(join(rawDir, "counties.json"), JSON.stringify(counties));
+  console.log(
+    "counties",
+    counties.elements.map((e) => e.tags.name),
+  );
 }
 await new Promise((r) => setTimeout(r, 2000));
-if (need('cities.json')) {
-const cities = await overpass(`
+if (need("cities.json")) {
+  const cities = await overpass(`
 [out:json][timeout:180][bbox:${BBOX}];
 rel["boundary"="administrative"]["admin_level"="8"];
 out geom;
 `);
-writeFileSync(join(rawDir, "cities.json"), JSON.stringify(cities));
-console.log(
-  "cities",
-  cities.elements.map((e) => e.tags.name),
-);
+  writeFileSync(join(rawDir, "cities.json"), JSON.stringify(cities));
+  console.log(
+    "cities",
+    cities.elements.map((e) => e.tags.name),
+  );
 }

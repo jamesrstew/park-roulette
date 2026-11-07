@@ -3,12 +3,17 @@
  * they're easy to test. Dates are "YYYY-MM-DD" strings (Postgres `date`).
  */
 import type { CrayonName } from "./crayons";
+import { hasPlayground, isCrossedOff, tally, type Tally } from "./features";
+
+export { isCrossedOff };
 
 export type BadgePark = {
   id: number;
   city: string;
   features: string[];
-  /** "active", or a cross-off reason (no_playground, closed, private). */
+  /** playground | nature | none. Missing means playground. */
+  play?: string;
+  /** "active", or why it's crossed off (closed, private). */
   status: string;
 };
 export type BadgeVisit = { parkId: number; visitedOn: string };
@@ -44,35 +49,19 @@ export type Badge = {
   progress: { have: number; need: number } | null;
 };
 
-export type Progress = {
-  total: number;
-  /** Visited and still a playground. */
-  coloredIn: number;
-  /** Not a playground after all (no_playground, closed, private). */
-  crossedOff: number;
-  /** coloredIn + crossedOff: resolved on the bucket list. */
-  done: number;
-};
+export type Progress = Tally;
 
-export const isCrossedOff = (p: { status: string }) => p.status !== "active";
-
-/** The bucket-list rule: done = visited (colored in) + crossed off. */
+/**
+ * The bucket-list rule: done = visited (colored in) + crossed off. Counts
+ * playgrounds only (play "none" parks are bonus); pass scope "every" for all.
+ */
 export function progressOf(
-  parks: { id: number; status: string }[],
+  parks: { id: number; status: string; play?: string }[],
   visitedIds: Set<number>,
+  scope: "playgrounds" | "every" = "playgrounds",
 ): Progress {
-  let coloredIn = 0;
-  let crossedOff = 0;
-  for (const p of parks) {
-    if (isCrossedOff(p)) crossedOff++;
-    else if (visitedIds.has(p.id)) coloredIn++;
-  }
-  return {
-    total: parks.length,
-    coloredIn,
-    crossedOff,
-    done: coloredIn + crossedOff,
-  };
+  const pool = scope === "every" ? parks : parks.filter(hasPlayground);
+  return tally(pool, (p) => visitedIds.has(p.id));
 }
 
 const MILESTONES: {
@@ -159,13 +148,15 @@ export function computeBadges(input: BadgeInput): Badge[] {
   const { parks, visits, reviews, photoCount, headsUpKeys = [] } = input;
   const visited = new Set(visits.map((v) => v.parkId));
   const prog = progressOf(parks, visited);
-  const active = parks.filter((p) => !isCrossedOff(p));
+  const every = progressOf(parks, visited, "every");
+  const playgrounds = parks.filter(hasPlayground);
+  const active = playgrounds.filter((p) => !isCrossedOff(p));
 
   const byTown = new Map<
     string,
     { total: number; done: number; active: number }
   >();
-  for (const p of parks) {
+  for (const p of playgrounds) {
     const t = byTown.get(p.city) ?? { total: 0, done: 0, active: 0 };
     t.total++;
     if (!isCrossedOff(p)) t.active++;
@@ -197,7 +188,10 @@ export function computeBadges(input: BadgeInput): Badge[] {
     visits.map((v) => [v.parkId, v.visitedOn.slice(0, 10)]),
   );
 
-  const duds = parks.filter((p) => isCrossedOff(p) && visited.has(p.id)).length;
+  // Went, and there was no playground after all (or it was gone).
+  const duds = parks.filter(
+    (p) => (isCrossedOff(p) || !hasPlayground(p)) && visited.has(p.id),
+  ).length;
   const taggedReviews = reviews.filter((r) => (r.tags?.length ?? 0) > 0).length;
   const headsUp = new Set(headsUpKeys);
   const scout = reviews.some((r) => r.tags?.some((t) => headsUp.has(t)));
@@ -214,8 +208,14 @@ export function computeBadges(input: BadgeInput): Badge[] {
     },
   ];
 
+  // Earned milestones, plus just the next one to chase (not a wall of locks).
+  let nextShown = false;
   for (const m of MILESTONES) {
     if (m.n > active.length) continue;
+    if (prog.coloredIn < m.n) {
+      if (nextShown) continue;
+      nextShown = true;
+    }
     badges.push({
       id: `parks-${m.n}`,
       emoji: m.emoji,
@@ -361,6 +361,19 @@ export function computeBadges(input: BadgeInput): Badge[] {
       progress: { have: prog.done, need: prog.total },
     },
   );
+
+  // Her paper list has a second count: every park, playground or not.
+  if (every.total > prog.total) {
+    badges.push({
+      id: "every-park",
+      emoji: "🌲",
+      title: "Park Ranger",
+      line: "Every park. Even the grassy ones.",
+      color: "green",
+      earned: every.done >= every.total,
+      progress: { have: every.done, need: every.total },
+    });
+  }
 
   return badges;
 }

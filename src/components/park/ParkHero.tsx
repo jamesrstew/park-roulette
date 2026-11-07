@@ -15,7 +15,12 @@ export function ParkHero({
   visitCount,
   signedIn,
   crossedOff,
+  notes,
+  playground = true,
 }: {
+  notes: string | null;
+  /** False for a park without a playground (changes the doodle). */
+  playground?: boolean;
   name: string;
   city: string;
   avgTenths: number | null;
@@ -52,7 +57,10 @@ export function ParkHero({
               className="aspect-[4/3] w-full object-cover"
             />
           ) : (
-            <DoodleScene className="aspect-[4/3] w-full" />
+            <DoodleScene
+              className="aspect-[4/3] w-full"
+              playground={playground}
+            />
           )}
           <p
             className={`pt-2 font-hand text-lg leading-none text-ink-soft ${signedIn ? "pr-24 pl-1 text-left" : "text-center"}`}
@@ -76,11 +84,19 @@ export function ParkHero({
           {name}
         </h1>
         <Underline className="mx-auto mt-0.5 h-3.5 w-48" color={town} />
+        {notes && (
+          <p className="mx-auto mt-2 max-w-sm font-hand text-xl leading-snug text-balance">
+            &ldquo;{notes}&rdquo;
+          </p>
+        )}
         <div className="mt-2 flex items-center justify-center gap-2">
           {avgTenths == null ? (
-            <span className="font-hand text-xl text-ink-soft">
+            <a
+              href="#review"
+              className="font-hand text-xl text-ink-soft underline decoration-dashed underline-offset-4"
+            >
               No stars yet. Be the first critic!
-            </span>
+            </a>
           ) : (
             <>
               <Stars tenths={avgTenths} size={24} />

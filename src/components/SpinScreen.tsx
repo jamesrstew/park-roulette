@@ -2,15 +2,27 @@
 
 import confetti from "canvas-confetti";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { logVisit } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import {
   ATTRIBUTES,
+  PLAY_TYPES,
   SMART_FILTERS,
   attributeScores,
+  hasPlayground,
+  isCrossedOff,
   matchesSmartFilter,
+  playOf,
+  tally,
 } from "@/lib/features";
 import {
   directionsUrl,
@@ -19,6 +31,8 @@ import {
   placeUrl,
   type LatLng,
 } from "@/lib/geo";
+import { stampMilestone, type Milestone } from "@/lib/milestones";
+import { MilestoneCard } from "./Milestone";
 import { Stars } from "./Stars";
 import { Underline } from "./Scribbles";
 import { Wheel, type WheelHandle, type WheelItem } from "./Wheel";
@@ -57,12 +71,20 @@ function todayLocal() {
 }
 
 export function SpinScreen({
-  parks,
+  parks: everything,
   signedIn,
 }: {
+  /** The whole bucket list; crossed-off parks never land on the wheel. */
   parks: ParkSummary[];
   signedIn: boolean;
 }) {
+  const parks = useMemo(
+    () => everything.filter((p) => !isCrossedOff(p)),
+    [everything],
+  );
+  const [notice, setNotice] = useState<string | null>(null);
+  const [milestone, setMilestone] = useState<Milestone | null>(null);
+  const closeMilestone = useCallback(() => setMilestone(null), []);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [here, setHere] = useState<LatLng | null>(null);
   const [locating, setLocating] = useState(false);
@@ -95,17 +117,18 @@ export function SpinScreen({
     () => [...new Set(parks.map((p) => p.city))].sort(),
     [parks],
   );
-  const playgrounds = useMemo(
-    () => parks.filter((p) => p.play !== "none"),
-    [parks],
+  // Same count as the list and passport: visited + crossed off, playgrounds only.
+  const quest = useMemo(
+    () => tally(everything.filter(hasPlayground), (p) => !!p.lastVisit),
+    [everything],
   );
-  const playVisited = playgrounds.filter((p) => p.lastVisit).length;
+  const playgroundsLeft = parks.filter(hasPlayground).length;
   const visitedCount = parks.filter((p) => p.lastVisit).length;
 
   const pool = useMemo(
     () =>
       parks.filter((p) => {
-        if (!filters.allParks && p.play === "none") return false;
+        if (!filters.allParks && !hasPlayground(p)) return false;
         if (signedIn && filters.newOnly && p.lastVisit) return false;
         if (filters.town && p.city !== filters.town) return false;
         if (filters.radius && here && milesBetween(here, p) > filters.radius)
@@ -146,9 +169,8 @@ export function SpinScreen({
       },
       () => {
         setLocating(false);
-        alert(
-          "We couldn't find you. Check location permissions and try again!",
-        );
+        setNotice("Couldn't find you. Check location permissions!");
+        setTimeout(() => setNotice(null), 4000);
       },
       { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 },
     );
@@ -209,11 +231,13 @@ export function SpinScreen({
         <p className="mt-1 font-hand text-xl text-ink-soft">
           {signedIn ? (
             <>
-              <span className="highlight">{playVisited}</span> of{" "}
-              {playgrounds.length} playgrounds colored in!
+              <span className="highlight">{quest.done}</span> of {quest.total}{" "}
+              playgrounds done!
             </>
           ) : (
-            <>{playgrounds.length} playgrounds in Central Oregon. Where to?</>
+            <span className="text-balance">
+              {playgroundsLeft} playgrounds in Central Oregon. Where to?
+            </span>
           )}
         </p>
       </header>
@@ -251,6 +275,12 @@ export function SpinScreen({
             🎛️ More{activeFilterCount ? ` (${activeFilterCount})` : ""}
           </button>
         </div>
+
+        {notice && (
+          <p role="status" className="font-hand text-lg text-crayon-red">
+            {notice}
+          </p>
+        )}
 
         {showFilters && (
           <div className="doodle-box-alt flex animate-pop-in flex-col gap-3 p-4">
@@ -380,7 +410,15 @@ export function SpinScreen({
           here={here}
           signedIn={signedIn}
           onAgain={() => wheel.current?.spin(0)}
+          onStamped={(id) => {
+            const m = stampMilestone(everything, id);
+            if (m) setMilestone(m);
+          }}
         />
+      )}
+
+      {milestone && (
+        <MilestoneCard milestone={milestone} onClose={closeMilestone} />
       )}
     </div>
   );
@@ -419,14 +457,18 @@ function ResultCard({
   here,
   signedIn,
   onAgain,
+  onStamped,
 }: {
   park: ParkSummary;
   here: LatLng | null;
   signedIn: boolean;
   onAgain: () => void;
+  onStamped: (parkId: number) => void;
 }) {
   const [pending, start] = useTransition();
   const [logged, setLogged] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const play = playOf(park);
   const ref = useRef<HTMLDivElement>(null);
   const color = CRAYONS[townCrayon(park.city)];
 
@@ -459,8 +501,17 @@ function ResultCard({
             <span className="font-hand text-lg">✅ been here</span>
           )}
         </div>
+        {park.notes && <ParkNote text={park.notes} />}
+        {play !== "playground" && (
+          <p className="text-center font-hand text-lg">
+            {PLAY_TYPES[play].emoji}{" "}
+            {play === "none"
+              ? "Just a park, no playground. Bring a ball!"
+              : "Nature play: logs, rocks, and dirt."}
+          </p>
+        )}
         <ReportCard park={park} />
-        {park.confidence !== "confirmed" && (
+        {park.confidence !== "confirmed" && play === "playground" && (
           <p className="text-center text-sm text-ink-soft">
             🔍 We think there&apos;s a playground here. Let us know if
             we&apos;re wrong!
@@ -502,8 +553,9 @@ function ResultCard({
                       parkId: park.id,
                       visitedOn: todayLocal(),
                     });
-                    if (r.ok) setLogged(true);
-                    else alert(r.error);
+                    if (!r.ok) return setError(r.error);
+                    setLogged(true);
+                    onStamped(park.id);
                   })
                 }
               >
@@ -521,10 +573,18 @@ function ResultCard({
               🎡 Again!
             </button>
           </div>
+          {error && (
+            <p
+              role="alert"
+              className="text-center font-hand text-lg text-crayon-red"
+            >
+              {error}
+            </p>
+          )}
           {logged && (
             <Link
               href={`/parks/${park.slug}#review`}
-              className="text-center font-hand text-xl text-crayon-blue underline"
+              className="min-h-11 text-center font-hand text-xl text-crayon-blue underline"
             >
               Now give it some stars ⭐
             </Link>
@@ -532,6 +592,15 @@ function ResultCard({
         </div>
       </article>
     </div>
+  );
+}
+
+/** Her one-line description, as a little handwritten note. */
+function ParkNote({ text }: { text: string }) {
+  return (
+    <p className="mx-auto max-w-sm text-center font-hand text-xl leading-snug text-balance">
+      &ldquo;{text}&rdquo;
+    </p>
   );
 }
 

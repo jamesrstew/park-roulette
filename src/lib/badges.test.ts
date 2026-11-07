@@ -72,8 +72,14 @@ describe("badges", () => {
     const parks = Array.from({ length: 12 }, (_, i) => park(i + 1));
     const b = badges({ parks });
     expect(b["parks-5"]).toBeDefined();
-    expect(b["parks-10"]).toBeDefined();
+    // Only the next milestone shows as a locked sticker.
+    expect(b["parks-10"]).toBeUndefined();
     expect(b["parks-25"]).toBeUndefined();
+    const visits = [1, 2, 3, 4, 5].map((id) => ({
+      parkId: id,
+      visitedOn: "2026-06-01",
+    }));
+    expect(badges({ parks, visits })["parks-10"]).toBeDefined();
   });
 
   it("earns count milestones from colored-in parks", () => {
@@ -271,5 +277,64 @@ describe("stats", () => {
       { id: 2, name: "Sam", reviews: 1, avgTenths: 40 },
     ]);
     expect(criticStyle(33)).toBe("is a fair judge");
+  });
+});
+
+describe("play types", () => {
+  const pg = (
+    id: number,
+    city = "Bend",
+    play = "playground",
+    status = "active",
+  ) => ({
+    id,
+    city,
+    features: [],
+    play,
+    status,
+  });
+
+  it("the quest counts playgrounds; every park is the second count", () => {
+    const parks = [pg(1), pg(2, "Bend", "nature"), pg(3, "Bend", "none")];
+    const visited = new Set([1, 3]);
+    expect(progressOf(parks, visited)).toMatchObject({ total: 2, done: 1 });
+    expect(progressOf(parks, visited, "every")).toMatchObject({
+      total: 3,
+      done: 2,
+    });
+  });
+
+  it("only closed and private cross a park off", () => {
+    const parks = [
+      pg(1),
+      pg(2, "Bend", "playground", "closed"),
+      pg(3, "Bend", "none"),
+    ];
+    expect(progressOf(parks, new Set())).toMatchObject({
+      total: 2,
+      crossedOff: 1,
+      done: 1,
+    });
+  });
+
+  it("park ranger needs every park, playground or not", () => {
+    const parks = [pg(1), pg(2, "Bend", "none")];
+    const some = badges({
+      parks,
+      visits: [{ parkId: 1, visitedOn: "2026-06-01" }],
+    });
+    expect(some["whole-shebang"].earned).toBe(true);
+    expect(some["every-park"].earned).toBe(false);
+    const all = badges({
+      parks,
+      visits: [
+        { parkId: 1, visitedOn: "2026-06-01" },
+        { parkId: 2, visitedOn: "2026-06-02" },
+      ],
+    });
+    expect(all["every-park"].earned).toBe(true);
+    expect(all["myth-buster"].earned).toBe(true);
+    // No grassy parks, no Park Ranger sticker.
+    expect(badges({ parks: [pg(1)] })["every-park"]).toBeUndefined();
   });
 });

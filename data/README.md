@@ -43,6 +43,7 @@ The build also writes `raw/build-report.json`, which lists exclusions, dropped p
   - Little Fawn uses the BPRD map pin.
   - Gervais, Yellowpine and Finley Butte are geocoded addresses.
   - **Spruce Park and Varnish Park** (Redmond, new in 2023) are in neither OSM nor the geocoders, so each is placed at the street corner it is named for (NW 25th St & NW Spruce Ave, NW 16th St & NW Varnish Ave). Treat these two points as approximate.
+
 - **`features`**: only keys from the agreed list, and only with evidence behind them. Sources:
   - Her tags: Splash pad and Water play give `splash_pad`; Accessible playground gives `accessible`; River gives `water_view`; Dog off-leash gives `dog_park`; Sports fields gives `sports_courts`; Climbing wall gives `climbing`. Some come from her note text, such as "toddler", "swings", "spinning" and "quiet".
   - BPRD amenity lists: restroom, picnic shelter (`picnic` + `shade`), courts and fields, off-leash area, river access, trails.
@@ -50,6 +51,7 @@ The build also writes `raw/build-report.json`, which lists exclusions, dropped p
   - OSM: playground equipment inside the playground (swings, slides, climbing, spinners, sandpits, zip lines), toilets in the park or within 100 m, picnic tables and shelters, dog parks, splash pads and pitches.
 
   `shade` means a covered shelter is in the park, not necessarily shade over the play equipment. Her tags that have no feature key are kept in `notes`, for example "Wildside play area.", "Natural play area.", "Fishing.", "Skate park." and "New in 2024.". BPRD's "Water Play Feature" at Rockridge, Stone Creek and Canal Row is **not** mapped to `splash_pad`, because her list says Alpenglow has Bend's only free splash pad.
+
 - **`confidence`**:
   - `confirmed`: her list, an operator's page, or an OSM playground mapped inside a named public park.
   - `likely`: one secondary source, or an OSM playground whose public status is plausible but unconfirmed.
@@ -58,19 +60,19 @@ The build also writes `raw/build-report.json`, which lists exclusions, dropped p
 
 ## Counts
 
-| City | playground | nature | none | total |
-|---|---|---|---|---|
-| Bend | 47 | 2 | 25 | 74 |
-| Crooked River Ranch | 1 | 0 | 0 | 1 |
-| Culver | 1 | 0 | 0 | 1 |
-| La Pine | 2 | 0 | 0 | 2 |
-| Madras | 2 | 0 | 0 | 2 |
-| Prineville | 7 | 0 | 0 | 7 |
-| Redmond | 14 | 0 | 1 | 15 |
-| Sisters | 3 | 0 | 0 | 3 |
-| Sunriver | 2 | 0 | 0 | 2 |
-| Terrebonne | 0 | 0 | 1 | 1 |
-| **Total** | **79** | **2** | **27** | **108** |
+| City                | playground | nature | none   | total   |
+| ------------------- | ---------- | ------ | ------ | ------- |
+| Bend                | 47         | 2      | 25     | 74      |
+| Crooked River Ranch | 1          | 0      | 0      | 1       |
+| Culver              | 1          | 0      | 0      | 1       |
+| La Pine             | 2          | 0      | 0      | 2       |
+| Madras              | 2          | 0      | 0      | 2       |
+| Prineville          | 7          | 0      | 0      | 7       |
+| Redmond             | 14         | 0      | 1      | 15      |
+| Sisters             | 3          | 0      | 0      | 3       |
+| Sunriver            | 2          | 0      | 0      | 2       |
+| Terrebonne          | 0          | 0      | 1      | 1       |
+| **Total**           | **79**     | **2**  | **27** | **108** |
 
 By confidence: 102 confirmed (90 from her list, 9 from operator pages in Prineville and La Pine, 3 OSM playgrounds in named parks: Juniper Hill and Sahalee in Madras, Cliff Clemens in Sisters), 5 likely, 1 unverified.
 
