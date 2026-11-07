@@ -164,10 +164,10 @@ export function MapScreen({
                     playgrounds to find!
                   </p>
                   <Link
-                    href="/me"
+                    href="/me?next=%2Fmap#signin"
                     className="font-hand text-base text-crayon-blue underline"
                   >
-                    Join to color them in →
+                    Hop in to color them in →
                   </Link>
                 </>
               )}

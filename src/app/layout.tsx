@@ -3,6 +3,7 @@ import { Gochi_Hand, Shantell_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { BottomNav, NavBar } from "@/components/BottomNav";
 import { CrayonDefs } from "@/components/CrayonDefs";
+import { HelloToast } from "@/components/HelloToast";
 import "./globals.css";
 
 const gochi = Gochi_Hand({
@@ -60,6 +61,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       </head>
       <body className="flex min-h-full flex-col">
         <CrayonDefs />
+        <HelloToast />
         <main className="mx-auto w-full max-w-xl flex-1 px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-32">
           {children}
         </main>

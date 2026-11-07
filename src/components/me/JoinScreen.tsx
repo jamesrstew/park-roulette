@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
-import { claimExplorer, joinWithCode } from "@/lib/client-actions";
+import { useCallback, useState, useTransition } from "react";
+import { flushSync } from "react-dom";
+import { joinWithCode, startClaim } from "@/lib/client-actions";
+import { CodeSheet, focusClaimCode } from "@/components/CodeSheet";
+import { ErrorLine } from "@/components/ErrorLine";
+import { sayHello } from "@/components/HelloToast";
+import { PhoneCode } from "@/components/PhoneCode";
 import { Icon } from "@/components/icons";
 import { AVATARS, CRAYON_NAMES, crayon } from "@/lib/crayons";
 import { AvatarPicker } from "./AvatarPicker";
@@ -10,7 +15,14 @@ import { CrayonPicker } from "./CrayonPicker";
 import { PartyDoodles } from "./Doodles";
 import { AvatarBlob, NameTag } from "./NameTag";
 
-type Member = { id: number; name: string; color: string; avatar: string };
+type Member = {
+  id: number;
+  name: string;
+  color: string;
+  avatar: string;
+  /** "That's me!" texts them a code (we never see the number here). */
+  hasPhone: boolean;
+};
 
 export function JoinScreen({
   kind,
@@ -19,6 +31,7 @@ export function JoinScreen({
   crewColor,
   members,
   me,
+  provedPhone,
 }: {
   kind: "join" | "friend";
   code: string;
@@ -26,6 +39,8 @@ export function JoinScreen({
   crewColor: string;
   members: Member[];
   me: { id: number; name: string; crewName: string } | null;
+  /** A number they just proved on the sign-in screen (can come along). */
+  provedPhone?: string | null;
 }) {
   const takenColors = new Set(members.map((m) => m.color));
   const takenAvatars = new Set(members.map((m) => m.avatar));
@@ -40,6 +55,16 @@ export function JoinScreen({
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const [claiming, setClaiming] = useState<number | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  /** A member with a phone: the code sheet (we text them as it opens). */
+  const [codeFor, setCodeFor] = useState<Member | null>(null);
+  const closeCode = useCallback(() => setCodeFor(null), []);
+  /** A member with no phone: "Hop in as Wifey?" before switching. */
+  const [confirmFor, setConfirmFor] = useState<Member | null>(null);
+  const [usePhone, setUsePhone] = useState(true);
+  // Signed in and holding a friend's link: you probably don't want to leave
+  // your crew. Show "you're all set" first; the form is one tap away.
+  const [startAnyway, setStartAnyway] = useState(false);
 
   const isFriend = kind === "friend";
   const alreadyHere = !isFriend && me && members.some((m) => m.id === me.id);
@@ -54,22 +79,79 @@ export function JoinScreen({
         color,
         avatar,
         crewName: isFriend ? newCrew : undefined,
+        usePhone: !!provedPhone && usePhone,
       });
       if (res && !res.ok) setError(res.error);
     });
   }
 
-  function claim(id: number) {
-    setError(null);
-    setClaiming(id);
+  /** Tap a face. A phone: open the code sheet now, inside the tap. */
+  function claim(m: Member) {
+    setClaimError(null);
+    if (m.hasPhone) {
+      setConfirmFor(null);
+      flushSync(() => setCodeFor(m));
+      focusClaimCode(); // inside the tap, so iOS raises the keyboard
+      return;
+    }
+    setConfirmFor(m);
+  }
+
+  function hopIn(m: Member) {
+    setClaiming(m.id);
     start(async () => {
-      const res = await claimExplorer(code, id);
-      if (res && !res.ok) {
-        setError(res.error);
+      const res = await startClaim(m.id, code);
+      if (!res.ok) {
+        setClaimError(res.error);
         setClaiming(null);
+        return;
       }
+      sayHello(`Welcome back, ${m.name}!`);
+      // A full load, so every screen picks up who is signed in now.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign("/");
     });
   }
+
+  if (isFriend && me && !startAnyway)
+    return (
+      <div className="flex flex-col gap-6 pt-6 text-center">
+        <div className="doodle-box relative mx-2 rotate-[-1deg] px-5 pt-6 pb-5 shadow-[4px_5px_0_#2b2a33]">
+          <span
+            className="tape -top-3 left-1/2 -translate-x-1/2 -rotate-3"
+            aria-hidden
+          />
+          <p className="font-hand text-xl text-ink-soft">
+            Psst! It&apos;s an invite from
+          </p>
+          <h1 className="my-1 font-hand text-[2.4rem] leading-[1.05]">
+            <span
+              className="highlight"
+              style={{ ["--hl" as string]: crayon(crewColor) }}
+            >
+              {crewName}
+            </span>
+          </h1>
+          <p className="mt-2 text-lg leading-snug">
+            You&apos;re already exploring with <b>{me.crewName}</b>, so
+            you&apos;re all set! Everyone&apos;s reviews are shared anyway.
+          </p>
+        </div>
+        <Link
+          href="/"
+          className="crayon-btn wax mx-2 bg-crayon-yellow py-3.5 text-2xl"
+        >
+          Back to spinning <Icon name="spin" size={28} />
+        </Link>
+        <button
+          type="button"
+          onClick={() => setStartAnyway(true)}
+          className="mx-auto min-h-11 px-3 font-hand text-xl text-ink-soft underline underline-offset-4"
+        >
+          Start a new family passport anyway
+        </button>
+      </div>
+    );
 
   return (
     <div className="flex flex-col gap-7">
@@ -109,8 +191,8 @@ export function JoinScreen({
           </p>
           {isFriend ? (
             <p className="mx-auto mt-3 max-w-[19rem] text-[0.95rem] leading-snug text-ink-soft">
-              You&apos;ll start your own crew with its own passport. Everyone
-              shares reviews, so you can see their tips and they can see yours.
+              You&apos;ll get your own family passport. Everyone shares reviews,
+              so you can see their tips and they can see yours.
             </p>
           ) : null}
         </div>
@@ -123,7 +205,12 @@ export function JoinScreen({
               You&apos;re already in <b>{crewName}</b> as <b>{me.name}</b>.{" "}
               <Link href="/" className="font-hand text-lg underline">
                 Go spin!
+              </Link>{" "}
+              Adding a kid on this phone?{" "}
+              <Link href="/me#crew-h" className="font-hand text-lg underline">
+                Do it on Me
               </Link>
+              .
             </>
           ) : (
             <>
@@ -134,44 +221,59 @@ export function JoinScreen({
         </p>
       ) : null}
 
-      {/* ---- "That's me!" ---- */}
+      {/* ---- "That's me!": a compact row, so the form stays near the top ---- */}
       {!isFriend && members.length > 0 ? (
-        <section aria-labelledby="claim-h">
-          <h2 id="claim-h" className="text-center text-3xl">
-            Already in the crew?
+        <section
+          aria-labelledby="claim-h"
+          className="doodle-box-alt px-4 pt-3 pb-4"
+        >
+          <h2 id="claim-h" className="text-center font-hand text-2xl">
+            Already in the family? Tap yourself.
           </h2>
-          <p className="mb-3 text-center text-ink-soft">
-            New phone? Tap yourself.
-          </p>
-          <ul className="grid grid-cols-2 gap-3">
-            {members.map((m, i) => (
+          <ul className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-2">
+            {members.map((m) => (
               <li key={m.id}>
                 <button
                   type="button"
-                  onClick={() => claim(m.id)}
+                  onClick={() => claim(m)}
                   disabled={pending}
-                  className="doodle-box flex w-full flex-col items-center gap-1.5 px-2 pt-4 pb-3 shadow-[3px_4px_0_#2b2a33] transition-transform active:translate-x-[3px] active:translate-y-[4px] active:shadow-none disabled:opacity-60"
-                  style={{ rotate: `${i % 2 ? 1.5 : -1.5}deg` }}
+                  aria-pressed={confirmFor?.id === m.id}
+                  className={`flex w-20 flex-col items-center gap-1 rounded-2xl py-1 transition-transform active:scale-95 disabled:opacity-60 ${confirmFor?.id === m.id ? "bg-crayon-yellow/40" : ""}`}
                 >
-                  <AvatarBlob avatar={m.avatar} color={m.color} size="lg" />
-                  <span className="max-w-full truncate font-hand text-2xl">
+                  <AvatarBlob avatar={m.avatar} color={m.color} />
+                  <span className="max-w-full truncate font-hand text-xl leading-none">
                     {m.name}
-                  </span>
-                  <span
-                    className="wax rounded-full border-2 border-ink px-3 py-0.5 font-hand text-lg"
-                    style={{ backgroundColor: crayon(m.color) }}
-                  >
-                    {claiming === m.id ? "Hi again!…" : "That's me!"}
                   </span>
                 </button>
               </li>
             ))}
           </ul>
-          <div className="mt-7 flex items-center gap-3 font-hand text-xl text-ink-soft">
-            <Squiggle />
-            <span className="shrink-0">or, new here?</span>
-            <Squiggle />
-          </div>
+          {confirmFor ? (
+            <div className="mt-3 flex animate-pop-in flex-col items-center gap-2">
+              <button
+                type="button"
+                onClick={() => hopIn(confirmFor)}
+                disabled={pending}
+                className="crayon-btn wax w-full bg-crayon-yellow text-xl"
+              >
+                {claiming === confirmFor.id
+                  ? "One sec…"
+                  : `Hop in as ${confirmFor.name}`}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmFor(null)}
+                className="min-h-11 font-hand text-lg text-ink-soft underline underline-offset-4"
+              >
+                Oops, not me
+              </button>
+            </div>
+          ) : null}
+          {claimError ? (
+            <div className="mt-2">
+              <ErrorLine>{claimError}</ErrorLine>
+            </div>
+          ) : null}
         </section>
       ) : null}
 
@@ -203,7 +305,7 @@ export function JoinScreen({
         {isFriend ? (
           <label className="flex flex-col gap-1.5">
             <span className="font-hand text-2xl">
-              What&apos;s your crew called?
+              What&apos;s your family called?
             </span>
             <input
               className="field font-hand text-2xl"
@@ -214,7 +316,7 @@ export function JoinScreen({
               enterKeyHint="done"
             />
             <span className="text-sm text-ink-soft">
-              Your family or whoever plays with you. You can change it later.
+              Like “The Stewarts” or “Team Taco”. You can change it later.
             </span>
           </label>
         ) : null}
@@ -229,14 +331,22 @@ export function JoinScreen({
           <AvatarPicker value={avatar} color={color} onChange={setAvatar} />
         </fieldset>
 
-        {error ? (
-          <p
-            role="alert"
-            className="doodle-box-alt bg-crayon-red/15 px-4 py-2 text-center font-hand text-xl"
-          >
-            {error}
-          </p>
+        {provedPhone ? (
+          <label className="doodle-box-alt flex min-h-11 items-center gap-3 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={usePhone}
+              onChange={(e) => setUsePhone(e.target.checked)}
+              className="size-6 shrink-0 accent-crayon-green"
+            />
+            <span className="leading-snug">
+              Sign me in with <b className="whitespace-nowrap">{provedPhone}</b>{" "}
+              from now on
+            </span>
+          </label>
         ) : null}
+
+        {error ? <ErrorLine>{error}</ErrorLine> : null}
 
         <button
           type="submit"
@@ -256,20 +366,25 @@ export function JoinScreen({
           )}
         </button>
       </form>
-    </div>
-  );
-}
 
-function Squiggle() {
-  return (
-    <svg viewBox="0 0 100 12" className="h-3 flex-1" aria-hidden>
-      <path
-        d="M2 6 Q 8 1 14 6 T 26 6 T 38 6 T 50 6 T 62 6 T 74 6 T 86 6 T 98 6"
-        fill="none"
-        stroke="#5d5a6b"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
+      {codeFor ? (
+        <CodeSheet
+          title={`Hi, ${codeFor.name}!`}
+          avatar={codeFor.avatar}
+          color={codeFor.color}
+          onClose={closeCode}
+        >
+          <PhoneCode
+            mode="claim"
+            claim={{
+              explorerId: codeFor.id,
+              joinCode: code,
+              name: codeFor.name,
+            }}
+            onCancel={closeCode}
+          />
+        </CodeSheet>
+      ) : null}
+    </div>
   );
 }

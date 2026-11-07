@@ -746,7 +746,10 @@ function CrossOffSheet({
         </Link>
         {!signedIn ? (
           <p className="text-ink-soft">
-            Join a crew to cross parks off the list.
+            <Link href="/me?next=%2Flist#signin" className="underline">
+              Hop in
+            </Link>{" "}
+            to cross parks off the list.
           </p>
         ) : crossed ? (
           <>

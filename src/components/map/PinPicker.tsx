@@ -4,16 +4,11 @@ import "leaflet/dist/leaflet.css";
 import "./map.css";
 import L from "leaflet";
 import { useEffect, useMemo } from "react";
-import {
-  MapContainer,
-  Marker,
-  TileLayer,
-  useMap,
-  useMapEvents,
-} from "react-leaflet";
+import { Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkPin } from "@/lib/data-map";
 import type { LatLng } from "@/lib/geo";
+import { LiveMap } from "./LiveMap";
 import { ghostPinHtml, pushPinHtml } from "./pins";
 
 function TapToPlace({ onPick }: { onPick: (ll: LatLng) => void }) {
@@ -79,10 +74,10 @@ export default function PinPicker({
   }, [others]);
 
   return (
-    <MapContainer
-      center={[start.lat, start.lng]}
+    <LiveMap
+      center={start}
       zoom={startZoom}
-      zoomControl={false}
+      options={{ zoomControl: false }}
       className="pr-map h-full w-full"
     >
       <TileLayer
@@ -118,6 +113,6 @@ export default function PinPicker({
           }}
         />
       )}
-    </MapContainer>
+    </LiveMap>
   );
 }

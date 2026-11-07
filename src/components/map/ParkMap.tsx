@@ -4,11 +4,12 @@ import "leaflet/dist/leaflet.css";
 import "./map.css";
 import L from "leaflet";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, Marker, TileLayer, useMap } from "react-leaflet";
+import { Marker, TileLayer, useMap } from "react-leaflet";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import type { LatLng } from "@/lib/geo";
 import { hasPlayground } from "@/lib/features";
+import { LiveMap } from "./LiveMap";
 import {
   clusterPinHtml,
   dotPinHtml,
@@ -263,17 +264,22 @@ function FitToParks({
   parks,
   padding,
   fitKey,
+  fittedRef,
 }: {
   parks: { lat: number; lng: number }[];
   padding: MapPadding;
   fitKey: string;
+  /**
+   * Which fitKey we last fitted to. Held by ParkMap, outside the map, so a
+   * map rebuilt after the tab was hidden keeps your view instead of refitting.
+   */
+  fittedRef: React.RefObject<string | null>;
 }) {
   const map = useMap();
-  const fitted = useRef<string | null>(null);
   useEffect(() => {
-    if (fitted.current === fitKey || parks.length === 0) return;
-    const first = fitted.current == null;
-    fitted.current = fitKey;
+    if (fittedRef.current === fitKey || parks.length === 0) return;
+    const first = fittedRef.current == null;
+    fittedRef.current = fitKey;
     const opts = { animate: !first, duration: 0.6 };
     if (parks.length === 1) {
       map.setView([parks[0].lat, parks[0].lng], 14, opts);
@@ -285,7 +291,7 @@ function FitToParks({
       maxZoom: 14,
       ...opts,
     });
-  }, [map, parks, padding, fitKey]);
+  }, [map, parks, padding, fitKey, fittedRef]);
   return null;
 }
 
@@ -379,13 +385,13 @@ export default function ParkMap({
     crossed.find((p) => p.id === selectedId) ??
     null;
   const all = useMemo(() => [...parks, ...crossed], [parks, crossed]);
+  const fitted = useRef<string | null>(null);
   return (
-    <MapContainer
-      center={[CENTRAL_OREGON.lat, CENTRAL_OREGON.lng]}
+    <LiveMap
+      center={CENTRAL_OREGON}
       zoom={10}
-      zoomControl={false}
+      options={{ zoomControl: false, attributionControl: true }}
       className="pr-map pr-map-full h-full w-full"
-      attributionControl
     >
       <TileLayer
         className="paper-tiles"
@@ -393,7 +399,12 @@ export default function ParkMap({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         maxZoom={19}
       />
-      <FitToParks parks={all} padding={padding} fitKey={fitKey} />
+      <FitToParks
+        parks={all}
+        padding={padding}
+        fitKey={fitKey}
+        fittedRef={fitted}
+      />
       <Pins
         parks={parks}
         crossed={crossed}
@@ -403,6 +414,6 @@ export default function ParkMap({
       />
       <FollowSelected selected={selected} sheetHeight={sheetHeight} />
       <Locator here={here} onReady={onReady} />
-    </MapContainer>
+    </LiveMap>
   );
 }

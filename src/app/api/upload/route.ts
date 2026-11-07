@@ -1,8 +1,12 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { NextResponse } from "next/server";
-import { currentExplorerId } from "@/lib/session";
+import { redact } from "@/lib/action-utils";
+import { getMe } from "@/lib/data";
 
 const MB = 1024 * 1024;
+
+/** A reason we can show people (anything else could carry SQL). */
+class UploadError extends Error {}
 
 /** Issues short-lived tokens so phones upload photos/videos straight to Vercel Blob. */
 export async function POST(request: Request): Promise<NextResponse> {
@@ -12,10 +16,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {
-        const explorerId = await currentExplorerId();
-        if (!explorerId) throw new Error("Join a crew to upload");
+        const me = await getMe(); // checks the session epoch too
+        if (!me) throw new UploadError("Hop in to upload");
         if (!pathname.startsWith("reviews/"))
-          throw new Error("Bad upload path");
+          throw new UploadError("Bad upload path");
         return {
           allowedContentTypes: [
             "image/jpeg",
@@ -30,14 +34,21 @@ export async function POST(request: Request): Promise<NextResponse> {
           ],
           maximumSizeInBytes: 300 * MB,
           addRandomSuffix: true,
-          tokenPayload: JSON.stringify({ explorerId }),
+          tokenPayload: JSON.stringify({ explorerId: me.id }),
         };
       },
     });
     return NextResponse.json(json);
   } catch (error) {
+    if (!(error instanceof UploadError))
+      console.error("[upload]", redact(error));
     return NextResponse.json(
-      { error: (error as Error).message },
+      {
+        error:
+          error instanceof UploadError
+            ? error.message
+            : "Couldn't start that upload. Try again?",
+      },
       { status: 400 },
     );
   }

@@ -81,7 +81,7 @@ export function FunStats({
         </Row>
         {stats.favorite ? (
           <Row icon="heart">
-            Crew favorite:{" "}
+            Family favorite:{" "}
             <Link
               href={`/parks/${stats.favorite.slug}`}
               className="font-hand text-xl underline decoration-crayon-yellow decoration-4 underline-offset-2"

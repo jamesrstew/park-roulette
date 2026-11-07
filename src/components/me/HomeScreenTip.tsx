@@ -6,7 +6,15 @@ import { InstallSheet } from "@/components/InstallSheet";
 import { installPlatform, markedInstalled } from "@/lib/install";
 
 /** "Make it an app!" card on Me. Opens the install sheet; hidden once installed. */
-export function HomeScreenTip({ crewLink }: { crewLink?: string }) {
+export function HomeScreenTip({
+  crewLink,
+  hasPhone,
+  canAddPhone,
+}: {
+  crewLink?: string;
+  hasPhone?: boolean;
+  canAddPhone?: boolean;
+}) {
   const show = useSyncExternalStore(
     () => () => {},
     () => installPlatform() !== "none" && !markedInstalled(),
@@ -43,6 +51,8 @@ export function HomeScreenTip({ crewLink }: { crewLink?: string }) {
         open={open}
         onClose={() => setOpen(false)}
         crewLink={crewLink}
+        hasPhone={hasPhone}
+        canAddPhone={canAddPhone}
       />
     </>
   );

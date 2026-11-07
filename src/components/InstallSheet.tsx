@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/icons";
+import { PhoneCode } from "@/components/PhoneCode";
 import {
   browserNames,
   canPromptAndroid,
@@ -24,23 +25,38 @@ const useAndroidPrompt = () =>
 
 /**
  * "Make it an app!" A bottom sheet that walks through Add to Home Screen.
- * iPhone: illustrated Share → Add to Home Screen → Add, after copying the
- * crew link (an installed web app can start without Safari's sign-in, and the
- * link gets you right back in). Android: a real one-tap install.
+ * An installed web app starts without Safari's sign-in, so first make sure
+ * the app can tell it's you: your phone number (or, no phone, your crew
+ * link). Then iPhone: illustrated Share → Add to Home Screen → Add.
+ * Android: a real one-tap install.
  */
 export function InstallSheet({
   open,
   onClose,
   crewLink,
+  hasPhone,
+  phoneSkipped,
+  canAddPhone = true,
 }: {
   open: boolean;
   onClose: () => void;
-  /** The crew's join link. Copied first, so the app can always sign you in. */
+  /** The crew's join link: the way back in for people without a phone. */
   crewLink?: string;
+  /** Signs in with a phone already? Then the app just asks for the number. */
+  hasPhone?: boolean;
+  /** They just said "no phone" in the welcome: go straight to the family link. */
+  phoneSkipped?: boolean;
+  /** This phone may add a number (a trusted sign-in). Defaults to yes. */
+  canAddPhone?: boolean;
 }) {
   const platform = usePlatform();
   const androidReady = useAndroidPrompt();
   const [step, setStep] = useState<"offer" | "steps">("offer");
+  const [phoneAdded, setPhoneAdded] = useState(false);
+  /** No phone: they chose the crew-link way back in. */
+  const [useLink, setUseLink] = useState(false);
+  const byPhone = hasPhone || phoneAdded;
+  const needsPhone = !byPhone && !useLink && canAddPhone;
   /** "copied" only after a real clipboard write; "manual" shows the link to copy by hand. */
   const [copy, setCopy] = useState<"idle" | "copied" | "manual">("idle");
   const panel = useRef<HTMLDivElement>(null);
@@ -63,6 +79,7 @@ export function InstallSheet({
     /* eslint-disable react-hooks/set-state-in-effect -- reset each time the sheet opens */
     setStep("offer");
     setCopy("idle");
+    setUseLink(!!phoneSkipped);
     /* eslint-enable react-hooks/set-state-in-effect */
     const opener = document.activeElement as HTMLElement | null;
     sfx.slide();
@@ -80,7 +97,7 @@ export function InstallSheet({
       window.removeEventListener("keydown", onKey);
       opener?.focus?.();
     };
-  }, [open]);
+  }, [open, phoneSkipped]);
 
   if (!open || platform === "none") return null;
 
@@ -94,10 +111,45 @@ export function InstallSheet({
       setCopy("manual"); // show it in a box they can press and hold to copy
     }
   }
-  const n = (i: number) => (crewLink ? i + 1 : i);
+  const linkStep = !byPhone && !!crewLink;
+  /** The phone form sits up top, so the iPhone keyboard never covers it. */
+  const phoneOnTop = needsPhone && step === "offer" && platform !== "in-app";
+  const n = (i: number) => (linkStep ? i + 1 : i);
+
+  /** Phone first: how the Home Screen app will know it's you. */
+  const phoneFirst = (
+    <div className="mt-4 flex flex-col gap-2">
+      <p className="font-hand text-2xl leading-tight">
+        First, add your number so the app always knows it&apos;s you.
+      </p>
+      <PhoneCode
+        mode="add"
+        autoFocus
+        onDone={() => {
+          setPhoneAdded(true);
+          setStep("steps");
+        }}
+      />
+      {crewLink ? (
+        <button
+          type="button"
+          onClick={async () => {
+            setUseLink(true);
+            setStep("steps");
+            await copyLink();
+          }}
+          className="min-h-11 font-hand text-lg text-ink-soft underline underline-offset-4"
+        >
+          No phone? Use the family link instead
+        </button>
+      ) : null}
+    </div>
+  );
 
   return (
-    <div className="fixed inset-0 z-[1250] flex items-end justify-center">
+    <div
+      className={`fixed inset-0 z-[1250] flex justify-center ${phoneOnTop ? "items-start" : "items-end"}`}
+    >
       <button
         type="button"
         aria-hidden
@@ -110,7 +162,12 @@ export function InstallSheet({
         role="dialog"
         aria-modal="true"
         aria-labelledby="install-h"
-        className="doodle-box relative mx-3 mb-[max(env(safe-area-inset-bottom),0.75rem)] w-full max-w-md animate-pop-in px-5 pt-5 pb-5 shadow-[4px_6px_0_#2b2a33]"
+        key={phoneOnTop ? "top" : "bottom"}
+        className={`doodle-box relative mx-3 w-full max-w-md animate-pop-in px-5 pt-5 pb-5 shadow-[4px_6px_0_#2b2a33] ${
+          phoneOnTop
+            ? "mt-[max(env(safe-area-inset-top),1rem)]"
+            : "mb-[max(env(safe-area-inset-bottom),0.75rem)]"
+        }`}
       >
         <div className="flex items-center gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element -- our own app icon route */}
@@ -147,6 +204,8 @@ export function InstallSheet({
               />
             )}
           </div>
+        ) : needsPhone && step === "offer" ? (
+          phoneFirst
         ) : platform === "android" && androidReady ? (
           <div className="mt-5 flex flex-col gap-3">
             <button
@@ -162,7 +221,7 @@ export function InstallSheet({
             >
               <Icon name="phone" size={28} /> Add to Home Screen
             </button>
-            {crewLink && (
+            {linkStep && (
               <CopyRow copy={copy} crewLink={crewLink} onCopy={copyLink} />
             )}
           </div>
@@ -172,17 +231,14 @@ export function InstallSheet({
               type="button"
               data-autofocus
               className="crayon-btn wax bg-crayon-green py-3.5 text-2xl text-white"
-              onClick={async () => {
-                setStep("steps");
-                await copyLink();
-              }}
+              onClick={() => setStep("steps")}
             >
-              {crewLink ? "Copy my link & show me how" : "Show me how"}
+              Show me how
             </button>
           </div>
         ) : (
           <ol className="mt-4 flex flex-col gap-3">
-            {crewLink && (
+            {linkStep && crewLink && (
               <Step n={1} done={copy === "copied"}>
                 <CopyRow
                   copy={copy}
@@ -225,8 +281,9 @@ export function InstallSheet({
             </Step>
             <Step n={n(3)}>
               <span>
-                Tap <b className="text-crayon-blue">Add</b>. Then look for the
-                wheel on your Home Screen!
+                Tap <b className="text-crayon-blue">Add</b>. Then open the wheel
+                on your Home Screen
+                {byPhone ? " and sign in with your number." : "!"}
               </span>
             </Step>
           </ol>
@@ -261,21 +318,21 @@ function CopyRow({
   if (copy === "copied")
     return (
       <span>
-        <b>Crew link copied.</b> If the app ever asks who you are, paste it.
+        <b>Family link copied.</b> If the app ever asks who you are, paste it.
       </span>
     );
   if (copy === "manual")
     return (
       <span className="flex w-full flex-col gap-1">
         <span>
-          <b>Copy your crew link:</b> press and hold it, then tap Copy.
+          <b>Copy your family link:</b> press and hold it, then tap Copy.
         </span>
         <input
           readOnly
           value={crewLink}
           onFocus={(e) => e.currentTarget.select()}
           className="field py-1.5 text-sm"
-          aria-label="Your crew link"
+          aria-label="Your family link"
         />
       </span>
     );
@@ -283,7 +340,7 @@ function CopyRow({
     return (
       <span className="flex w-full items-center justify-between gap-2">
         <span>
-          <b>Copy your crew link</b> so the app knows it&apos;s you.
+          <b>Copy your family link</b> so the app knows it&apos;s you.
         </span>
         <button
           type="button"
@@ -301,7 +358,7 @@ function CopyRow({
       className="crayon-btn bg-paper text-lg"
       onClick={onCopy}
     >
-      <Icon name="link" size={24} /> Copy my crew link
+      <Icon name="link" size={24} /> Copy my family link
     </button>
   );
 }

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { PageTitle } from "@/components/PageTitle";
+import { CRAYONS } from "@/lib/crayons";
 import { Pines } from "@/components/Scribbles";
+import { PhoneCode } from "@/components/PhoneCode";
 import { PasteInvite } from "./PasteInvite";
 import { Icon } from "@/components/icons";
 import { DoodleGo, DoodleSpin, DoodleStamp } from "./Doodles";
@@ -26,8 +28,12 @@ const STEPS = [
   },
 ];
 
-/** /me when nobody's signed in: what this is, and how to get in. */
-export function SignedOutIntro() {
+/**
+ * /me when nobody's signed in. Two doors: played before → your phone; new →
+ * an invite link from your crew. ("Your phone gets you in. Links bring people
+ * in.")
+ */
+export function SignedOutIntro({ next }: { next?: string }) {
   return (
     <div className="flex flex-col gap-7 pt-4">
       <PageTitle
@@ -42,6 +48,29 @@ export function SignedOutIntro() {
           </p>
         }
       />
+
+      <section
+        id="signin"
+        aria-labelledby="signin-h"
+        className="doodle-box relative scroll-mt-6 bg-[#fffdf7] px-5 pt-5 pb-4 shadow-[3px_4px_0_#2b2a33]"
+      >
+        <span className="tape -top-3 left-8 -rotate-3" aria-hidden />
+        <h2 id="signin-h" className="text-3xl">
+          Played before?{" "}
+          <span
+            className="highlight"
+            style={{
+              ["--hl" as string]: `color-mix(in srgb, ${CRAYONS.green} 55%, #fffdf7)`,
+            }}
+          >
+            Hop in!
+          </span>
+        </h2>
+        <p className="mb-3 leading-snug text-ink-soft">
+          Sign in with your phone number. No passwords, ever.
+        </p>
+        <PhoneCode mode="signin" next={next} />
+      </section>
 
       <ol className="flex flex-col gap-4">
         {STEPS.map(({ Doodle, title, line, hl }, i) => (
@@ -69,10 +98,9 @@ export function SignedOutIntro() {
           className="tape -top-3 left-1/2 -translate-x-1/2 -rotate-2"
           aria-hidden
         />
-        <h2 className="text-3xl">Want to play along?</h2>
+        <h2 className="text-3xl">New here?</h2>
         <p className="mt-1 leading-snug">
-          Ask your crew for an invite link. Tap it and you&apos;re in. No
-          passwords, promise.
+          Ask someone who plays for an invite link. Tap it and you&apos;re in.
         </p>
         <div className="mt-4">
           <PasteInvite />

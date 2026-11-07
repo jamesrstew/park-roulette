@@ -1,7 +1,8 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { ErrorLine } from "@/components/ErrorLine";
+import { useId, useState } from "react";
 
 /** Pull the code out of a pasted invite link (or accept a bare code). */
 export function inviteCodeFrom(text: string): string | null {
@@ -12,10 +13,16 @@ export function inviteCodeFrom(text: string): string | null {
 }
 
 /**
- * For people whose cookies didn't come along: a Home Screen app, or a link
- * that opened in Instagram's or Messenger's own browser. Paste the link here.
+ * Paste an invite link: for new people whose link opened somewhere odd
+ * (a Home Screen app, Instagram's or Messenger's own browser), and for
+ * explorers without a phone number getting back in.
  */
-export function PasteInvite() {
+export function PasteInvite({
+  label = "Got an invite link? Paste it here:",
+}: {
+  label?: string;
+}) {
+  const id = useId();
   const router = useRouter();
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,16 +33,16 @@ export function PasteInvite() {
         e.preventDefault();
         const code = inviteCodeFrom(text);
         if (!code)
-          return setError("Hmm, that doesn't look like an invite link.");
+          return setError("Hmm, that doesn't look like a Park Roulette link.");
         router.push(`/join/${code}`);
       }}
     >
-      <label htmlFor="paste-invite" className="font-hand text-xl">
-        Have an invite link? Paste it here:
+      <label htmlFor={id} className="font-hand text-xl">
+        {label}
       </label>
       <div className="flex gap-2">
         <input
-          id="paste-invite"
+          id={id}
           className="field min-w-0 flex-1"
           inputMode="url"
           autoComplete="off"
@@ -52,11 +59,7 @@ export function PasteInvite() {
           Go
         </button>
       </div>
-      {error && (
-        <p role="alert" className="font-hand text-lg text-crayon-red">
-          {error}
-        </p>
-      )}
+      {error && <ErrorLine>{error}</ErrorLine>}
     </form>
   );
 }

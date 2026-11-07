@@ -84,7 +84,7 @@ export function ParkActions({
       {open && !signedIn && (
         <JoinNudge
           icon="stamp"
-          line="Join a crew to stamp your passport!"
+          line="Hop in to stamp your passport!"
           onClose={() => setOpen(false)}
         />
       )}

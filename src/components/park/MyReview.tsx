@@ -78,8 +78,8 @@ export function MyReview({
           icon="star"
           line={
             firstCritic
-              ? "No stars yet. Join and be the first critic!"
-              : "Join to add your stars!"
+              ? "No stars yet. Hop in and be the first critic!"
+              : "Hop in to add your stars!"
           }
         />
       </div>

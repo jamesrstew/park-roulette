@@ -5,18 +5,27 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { PasteInvite } from "@/components/me/PasteInvite";
+import { cancelHello } from "@/components/HelloToast";
+import { PhoneCode } from "@/components/PhoneCode";
 import { CRAYONS } from "@/lib/crayons";
 import { isStandalone, takeFirstAppOpen } from "@/lib/install";
 import { sfx } from "@/lib/sound";
 import { storage } from "@/lib/storage";
 
 const HIDE_KEY = "pr:hide-app-signin";
+/** "Hide this" snoozes for a week, not forever: they may need it later. */
+const HIDE_MS = 7 * 24 * 3600 * 1000;
+const hiddenNow = () => {
+  const v = storage.get(HIDE_KEY);
+  if (v === "1") return false; // the old "forever" value: show it again
+  return !!v && Date.now() - Number(v) < HIDE_MS;
+};
 
 /**
  * Little moments for the Home Screen app:
  *  - the first time it's opened from the Home Screen: "You did it!" + confetti
  *  - if it opens signed out (an installed web app can start without Safari's
- *    sign-in), a friendly way back in: paste the crew link
+ *    sign-in), a friendly way back in: your phone number (or a crew link)
  */
 export function AppMoments({ signedIn }: { signedIn: boolean }) {
   const standalone = useSyncExternalStore(
@@ -27,13 +36,14 @@ export function AppMoments({ signedIn }: { signedIn: boolean }) {
   const [hello, setHello] = useState(false);
   const hidden = useSyncExternalStore(
     () => () => {},
-    () => storage.get(HIDE_KEY) === "1",
+    hiddenNow,
     () => true,
   );
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     if (!signedIn || !takeFirstAppOpen()) return;
+    cancelHello(); // one celebration, not "Welcome back" stacked on top
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time celebration on first app launch
     setHello(true);
     sfx.celebrate();
@@ -55,7 +65,7 @@ export function AppMoments({ signedIn }: { signedIn: boolean }) {
           type="button"
           aria-label="Hide this"
           onClick={() => {
-            storage.set(HIDE_KEY, "1");
+            storage.set(HIDE_KEY, String(Date.now()));
             setDismissed(true);
           }}
           className="absolute top-1 right-1 grid size-11 place-items-center"
@@ -63,14 +73,15 @@ export function AppMoments({ signedIn }: { signedIn: boolean }) {
           <Icon name="close" size={20} className="opacity-70" />
         </button>
         <h2 className="text-3xl">Welcome to the app!</h2>
-        <p className="mt-1 leading-snug">
-          Paste your crew link once, and you&apos;re in for good.
+        <p className="mt-1 mb-3 leading-snug">
+          Sign in once with your phone number, and you&apos;re in for good.
         </p>
-        <div className="mt-3">
-          <PasteInvite />
+        <PhoneCode mode="signin" />
+        <div className="mt-4 border-t-2 border-dashed border-ink/20 pt-3">
+          <PasteInvite label="No number yet? Paste your family link:" />
         </div>
         <p className="mt-2 text-sm text-ink-soft">
-          No link yet?{" "}
+          Brand new?{" "}
           <Link href="/me" className="underline">
             Here&apos;s how Park Roulette works
           </Link>

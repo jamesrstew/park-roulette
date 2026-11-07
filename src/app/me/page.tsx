@@ -3,16 +3,17 @@ import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { Icon } from "@/components/icons";
 import { HomeScreenTip } from "@/components/me/HomeScreenTip";
-import { AvatarBlob } from "@/components/me/NameTag";
+import { CrewSwitcher } from "@/components/me/CrewSwitcher";
+import { PhoneCard } from "@/components/me/PhoneCard";
 import { ProfileCard } from "@/components/me/ProfileCard";
 import { ShareCard } from "@/components/me/ShareCard";
 import { SignedOutIntro } from "@/components/me/SignedOutIntro";
 import { SignOutButton } from "@/components/me/SignOutButton";
-import { SoundBox } from "@/components/me/SoundBox";
 import { PageTitle } from "@/components/PageTitle";
 import { CRAYON_NAMES, type CrayonName } from "@/lib/crayons";
 
 import { getMe } from "@/lib/data";
+import { formatPhone, safeNext } from "@/lib/phone-format";
 import { getCrewMembers, getCrewStampCount } from "@/lib/data-me";
 
 /** Light crayons (yellow, orange) are too pale for a title on paper. */
@@ -23,9 +24,20 @@ function titleCrayon(c: string): CrayonName {
 
 export const metadata: Metadata = { title: "Me" };
 
-async function MeScreen() {
+async function MeScreen({
+  searchParams,
+}: {
+  searchParams: PageProps<"/me">["searchParams"];
+}) {
   const me = await getMe();
-  if (!me) return <SignedOutIntro />;
+  if (!me) {
+    const next = (await searchParams).next;
+    return (
+      <SignedOutIntro
+        next={typeof next === "string" ? safeNext(next) : undefined}
+      />
+    );
+  }
   const [members, stamps] = await Promise.all([
     getCrewMembers(me.crew.id),
     getCrewStampCount(me.crew.id),
@@ -52,6 +64,12 @@ async function MeScreen() {
         }}
       />
 
+      <PhoneCard
+        phone={me.phone ? formatPhone(me.phone) : null}
+        trusted={me.trusted}
+        name={me.name}
+      />
+
       <section aria-labelledby="crew-h">
         <div className="mb-3 flex items-baseline justify-between gap-2">
           <h2 id="crew-h" className="text-3xl">
@@ -62,40 +80,16 @@ async function MeScreen() {
             {stamps === 1 ? "park" : "parks"}
           </span>
         </div>
-        <ul className="flex flex-wrap gap-x-4 gap-y-3">
-          {members.map((m) => (
-            <li key={m.id} className="flex w-20 flex-col items-center gap-1">
-              <AvatarBlob avatar={m.avatar} color={m.color} />
-              <span className="max-w-full truncate font-hand text-xl leading-none">
-                {m.id === me.id ? "You" : m.name}
-              </span>
-              <span className="text-xs text-ink-soft">
-                {m.reviewCount} {m.reviewCount === 1 ? "review" : "reviews"}
-              </span>
-            </li>
-          ))}
-          <li className="flex w-20 flex-col items-center gap-1">
-            <a
-              href="#add-crew"
-              aria-label="Add someone to our crew"
-              className="grid size-14 place-items-center rounded-[var(--radius-blob)] border-[2.5px] border-dashed border-ink-soft"
-            >
-              <Icon name="plus" size={26} className="opacity-60" />
-            </a>
-            <span className="font-hand text-xl leading-none text-ink-soft">
-              Add
-            </span>
-          </li>
-        </ul>
+        <CrewSwitcher members={members} meId={me.id} />
       </section>
 
       <div id="add-crew" className="flex scroll-mt-6 flex-col gap-5">
         <h2 className="-mb-1 text-3xl">Bring more explorers</h2>
         <ShareCard
           icon="home"
-          title="Add to our crew"
-          blurb="For family. They share your passport, so every stamp counts for both of you."
-          warning="Anyone with this link can join your crew and stamp your passport. Keep it in the family."
+          title="Add to our family"
+          blurb="Your family link. They share your passport, so every stamp counts for both of you."
+          warning="Anyone with this link can join your family and stamp your passport. Only share it with family."
           path={`/join/${me.crew.joinCode}`}
           color="blue"
           shareTitle={`Join ${me.crew.name} on Park Roulette`}
@@ -104,31 +98,31 @@ async function MeScreen() {
         />
         <ShareCard
           icon="party"
-          title="Invite a friend"
-          blurb="Friends start their own crew and passport. Everyone's reviews are shared."
+          title="Invite a family"
+          blurb="Another family gets its own passport. Everyone's reviews are shared."
           path={`/join/${me.crew.friendCode}`}
           color="green"
           shareTitle="Come play Park Roulette!"
-          shareText="We're trying to visit every playground in Central Oregon. Start your own quest with us:"
+          shareText="We're trying to visit every playground in Central Oregon. Start your family's quest with us:"
           tilt={0.6}
         />
       </div>
 
-      <SoundBox />
-
       <HomeScreenTip
+        hasPhone={!!me.phone}
+        canAddPhone={me.trusted}
         crewLink={`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/join/${me.crew.joinCode}`}
       />
 
-      <SignOutButton name={me.name} />
+      <SignOutButton hasPhone={!!me.phone} family={members.length > 1} />
     </div>
   );
 }
 
-export default function MePage() {
+export default function MePage({ searchParams }: PageProps<"/me">) {
   return (
     <Suspense fallback={<CrayonLoading />}>
-      <MeScreen />
+      <MeScreen searchParams={searchParams} />
     </Suspense>
   );
 }

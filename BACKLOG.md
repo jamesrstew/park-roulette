@@ -2,6 +2,15 @@
 
 Known follow-ups, newest first. Each has a reason it isn't done yet.
 
+## Phone sign-in (2026-11-07)
+
+- **Lost or changed number.** A member with a number can only be claimed by a code to that number. If they lose the number with no phone still signed in, they're stuck (James can clear `explorers.phone` by hand). A family-member "forget number" button was considered and dropped: anyone who claims a phone-less kid by link could use it to take over a grown-up.
+- **Make a new family link.** Rotating `crews.join_code` is the only real fix for a leaked family link (anyone with it can still claim members who have no number).
+- **A grown-up with no number on a new phone stays numberless.** Getting back in by family link is an untrusted sign-in, which can't add a number (on purpose: see `SignedInBy`). Today they can add one only on the phone they joined with. Idea: a trusted family member types the person's number and they read back the code.
+- **Switching on a shared phone downgrades trust.** Switching to a family member with no number (kid or grown-up) is an untrusted sign-in, so a numberless grown-up who switches away and back can't add a number on that phone anymore. Fine for kids; grown-ups should add a number first (the nudge asks).
+- **Twilio usage alerts.** Set a Usage Trigger in the Twilio console (for example, email when Verify spend passes $10 in a month). The app logs `[sms] cap …` when its own limits trip, but nothing pages anyone.
+- **Custom text wording** ("Happy exploring!") needs a custom Twilio Verify template, which Twilio approves case by case.
+
 ## From the first /scrutinize (2026-11-06)
 
 - **Milestones on the park page.** Stamping from a park page doesn't fire the first-stamp / town-finished celebration (the List, Map and Spin do). Needs the park page to load bucket-list progress.

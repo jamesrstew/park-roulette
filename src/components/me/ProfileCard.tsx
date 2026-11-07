@@ -86,7 +86,7 @@ export function ProfileCard({ initial }: { initial: Profile }) {
             />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="font-hand text-2xl">Our crew name</span>
+            <span className="font-hand text-2xl">Our family name</span>
             <input
               className="field font-hand text-2xl"
               value={draft.crewName}
@@ -95,7 +95,7 @@ export function ProfileCard({ initial }: { initial: Profile }) {
               required
             />
             <span className="text-sm text-ink-soft">
-              Changes it for everyone in your crew.
+              Changes it for everyone in your family.
             </span>
           </label>
           <fieldset>

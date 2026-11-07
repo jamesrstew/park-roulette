@@ -19,6 +19,7 @@
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm format:check"
   },
   "dependencies": {
+    "@react-leaflet/core": "3.0.0",
     "@vercel/blob": "^2.8.2",
     "canvas-confetti": "^1.9.4",
     "drizzle-orm": "^0.45.4",

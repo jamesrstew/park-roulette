@@ -10,11 +10,23 @@ import { isOurBlobUrl } from "./blob";
 import { AVATARS, CRAYON_NAMES } from "./crayons";
 import { FEATURE_KEYS, REVIEW_TAGS } from "./features";
 import { inviteCode, slugify } from "./codes";
-import { getMe } from "./data";
 import { toTenths } from "./rating";
-import { clearExplorer, setExplorer } from "./session";
+import {
+  type ActionResult,
+  fail,
+  isUniqueViolation,
+  requireMe,
+  uniqueConstraint,
+  UserError,
+} from "./action-utils";
+import {
+  clearExplorer,
+  forgetVerifiedPhone,
+  setExplorer,
+  verifiedPhone,
+} from "./session";
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type { ActionResult };
 
 /** Markers in parks.sources that tell the seed "a person fixed this; keep it". */
 const CROWD_FEATURES = "crowd";
@@ -22,9 +34,6 @@ const CROWD_PLAY = "crowd:play";
 
 /** Max photos + videos on one review, across every save. */
 const MAX_MEDIA_PER_REVIEW = 24;
-
-/** An error whose message is written for people, safe to show in the UI. */
-class UserError extends Error {}
 
 const name = z.string().trim().min(1, "Give yourself a name!").max(40);
 const color = z.enum(CRAYON_NAMES as [string, ...string[]]);
@@ -34,33 +43,6 @@ const featureList = z
   .max(FEATURE_KEYS.length)
   .transform((f) => [...new Set(f)]);
 
-async function requireMe() {
-  const me = await getMe();
-  if (!me) throw new UserError("Join a crew first!");
-  return me;
-}
-
-/**
- * Turn any failure into a friendly result. Validation and UserError messages
- * are shown as-is; anything else (DB, network) is logged on the server and the
- * person sees a gentle retry message, never SQL.
- */
-function fail(action: string, e: unknown): ActionResult {
-  if (e instanceof z.ZodError)
-    return {
-      ok: false,
-      error: e.issues[0]?.message ?? "Hmm, that didn't work",
-    };
-  if (e instanceof UserError) return { ok: false, error: e.message };
-  console.error(`[action:${action}]`, e);
-  return { ok: false, error: "Hmm, that didn't work. Try again in a sec?" };
-}
-
-function isUniqueViolation(e: unknown) {
-  const err = e as { code?: string; cause?: { code?: string } };
-  return err?.code === "23505" || err?.cause?.code === "23505";
-}
-
 /** Adds a marker to parks.sources once (keeps the array tidy). */
 const addSource = (marker: string) =>
   sql`array(select distinct unnest(${parks.sources} || array[${marker}]::text[]))`;
@@ -69,6 +51,8 @@ const addSource = (marker: string) =>
 
 const joinInput = z.object({
   code: z.string().trim().min(4).max(80),
+  /** Attach the number they just proved (they ticked the box). */
+  usePhone: z.boolean().optional(),
   name,
   color,
   avatar,
@@ -81,90 +65,113 @@ export async function joinWithCode(
 ): Promise<ActionResult> {
   try {
     const data = joinInput.parse(input);
-    const explorerId = await db.transaction(async (tx) => {
-      const byJoin = (
-        await tx.select().from(crews).where(eq(crews.joinCode, data.code))
-      )[0];
-      let crewId: number;
-      if (byJoin) {
-        crewId = byJoin.id;
-      } else {
-        const byFriend = (
-          await tx.select().from(crews).where(eq(crews.friendCode, data.code))
-        )[0];
-        if (!byFriend)
-          throw new UserError(
-            "That invite code looks smudged. Ask for a new link!",
-          );
-        const [crew] = await tx
-          .insert(crews)
-          .values({
-            name: data.crewName?.trim() || `${data.name}'s Crew`,
-            color: data.color,
-            joinCode: inviteCode(),
-            friendCode: inviteCode(),
-          })
-          .returning();
-        crewId = crew.id;
-      }
-      const [explorer] = await tx
-        .insert(explorers)
-        .values({
-          crewId,
-          name: data.name,
-          color: data.color,
-          avatar: data.avatar,
-        })
-        .returning();
-      return explorer.id;
-    });
-    await setExplorer(explorerId);
+    // A number they proved a minute ago ("we don't know that number yet")
+    // comes along only if they said so on the join form.
+    const proved = data.usePhone ? await verifiedPhone() : null;
+    let explorerId: number;
+    try {
+      explorerId = await insertExplorer(data, proved);
+    } catch (e) {
+      // Someone else grabbed that number in the meantime: join without it.
+      if (proved && uniqueConstraint(e) === "explorers_phone_unique")
+        explorerId = await insertExplorer(data, null);
+      else throw e;
+    }
+    if (proved) await forgetVerifiedPhone();
+    await setExplorer(explorerId, 0, "j");
+    console.info(
+      `[auth] explorer ${explorerId} joined${proved ? " with a number" : ""}`,
+    );
   } catch (e) {
     if (isUniqueViolation(e))
       return {
         ok: false,
         error:
-          "Someone in this crew already has that name. Tap it below if it's you!",
+          "Someone in this family already has that name. Tap it below if it's you!",
       };
     return fail("joinWithCode", e);
   }
   redirect("/?welcome=1");
 }
 
-const claimInput = z.object({
-  code: z.string().trim().min(4).max(80),
-  explorerId: z.number().int().positive(),
-});
+/** The family for a join or friend code (a friend code starts a new one). */
+async function insertExplorer(
+  data: z.output<typeof joinInput>,
+  phone: string | null,
+): Promise<number> {
+  return db.transaction(async (tx) => {
+    const byJoin = (
+      await tx.select().from(crews).where(eq(crews.joinCode, data.code))
+    )[0];
+    let crewId: number;
+    if (byJoin) {
+      crewId = byJoin.id;
+    } else {
+      const byFriend = (
+        await tx.select().from(crews).where(eq(crews.friendCode, data.code))
+      )[0];
+      if (!byFriend)
+        throw new UserError(
+          "That invite code looks smudged. Ask for a new link!",
+        );
+      const [crew] = await tx
+        .insert(crews)
+        .values({
+          name: data.crewName?.trim() || `${data.name}'s Family`,
+          color: data.color,
+          joinCode: inviteCode(),
+          friendCode: inviteCode(),
+        })
+        .returning();
+      crewId = crew.id;
+    }
+    const [explorer] = await tx
+      .insert(explorers)
+      .values({
+        crewId,
+        name: data.name,
+        color: data.color,
+        avatar: data.avatar,
+        ...(phone ? { phone, phoneVerifiedAt: new Date() } : {}),
+      })
+      .returning({ id: explorers.id });
+    return explorer.id;
+  });
+}
 
-/** "That's me!" on a new phone: re-claim an explorer using the crew's join code. */
-export async function claimExplorer(
-  code: string,
-  explorerId: number,
-): Promise<ActionResult> {
+const kidInput = z.object({ name, color, avatar });
+
+/**
+ * "A kid on this phone": make an explorer in my family and switch to them.
+ * Kids don't get numbers; switching back to a grown-up with a number takes a
+ * code (Me → "Who's playing?").
+ */
+export async function addKid(
+  input: z.input<typeof kidInput>,
+): Promise<ActionResult & { name?: string }> {
   try {
-    const data = claimInput.parse({ code, explorerId });
-    const crew = (
-      await db.select().from(crews).where(eq(crews.joinCode, data.code))
-    )[0];
-    if (!crew) return { ok: false, error: "That invite code looks smudged." };
-    const explorer = (
-      await db
-        .select()
-        .from(explorers)
-        .where(
-          and(eq(explorers.id, data.explorerId), eq(explorers.crewId, crew.id)),
-        )
-    )[0];
-    if (!explorer) return { ok: false, error: "Couldn't find that explorer." };
-    await setExplorer(explorer.id);
+    const me = await requireMe();
+    const data = kidInput.parse(input);
+    const [kid] = await db
+      .insert(explorers)
+      .values({ crewId: me.crew.id, ...data })
+      .returning({ id: explorers.id, epoch: explorers.sessionEpoch });
+    await setExplorer(kid.id, kid.epoch, "l");
+    console.info(`[auth] explorer ${me.id} added kid ${kid.id}`);
+    return { ok: true, name: data.name };
   } catch (e) {
-    return fail("claimExplorer", e);
+    if (isUniqueViolation(e))
+      return {
+        ok: false,
+        error: "Someone in your family already has that name.",
+      };
+    return fail("addKid", e);
   }
-  redirect("/?welcome=1");
 }
 
 export async function signOut() {
   await clearExplorer();
+  await forgetVerifiedPhone();
   redirect("/me");
 }
 
@@ -197,7 +204,7 @@ export async function updateProfile(
     if (isUniqueViolation(e))
       return {
         ok: false,
-        error: "Someone in your crew already has that name.",
+        error: "Someone in your family already has that name.",
       };
     return fail("updateProfile", e);
   }

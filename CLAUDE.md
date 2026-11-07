@@ -8,7 +8,22 @@ A just-for-fun, mobile-first web app: the Stewarts' quest to visit every playgro
 
 - Next.js 16 App Router with **Cache Components on** (`cacheComponents: true`). Read `node_modules/next/dist/docs/` before using an API you're unsure of. Dynamic reads (DB, cookies) go in an async component **inside `<Suspense>`**; mutations are server actions in `src/lib/actions.ts` that call `refresh()`.
 - Tailwind v4 (tokens in `src/app/globals.css` `@theme`), Drizzle + Postgres (Railway), Vercel Blob for media, Leaflet + OSM tiles for maps.
-- No accounts/passwords: an explorer is a signed cookie (`src/lib/session.ts`). Crews share a passport (visits); reviews belong to explorers. Invite links: `/join/<joinCode>` (join a crew) and `/join/<friendCode>` (a friend starts their own crew).
+- No passwords. An explorer is a signed cookie (src/lib/session.ts) that
+  carries the explorer's `sessionEpoch`; bumping the epoch signs them out
+  everywhere. **Your phone gets you in; links bring people in.** Sign-in is a
+  code texted by Twilio Verify (src/lib/sms.ts, actions in
+  src/lib/phone-actions.ts, UI in components/PhoneCode.tsx). Crews (called
+  **families** everywhere people can see; "crew" is only the code name) share a
+  passport (visits); reviews belong to explorers. Invite links:
+  /join/<joinCode> (join a crew, or "That's me!", which texts a code to
+  members who have a number) and /join/<friendCode> (a friend starts their own
+  crew). Local dev: SMS_FAKE=1 makes every code 000000 (never on Vercel).
+- Sessions also record how the phone signed in (session.ts `SignedInBy`): a
+  family-link tap or shared-phone switch to someone without a number is
+  untrusted and can't add a number, so a borrowed family link can't become a
+  takeover. Members with a number are only reachable with a code.
+- Every export of a "use server" file is a public endpoint. Helpers that
+  trust an explorer id (src/lib/phone-auth.ts) live in server-only files.
 
 ## Design laws (this app lives or dies on delight)
 

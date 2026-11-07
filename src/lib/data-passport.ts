@@ -79,7 +79,7 @@ export async function getPassportData(crewId: number) {
     ]);
 
   return {
-    crew: crewRows[0] ?? { name: "Our crew", color: "red" },
+    crew: crewRows[0] ?? { name: "Our family", color: "red" },
     members,
     parks: allParks.map(normalizePlay) as PassportPark[],
     visits: crewVisits,

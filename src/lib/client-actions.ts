@@ -11,6 +11,7 @@
  */
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import * as A from "./actions";
+import * as P from "./phone-actions";
 import type { ActionResult } from "./actions";
 
 export type { ActionResult };
@@ -39,8 +40,8 @@ function wrap<Args extends unknown[], R extends ActionResult>(
 }
 
 export const joinWithCode = wrap(A.joinWithCode);
-export const claimExplorer = wrap(A.claimExplorer);
 export const updateProfile = wrap(A.updateProfile);
+export const addKid = wrap(A.addKid);
 export const logVisit = wrap(A.logVisit);
 export const removeVisit = wrap(A.removeVisit);
 export const saveReview = wrap(A.saveReview);
@@ -49,5 +50,14 @@ export const addPark = wrap(A.addPark);
 export const setParkStatus = wrap(A.setParkStatus);
 export const setParkPlay = wrap(A.setParkPlay);
 export const updateFeatures = wrap(A.updateFeatures);
+export const sendSignInCode = wrap(P.sendSignInCode);
+export const checkSignInCode = wrap(P.checkSignInCode);
+export const sendAddPhoneCode = wrap(P.sendAddPhoneCode);
+export const checkAddPhoneCode = wrap(P.checkAddPhoneCode);
+export const movePhoneHere = wrap(P.movePhoneHere);
+export const removePhone = wrap(P.removePhone);
+export const startClaim = wrap(P.startClaim);
+export const finishClaim = wrap(P.finishClaim);
+export type { PhoneResult } from "./phone-actions";
 /** Used as a <form action>, which Next handles itself. */
 export const signOut = A.signOut;

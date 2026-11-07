@@ -3,13 +3,20 @@ import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { crews, explorers, media, parks, reviews, visits } from "@/db/schema";
 import { isCrossedOff, normalizePlay } from "./features";
-import { currentExplorerId } from "./session";
+import { readSession, trusted } from "./session";
 
 export type Me = {
   id: number;
   name: string;
   color: string;
   avatar: string;
+  /** My verified number (E.164), or null. Only ever shown to me. */
+  phone: string | null;
+  /**
+   * Did this phone sign in a trusted way (joined here, a texted code, or from
+   * before phone sign-in)? Only then may it add or change a number.
+   */
+  trusted: boolean;
   crew: {
     id: number;
     name: string;
@@ -19,29 +26,42 @@ export type Me = {
   };
 };
 
+/**
+ * Who's signed in on this phone, or null. A cookie only counts if its epoch
+ * still matches the explorer's (bumped when their phone number changes).
+ */
 export async function getMe(): Promise<Me | null> {
-  const id = await currentExplorerId();
-  if (!id) return null;
+  const session = await readSession();
+  if (!session) return null;
   const rows = await db
-    .select({ explorer: explorers, crew: crews })
+    .select({
+      id: explorers.id,
+      name: explorers.name,
+      color: explorers.color,
+      avatar: explorers.avatar,
+      phone: explorers.phone,
+      sessionEpoch: explorers.sessionEpoch,
+      crew: {
+        id: crews.id,
+        name: crews.name,
+        color: crews.color,
+        joinCode: crews.joinCode,
+        friendCode: crews.friendCode,
+      },
+    })
     .from(explorers)
     .innerJoin(crews, eq(crews.id, explorers.crewId))
-    .where(eq(explorers.id, id));
+    .where(eq(explorers.id, session.id));
   const row = rows[0];
-  if (!row) return null;
-  const { explorer, crew } = row;
+  if (!row || row.sessionEpoch !== session.epoch) return null;
   return {
-    id: explorer.id,
-    name: explorer.name,
-    color: explorer.color,
-    avatar: explorer.avatar,
-    crew: {
-      id: crew.id,
-      name: crew.name,
-      color: crew.color,
-      joinCode: crew.joinCode,
-      friendCode: crew.friendCode,
-    },
+    id: row.id,
+    name: row.name,
+    color: row.color,
+    avatar: row.avatar,
+    phone: row.phone,
+    trusted: trusted(session.by),
+    crew: row.crew,
   };
 }
 
@@ -203,7 +223,16 @@ export async function getParkDetail(slug: string, crewId: number | null) {
   const park = normalizePlay(row);
 
   const reviewRows = await db
-    .select({ review: reviews, explorer: explorers, crewName: crews.name })
+    .select({
+      review: reviews,
+      explorer: {
+        id: explorers.id,
+        name: explorers.name,
+        color: explorers.color,
+        avatar: explorers.avatar,
+      },
+      crewName: crews.name,
+    })
     .from(reviews)
     .innerJoin(explorers, eq(explorers.id, reviews.explorerId))
     .innerJoin(crews, eq(crews.id, explorers.crewId))
@@ -256,37 +285,20 @@ export async function getParkDetail(slug: string, crewId: number | null) {
   return { park, reviews: reviewViews, myVisits };
 }
 
-export async function getPassport(crewId: number) {
-  const members = await db
-    .select()
-    .from(explorers)
-    .where(eq(explorers.crewId, crewId))
-    .orderBy(asc(explorers.createdAt));
-  const stamps = await db
-    .select({
-      id: visits.id,
-      visitedOn: visits.visitedOn,
-      park: { slug: parks.slug, name: parks.name, city: parks.city },
-    })
-    .from(visits)
-    .innerJoin(parks, eq(parks.id, visits.parkId))
-    .where(eq(visits.crewId, crewId))
-    .orderBy(desc(visits.visitedOn), desc(visits.id));
-  const myReviews = await db
-    .select({ tenths: reviews.ratingTenths, explorerId: reviews.explorerId })
-    .from(reviews)
-    .innerJoin(explorers, eq(explorers.id, reviews.explorerId))
-    .where(eq(explorers.crewId, crewId));
-  return { members, stamps, myReviews };
-}
-
 export async function findCrewByCode(code: string) {
   const byJoin = (
     await db.select().from(crews).where(eq(crews.joinCode, code))
   )[0];
   if (byJoin) {
+    // Never phone numbers: this goes to anyone holding the link.
     const members = await db
-      .select()
+      .select({
+        id: explorers.id,
+        name: explorers.name,
+        color: explorers.color,
+        avatar: explorers.avatar,
+        hasPhone: sql<boolean>`${explorers.phone} is not null`,
+      })
       .from(explorers)
       .where(eq(explorers.crewId, byJoin.id));
     return { kind: "join" as const, crew: byJoin, members };

@@ -228,7 +228,7 @@ export function CrossOffFooter({
       ) : !signedIn ? (
         <JoinNudge
           icon="crayon"
-          line="Join to fix the list!"
+          line="Hop in to fix the list!"
           onClose={() => setOpen(false)}
         />
       ) : (

@@ -40,13 +40,16 @@ function JoinNudge() {
       <span className="animate-float">
         <Icon name="crayon" size={64} />
       </span>
-      <h2 className="text-3xl">Join the crew first!</h2>
+      <h2 className="text-3xl">Hop in first!</h2>
       <p className="text-ink-soft">
-        Explorers can add playgrounds to the map. It takes ten seconds and no
-        password.
+        Explorers can add playgrounds to the map. Played before? Sign in with
+        your phone. New here? Ask someone who plays for an invite link.
       </p>
-      <Link href="/me" className="crayon-btn wax bg-crayon-green text-white">
-        Let&apos;s join
+      <Link
+        href="/me?next=%2Fparks%2Fnew#signin"
+        className="crayon-btn wax bg-crayon-green text-white"
+      >
+        Hop in
       </Link>
       <Link
         href="/map"

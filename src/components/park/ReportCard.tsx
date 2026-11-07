@@ -67,7 +67,7 @@ export function ReportCard({
       {nudge && !signedIn && (
         <JoinNudge
           icon="edit"
-          line="Join to fix the list!"
+          line="Hop in to fix the list!"
           onClose={() => setNudge(false)}
         />
       )}

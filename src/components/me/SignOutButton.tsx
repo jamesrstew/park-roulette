@@ -3,8 +3,15 @@
 import { useState } from "react";
 import { signOut } from "@/lib/client-actions";
 
-/** Two taps on purpose: without a password, your crew link is the way back. */
-export function SignOutButton({ name }: { name: string }) {
+/** Two taps on purpose: make sure they know the way back in first. */
+export function SignOutButton({
+  hasPhone,
+  family,
+}: {
+  hasPhone: boolean;
+  /** Others in the family: on a shared phone, switching beats signing out. */
+  family: boolean;
+}) {
   const [sure, setSure] = useState(false);
   if (!sure)
     return (
@@ -13,7 +20,7 @@ export function SignOutButton({ name }: { name: string }) {
         onClick={() => setSure(true)}
         className="mx-auto min-h-11 px-4 font-hand text-xl text-ink-soft underline underline-offset-4"
       >
-        Not {name}? Sign out
+        Sign out of this phone
       </button>
     );
   return (
@@ -22,9 +29,24 @@ export function SignOutButton({ name }: { name: string }) {
       className="doodle-box-alt flex animate-pop-in flex-col items-center gap-3 px-4 py-4 text-center"
     >
       <p className="leading-snug">
-        Sign out on this phone? To come back, tap your crew link and pick{" "}
-        <b>That&apos;s me!</b>
+        {hasPhone ? (
+          <>
+            Sign out on this phone? To come back, sign in with your phone
+            number.
+          </>
+        ) : (
+          <>
+            Sign out on this phone? You haven&apos;t added a number, so to come
+            back you&apos;ll need your family link (then tap{" "}
+            <b>That&apos;s me!</b>). Adding your number up top is easier.
+          </>
+        )}
       </p>
+      {family ? (
+        <p className="text-sm leading-snug text-ink-soft">
+          Just passing the phone around? Tap a face above to switch instead.
+        </p>
+      ) : null}
       <div className="flex w-full gap-3">
         <button
           type="button"

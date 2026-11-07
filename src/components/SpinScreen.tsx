@@ -622,9 +622,9 @@ function ResultCard({
             ) : (
               <Link
                 className="crayon-btn bg-paper px-3 text-lg whitespace-nowrap"
-                href="/me"
+                href="/me#signin"
               >
-                <Icon name="crayon" size={26} /> Join to track
+                <Icon name="crayon" size={26} /> Hop in to track
               </Link>
             )}
             <button

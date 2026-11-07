@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   date,
   doublePrecision,
@@ -39,12 +40,46 @@ export const explorers = pgTable(
     name: text("name").notNull(),
     color: text("color").notNull(),
     avatar: text("avatar").notNull(),
+    /** US mobile in E.164 ("+15415551234"), verified by text. How you sign in. */
+    phone: text("phone").unique(),
+    phoneVerifiedAt: timestamp("phone_verified_at", { withTimezone: true }),
+    /**
+     * Signed into every session cookie. Bumping it signs this explorer out
+     * everywhere (done when their phone number is added, changed or removed).
+     */
+    sessionEpoch: integer("session_epoch").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (t) => [
     uniqueIndex("explorers_crew_name").on(t.crewId, sql`lower(${t.name})`),
+  ],
+);
+
+/**
+ * Every code we text, and every wrong code typed: the app's own rate limits
+ * (Twilio has more of its own). Holds phones and IPs, so rows are deleted
+ * after two days.
+ */
+export const smsEvents = pgTable(
+  "sms_events",
+  {
+    id: serial("id").primaryKey(),
+    /** send, attempt (not sent: over a limit), check, bad_code, ok (a code that worked) */
+    kind: text("kind").notNull(),
+    phone: text("phone").notNull(),
+    ip: text("ip").notNull(),
+    /** Did the number belong to an explorer when we texted it? */
+    known: boolean("known").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("sms_events_phone").on(t.phone, t.createdAt),
+    index("sms_events_ip").on(t.ip, t.createdAt),
+    index("sms_events_created").on(t.createdAt),
   ],
 );
 

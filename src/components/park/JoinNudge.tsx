@@ -1,16 +1,24 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Icon, type IconName } from "@/components/icons";
 
-/** The friendly "you need to join first" card for signed-out visitors. */
+/**
+ * The friendly "hop in first" card for signed-out visitors. Works for both
+ * returning explorers (sign in with your phone) and new ones (invite link),
+ * and brings you back to this page afterward.
+ */
 export function JoinNudge({
   icon = "crayon",
-  line = "Join to add your stars!",
+  line = "Hop in to add your stars!",
   onClose,
 }: {
   icon?: IconName;
   line?: string;
   onClose?: () => void;
 }) {
+  const path = usePathname();
   return (
     <div className="doodle-box flex animate-pop-in items-center gap-3 bg-[color-mix(in_srgb,var(--color-crayon-purple)_10%,#fffdf7)] p-3">
       <span className="animate-float">
@@ -19,15 +27,15 @@ export function JoinNudge({
       <div className="flex-1">
         <p className="font-hand text-xl leading-tight">{line}</p>
         <p className="text-sm text-ink-soft">
-          It takes ten seconds. No passwords.
+          Played before? Sign in with your phone. No passwords.
         </p>
       </div>
       <div className="flex flex-col items-end gap-1">
         <Link
-          href="/me"
+          href={`/me?next=${encodeURIComponent(path)}#signin`}
           className="crayon-btn wax min-h-11 bg-crayon-purple px-3 text-lg text-white [text-shadow:1px_1px_0_#2b2a33]"
         >
-          Join
+          Hop in
         </Link>
         {onClose && (
           <button

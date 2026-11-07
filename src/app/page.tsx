@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { AppMoments } from "@/components/AppMoments";
+import { PhoneNudge } from "@/components/PhoneNudge";
 import { SpinScreen } from "@/components/SpinScreen";
 import { WelcomeSheet } from "@/components/WelcomeSheet";
 import { getBucketList, getMe } from "@/lib/data";
@@ -12,6 +13,7 @@ async function Spin() {
     <>
       <AppMoments signedIn={!!me} />
       <SpinScreen parks={parks} signedIn={!!me} />
+      {me && !me.phone && me.trusted ? <PhoneNudge /> : null}
       {me ? (
         <WelcomeSheet
           name={me.name}
@@ -19,6 +21,7 @@ async function Spin() {
           color={me.color}
           crewName={me.crew.name}
           crewLink={`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/join/${me.crew.joinCode}`}
+          hasPhone={!!me.phone}
         />
       ) : null}
     </>

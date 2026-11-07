@@ -9,6 +9,8 @@ export type CrewMember = {
   color: string;
   avatar: string;
   reviewCount: number;
+  /** Switching to them on a shared phone needs a code (never the number). */
+  hasPhone: boolean;
 };
 
 /** Everyone in a crew, oldest first, with how many reviews each has written. */
@@ -27,13 +29,14 @@ export async function getCrewMembers(crewId: number): Promise<CrewMember[]> {
       name: explorers.name,
       color: explorers.color,
       avatar: explorers.avatar,
+      hasPhone: sql<boolean>`${explorers.phone} is not null`,
       n: counts.n,
     })
     .from(explorers)
     .leftJoin(counts, eq(counts.explorerId, explorers.id))
     .where(eq(explorers.crewId, crewId))
     .orderBy(asc(explorers.createdAt), asc(explorers.id));
-  return rows.map((r) => ({ ...r, reviewCount: r.n ?? 0 }));
+  return rows.map(({ n, ...r }) => ({ ...r, reviewCount: n ?? 0 }));
 }
 
 /** How many different parks this crew has stamped. */

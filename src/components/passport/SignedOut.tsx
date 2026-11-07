@@ -19,7 +19,7 @@ export function SignedOut() {
         color="purple"
         underline="orange"
         underlineWidth="w-44"
-        subtitle={<p>One little book for your whole crew.</p>}
+        subtitle={<p>One little book for your whole family.</p>}
       />
 
       {/* A peek inside: two stamps and a dashed "next one" */}
@@ -73,7 +73,7 @@ export function SignedOut() {
               "star",
               "Earn stickers: road trips, splash pads, all four seasons…",
             ],
-            ["heart", "Your crew shares one passport, so every trip counts."],
+            ["heart", "Your family shares one passport, so every trip counts."],
           ] as const
         ).map(([icon, t]) => (
           <li
@@ -89,12 +89,15 @@ export function SignedOut() {
       <div className="doodle-box-alt relative flex flex-col items-center gap-3 px-4 py-5 text-center">
         <h2 className="text-[1.7rem]">Want in?</h2>
         <p className="leading-snug text-ink-soft">
-          Is someone in your family already playing? Ask them for their crew
-          link. Starting fresh? Make your explorer in a snap.
+          Played before? Sign in with your phone. New here? Ask someone who
+          plays for an invite link.
         </p>
         <Arrow className="absolute top-12 -left-1 h-10 w-14 -scale-x-100 rotate-[200deg] opacity-70" />
-        <Link href="/me" className="crayon-btn wax w-full bg-crayon-yellow">
-          <Icon name="crayon" size={28} /> Make my explorer
+        <Link
+          href="/me?next=%2Fpassport#signin"
+          className="crayon-btn wax w-full bg-crayon-yellow"
+        >
+          <Icon name="crayon" size={28} /> Hop in
         </Link>
         <Link
           href="/"

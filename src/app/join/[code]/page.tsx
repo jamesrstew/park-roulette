@@ -6,6 +6,8 @@ import { Icon } from "@/components/icons";
 import { SmudgedCrayon } from "@/components/me/Doodles";
 import { JoinScreen } from "@/components/me/JoinScreen";
 import { findCrewByCode, getMe } from "@/lib/data";
+import { formatPhone } from "@/lib/phone-format";
+import { verifiedPhone } from "@/lib/session";
 
 export const metadata: Metadata = {
   title: "You're invited!",
@@ -17,16 +19,23 @@ export const metadata: Metadata = {
 
 async function Join({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const [found, me] = await Promise.all([
+  const [found, me, proved] = await Promise.all([
     findCrewByCode(decodeURIComponent(code).trim().toLowerCase()),
     getMe(),
+    verifiedPhone(),
   ]);
 
   if (!found) return <Smudged />;
 
   const members = [...found.members]
     .sort((a, b) => a.id - b.id)
-    .map((m) => ({ id: m.id, name: m.name, color: m.color, avatar: m.avatar }));
+    .map((m) => ({
+      id: m.id,
+      name: m.name,
+      color: m.color,
+      avatar: m.avatar,
+      hasPhone: m.hasPhone,
+    }));
 
   return (
     <JoinScreen
@@ -36,6 +45,7 @@ async function Join({ params }: { params: Promise<{ code: string }> }) {
       crewColor={found.crew.color}
       members={members}
       me={me ? { id: me.id, name: me.name, crewName: me.crew.name } : null}
+      provedPhone={proved && !me ? formatPhone(proved) : null}
     />
   );
 }

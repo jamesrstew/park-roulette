@@ -66,7 +66,7 @@ export function NameTag({
         </div>
         {crewName ? (
           <p className="border-t-2 border-dashed border-ink/25 px-4 py-1.5 text-center font-hand text-lg text-ink-soft">
-            Crew: <span className="text-ink">{crewName}</span>
+            Family: <span className="text-ink">{crewName}</span>
           </p>
         ) : null}
       </div>
