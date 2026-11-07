@@ -9,10 +9,18 @@ import { findCrewByCode, getMe } from "@/lib/data";
 import { formatPhone } from "@/lib/phone-format";
 import { verifiedPhone } from "@/lib/session";
 
-export const metadata: Metadata = {
-  title: "You're invited!",
+const invite = {
+  title: "You're invited to Park Roulette!",
   description:
     "Come play! Join the quest to visit every playground in Central Oregon.",
+};
+
+export const metadata: Metadata = {
+  title: "You're invited!",
+  description: invite.description,
+  // The words under the "Come play!" card in iMessage and group chats.
+  openGraph: { ...invite, type: "website" },
+  twitter: { card: "summary_large_image", ...invite },
   // Invite links are private keys to a crew: keep them out of search results.
   robots: { index: false, follow: false },
 };

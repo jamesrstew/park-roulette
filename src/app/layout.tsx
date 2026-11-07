@@ -35,6 +35,8 @@ export const metadata: Metadata = {
       "Spin the wheel, find a playground. Every playground in Central Oregon, one spin at a time.",
     type: "website",
   },
+  // Big picture previews everywhere; X falls back to each page's og:image.
+  twitter: { card: "summary_large_image" },
 };
 
 export const viewport: Viewport = {

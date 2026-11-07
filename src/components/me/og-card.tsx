@@ -6,7 +6,7 @@ import { CrayonStick, INK, PAPER, WheelArt } from "./brand-art";
 export const OG_SIZE = { width: 1200, height: 630 };
 
 /** Gochi Hand (OFL), bundled in public/fonts. Falls back to the default font. */
-async function handFont() {
+export async function handFont() {
   try {
     const data = await readFile(
       join(process.cwd(), "public/fonts/GochiHand-Regular.ttf"),
@@ -18,6 +18,12 @@ async function handFont() {
     return [];
   }
 }
+
+/** Link previews refresh hourly (stars change), not "forever". */
+const HEADERS = {
+  "cache-control":
+    "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
+};
 
 /** The shared crayon card for link unfurls (home and invite links). */
 export async function ogCard({
@@ -150,6 +156,6 @@ export async function ogCard({
         </div>
       </div>
     </div>,
-    { ...OG_SIZE, fonts },
+    { ...OG_SIZE, fonts, headers: HEADERS },
   );
 }

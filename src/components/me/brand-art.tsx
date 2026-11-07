@@ -6,15 +6,14 @@
 export const PAPER = "#fffaf0";
 export const INK = "#2b2a33";
 
+/** Six big wedges, the same as the app icon (src/lib/app-icon.ts). */
 const WEDGES = [
   "#e5432f",
   "#f58a2c",
   "#f7c933",
   "#3aa35b",
-  "#1fa4a8",
   "#2f78d4",
   "#8a5cc6",
-  "#ee6aa7",
 ];
 
 /** Slightly wobbly point on a circle, so the wheel looks hand drawn. */
