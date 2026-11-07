@@ -1,0 +1,112 @@
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { CrayonLoading } from "@/components/Loading";
+import { HomeScreenTip } from "@/components/me/HomeScreenTip";
+import { AvatarBlob } from "@/components/me/NameTag";
+import { ProfileCard } from "@/components/me/ProfileCard";
+import { ShareCard } from "@/components/me/ShareCard";
+import { SignedOutIntro } from "@/components/me/SignedOutIntro";
+import { SignOutButton } from "@/components/me/SignOutButton";
+import { getMe } from "@/lib/data";
+import { getCrewMembers, getCrewStampCount } from "@/lib/data-me";
+
+export const metadata: Metadata = { title: "Me" };
+
+async function MeScreen() {
+  const me = await getMe();
+  if (!me) return <SignedOutIntro />;
+  const [members, stamps] = await Promise.all([
+    getCrewMembers(me.crew.id),
+    getCrewStampCount(me.crew.id),
+  ]);
+
+  return (
+    <div className="flex flex-col gap-7 pt-2">
+      <h1 className="text-center font-sketch text-4xl font-bold">
+        Hi, {me.name}!
+      </h1>
+
+      <ProfileCard
+        initial={{
+          name: me.name,
+          color: me.color,
+          avatar: me.avatar,
+          crewName: me.crew.name,
+        }}
+      />
+
+      <section aria-labelledby="crew-h">
+        <div className="mb-3 flex items-baseline justify-between gap-2">
+          <h2 id="crew-h" className="text-3xl">
+            {me.crew.name}
+          </h2>
+          <span className="chip shrink-0">
+            📒 {stamps} {stamps === 1 ? "park" : "parks"}
+          </span>
+        </div>
+        <ul className="flex flex-wrap gap-x-4 gap-y-3">
+          {members.map((m) => (
+            <li key={m.id} className="flex w-20 flex-col items-center gap-1">
+              <AvatarBlob avatar={m.avatar} color={m.color} />
+              <span className="max-w-full truncate font-hand text-xl leading-none">
+                {m.id === me.id ? "You" : m.name}
+              </span>
+              <span className="text-xs text-ink-soft">
+                {m.reviewCount} {m.reviewCount === 1 ? "review" : "reviews"}
+              </span>
+            </li>
+          ))}
+          <li className="flex w-20 flex-col items-center gap-1">
+            <a
+              href="#add-crew"
+              aria-label="Add someone to our crew"
+              className="grid size-14 place-items-center rounded-[var(--radius-blob)] border-[2.5px] border-dashed border-ink-soft font-hand text-3xl text-ink-soft"
+            >
+              +
+            </a>
+            <span className="font-hand text-xl leading-none text-ink-soft">
+              Add
+            </span>
+          </li>
+        </ul>
+      </section>
+
+      <div id="add-crew" className="flex scroll-mt-6 flex-col gap-5">
+        <h2 className="-mb-1 text-3xl">Bring more explorers</h2>
+        <ShareCard
+          emoji="🏠"
+          title="Add to our crew"
+          blurb="For family. They share your passport, so every stamp counts for both of you."
+          warning="Anyone with this link can join your crew and stamp your passport. Keep it in the family."
+          path={`/join/${me.crew.joinCode}`}
+          color="blue"
+          shareTitle={`Join ${me.crew.name} on Park Roulette`}
+          shareText={`Join ${me.crew.name} on Park Roulette! Tap to hop on our playground quest:`}
+          tilt={-0.6}
+        />
+        <ShareCard
+          emoji="🎈"
+          title="Invite a friend"
+          blurb="Friends start their own crew and passport. Everyone's reviews are shared."
+          path={`/join/${me.crew.friendCode}`}
+          color="green"
+          shareTitle="Come play Park Roulette!"
+          shareText="We're trying to visit every playground in Central Oregon. Start your own quest with us:"
+          tilt={0.6}
+        />
+      </div>
+
+      <HomeScreenTip />
+
+      <SignOutButton name={me.name} />
+    </div>
+  );
+}
+
+export default function MePage() {
+  return (
+    <Suspense fallback={<CrayonLoading />}>
+      <MeScreen />
+    </Suspense>
+  );
+}

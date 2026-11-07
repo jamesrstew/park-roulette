@@ -258,10 +258,20 @@ export function matchesSmartFilter(
   return true;
 }
 
-/** Why a park got crossed off the bucket list (status values other than "active"). */
+/**
+ * Ways to fix the bucket list. no_playground keeps the park (as a park
+ * without a playground); closed and private cross it off.
+ */
 export const CROSS_OFF_REASONS = {
-  no_playground: { label: "No playground here", emoji: "🚫" },
+  no_playground: { label: "No playground (just a park)", emoji: "🌳" },
   closed: { label: "Closed or torn down", emoji: "🚧" },
   private: { label: "Private (HOA, school…)", emoji: "🔒" },
 } as const;
 export type ParkStatus = "active" | keyof typeof CROSS_OFF_REASONS;
+
+export const PLAY_TYPES = {
+  playground: { label: "Playground", emoji: "🛝" },
+  nature: { label: "Nature play", emoji: "🪵" },
+  none: { label: "Park, no playground", emoji: "🌳" },
+} as const;
+export type PlayType = keyof typeof PLAY_TYPES;

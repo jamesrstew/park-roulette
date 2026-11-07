@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Cabin_Sketch, Gochi_Hand, Shantell_Sans } from "next/font/google";
-import { BottomNav } from "@/components/BottomNav";
+import { Suspense } from "react";
+import { BottomNav, NavBar } from "@/components/BottomNav";
 import { CrayonDefs } from "@/components/CrayonDefs";
 import "./globals.css";
 
@@ -58,7 +59,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <main className="mx-auto w-full max-w-xl flex-1 px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-32">
           {children}
         </main>
-        <BottomNav />
+        <Suspense fallback={<NavBar path="" />}>
+          <BottomNav />
+        </Suspense>
       </body>
     </html>
   );

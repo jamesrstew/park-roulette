@@ -32,7 +32,11 @@ const TABS = [
 ];
 
 export function BottomNav() {
-  const path = usePathname();
+  return <NavBar path={usePathname()} />;
+}
+
+/** Hook-free nav, also used as the static Suspense fallback. */
+export function NavBar({ path }: { path: string }) {
   return (
     <nav
       aria-label="Main"

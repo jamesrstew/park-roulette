@@ -28,12 +28,15 @@ const RADII = [5, 10, 20, 40];
 
 type Filters = {
   newOnly: boolean;
+  /** include parks without a playground */
+  allParks: boolean;
   town: string;
   radius: number | null;
   features: string[];
 };
 const DEFAULT_FILTERS: Filters = {
   newOnly: true,
+  allParks: false,
   town: "",
   radius: null,
   features: [],
@@ -92,11 +95,17 @@ export function SpinScreen({
     () => [...new Set(parks.map((p) => p.city))].sort(),
     [parks],
   );
+  const playgrounds = useMemo(
+    () => parks.filter((p) => p.play !== "none"),
+    [parks],
+  );
+  const playVisited = playgrounds.filter((p) => p.lastVisit).length;
   const visitedCount = parks.filter((p) => p.lastVisit).length;
 
   const pool = useMemo(
     () =>
       parks.filter((p) => {
+        if (!filters.allParks && p.play === "none") return false;
         if (signedIn && filters.newOnly && p.lastVisit) return false;
         if (filters.town && p.city !== filters.town) return false;
         if (filters.radius && here && milesBetween(here, p) > filters.radius)
@@ -200,11 +209,11 @@ export function SpinScreen({
         <p className="mt-1 font-hand text-xl text-ink-soft">
           {signedIn ? (
             <>
-              <span className="highlight">{visitedCount}</span> of{" "}
-              {parks.length} playgrounds colored in!
+              <span className="highlight">{playVisited}</span> of{" "}
+              {playgrounds.length} playgrounds colored in!
             </>
           ) : (
-            <>{parks.length} playgrounds in Central Oregon. Where to?</>
+            <>{playgrounds.length} playgrounds in Central Oregon. Where to?</>
           )}
         </p>
       </header>
@@ -284,6 +293,15 @@ export function SpinScreen({
             </div>
             <div className="flex flex-col gap-1">
               <span className="font-hand text-lg">Today we want…</span>
+              <button
+                className="chip self-start"
+                aria-pressed={filters.allParks}
+                onClick={() =>
+                  setFilters((f) => ({ ...f, allParks: !f.allParks }))
+                }
+              >
+                🌳 Parks without playgrounds too
+              </button>
               <div className="flex flex-wrap gap-2">
                 {SMART_FILTERS.map(({ key: k, emoji, label }) => (
                   <button

@@ -341,22 +341,63 @@ const flagInput = z.object({
   note: z.string().trim().max(300).optional(),
 });
 
-/** "There's no playground here!" Soft-hides a park; anyone can undo. */
+/**
+ * Cross a park off the bucket list (closed, private) or put it back.
+ * "no_playground" is a correction, not a cross-off: the park stays on the
+ * list as a park without a playground. Anyone in any crew can undo.
+ */
 export async function setParkStatus(
   input: z.input<typeof flagInput>,
 ): Promise<ActionResult> {
   try {
     const me = await requireMe();
     const data = flagInput.parse(input);
+    if (data.status === "no_playground") {
+      await db
+        .update(parks)
+        .set({
+          play: "none",
+          status: "active",
+          statusNote: `${data.note || "No playground here"} (${me.name})`,
+        })
+        .where(eq(parks.id, data.parkId));
+    } else {
+      await db
+        .update(parks)
+        .set({
+          status: data.status,
+          statusNote:
+            data.status === "active"
+              ? null
+              : `${data.note || "Crossed off"} (${me.name})`,
+          confidence: data.status === "active" ? "confirmed" : undefined,
+        })
+        .where(eq(parks.id, data.parkId));
+    }
+    refresh();
+    return { ok: true };
+  } catch (e) {
+    return fail(e);
+  }
+}
+
+const playInput = z.object({
+  parkId: z.number().int().positive(),
+  play: z.enum(["playground", "nature", "none"]),
+});
+
+/** "Actually there IS a playground!" (or the reverse). */
+export async function setParkPlay(
+  input: z.input<typeof playInput>,
+): Promise<ActionResult> {
+  try {
+    const me = await requireMe();
+    const data = playInput.parse(input);
     await db
       .update(parks)
       .set({
-        status: data.status,
-        statusNote:
-          data.status === "active"
-            ? null
-            : `${data.note || "Flagged"} (${me.name})`,
-        confidence: data.status === "active" ? "confirmed" : undefined,
+        play: data.play,
+        statusNote: `Marked ${data.play === "none" ? "no playground" : data.play} by ${me.name}`,
       })
       .where(eq(parks.id, data.parkId));
     refresh();
