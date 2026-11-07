@@ -1,4 +1,5 @@
 import { CRAYONS, townCrayon } from "@/lib/crayons";
+import { Icon } from "@/components/icons";
 import { Stars } from "../Stars";
 import { CoverPhoto } from "./CoverPhoto";
 import { Underline } from "../Scribbles";
@@ -42,7 +43,7 @@ export function ParkHero({
           style={{ backgroundColor: town }}
           title={`${city}, Oregon`}
         >
-          📍 {city}
+          <Icon name="pin" size={22} /> {city}
         </span>
       </div>
 
@@ -136,8 +137,9 @@ function VisitStamp({
         <span className="font-hand text-[1.35rem] leading-tight">
           {formatDay(lastVisit).replace(/, \d{4}$/, "")}
         </span>
-        <span className="text-base leading-none">
-          ✅{visitCount > 1 ? ` ×${visitCount}` : ""}
+        <span className="inline-flex items-center gap-0.5 text-base leading-none">
+          <Icon name="check" size={20} />
+          {visitCount > 1 ? `×${visitCount}` : ""}
         </span>
       </div>
     );
@@ -146,7 +148,7 @@ function VisitStamp({
   return (
     <div className="absolute -right-1 -bottom-4 flex h-[5.4rem] w-[5.4rem] rotate-[10deg] flex-col items-center justify-center rounded-full border-[2.5px] border-dashed border-ink-soft/70 bg-[#fffdf7]/90 text-ink-soft">
       <span className="font-hand text-sm leading-none">not yet!</span>
-      <span className="text-2xl leading-tight">🗺️</span>
+      <Icon name="map" size={28} className="mt-0.5" />
     </div>
   );
 }

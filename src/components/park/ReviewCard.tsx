@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Icon, attrIcon } from "@/components/icons";
 import { crayon } from "@/lib/crayons";
 import type { ReviewView } from "@/lib/data";
 import { ATTRIBUTES } from "@/lib/features";
@@ -34,10 +35,10 @@ export function ReviewCard({
     >
       {mine && (
         <span
-          className="absolute -top-3 left-5 rotate-[-4deg] rounded-sm border-2 border-ink bg-crayon-yellow px-2 font-hand text-base leading-6"
+          className="absolute -top-3 left-5 inline-flex rotate-[-4deg] items-center gap-1 rounded-sm border-2 border-ink bg-crayon-yellow px-2 font-hand text-base leading-6"
           aria-label="Your review"
         >
-          ✏️ You
+          <Icon name="edit" size={18} /> You
         </span>
       )}
       <header className="flex items-center gap-3">
@@ -84,7 +85,7 @@ export function ReviewCard({
                 key={t}
                 className={`inline-flex items-center gap-1 rounded-full border-[1.5px] px-2 py-0.5 text-[0.8rem] ${h ? "border-crayon-red bg-[color-mix(in_srgb,var(--color-crayon-orange)_18%,#fffdf7)]" : "border-ink/40"}`}
               >
-                <span aria-hidden>{a.emoji}</span>
+                <Icon name={attrIcon(t)} size={18} />
                 {a.label}
               </li>
             );

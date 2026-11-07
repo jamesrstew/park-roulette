@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
+import { Icon } from "@/components/icons";
 import { HomeScreenTip } from "@/components/me/HomeScreenTip";
 import { AvatarBlob } from "@/components/me/NameTag";
 import { ProfileCard } from "@/components/me/ProfileCard";
@@ -53,7 +54,8 @@ async function MeScreen() {
             {me.crew.name}
           </h2>
           <span className="chip shrink-0">
-            📒 {stamps} {stamps === 1 ? "park" : "parks"}
+            <Icon name="stamp" size={22} /> {stamps}{" "}
+            {stamps === 1 ? "park" : "parks"}
           </span>
         </div>
         <ul className="flex flex-wrap gap-x-4 gap-y-3">
@@ -72,9 +74,9 @@ async function MeScreen() {
             <a
               href="#add-crew"
               aria-label="Add someone to our crew"
-              className="grid size-14 place-items-center rounded-[var(--radius-blob)] border-[2.5px] border-dashed border-ink-soft font-hand text-3xl text-ink-soft"
+              className="grid size-14 place-items-center rounded-[var(--radius-blob)] border-[2.5px] border-dashed border-ink-soft"
             >
-              +
+              <Icon name="plus" size={26} className="opacity-60" />
             </a>
             <span className="font-hand text-xl leading-none text-ink-soft">
               Add
@@ -86,7 +88,7 @@ async function MeScreen() {
       <div id="add-crew" className="flex scroll-mt-6 flex-col gap-5">
         <h2 className="-mb-1 text-3xl">Bring more explorers</h2>
         <ShareCard
-          emoji="🏠"
+          icon="home"
           title="Add to our crew"
           blurb="For family. They share your passport, so every stamp counts for both of you."
           warning="Anyone with this link can join your crew and stamp your passport. Keep it in the family."
@@ -97,7 +99,7 @@ async function MeScreen() {
           tilt={-0.6}
         />
         <ShareCard
-          emoji="🎈"
+          icon="party"
           title="Invite a friend"
           blurb="Friends start their own crew and passport. Everyone's reviews are shared."
           path={`/join/${me.crew.friendCode}`}

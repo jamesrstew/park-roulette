@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Icon } from "@/components/icons";
 
 export type MediaItem = { id: number | string; url: string; kind: string };
 
@@ -127,7 +128,7 @@ export function Lightbox({
             aria-label="Previous"
             onClick={() => go(-1)}
           >
-            ←
+            <Icon name="arrow_left" size={26} />
           </button>
           <div className="flex gap-1.5" aria-hidden>
             {items.map((m, j) => (
@@ -143,7 +144,7 @@ export function Lightbox({
             aria-label="Next"
             onClick={() => go(1)}
           >
-            →
+            <Icon name="arrow_right" size={26} />
           </button>
         </div>
       )}

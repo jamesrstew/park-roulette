@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { crayon, townCrayon } from "@/lib/crayons";
 import { SectionTitle, stampDate, tilt } from "./bits";
 
@@ -69,7 +70,7 @@ export function Stamps({ stamps }: { stamps: StampView[] }) {
   return (
     <section aria-labelledby="stamps-h">
       <SectionTitle
-        emoji="📬"
+        icon="stamp"
         color="#e5432f"
         aside={
           stamps.length > 0 && (
@@ -129,7 +130,7 @@ function EmptyStamps() {
         it lands here.
       </p>
       <Link href="/" className="crayon-btn wax bg-crayon-yellow">
-        🎡 Spin the wheel
+        <Icon name="spin" size={28} /> Spin the wheel
       </Link>
     </div>
   );

@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Icon, type IconName } from "@/components/icons";
 import type { ParkSummary } from "@/lib/data";
 import { hasPlayground, isCrossedOff, tally } from "@/lib/features";
 import { stampMilestone, type Milestone } from "@/lib/milestones";
@@ -144,7 +145,13 @@ export function MapScreen({
                   <p className="font-hand text-xl leading-tight">
                     <span className="font-hand text-2xl">{done}</span> of{" "}
                     {quest.total} playgrounds
-                    {done > 0 && done === quest.total ? " 🏆" : ""}
+                    {done > 0 && done === quest.total && (
+                      <Icon
+                        name="trophy"
+                        size={24}
+                        className="ml-1 inline-block align-[-4px]"
+                      />
+                    )}
                   </p>
                   <ProgressBar value={done} max={quest.total} />
                 </>
@@ -170,7 +177,7 @@ export function MapScreen({
               className="crayon-btn min-h-11 shrink-0 bg-paper px-3 text-lg"
               aria-label="Show as a list"
             >
-              📋 List
+              <Icon name="list" size={26} /> List
             </Link>
           </div>
           {signedIn && total > 0 && !selected && (
@@ -182,19 +189,21 @@ export function MapScreen({
               <FilterChip
                 on={filter === "all"}
                 onClick={() => setFilter("all")}
-                label="All"
+                label="All parks"
                 n={active.length}
               />
               <FilterChip
                 on={filter === "todo"}
                 onClick={() => setFilter("todo")}
-                label="🖍️ To visit"
+                icon="crayon"
+                label="To visit"
                 n={active.length - visitedCount}
               />
               <FilterChip
                 on={filter === "done"}
                 onClick={() => setFilter("done")}
-                label="⭐ Visited"
+                icon="star"
+                label="Visited"
                 n={visitedCount}
               />
             </div>
@@ -213,13 +222,13 @@ export function MapScreen({
               onClick={() => router.push(addHref())}
               className="crayon-btn wax pointer-events-auto bg-crayon-orange text-lg text-white"
             >
-              ＋ Add a park
+              <Icon name="plus" size={24} /> Add a park
             </button>
             <button
               onClick={locate}
               disabled={locating}
               aria-label="Show where I am"
-              className="crayon-btn pointer-events-auto h-14 w-14 rounded-[var(--radius-blob)] bg-paper p-0 text-2xl"
+              className="crayon-btn pointer-events-auto h-14 w-14 rounded-[var(--radius-blob)] bg-paper p-0"
             >
               <span
                 className={
@@ -228,7 +237,7 @@ export function MapScreen({
                     : ""
                 }
               >
-                📍
+                <Icon name="near_me" size={30} />
               </span>
             </button>
           </div>
@@ -278,11 +287,13 @@ export function MapScreen({
 function FilterChip({
   on,
   onClick,
+  icon,
   label,
   n,
 }: {
   on: boolean;
   onClick: () => void;
+  icon?: IconName;
   label: string;
   n: number;
 }) {
@@ -292,6 +303,7 @@ function FilterChip({
       aria-pressed={on}
       onClick={onClick}
     >
+      {icon && <Icon name={icon} size={22} />}
       {label}
       <span className="font-body text-sm text-ink-soft">{n}</span>
     </button>
@@ -305,27 +317,31 @@ function EmptyCard({
   kind: "blank" | "no-stars" | "all-done";
   onShowAll: () => void;
 }) {
-  const copy = {
-    blank: {
-      emoji: "🗺️",
-      title: "The map is blank!",
-      body: "No playgrounds yet. Know one? Put it on the map.",
-    },
-    "no-stars": {
-      emoji: "⭐",
-      title: "No gold stars yet",
-      body: "Every park you visit turns into a star. Let's get the first one!",
-    },
-    "all-done": {
-      emoji: "🏆",
-      title: "Every park colored in!",
-      body: "You did it. Know a playground we missed?",
-    },
-  }[kind];
+  const copy = (
+    {
+      blank: {
+        icon: "map",
+        title: "The map is blank!",
+        body: "No playgrounds yet. Know one? Put it on the map.",
+      },
+      "no-stars": {
+        icon: "star",
+        title: "No gold stars yet",
+        body: "Every park you visit turns into a star. Let's get the first one!",
+      },
+      "all-done": {
+        icon: "trophy",
+        title: "Every park colored in!",
+        body: "You did it. Know a playground we missed?",
+      },
+    } as const
+  )[kind];
   return (
     <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center px-8">
       <div className="doodle-box pointer-events-auto flex max-w-xs animate-pop-in flex-col items-center gap-2 bg-[#fffdf7] p-6 text-center shadow-[4px_5px_0_#2b2a33]">
-        <span className="animate-float text-5xl">{copy.emoji}</span>
+        <span className="animate-float">
+          <Icon name={copy.icon} size={56} />
+        </span>
         <h2 className="text-3xl">{copy.title}</h2>
         <p className="text-ink-soft">{copy.body}</p>
         {kind === "no-stars" ? (
@@ -333,14 +349,14 @@ function EmptyCard({
             href="/"
             className="crayon-btn wax mt-1 bg-crayon-pink text-white"
           >
-            🎡 Spin the wheel
+            <Icon name="spin" size={26} /> Spin the wheel
           </Link>
         ) : (
           <Link
             href="/parks/new"
             className="crayon-btn wax mt-1 bg-crayon-orange text-white"
           >
-            ＋ Add a park
+            <Icon name="plus" size={24} /> Add a park
           </Link>
         )}
         {kind !== "blank" && (
@@ -360,8 +376,8 @@ export function MapLoading() {
   return (
     <div className="grid h-full w-full place-items-center bg-paper-dark">
       <div className="flex flex-col items-center gap-2" role="status">
-        <span className="inline-block animate-wiggle text-5xl [animation-iteration-count:infinite]">
-          🗺️
+        <span className="inline-block animate-wiggle [animation-iteration-count:infinite]">
+          <Icon name="map" size={56} />
         </span>
         <p className="font-hand text-2xl text-ink-soft">Unfolding the map…</p>
       </div>

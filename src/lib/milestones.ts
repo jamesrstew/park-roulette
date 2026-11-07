@@ -1,6 +1,12 @@
+import type { IconName } from "@/components/icons";
 import { hasPlayground, isCrossedOff, tally } from "./features";
 
-export type Milestone = { emoji: string; title: string; line: string };
+export type Milestone = {
+  emoji: string;
+  icon: IconName;
+  title: string;
+  line: string;
+};
 
 type P = {
   id: number;
@@ -23,6 +29,7 @@ export function stampMilestone(parks: P[], parkId: number): Milestone | null {
   if (!parks.some((p) => p.lastVisit))
     return {
       emoji: "🎟️",
+      icon: "ticket",
       title: "Your first stamp!",
       line: "The quest is officially on.",
     };
@@ -33,6 +40,7 @@ export function stampMilestone(parks: P[], parkId: number): Milestone | null {
   if (all.done === all.total)
     return {
       emoji: "🏆",
+      icon: "trophy",
       title: "Every playground!",
       line: `All ${all.total} of them. You did it!`,
     };
@@ -44,6 +52,7 @@ export function stampMilestone(parks: P[], parkId: number): Milestone | null {
   if (town.done === town.total)
     return {
       emoji: "👑",
+      icon: "crown",
       title: `${park.city}: all done!`,
       line:
         town.total === 1

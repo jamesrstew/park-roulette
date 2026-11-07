@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateProfile } from "@/lib/client-actions";
+import { Icon } from "@/components/icons";
 import { AvatarPicker } from "./AvatarPicker";
 import { CrayonPicker } from "./CrayonPicker";
 import { NameTag } from "./NameTag";
@@ -54,9 +55,9 @@ export function ProfileCard({ initial }: { initial: Profile }) {
         {saved ? (
           <span
             role="status"
-            className="absolute -top-2 right-2 rotate-6 animate-pop-in rounded-full border-2 border-ink bg-crayon-green px-3 py-0.5 font-hand text-xl text-white shadow-[2px_3px_0_#2b2a33]"
+            className="absolute -top-2 right-2 inline-flex rotate-6 animate-pop-in items-center gap-1 rounded-full border-2 border-ink bg-crayon-green px-3 py-0.5 font-hand text-xl text-white shadow-[2px_3px_0_#2b2a33]"
           >
-            Saved! ✨
+            Saved! <Icon name="sparkles" size={20} />
           </span>
         ) : null}
       </div>
@@ -65,9 +66,9 @@ export function ProfileCard({ initial }: { initial: Profile }) {
         <button
           type="button"
           onClick={open}
-          className="mx-auto min-h-11 px-3 font-hand text-xl underline decoration-crayon-orange decoration-wavy underline-offset-4"
+          className="mx-auto inline-flex min-h-11 items-center gap-1.5 px-3 font-hand text-xl underline decoration-crayon-orange decoration-wavy underline-offset-4"
         >
-          ✏️ Change my name tag
+          <Icon name="edit" size={24} /> Change my name tag
         </button>
       ) : (
         <form

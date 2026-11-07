@@ -2,6 +2,7 @@
 
 import confetti from "canvas-confetti";
 import { useEffect } from "react";
+import { Icon } from "@/components/icons";
 import { CRAYONS } from "@/lib/crayons";
 import type { Milestone } from "@/lib/milestones";
 import { sfx } from "@/lib/sound";
@@ -40,8 +41,8 @@ export function MilestoneCard({
         aria-label={milestone.title}
         className="doodle-box flex max-w-xs animate-pop-in flex-col items-center gap-1 bg-[#fffdf7] px-6 py-6 text-center shadow-[4px_5px_0_#2b2a33]"
       >
-        <span className="animate-float text-6xl" aria-hidden>
-          {milestone.emoji}
+        <span className="animate-float">
+          <Icon name={milestone.icon} size={68} />
         </span>
         <h2 className="mt-1 font-hand text-[2.1rem] leading-none text-balance">
           {milestone.title}

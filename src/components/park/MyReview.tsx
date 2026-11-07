@@ -3,6 +3,7 @@
 import confetti from "canvas-confetti";
 import { useEffect, useState, useTransition } from "react";
 import { deleteReview } from "@/lib/client-actions";
+import { Icon } from "@/components/icons";
 import { CRAYONS } from "@/lib/crayons";
 import type { ReviewView } from "@/lib/data";
 import { formatStars, verdict } from "@/lib/rating";
@@ -74,7 +75,7 @@ export function MyReview({
     return (
       <div id="review" className="scroll-mt-6">
         <JoinNudge
-          emoji="⭐"
+          icon="star"
           line={
             firstCritic
               ? "No stars yet. Join and be the first critic!"
@@ -140,7 +141,7 @@ export function MyReview({
                     className="crayon-btn min-h-11 flex-1 bg-paper text-lg"
                     onClick={() => setEditing(true)}
                   >
-                    ✏️ Edit
+                    <Icon name="edit" size={24} /> Edit
                   </button>
                   <button
                     type="button"
@@ -148,7 +149,7 @@ export function MyReview({
                     onClick={() => setConfirmDelete(true)}
                     aria-label="Delete my review"
                   >
-                    🗑️
+                    <Icon name="trash" size={24} />
                   </button>
                 </>
               )}
@@ -193,9 +194,7 @@ function ThanksCritic({
       className="fixed inset-x-0 top-1/3 z-[2000] mx-auto flex w-[min(20rem,86vw)] animate-pop-in flex-col items-center gap-1 rounded-[var(--radius-wobbly)] border-[3px] border-ink bg-[#fffdf7] px-5 py-5 shadow-[5px_6px_0_#2b2a33]"
       aria-live="polite"
     >
-      <span className="text-5xl" aria-hidden>
-        🏆
-      </span>
+      <Icon name="trophy" size={60} />
       <span className="font-hand text-4xl leading-none">Thanks, critic!</span>
       <span className="font-hand text-xl text-ink-soft">
         {formatStars(tenths)} stars · {verdict(tenths)}

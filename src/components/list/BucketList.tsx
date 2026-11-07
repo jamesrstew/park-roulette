@@ -3,6 +3,14 @@
 import Link from "next/link";
 import { useCallback, useMemo, useState, useTransition } from "react";
 import { logVisit, setParkPlay, setParkStatus } from "@/lib/client-actions";
+import {
+  CROSS_OFF_ICONS,
+  Icon,
+  PLAY_ICONS,
+  SMART_FILTER_ICONS,
+  attrIcon,
+  type IconName,
+} from "@/components/icons";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import {
@@ -154,21 +162,22 @@ export function BucketList({
       >
         {(
           [
-            ["playgrounds", "🛝 Playgrounds"],
-            ["all", "🌳 Every park"],
+            ["playgrounds", "playground", "Playgrounds"],
+            ["all", "park", "Every park"],
           ] as const
-        ).map(([k, label]) => (
+        ).map(([k, icon, label]) => (
           <button
             key={k}
             role="tab"
             aria-selected={mode === k}
             onClick={() => setMode(k)}
-            className={`min-h-11 rounded-[var(--radius-wobbly)] font-hand text-xl transition-colors ${
+            className={`inline-flex min-h-11 items-center justify-center gap-1.5 rounded-[var(--radius-wobbly)] font-hand text-xl transition-colors ${
               mode === k
                 ? "wax bg-crayon-yellow shadow-[2px_2px_0_#2b2a33]"
                 : ""
             }`}
           >
+            <Icon name={icon} size={24} />
             {label}
           </button>
         ))}
@@ -176,33 +185,41 @@ export function BucketList({
 
       <ProgressCard
         noun={mode === "all" ? "parks" : "playgrounds"}
+        otherIcon={mode === "all" ? "playground" : "park"}
         total={total}
         done={done}
         crossed={crossed}
         resolved={resolved}
         other={
           other.total > 0 && other.total !== total
-            ? `${mode === "all" ? "🛝" : "🌳"} ${other.done} of ${other.total} ${mode === "all" ? "playgrounds" : "parks total"}`
+            ? `${other.done} of ${other.total} ${mode === "all" ? "playgrounds" : "parks total"}`
             : null
         }
       />
 
       {/* Sticky search + filters */}
       <div className="sticky top-0 z-20 -mx-4 flex flex-col gap-2 bg-paper/95 px-4 pt-2 pb-2 backdrop-blur">
-        <input
-          className="field"
-          type="search"
-          placeholder="🔍 Find a park or town…"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          aria-label="Search parks"
-        />
+        <div className="relative">
+          <Icon
+            name="search"
+            size={22}
+            className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+          />
+          <input
+            className="field pl-11"
+            type="search"
+            placeholder="Find a park or town…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Search parks"
+          />
+        </div>
         <div className="-mx-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1">
           {(
             [
               ["all", `All ${total}`],
               ["todo", `To do ${total - resolved}`],
-              ["done", `✅ Visited ${done}`],
+              ["done", `Visited ${done}`],
               ["crossed", `✗ Crossed off ${crossed}`],
             ] as [Show, string][]
           )
@@ -214,6 +231,7 @@ export function BucketList({
                 aria-pressed={show === k}
                 onClick={() => setShow(k)}
               >
+                {k === "done" && <Icon name="check" size={20} />}
                 {label}
               </button>
             ))}
@@ -222,7 +240,7 @@ export function BucketList({
             aria-pressed={sort === "near"}
             onClick={nearMe}
           >
-            📍 Nearest
+            <Icon name="near_me" size={20} /> Nearest
           </button>
         </div>
         <div className="-mx-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1">
@@ -239,7 +257,13 @@ export function BucketList({
                 )
               }
             >
-              {f.emoji} {f.label}
+              <Icon
+                name={
+                  SMART_FILTER_ICONS[f.key as keyof typeof SMART_FILTER_ICONS]
+                }
+                size={20}
+              />{" "}
+              {f.label}
             </button>
           ))}
         </div>
@@ -247,7 +271,7 @@ export function BucketList({
 
       {groups.length === 0 && (
         <div className="doodle-box flex flex-col items-center gap-2 p-8 text-center">
-          <span className="text-5xl">🔎</span>
+          <Icon name="search" size={56} />
           <p className="font-hand text-2xl">Nothing matches that.</p>
           <button
             className="font-hand text-lg text-crayon-blue underline"
@@ -277,10 +301,14 @@ export function BucketList({
                 {town}
               </h2>
               {tt && sort !== "near" && (
-                <span className="font-hand text-lg text-ink-soft">
-                  {tt.resolved === tt.total
-                    ? "🏆 all done!"
-                    : `${tt.resolved}/${tt.total}`}
+                <span className="inline-flex items-center gap-1 font-hand text-lg text-ink-soft">
+                  {tt.resolved === tt.total ? (
+                    <>
+                      <Icon name="trophy" size={22} /> all done!
+                    </>
+                  ) : (
+                    `${tt.resolved}/${tt.total}`
+                  )}
                 </span>
               )}
             </div>
@@ -316,7 +344,7 @@ export function BucketList({
           href="/parks/new"
           className="crayon-btn wax self-center bg-crayon-yellow"
         >
-          ➕ Add a missing park
+          <Icon name="plus" size={24} /> Add a missing park
         </Link>
       )}
 
@@ -342,9 +370,9 @@ export function BucketList({
           {toast.href && (
             <Link
               href={toast.href}
-              className="shrink-0 font-hand text-lg text-crayon-blue underline"
+              className="inline-flex shrink-0 items-center gap-1 font-hand text-lg text-crayon-blue underline"
             >
-              Rate it ⭐
+              Rate it <Icon name="star" size={20} />
             </Link>
           )}
         </div>
@@ -355,6 +383,7 @@ export function BucketList({
 
 function ProgressCard({
   noun,
+  otherIcon,
   total,
   done,
   crossed,
@@ -362,11 +391,12 @@ function ProgressCard({
   other,
 }: {
   noun: string;
+  otherIcon: IconName;
   total: number;
   done: number;
   crossed: number;
   resolved: number;
-  /** The other count, e.g. "🌳 4 of 9 parks total". */
+  /** The other count, e.g. "4 of 9 parks total". */
   other: string | null;
 }) {
   const pct = total ? Math.round((resolved / total) * 100) : 0;
@@ -380,8 +410,14 @@ function ProgressCard({
             / {total} {noun}
           </span>
         </p>
-        <p className="font-hand text-3xl text-crayon-green">
-          {total > 0 && resolved === total ? "🏆 100%!" : `${pct}% done`}
+        <p className="inline-flex items-center gap-1 font-hand text-3xl text-crayon-green">
+          {total > 0 && resolved === total ? (
+            <>
+              <Icon name="trophy" size={34} /> 100%!
+            </>
+          ) : (
+            `${pct}% done`
+          )}
         </p>
       </div>
       {/* the bar: green = colored in, gray scribble = crossed off */}
@@ -426,11 +462,19 @@ function ProgressCard({
         )}
       </svg>
       <p className="font-hand text-lg text-ink-soft">
-        ✅ {done} colored in{crossed > 0 ? ` · ✗ ${crossed} crossed off` : ""} ·{" "}
+        <Icon
+          name="check"
+          size={20}
+          className="mr-1 inline-block align-[-3px]"
+        />
+        {done} colored in{crossed > 0 ? ` · ✗ ${crossed} crossed off` : ""} ·{" "}
         {total - resolved} to go
       </p>
       {other && (
-        <p className="-mt-1 font-hand text-lg text-ink-soft">{other}</p>
+        <p className="-mt-1 flex items-center gap-1.5 font-hand text-lg text-ink-soft">
+          <Icon name={otherIcon} size={22} />
+          {other}
+        </p>
       )}
     </div>
   );
@@ -467,7 +511,7 @@ function Row({
   const s = justChecked ? "done" : state(park);
   const headsUps = Object.entries(attributeScores(park.features, park.reports))
     .filter(([k, n]) => n > 0 && ATTRIBUTES[k]?.kind === "heads_up")
-    .map(([k]) => ATTRIBUTES[k]);
+    .map(([k]) => k);
 
   return (
     <li className="flex items-center gap-2 py-1.5">
@@ -510,26 +554,37 @@ function Row({
         </span>
         <span className="flex flex-wrap items-center gap-x-2 text-sm text-ink-soft">
           {s === "crossed" ? (
-            <span>
-              {
-                CROSS_OFF_REASONS[park.status as keyof typeof CROSS_OFF_REASONS]
-                  ?.emoji
-              }{" "}
+            <span className="inline-flex items-center gap-1">
+              {park.status in CROSS_OFF_ICONS && (
+                <Icon
+                  name={
+                    CROSS_OFF_ICONS[park.status as keyof typeof CROSS_OFF_ICONS]
+                  }
+                  size={18}
+                />
+              )}
               {CROSS_OFF_REASONS[park.status as keyof typeof CROSS_OFF_REASONS]
                 ?.label ?? "Crossed off"}
             </span>
           ) : (
             <>
               {playOf(park) !== "playground" && (
-                <span>
-                  {PLAY_TYPES[playOf(park)].emoji}{" "}
+                <span className="inline-flex items-center gap-1">
+                  <Icon name={PLAY_ICONS[playOf(park)]} size={18} />
                   {PLAY_TYPES[playOf(park)].label}
                 </span>
               )}
               {park.avgTenths != null && (
-                <span>⭐ {formatStars(park.avgTenths)}</span>
+                <span className="inline-flex items-center gap-1">
+                  <Icon name="star" size={16} /> {formatStars(park.avgTenths)}
+                </span>
               )}
-              {here && <span>🚗 {formatMiles(milesBetween(here, park))}</span>}
+              {here && (
+                <span className="inline-flex items-center gap-1">
+                  <Icon name="car" size={18} />{" "}
+                  {formatMiles(milesBetween(here, park))}
+                </span>
+              )}
               {here && <span>{park.city}</span>}
               {park.lastVisit && (
                 <span>
@@ -540,13 +595,13 @@ function Row({
                   )}
                 </span>
               )}
-              {headsUps.slice(0, 2).map((a) => (
+              {headsUps.slice(0, 2).map((k) => (
                 <span
-                  key={a.label}
-                  className="text-crayon-orange"
-                  title={a.label}
+                  key={k}
+                  className="inline-flex items-center gap-1 text-crayon-orange"
+                  title={ATTRIBUTES[k].label}
                 >
-                  {a.emoji} {a.label}
+                  <Icon name={attrIcon(k)} size={18} /> {ATTRIBUTES[k].label}
                 </span>
               ))}
             </>
@@ -687,7 +742,7 @@ function CrossOffSheet({
           href={`/parks/${park.slug}`}
           className="crayon-btn bg-paper text-lg"
         >
-          📖 Open park page
+          <Icon name="book" size={26} /> Open park page
         </Link>
         {!signedIn ? (
           <p className="text-ink-soft">
@@ -703,7 +758,7 @@ function CrossOffSheet({
               disabled={pending}
               onClick={() => act("active")}
             >
-              ↩️ Put it back on the list
+              <Icon name="undo" size={24} /> Put it back on the list
             </button>
           </>
         ) : (
@@ -717,7 +772,8 @@ function CrossOffSheet({
                 disabled={pending}
                 onClick={hasPlayground}
               >
-                🛝 Actually, there&apos;s a playground!
+                <Icon name="playground" size={26} /> Actually, there&apos;s a
+                playground!
               </button>
             ) : (
               <button
@@ -725,7 +781,7 @@ function CrossOffSheet({
                 disabled={pending}
                 onClick={() => act("no_playground")}
               >
-                🌳 No playground, just a park
+                <Icon name="park" size={26} /> No playground, just a park
               </button>
             )}
             <p className="mt-1 text-sm text-ink-soft">
@@ -738,7 +794,8 @@ function CrossOffSheet({
                 disabled={pending}
                 onClick={() => act(k)}
               >
-                {CROSS_OFF_REASONS[k].emoji} {CROSS_OFF_REASONS[k].label}
+                <Icon name={CROSS_OFF_ICONS[k]} size={26} />{" "}
+                {CROSS_OFF_REASONS[k].label}
               </button>
             ))}
           </>

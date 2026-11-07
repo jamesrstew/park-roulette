@@ -2,6 +2,7 @@
  * Passport math: stickers (badges) and fun stats. Pure functions, no DB, so
  * they're easy to test. Dates are "YYYY-MM-DD" strings (Postgres `date`).
  */
+import type { IconName } from "@/components/icons";
 import type { CrayonName } from "./crayons";
 import { hasPlayground, isCrossedOff, tally, type Tally } from "./features";
 
@@ -40,6 +41,8 @@ export type BadgeInput = {
 export type Badge = {
   id: string;
   emoji: string;
+  /** A crayon icon, when the set has a good match. Falls back to the emoji. */
+  icon?: IconName;
   title: string;
   /** Short line of sticker copy. */
   line: string;
@@ -200,6 +203,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     {
       id: "first-stamp",
       emoji: "🎟️",
+      icon: "ticket",
       title: "First Stamp",
       line: "Every quest starts here.",
       color: "yellow",
@@ -231,6 +235,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     {
       id: "road-trip",
       emoji: "🚗",
+      icon: "car",
       title: "Road Trip",
       line: "Played in 3 towns.",
       color: "blue",
@@ -288,6 +293,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     badges.push({
       id: "splash-master",
       emoji: "💦",
+      icon: "splash_pad",
       title: "Splash Master",
       line: "Every splash pad. Soaked!",
       color: "blue",
@@ -300,6 +306,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     {
       id: "myth-buster",
       emoji: "🕵️",
+      icon: "search",
       title: "Myth Buster",
       line: "Went. No playground. Ha!",
       color: "brown",
@@ -309,6 +316,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     {
       id: "report-card",
       emoji: "📝",
+      icon: "list",
       title: "Report Card",
       line: "5 reviews with details.",
       color: "green",
@@ -318,6 +326,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     {
       id: "safety-scout",
       emoji: "🦺",
+      icon: "safe",
       title: "Safety Scout",
       line: "Flagged a heads-up.",
       color: "orange",
@@ -327,6 +336,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     {
       id: "perfect",
       emoji: "⭐",
+      icon: "star",
       title: "Perfect 5.0",
       line: "Found a perfect park.",
       color: "yellow",
@@ -345,6 +355,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     {
       id: "shutterbug",
       emoji: "📸",
+      icon: "camera",
       title: "Shutterbug",
       line: "Snapped a park photo.",
       color: "pink",
@@ -354,6 +365,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     {
       id: "whole-shebang",
       emoji: "👑",
+      icon: "crown",
       title: "The Whole Shebang",
       line: "Every playground. Done!",
       color: "red",
@@ -367,6 +379,7 @@ export function computeBadges(input: BadgeInput): Badge[] {
     badges.push({
       id: "every-park",
       emoji: "🌲",
+      icon: "park",
       title: "Park Ranger",
       line: "Every park. Even the grassy ones.",
       color: "green",

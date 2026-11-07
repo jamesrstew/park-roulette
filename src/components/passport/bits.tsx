@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Icon, type IconName } from "@/components/icons";
 import { Underline } from "@/components/Scribbles";
 
 /** A stable little tilt per id, so stamps and stickers look hand-placed. */
@@ -30,12 +31,12 @@ export function todayInBend(now = new Date()): string {
 }
 
 export function SectionTitle({
-  emoji,
+  icon,
   children,
   color,
   aside,
 }: {
-  emoji: string;
+  icon: IconName;
   children: ReactNode;
   color: string;
   aside?: ReactNode;
@@ -44,9 +45,7 @@ export function SectionTitle({
     <div className="mb-3 flex items-end justify-between gap-3">
       <div>
         <h2 className="flex items-center gap-2 text-[2rem]">
-          <span aria-hidden className="text-2xl">
-            {emoji}
-          </span>
+          <Icon name={icon} size={32} />
           {children}
         </h2>
         <Underline className="-mt-1 ml-8 h-3 w-36" color={color} />

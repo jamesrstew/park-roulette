@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PageTitle } from "@/components/PageTitle";
 import { Pines } from "@/components/Scribbles";
 import { PasteInvite } from "./PasteInvite";
+import { Icon } from "@/components/icons";
 import { DoodleGo, DoodleSpin, DoodleStamp } from "./Doodles";
 
 const STEPS = [
@@ -86,7 +87,7 @@ export function SignedOutIntro() {
           href="/"
           className="crayon-btn wax w-full max-w-xs bg-crayon-orange"
         >
-          Take it for a spin 🎡
+          Take it for a spin <Icon name="spin" size={28} />
         </Link>
       </section>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
+import { Icon } from "@/components/icons";
 import { onSoundChange, setSoundOn, soundOn } from "@/lib/sound";
 
 export function useSoundOn() {
@@ -11,7 +12,7 @@ export function useSoundOn() {
   );
 }
 
-/** 🔊 / 🔇: a little speaker doodle. Compact for headers, or a labeled row. */
+/** Sound on / off: a little speaker doodle. Compact for headers, or a labeled row. */
 export function SoundToggle({ labeled = false }: { labeled?: boolean }) {
   const on = useSoundOn();
   return (
@@ -24,12 +25,14 @@ export function SoundToggle({ labeled = false }: { labeled?: boolean }) {
       className={
         labeled
           ? "chip min-h-11 gap-2 text-lg"
-          : "grid h-11 w-11 place-items-center rounded-full text-2xl transition-transform active:scale-90"
+          : "grid h-11 w-11 place-items-center rounded-full transition-transform active:scale-90"
       }
     >
-      <span aria-hidden className={on ? "" : "opacity-60"}>
-        {on ? "🔊" : "🔇"}
-      </span>
+      <Icon
+        name={on ? "sound_on" : "sound_off"}
+        size={labeled ? 24 : 30}
+        className={on ? "" : "opacity-70"}
+      />
       {labeled && <span>{on ? "Sounds on" : "Sounds off"}</span>}
     </button>
   );

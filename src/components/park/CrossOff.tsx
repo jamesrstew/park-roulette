@@ -3,8 +3,9 @@
 import confetti from "canvas-confetti";
 import { useState, useTransition } from "react";
 import { setParkPlay, setParkStatus } from "@/lib/client-actions";
+import { CROSS_OFF_ICONS, Icon, PLAY_ICONS } from "@/components/icons";
 import { CRAYONS } from "@/lib/crayons";
-import { CROSS_OFF_REASONS, PLAY_TYPES, type PlayType } from "@/lib/features";
+import { CROSS_OFF_REASONS, type PlayType } from "@/lib/features";
 import { ScribbleOut } from "./Doodles";
 import { JoinNudge } from "./JoinNudge";
 import { sfx } from "@/lib/sound";
@@ -35,7 +36,6 @@ export function CrossedOffBanner({
   const [error, setError] = useState<string | null>(null);
   const reason = CROSS_OFF_REASONS[status as Reason] ?? {
     label: "Crossed off",
-    emoji: "✖️",
   };
   const { note, by } = parseNote(statusNote);
   const showNote = note && note !== reason.label && note !== "Flagged";
@@ -46,9 +46,7 @@ export function CrossedOffBanner({
       role="status"
     >
       <div className="flex items-start gap-3">
-        <span className="text-4xl" aria-hidden>
-          {reason.emoji}
-        </span>
+        <Icon name={CROSS_OFF_ICONS[status as Reason] ?? "close"} size={42} />
         <div className="flex-1">
           <p className="font-hand text-sm tracking-[0.15em] text-crayon-purple uppercase">
             Crossed off the list
@@ -83,7 +81,13 @@ export function CrossedOffBanner({
             })
           }
         >
-          {pending ? "Un-crossing…" : "↩️ Undo, it's real!"}
+          {pending ? (
+            "Un-crossing…"
+          ) : (
+            <>
+              <Icon name="undo" size={24} /> Undo, it&apos;s real!
+            </>
+          )}
         </button>
       )}
     </div>
@@ -106,13 +110,10 @@ export function PlaySign({
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   if (play === "playground") return null;
-  const info = PLAY_TYPES[play];
   return (
     <div className="doodle-box-alt flex flex-col gap-2 bg-[color-mix(in_srgb,var(--color-crayon-green)_10%,#fffdf7)] px-4 py-3">
       <div className="flex items-center gap-3">
-        <span className="text-3xl" aria-hidden>
-          {info.emoji}
-        </span>
+        <Icon name={PLAY_ICONS[play]} size={36} />
         <div className="flex-1">
           <p className="font-hand text-xl leading-tight">
             {play === "none" ? "Just a park, no playground" : "Nature play"}
@@ -138,7 +139,14 @@ export function PlaySign({
             })
           }
         >
-          {pending ? "Fixing…" : "🛝 Actually, there's a playground!"}
+          {pending ? (
+            "Fixing…"
+          ) : (
+            <>
+              <Icon name="playground" size={24} /> Actually, there&apos;s a
+              playground!
+            </>
+          )}
         </button>
       )}
     </div>
@@ -202,9 +210,7 @@ export function CrossOffFooter({
           onClick={() => setOpen(true)}
           className="doodle-box-alt flex min-h-14 items-center gap-3 border-dashed bg-transparent p-3 text-left"
         >
-          <span className="text-3xl" aria-hidden>
-            🖍️
-          </span>
+          <Icon name="crayon" size={34} />
           <span className="flex-1">
             <span className="block font-hand text-xl leading-tight">
               Something off?
@@ -221,7 +227,7 @@ export function CrossOffFooter({
         </button>
       ) : !signedIn ? (
         <JoinNudge
-          emoji="🖍️"
+          icon="crayon"
           line="Join to fix the list!"
           onClose={() => setOpen(false)}
         />
@@ -240,7 +246,7 @@ export function CrossOffFooter({
                 onClick={() => setReason(r)}
                 className={`chip min-h-12 justify-start text-xl ${reason === r ? (r === "no_playground" ? "bg-crayon-green/20" : "bg-crayon-purple/25") + " shadow-[2px_2px_0_#2b2a33]" : ""}`}
               >
-                <span aria-hidden>{CROSS_OFF_REASONS[r].emoji}</span>
+                <Icon name={CROSS_OFF_ICONS[r]} size={26} />
                 {r === "no_playground"
                   ? "No playground, just a park"
                   : CROSS_OFF_REASONS[r].label}
@@ -279,11 +285,17 @@ export function CrossOffFooter({
               disabled={!reason || pending}
               onClick={submit}
             >
-              {pending
-                ? "Scribbling…"
-                : isFix
-                  ? "Fix it 🌳"
-                  : "Cross it off ✖️"}
+              {pending ? (
+                "Scribbling…"
+              ) : isFix ? (
+                <>
+                  Fix it <Icon name="park" size={24} />
+                </>
+              ) : (
+                <>
+                  Cross it off <Icon name="close" size={20} />
+                </>
+              )}
             </button>
           </div>
         </div>

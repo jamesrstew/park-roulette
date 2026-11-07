@@ -1,10 +1,11 @@
 import type { ButtonHTMLAttributes } from "react";
+import { Icon, attrIcon } from "@/components/icons";
 import { ATTRIBUTES } from "@/lib/features";
 
 const HEADS_UP_BG =
   "bg-[color-mix(in_srgb,var(--color-crayon-orange)_22%,#fffdf7)]";
 
-/** A read-only report-card sticker: emoji, label, and how many critics said so. */
+/** A read-only report-card sticker: icon, label, and how many critics said so. */
 export function AttrSticker({
   k,
   count,
@@ -31,7 +32,7 @@ export function AttrSticker({
           : `${count} critic${count === 1 ? "" : "s"} said so`
       }
     >
-      <span aria-hidden>{a.emoji}</span>
+      <Icon name={attrIcon(k)} size={22} />
       {a.label}
       {count > 1 && (
         <span
@@ -65,15 +66,15 @@ export function AttrToggle({
       className={`chip relative min-h-11 text-[1.05rem] ${heads ? "border-crayon-red" : ""} ${heads && on ? "!bg-crayon-orange" : ""}`}
       {...p}
     >
-      <span aria-hidden>{a.emoji}</span>
+      <Icon name={attrIcon(k)} size={22} />
       {a.label}
       {hint && !on && (
         <span
-          className="absolute -top-2 -right-1.5 rounded-full border-2 border-ink bg-white px-1 text-[0.7rem] leading-4"
+          className="absolute -top-2 -right-1.5 grid place-items-center rounded-full border-2 border-ink bg-white p-px"
           title="The map says it's here"
           aria-label="(on the map)"
         >
-          🗺️
+          <Icon name="map" size={13} />
         </span>
       )}
     </button>

@@ -3,6 +3,7 @@
 import { upload } from "@vercel/blob/client";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { saveReview } from "@/lib/client-actions";
+import { Icon } from "@/components/icons";
 import { CRAYONS } from "@/lib/crayons";
 import type { ReviewView } from "@/lib/data";
 import { ATTR_GROUPS, ATTRIBUTES } from "@/lib/features";
@@ -266,14 +267,28 @@ export function ReviewComposer({
                   <span className="text-center font-hand text-sm leading-tight">
                     {u.status === "prep" && "Shrinking…"}
                     {u.status === "uploading" && `${Math.round(u.pct)}%`}
-                    {u.status === "done" && "✅ Ready!"}
+                    {u.status === "done" && (
+                      <>
+                        <Icon
+                          name="check"
+                          size={16}
+                          className="inline-block align-[-4px]"
+                        />{" "}
+                        Ready!
+                      </>
+                    )}
                     {u.status === "error" && (
                       <button
                         type="button"
                         className="min-h-8 text-crayon-red underline"
                         onClick={() => send(u)}
                       >
-                        😕 Try again
+                        <Icon
+                          name="undo"
+                          size={16}
+                          className="inline-block align-[-4px]"
+                        />{" "}
+                        Try again
                       </button>
                     )}
                   </span>
@@ -289,9 +304,7 @@ export function ReviewComposer({
 
           {failed > 0 && (
             <div className="flex gap-2 rounded-lg border-2 border-dashed border-crayon-red/60 bg-[color-mix(in_srgb,var(--color-crayon-orange)_10%,#fffdf7)] p-3 text-sm leading-snug">
-              <span className="text-xl" aria-hidden>
-                🙈
-              </span>
+              <Icon name="warning" size={24} />
               <p>
                 {failed === 1 ? "One upload" : `${failed} uploads`} got stuck.
                 Tap &ldquo;Try again,&rdquo; or just save. Your stars and words
@@ -321,7 +334,7 @@ export function ReviewComposer({
             onClick={() => input.current?.click()}
             disabled={uploads.length >= MAX_NEW}
           >
-            📸 Add photos or videos
+            <Icon name="camera" size={28} /> Add photos or videos
           </button>
           <p className="-mt-1 text-center text-xs text-ink-soft">
             Photos get shrunk to save data. Videos go up full size, so Wi-Fi
@@ -355,13 +368,16 @@ export function ReviewComposer({
           disabled={saving || busy}
           onClick={save}
         >
-          {saving
-            ? "Saving…"
-            : busy
-              ? "Waiting on photos…"
-              : initial
-                ? "Save changes ⭐"
-                : "Post it! ⭐"}
+          {saving ? (
+            "Saving…"
+          ) : busy ? (
+            "Waiting on photos…"
+          ) : (
+            <>
+              {initial ? "Save changes" : "Post it!"}
+              <Icon name="star" size={28} />
+            </>
+          )}
         </button>
       </div>
     </div>
@@ -452,11 +468,16 @@ function ReportCardPicker({
     <div className="flex flex-col gap-3">
       <p className="text-sm leading-snug text-ink-soft">
         Tap what you noticed.{" "}
-        {parkFeatures.length > 0 && <>🗺️ means the map says it&apos;s here.</>}
+        {parkFeatures.length > 0 && (
+          <>
+            <Icon name="map" size={18} className="inline-block align-[-4px]" />{" "}
+            means the map says it&apos;s here.
+          </>
+        )}
       </p>
       <div className="flex flex-col gap-2.5">
-        <p className="font-hand text-xl leading-none text-crayon-green">
-          ⭐ Good stuff
+        <p className="flex items-center gap-1.5 font-hand text-xl leading-none text-crayon-green">
+          <Icon name="star" size={24} /> Good stuff
         </p>
         {ATTR_GROUPS.filter((g) => g.key !== "heads_up").map((g) => (
           <fieldset key={g.key}>
@@ -468,8 +489,8 @@ function ReportCardPicker({
         ))}
       </div>
       <fieldset className="rounded-[var(--radius-wobbly-2)] border-[2.5px] border-dashed border-crayon-red/70 bg-[color-mix(in_srgb,var(--color-crayon-orange)_10%,#fffdf7)] p-3 pt-1">
-        <legend className="px-1 font-hand text-xl text-crayon-red">
-          ⚠️ Heads up
+        <legend className="flex items-center gap-1.5 px-1 font-hand text-xl text-crayon-red">
+          <Icon name="warning" size={24} /> Heads up
         </legend>
         <p className="text-xs text-ink-soft">
           Anything a parent should know before they go?
@@ -495,9 +516,7 @@ function Thumb({
       className={`relative grid aspect-square w-full place-items-center overflow-hidden border-[3px] border-white bg-paper-dark outline-2 outline-ink/70 ${dim ? "opacity-70" : ""}`}
     >
       {broken ? (
-        <span className="text-3xl" aria-hidden>
-          🖼️
-        </span>
+        <Icon name="photo" size={34} />
       ) : kind === "video" ? (
         <video
           src={`${url}#t=0.1`}
@@ -533,8 +552,8 @@ function RemoveDot({ label, onClick }: { label: string; onClick: () => void }) {
       onClick={onClick}
       className="absolute -top-3 -right-3 grid h-11 w-11 place-items-center"
     >
-      <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-ink bg-white text-sm shadow-[1px_1px_0_#2b2a33]">
-        ✕
+      <span className="grid h-7 w-7 place-items-center rounded-full border-2 border-ink bg-white shadow-[1px_1px_0_#2b2a33]">
+        <Icon name="close" size={14} />
       </span>
     </button>
   );

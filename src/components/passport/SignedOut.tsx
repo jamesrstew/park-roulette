@@ -1,12 +1,13 @@
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { Arrow } from "@/components/Scribbles";
 import { PageTitle } from "../PageTitle";
 
 const PREVIEW = [
-  { emoji: "🎟️", title: "First Stamp", color: "#f7c933", rot: -8 },
-  { emoji: "🚗", title: "Road Trip", color: "#2f78d4", rot: 6 },
-  { emoji: "💦", title: "Splash Master", color: "#1fa4a8", rot: -3 },
-];
+  { icon: "ticket", title: "First Stamp", color: "#f7c933", rot: -8 },
+  { icon: "car", title: "Road Trip", color: "#2f78d4", rot: 6 },
+  { icon: "splash_pad", title: "Splash Master", color: "#1fa4a8", rot: -3 },
+] as const;
 
 /** Signed out: what the passport is, and how to get one. Never a dead end. */
 export function SignedOut() {
@@ -46,7 +47,7 @@ export function SignedOut() {
           {PREVIEW.map((s) => (
             <li key={s.title} className="flex flex-col items-center">
               <span
-                className="wax flex h-14 w-14 items-center justify-center rounded-[var(--radius-blob)] border-[3px] border-white text-2xl"
+                className="wax flex h-14 w-14 items-center justify-center rounded-[var(--radius-blob)] border-[3px] border-white"
                 style={{
                   backgroundColor: s.color,
                   transform: `rotate(${s.rot}deg)`,
@@ -55,7 +56,7 @@ export function SignedOut() {
                 }}
                 aria-hidden
               >
-                {s.emoji}
+                <Icon name={s.icon} size={32} />
               </span>
               <span className="mt-1 font-hand text-sm">{s.title}</span>
             </li>
@@ -64,19 +65,22 @@ export function SignedOut() {
       </div>
 
       <ul className="flex flex-col gap-3 px-1">
-        {[
-          ["🖍️", "Every playground you visit gets colored in."],
-          ["📬", "You get a stamp for each one, with the date."],
-          ["⭐", "Earn stickers: road trips, splash pads, all four seasons…"],
-          ["👨‍👩‍👧", "Your crew shares one passport, so every trip counts."],
-        ].map(([e, t]) => (
+        {(
+          [
+            ["crayon", "Every playground you visit gets colored in."],
+            ["stamp", "You get a stamp for each one, with the date."],
+            [
+              "star",
+              "Earn stickers: road trips, splash pads, all four seasons…",
+            ],
+            ["heart", "Your crew shares one passport, so every trip counts."],
+          ] as const
+        ).map(([icon, t]) => (
           <li
             key={t}
             className="flex items-start gap-3 text-[1.05rem] leading-snug"
           >
-            <span aria-hidden className="text-2xl leading-6">
-              {e}
-            </span>
+            <Icon name={icon} size={28} className="-mt-0.5" />
             {t}
           </li>
         ))}
@@ -90,7 +94,7 @@ export function SignedOut() {
         </p>
         <Arrow className="absolute top-12 -left-1 h-10 w-14 -scale-x-100 rotate-[200deg] opacity-70" />
         <Link href="/me" className="crayon-btn wax w-full bg-crayon-yellow">
-          🖍️ Make my explorer
+          <Icon name="crayon" size={28} /> Make my explorer
         </Link>
         <Link
           href="/"

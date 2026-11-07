@@ -2,6 +2,7 @@
 
 import { storage } from "@/lib/storage";
 import { useState, useSyncExternalStore } from "react";
+import { Icon } from "@/components/icons";
 
 const noop = () => () => {};
 const KEY = "pr:hide-a2hs";
@@ -30,7 +31,9 @@ export function HomeScreenTip() {
 
   return (
     <aside className="doodle-box-alt relative bg-crayon-teal/10 px-4 py-3 pr-12">
-      <p className="font-hand text-2xl">📲 Make it an app!</p>
+      <p className="flex items-center gap-1.5 font-hand text-2xl">
+        <Icon name="phone" size={28} /> Make it an app!
+      </p>
       <p className="text-[0.95rem] leading-snug">
         In Safari, tap{" "}
         <span className="inline-flex items-center gap-1 rounded-md border-2 border-ink bg-white px-1.5 align-middle">
@@ -47,9 +50,9 @@ export function HomeScreenTip() {
           } catch {}
           setDismissed(true);
         }}
-        className="absolute top-1 right-1 grid size-11 place-items-center font-hand text-2xl text-ink-soft"
+        className="absolute top-1 right-1 grid size-11 place-items-center"
       >
-        ✕
+        <Icon name="close" size={20} className="opacity-70" />
       </button>
     </aside>
   );

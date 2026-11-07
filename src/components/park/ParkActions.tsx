@@ -3,6 +3,7 @@
 import confetti from "canvas-confetti";
 import { useState, useTransition } from "react";
 import { logVisit, removeVisit } from "@/lib/client-actions";
+import { Icon } from "@/components/icons";
 import { CRAYONS } from "@/lib/crayons";
 import { directionsUrl, placeUrl } from "@/lib/geo";
 import { formatDay, todayLocal } from "./format";
@@ -55,7 +56,7 @@ export function ParkActions({
         rel="noopener noreferrer"
         className="crayon-btn wax min-h-16 w-full bg-crayon-green text-[1.7rem] text-white [text-shadow:1px_1px_0_#2b2a33]"
       >
-        🚗 Let&apos;s go!
+        <Icon name="directions" size={34} /> Let&apos;s go!
       </a>
       <div className="grid grid-cols-2 gap-3">
         <a
@@ -64,7 +65,7 @@ export function ParkActions({
           rel="noopener noreferrer"
           className="crayon-btn min-h-14 bg-paper px-2 text-[1.2rem]"
         >
-          👀 Peek in Maps
+          <Icon name="peek" size={26} /> Peek in Maps
         </a>
         <button
           type="button"
@@ -76,13 +77,13 @@ export function ParkActions({
             setDate(todayLocal());
           }}
         >
-          ✅ We went!
+          <Icon name="stamp" size={28} /> We went!
         </button>
       </div>
 
       {open && !signedIn && (
         <JoinNudge
-          emoji="📒"
+          icon="stamp"
           line="Join a crew to stamp your passport!"
           onClose={() => setOpen(false)}
         />
@@ -132,7 +133,13 @@ export function ParkActions({
               disabled={pending || !date}
               onClick={stamp}
             >
-              {pending ? "Stamping…" : "Stamp it! 🖍️"}
+              {pending ? (
+                "Stamping…"
+              ) : (
+                <>
+                  Stamp it! <Icon name="crayon" size={26} />
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -140,7 +147,7 @@ export function ParkActions({
 
       {justStamped && (
         <div className="doodle-box flex animate-pop-in items-center gap-3 bg-[color-mix(in_srgb,var(--color-crayon-green)_14%,#fffdf7)] p-3">
-          <span className="text-4xl">🎉</span>
+          <Icon name="party" size={44} />
           <div className="flex-1">
             <p className="font-hand text-2xl leading-none">Stamped!</p>
             <p className="text-sm text-ink-soft">
@@ -154,7 +161,7 @@ export function ParkActions({
               href="#review"
               className="crayon-btn min-h-11 bg-crayon-yellow px-3 text-lg"
             >
-              ⭐ Rate it
+              <Icon name="star" size={24} /> Rate it
             </a>
           )}
         </div>
@@ -230,11 +237,11 @@ function OurVisits({ visits }: { visits: Visit[] }) {
             ) : (
               <button
                 type="button"
-                className="grid h-11 w-11 place-items-center rounded-full text-xl text-ink-soft active:scale-90"
+                className="grid h-11 w-11 place-items-center rounded-full active:scale-90"
                 aria-label={`Remove the ${formatDay(v.visitedOn)} visit`}
                 onClick={() => setConfirming(v.id)}
               >
-                ✕
+                <Icon name="close" size={18} className="opacity-60" />
               </button>
             )}
           </li>

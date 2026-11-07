@@ -4,31 +4,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 import { navHistory } from "@/lib/nav-history";
+import { Icon, NAV_ICONS } from "@/components/icons";
 
 const TABS = [
-  { href: "/", label: "Spin", emoji: "🎡", match: (p: string) => p === "/" },
+  { href: "/", label: "Spin", match: (p: string) => p === "/" },
   {
     href: "/map",
     label: "Map",
-    emoji: "🗺️",
     match: (p: string) => p.startsWith("/map"),
   },
   {
     href: "/list",
     label: "List",
-    emoji: "📋",
     match: (p: string) => p.startsWith("/list"),
   },
   {
     href: "/passport",
     label: "Passport",
-    emoji: "📒",
     match: (p: string) => p.startsWith("/passport"),
   },
   {
     href: "/me",
     label: "Me",
-    emoji: "🖍️",
     match: (p: string) => p.startsWith("/me") || p.startsWith("/join"),
   },
 ];
@@ -75,9 +72,12 @@ export function NavBar({ path }: { path: string }) {
                   </svg>
                 )}
                 <span
-                  className={`relative text-2xl transition-transform ${active ? "scale-110 -rotate-6" : "group-active:scale-90"}`}
+                  className={`relative transition-transform ${active ? "scale-110 -rotate-6" : "group-active:scale-90"}`}
                 >
-                  {t.emoji}
+                  <Icon
+                    name={NAV_ICONS[t.href as keyof typeof NAV_ICONS]}
+                    size={30}
+                  />
                 </span>
                 <span className="relative font-hand text-base leading-none">
                   {t.label}

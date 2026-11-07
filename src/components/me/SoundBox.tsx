@@ -1,23 +1,28 @@
 "use client";
 
+import { Icon, type IconName } from "@/components/icons";
 import { sfx, type SfxName } from "@/lib/sound";
 import { SoundToggle, useSoundOn } from "../SoundToggle";
 
-const SAMPLES: { name: SfxName; label: string; emoji: string; arg?: number }[] =
-  [
-    { name: "whoosh", label: "Spin", emoji: "🎡" },
-    { name: "tick", label: "Tick", emoji: "🪵", arg: 0.6 },
-    { name: "tada", label: "Ta-da", emoji: "🎉" },
-    { name: "stamp", label: "Stamp", emoji: "📒" },
-    { name: "star", label: "A star", emoji: "⭐", arg: 4 },
-    { name: "fanfare", label: "Perfect 5", emoji: "🤩" },
-    { name: "scribble", label: "Scribble", emoji: "🖍️" },
-    { name: "strike", label: "Cross off", emoji: "✗" },
-    { name: "sticker", label: "Sticker", emoji: "🏅" },
-    { name: "shutter", label: "Photo", emoji: "📷" },
-    { name: "yay", label: "Saved", emoji: "💌" },
-    { name: "celebrate", label: "Town done", emoji: "🏆" },
-  ];
+const SAMPLES: {
+  name: SfxName;
+  label: string;
+  icon: IconName;
+  arg?: number;
+}[] = [
+  { name: "whoosh", label: "Spin", icon: "spin" },
+  { name: "tick", label: "Tick", icon: "nature", arg: 0.6 },
+  { name: "tada", label: "Ta-da", icon: "party" },
+  { name: "stamp", label: "Stamp", icon: "stamp" },
+  { name: "star", label: "A star", icon: "star", arg: 4 },
+  { name: "fanfare", label: "Perfect 5", icon: "crown" },
+  { name: "scribble", label: "Scribble", icon: "crayon" },
+  { name: "strike", label: "Cross off", icon: "close" },
+  { name: "sticker", label: "Sticker", icon: "sparkles" },
+  { name: "shutter", label: "Photo", icon: "camera" },
+  { name: "yay", label: "Saved", icon: "mail" },
+  { name: "celebrate", label: "Town done", icon: "trophy" },
+];
 
 /** The sound toggle, plus a little box of sounds to try. */
 export function SoundBox() {
@@ -40,11 +45,9 @@ export function SoundBox() {
             key={s.name}
             type="button"
             onClick={() => (sfx[s.name] as (a?: number) => void)(s.arg)}
-            className="chip min-h-14 flex-col justify-center gap-0 px-1 text-sm"
+            className="chip min-h-16 flex-col justify-center gap-0.5 px-1 text-sm"
           >
-            <span className="text-xl" aria-hidden>
-              {s.emoji}
-            </span>
+            <Icon name={s.icon} size={26} />
             {s.label}
           </button>
         ))}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { Cloud, Pines } from "@/components/Scribbles";
 
 export default function ParkNotFound() {
@@ -38,10 +39,10 @@ export default function ParkNotFound() {
       </p>
       <div className="flex flex-col gap-3">
         <Link href="/" className="crayon-btn wax bg-crayon-yellow">
-          🎡 Spin for a real one
+          <Icon name="spin" size={28} /> Spin for a real one
         </Link>
         <Link href="/map" className="crayon-btn bg-paper text-lg">
-          🗺️ Browse the map
+          <Icon name="map" size={26} /> Browse the map
         </Link>
       </div>
     </div>

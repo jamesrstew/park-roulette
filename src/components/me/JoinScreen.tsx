@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { claimExplorer, joinWithCode } from "@/lib/client-actions";
+import { Icon } from "@/components/icons";
 import { AVATARS, CRAYON_NAMES, crayon } from "@/lib/crayons";
 import { AvatarPicker } from "./AvatarPicker";
 import { CrayonPicker } from "./CrayonPicker";
@@ -242,11 +243,17 @@ export function JoinScreen({
           disabled={pending || !name.trim()}
           className="crayon-btn wax w-full bg-crayon-yellow py-4 text-3xl"
         >
-          {pending && claiming === null
-            ? "Sharpening…"
-            : isFriend
-              ? "Start our quest! 🚀"
-              : `Join ${crewName}! 🎉`}
+          {pending && claiming === null ? (
+            "Sharpening…"
+          ) : isFriend ? (
+            <>
+              Start our quest! <Icon name="sparkles" size={32} />
+            </>
+          ) : (
+            <>
+              Join {crewName}! <Icon name="party" size={32} />
+            </>
+          )}
         </button>
       </form>
     </div>

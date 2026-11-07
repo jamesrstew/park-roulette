@@ -3,6 +3,7 @@
 import confetti from "canvas-confetti";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/icons";
 import { CRAYONS, crayon } from "@/lib/crayons";
 import { sfx } from "@/lib/sound";
 
@@ -97,17 +98,23 @@ export function WelcomeSheet({
           {". Here's the game:"}
         </p>
         <ol className="mt-4 flex flex-col gap-2.5 text-lg leading-snug">
-          {[
-            ["🎡", "Spin", "the wheel to pick a playground."],
-            ["🚗", "Go", "play! Slides first, snacks after."],
-            ["📒", "Tap “We went!”", "to stamp your passport, then rate it."],
-          ].map(([e, bold, rest]) => (
+          {(
+            [
+              ["spin", "Spin", "the wheel to pick a playground."],
+              ["directions", "Go", "play! Slides first, snacks after."],
+              [
+                "stamp",
+                "Tap “We went!”",
+                "to stamp your passport, then rate it.",
+              ],
+            ] as const
+          ).map(([icon, bold, rest]) => (
             <li key={bold} className="flex items-center gap-3">
               <span
-                className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-ink bg-paper text-xl"
+                className="grid size-10 shrink-0 place-items-center rounded-full border-2 border-ink bg-paper"
                 aria-hidden
               >
-                {e}
+                <Icon name={icon} size={26} />
               </span>
               <span>
                 <b className="font-hand text-2xl font-normal">{bold}</b> {rest}

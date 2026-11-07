@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateFeatures } from "@/lib/client-actions";
+import { Icon } from "@/components/icons";
 import { ATTR_GROUPS, ATTRIBUTES, attributeScores } from "@/lib/features";
 import { AttrSticker, AttrToggle } from "./AttrChip";
 import { JoinNudge } from "./JoinNudge";
@@ -46,8 +47,11 @@ export function ReportCard({
   return (
     <section aria-labelledby="report-card" className="flex flex-col gap-3">
       <div className="flex items-end justify-between gap-2">
-        <h2 id="report-card" className="font-hand text-3xl">
-          📝 Report card
+        <h2
+          id="report-card"
+          className="flex items-center gap-2 font-hand text-3xl"
+        >
+          <Icon name="list" size={32} /> Report card
         </h2>
         {!editing && (
           <button
@@ -55,14 +59,14 @@ export function ReportCard({
             className="chip min-h-11 text-base"
             onClick={() => (signedIn ? setEditing(true) : setNudge((n) => !n))}
           >
-            ✏️ Fix what&apos;s here
+            <Icon name="edit" size={20} /> Fix what&apos;s here
           </button>
         )}
       </div>
 
       {nudge && !signedIn && (
         <JoinNudge
-          emoji="✏️"
+          icon="edit"
           line="Join to fix the list!"
           onClose={() => setNudge(false)}
         />
@@ -76,9 +80,7 @@ export function ReportCard({
         />
       ) : keys.length === 0 ? (
         <div className="doodle-box-alt flex items-center gap-3 p-4">
-          <span className="text-4xl" aria-hidden>
-            🤷
-          </span>
+          <Icon name="edit" size={40} />
           <p className="font-hand text-xl leading-tight text-ink-soft">
             Nothing on the report card yet. Been here? Tell us what&apos;s here!
           </p>
@@ -87,8 +89,8 @@ export function ReportCard({
         <>
           {headsUp.length > 0 && (
             <div className="doodle-box border-crayon-red bg-[color-mix(in_srgb,var(--color-crayon-orange)_12%,#fffdf7)] p-3 pt-2">
-              <p className="font-hand text-xl text-crayon-red">
-                ⚠️ Heads up, grown-ups
+              <p className="flex items-center gap-1.5 font-hand text-xl text-crayon-red">
+                <Icon name="warning" size={24} /> Heads up, grown-ups
               </p>
               <ul className="mt-1.5 flex flex-wrap gap-2">
                 {headsUp.map(sticker)}
@@ -97,8 +99,8 @@ export function ReportCard({
           )}
           {good.length > 0 && (
             <div>
-              <p className="font-hand text-xl text-crayon-green">
-                ⭐ Good stuff
+              <p className="flex items-center gap-1.5 font-hand text-xl text-crayon-green">
+                <Icon name="star" size={24} /> Good stuff
               </p>
               <ul className="mt-1.5 flex flex-wrap gap-2">
                 {good.map(sticker)}
@@ -112,7 +114,14 @@ export function ReportCard({
                 Dashed ones came from the map and might be fibbing.
               </>
             ) : (
-              "✅ Checked by explorers."
+              <>
+                <Icon
+                  name="check"
+                  size={18}
+                  className="mr-1 inline-block align-[-4px]"
+                />
+                Checked by explorers.
+              </>
             )}{" "}
             ×2 means two critics said so.
           </p>
@@ -146,9 +155,9 @@ function FeatureEditor({
       {ATTR_GROUPS.map((g) => (
         <fieldset key={g.key}>
           <legend
-            className={`font-hand text-lg ${g.key === "heads_up" ? "text-crayon-red" : ""}`}
+            className={`flex items-center gap-1 font-hand text-lg ${g.key === "heads_up" ? "text-crayon-red" : ""}`}
           >
-            {g.key === "heads_up" ? "⚠️ " : ""}
+            {g.key === "heads_up" && <Icon name="warning" size={22} />}
             {g.label}
           </legend>
           <div className="mt-1 flex flex-wrap gap-2">
