@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { logVisit, setParkStatus } from "@/lib/actions";
+import { logVisit, setParkPlay, setParkStatus } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import {
   ATTRIBUTES,
   CROSS_OFF_REASONS,
+  PLAY_TYPES,
   SMART_FILTERS,
   attributeScores,
   matchesSmartFilter,
@@ -30,12 +31,18 @@ function state(p: ParkSummary): "todo" | "done" | "crossed" {
 }
 
 export function BucketList({
-  parks,
+  parks: allParks,
   signedIn,
 }: {
   parks: ParkSummary[];
   signedIn: boolean;
 }) {
+  const [mode, setMode] = useState<"playgrounds" | "all">("playgrounds");
+  const parks = useMemo(
+    () =>
+      mode === "all" ? allParks : allParks.filter((p) => p.play !== "none"),
+    [allParks, mode],
+  );
   const [q, setQ] = useState("");
   const [show, setShow] = useState<Show>("all");
   const [sort, setSort] = useState<Sort>("town");
@@ -125,7 +132,35 @@ export function BucketList({
         </p>
       </header>
 
+      <div
+        role="tablist"
+        aria-label="What counts"
+        className="doodle-box-alt mx-auto grid w-full max-w-sm grid-cols-2 p-1"
+      >
+        {(
+          [
+            ["playgrounds", "🛝 Playgrounds"],
+            ["all", "🌳 Every park"],
+          ] as const
+        ).map(([k, label]) => (
+          <button
+            key={k}
+            role="tab"
+            aria-selected={mode === k}
+            onClick={() => setMode(k)}
+            className={`min-h-11 rounded-[var(--radius-wobbly)] font-hand text-xl transition-colors ${
+              mode === k
+                ? "wax bg-crayon-yellow shadow-[2px_2px_0_#2b2a33]"
+                : ""
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <ProgressCard
+        noun={mode === "all" ? "parks" : "playgrounds"}
         total={total}
         done={done}
         crossed={crossed}
@@ -290,11 +325,13 @@ export function BucketList({
 }
 
 function ProgressCard({
+  noun,
   total,
   done,
   crossed,
   resolved,
 }: {
+  noun: string;
   total: number;
   done: number;
   crossed: number;
@@ -306,7 +343,10 @@ function ProgressCard({
       <div className="flex items-end justify-between">
         <p className="font-hand text-6xl leading-none">
           {resolved}
-          <span className="text-2xl text-ink-soft"> / {total}</span>
+          <span className="text-2xl text-ink-soft">
+            {" "}
+            / {total} {noun}
+          </span>
         </p>
         <p className="font-hand text-3xl text-crayon-green">{pct}% done</p>
       </div>
@@ -437,6 +477,12 @@ function Row({
             </span>
           ) : (
             <>
+              {park.play !== "playground" && (
+                <span>
+                  {PLAY_TYPES[park.play as keyof typeof PLAY_TYPES]?.emoji}{" "}
+                  {PLAY_TYPES[park.play as keyof typeof PLAY_TYPES]?.label}
+                </span>
+              )}
               {park.avgTenths != null && (
                 <span>⭐ {formatStars(park.avgTenths)}</span>
               )}
@@ -561,12 +607,19 @@ function CrossOffSheet({
     start(async () => {
       const r = await setParkStatus({ parkId: park.id, status });
       onDone(
-        r.ok
-          ? status === "active"
+        !r.ok
+          ? r.error
+          : status === "active"
             ? `${park.name} is back on the list!`
-            : `Crossed off ${park.name}. One less to go!`
-          : r.error,
+            : status === "no_playground"
+              ? `Got it! ${park.name} is now a park without a playground.`
+              : `Crossed off ${park.name}. One less to go!`,
       );
+    });
+  const hasPlayground = () =>
+    start(async () => {
+      const r = await setParkPlay({ parkId: park.id, play: "playground" });
+      onDone(r.ok ? `Ooh! ${park.name} has a playground now.` : r.error);
     });
 
   return (
@@ -607,22 +660,33 @@ function CrossOffSheet({
         ) : (
           <>
             <p className="font-hand text-xl text-ink-soft">
-              Not a real playground? Cross it off. It still counts!
+              Something off? Fix the list. Crossed-off parks still count!
             </p>
+            {park.play === "none" && (
+              <button
+                className="crayon-btn wax justify-start bg-crayon-green text-lg text-white"
+                disabled={pending}
+                onClick={hasPlayground}
+              >
+                🛝 Actually, there&apos;s a playground!
+              </button>
+            )}
             {(
               Object.keys(
                 CROSS_OFF_REASONS,
               ) as (keyof typeof CROSS_OFF_REASONS)[]
-            ).map((k) => (
-              <button
-                key={k}
-                className="crayon-btn justify-start bg-paper text-lg"
-                disabled={pending}
-                onClick={() => act(k)}
-              >
-                {CROSS_OFF_REASONS[k].emoji} {CROSS_OFF_REASONS[k].label}
-              </button>
-            ))}
+            )
+              .filter((k) => !(k === "no_playground" && park.play === "none"))
+              .map((k) => (
+                <button
+                  key={k}
+                  className="crayon-btn justify-start bg-paper text-lg"
+                  disabled={pending}
+                  onClick={() => act(k)}
+                >
+                  {CROSS_OFF_REASONS[k].emoji} {CROSS_OFF_REASONS[k].label}
+                </button>
+              ))}
           </>
         )}
         <button
