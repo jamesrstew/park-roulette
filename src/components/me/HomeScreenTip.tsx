@@ -1,73 +1,49 @@
 "use client";
 
-import { storage } from "@/lib/storage";
 import { useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/icons";
+import { InstallSheet } from "@/components/InstallSheet";
+import { installPlatform } from "@/lib/install";
 
-const noop = () => () => {};
-const KEY = "pr:hide-a2hs";
-
-/** iPhone-only nudge to put the app on the Home Screen. Hidden once installed. */
-export function HomeScreenTip() {
+/** "Make it an app!" card on Me. Opens the install sheet; hidden once installed. */
+export function HomeScreenTip({ crewLink }: { crewLink?: string }) {
   const show = useSyncExternalStore(
-    noop,
-    () => {
-      const ios =
-        /iPhone|iPad|iPod/.test(navigator.userAgent) ||
-        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-      const standalone =
-        window.matchMedia("(display-mode: standalone)").matches ||
-        (navigator as Navigator & { standalone?: boolean }).standalone === true;
-      let hidden = false;
-      try {
-        hidden = storage.get(KEY) === "1";
-      } catch {}
-      return ios && !standalone && !hidden;
-    },
+    () => () => {},
+    () => installPlatform() !== "none",
     () => false,
   );
-  const [dismissed, setDismissed] = useState(false);
-  if (!show || dismissed) return null;
-
+  const [open, setOpen] = useState(false);
+  if (!show) return null;
   return (
-    <aside className="doodle-box-alt relative bg-crayon-teal/10 px-4 py-3 pr-12">
-      <p className="flex items-center gap-1.5 font-hand text-2xl">
-        <Icon name="phone" size={28} /> Make it an app!
-      </p>
-      <p className="text-[0.95rem] leading-snug">
-        In Safari, tap{" "}
-        <span className="inline-flex items-center gap-1 rounded-md border-2 border-ink bg-white px-1.5 align-middle">
-          <ShareGlyph /> Share
-        </span>
-        , then <b>Add to Home Screen</b>. One tap to spin, anytime.
-      </p>
+    <>
       <button
         type="button"
-        aria-label="Hide this tip"
-        onClick={() => {
-          try {
-            storage.set(KEY, "1");
-          } catch {}
-          setDismissed(true);
-        }}
-        className="absolute top-1 right-1 grid size-11 place-items-center"
+        onClick={() => setOpen(true)}
+        className="doodle-box-alt flex w-full items-center gap-3 bg-crayon-teal/10 px-4 py-3 text-left transition-transform active:scale-[0.98]"
       >
-        <Icon name="close" size={20} className="opacity-70" />
+        {/* eslint-disable-next-line @next/next/no-img-element -- our own app icon route */}
+        <img
+          src="/apple-icon"
+          alt=""
+          width={52}
+          height={52}
+          className="shrink-0 rounded-[22%] shadow-[2px_3px_0_#2b2a33]"
+        />
+        <span className="flex-1">
+          <span className="block font-hand text-2xl leading-tight">
+            Make it an app!
+          </span>
+          <span className="block text-[0.95rem] leading-snug text-ink-soft">
+            Put Park Roulette on your Home Screen. Two taps.
+          </span>
+        </span>
+        <Icon name="arrow_right" size={24} />
       </button>
-    </aside>
-  );
-}
-
-function ShareGlyph() {
-  return (
-    <svg viewBox="0 0 20 20" className="size-4" fill="none" aria-hidden>
-      <path
-        d="M10 2 L10 12 M6 6 L10 2 L14 6 M5 9 L4 9 L4 18 L16 18 L16 9 L15 9"
-        stroke="#2f78d4"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+      <InstallSheet
+        open={open}
+        onClose={() => setOpen(false)}
+        crewLink={crewLink}
       />
-    </svg>
+    </>
   );
 }

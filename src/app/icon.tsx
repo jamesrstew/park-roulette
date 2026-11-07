@@ -1,12 +1,12 @@
 import { ImageResponse } from "next/og";
-import { PAPER, WheelArt } from "@/components/me/brand-art";
+import { appIconDataUri } from "@/lib/app-icon";
 
 const SIZES = {
-  "32": { px: 32, pad: 0 },
-  "192": { px: 192, pad: 0.06 },
-  "512": { px: 512, pad: 0.06 },
+  "32": { px: 32, safe: false, tiny: true },
+  "192": { px: 192, safe: false, tiny: false },
+  "512": { px: 512, safe: false, tiny: false },
   /** Android adaptive icons crop to a circle: keep the art in the safe zone. */
-  maskable: { px: 512, pad: 0.2 },
+  maskable: { px: 512, safe: true, tiny: false },
 } as const;
 
 type Id = keyof typeof SIZES;
@@ -21,21 +21,9 @@ export function generateImageMetadata() {
 
 export default async function Icon({ id }: { id: Promise<string> }) {
   const key = (await id) as Id;
-  const { px, pad } = SIZES[key] ?? SIZES["512"];
-  const art = Math.round(px * (1 - pad * 2));
+  const { px, safe, tiny } = SIZES[key] ?? SIZES["512"];
   return new ImageResponse(
-    <div
-      style={{
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: px <= 32 ? "transparent" : PAPER,
-      }}
-    >
-      <WheelArt size={art} />
-    </div>,
+    <img src={appIconDataUri({ safe, tiny })} width={px} height={px} alt="" />,
     { width: px, height: px },
   );
 }

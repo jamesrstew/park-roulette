@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
+import { AppMoments } from "@/components/AppMoments";
 import { SpinScreen } from "@/components/SpinScreen";
 import { WelcomeSheet } from "@/components/WelcomeSheet";
 import { getBucketList, getMe } from "@/lib/data";
@@ -9,6 +10,7 @@ async function Spin() {
   const parks = await getBucketList(me?.crew.id ?? null);
   return (
     <>
+      <AppMoments signedIn={!!me} />
       <SpinScreen parks={parks} signedIn={!!me} />
       {me ? (
         <WelcomeSheet

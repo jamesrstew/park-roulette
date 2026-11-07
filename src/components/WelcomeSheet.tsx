@@ -1,8 +1,10 @@
 "use client";
 
+import { InstallSheet } from "./InstallSheet";
+import { shouldOfferInstall } from "@/lib/install";
 import confetti from "canvas-confetti";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/icons";
 import { CRAYONS, crayon } from "@/lib/crayons";
 import { sfx } from "@/lib/sound";
@@ -31,6 +33,17 @@ export function WelcomeSheet({
   const [wanted] = useState(() => params.get("welcome") === "1");
   const [closed, setClosed] = useState(false);
   const open = wanted && !closed;
+  // After the welcome, offer "Make it an app!" (phones, not yet installed).
+  const offerInstall = useSyncExternalStore(
+    () => () => {},
+    shouldOfferInstall,
+    () => false,
+  );
+  const [installOpen, setInstallOpen] = useState(false);
+  const finish = () => {
+    setClosed(true);
+    if (offerInstall) setInstallOpen(true);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -60,7 +73,14 @@ export function WelcomeSheet({
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
 
-  if (!open) return null;
+  if (!open)
+    return (
+      <InstallSheet
+        open={installOpen}
+        onClose={() => setInstallOpen(false)}
+        crewLink={crewLink}
+      />
+    );
   const hex = crayon(color);
 
   return (
@@ -122,29 +142,31 @@ export function WelcomeSheet({
             </li>
           ))}
         </ol>
-        <div className="mt-4 rounded-xl border-2 border-dashed border-ink/30 px-3 py-2 text-left">
-          <p className="font-hand text-lg leading-tight">
-            Save your crew link! It&apos;s how you (and only your crew) get back
-            in on a new phone.
-          </p>
-          <button
-            type="button"
-            className="chip mt-1.5 min-h-11"
-            onClick={async () => {
-              try {
-                await navigator.clipboard.writeText(crewLink);
-                setCopied(true);
-              } catch {
-                window.prompt("Copy your crew link:", crewLink);
-              }
-            }}
-          >
-            {copied ? "Copied!" : "Copy my crew link"}
-          </button>
-        </div>
+        {!offerInstall && (
+          <div className="mt-4 rounded-xl border-2 border-dashed border-ink/30 px-3 py-2 text-left">
+            <p className="font-hand text-lg leading-tight">
+              Save your crew link! It&apos;s how you (and only your crew) get
+              back in on a new phone.
+            </p>
+            <button
+              type="button"
+              className="chip mt-1.5 min-h-11"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(crewLink);
+                  setCopied(true);
+                } catch {
+                  window.prompt("Copy your crew link:", crewLink);
+                }
+              }}
+            >
+              {copied ? "Copied!" : "Copy my crew link"}
+            </button>
+          </div>
+        )}
         <button
           type="button"
-          onClick={() => setClosed(true)}
+          onClick={finish}
           className="crayon-btn wax mt-5 w-full bg-crayon-yellow py-3.5 text-3xl"
         >
           Let&apos;s spin!

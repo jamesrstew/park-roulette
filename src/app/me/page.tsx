@@ -116,7 +116,9 @@ async function MeScreen() {
 
       <SoundBox />
 
-      <HomeScreenTip />
+      <HomeScreenTip
+        crewLink={`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/join/${me.crew.joinCode}`}
+      />
 
       <SignOutButton name={me.name} />
     </div>
