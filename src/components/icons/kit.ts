@@ -90,7 +90,9 @@ export const shape = (
 
 // ---------- geometry helpers (24-unit grid) ----------
 
-const n = (v: number) => +v.toFixed(2);
+// One decimal on a 24-unit grid is ~0.1px at our sizes: invisible, and it
+// keeps the inline SVG small.
+const n = (v: number) => +v.toFixed(1);
 
 export function circle(cx: number, cy: number, r: number) {
   return `M${n(cx - r)} ${n(cy)} A${r} ${r} 0 1 0 ${n(cx + r)} ${n(cy)} A${r} ${r} 0 1 0 ${n(cx - r)} ${n(cy)} Z`;
@@ -162,6 +164,10 @@ export type Mark = {
   t?: string;
   dash?: string;
   rule?: "evenodd";
+  /** The see-through color wash under a crayon fill. */
+  wash?: true;
+  /** A crayon zigzag stroke: lovely at 24px+, invisible (but heavy) below. */
+  zig?: true;
 };
 
 /** How far the crayon strays from the lines. */
@@ -184,7 +190,14 @@ export function compile(name: string, parts: Part[]): Mark[] {
     if (p.kind === "fill") {
       const color = tone(p.color);
       const t = p.t ? `${p.t} ${STRAY}` : STRAY;
-      marks.push({ d: p.d, fill: color, opacity: 0.38, t, rule: "evenodd" });
+      marks.push({
+        d: p.d,
+        fill: color,
+        opacity: 0.38,
+        t,
+        rule: "evenodd",
+        wash: true,
+      });
       const drawable = gen.path(p.d, {
         seed,
         stroke: "none",
@@ -205,6 +218,7 @@ export function compile(name: string, parts: Part[]): Mark[] {
           sw: 1.15,
           opacity: 0.92,
           t,
+          zig: true,
         });
       }
     } else if (p.kind === "solid") {

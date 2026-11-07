@@ -1,3 +1,5 @@
+"use client";
+
 import type { SVGProps } from "react";
 import { ALIASES, DRAWINGS } from "./drawings";
 import { compile, type Mark } from "./kit";
@@ -8,16 +10,19 @@ export type IconName = DrawingName | keyof typeof ALIASES;
 export const ICON_NAMES = Object.keys(DRAWINGS) as DrawingName[];
 
 export function isIconName(name: string): name is IconName {
-  return name in DRAWINGS || name in ALIASES;
+  // hasOwn, not `in`: "constructor" or "toString" are not icons.
+  return Object.hasOwn(DRAWINGS, name) || Object.hasOwn(ALIASES, name);
 }
+
+/** At or below this size, crayon zigzags become a flat wash (lighter pages). */
+const LITE_SIZE = 22;
 
 const cache = new Map<DrawingName, Mark[]>();
 
 function marksFor(name: IconName): Mark[] {
-  const key: DrawingName =
-    name in ALIASES
-      ? ALIASES[name as keyof typeof ALIASES]
-      : (name as DrawingName);
+  const key: DrawingName = Object.hasOwn(ALIASES, name)
+    ? ALIASES[name as keyof typeof ALIASES]
+    : (name as DrawingName);
   let marks = cache.get(key);
   if (!marks) {
     marks = compile(key, DRAWINGS[key]);
@@ -35,11 +40,15 @@ type Props = Omit<SVGProps<SVGSVGElement>, "name"> & {
 };
 
 /**
- * A hand-drawn crayon icon. Server-component friendly: no hooks, no client
- * JS, no filters. Pass `title` when the icon is the only label.
+ * A hand-drawn crayon icon. Pass `title` when the icon is the only label.
+ *
+ * It's a client component on purpose: from a server component, React then
+ * sends just {name, size} instead of the whole drawing a second time in the
+ * page data. No hooks, no filters; paths are computed once per icon and cached.
  */
 export function Icon({ name, size = 28, title, ...rest }: Props) {
-  const marks = marksFor(name);
+  const lite = size <= LITE_SIZE;
+  const marks = lite ? marksFor(name).filter((m) => !m.zig) : marksFor(name);
   return (
     <svg
       viewBox="0 0 24 24"
@@ -56,6 +65,7 @@ export function Icon({ name, size = 28, title, ...rest }: Props) {
       {...rest}
       style={{ overflow: "visible", flexShrink: 0, ...rest.style }}
     >
+      {title ? <title>{title}</title> : null}
       {marks.map((m, i) => (
         <path
           key={i}
@@ -65,7 +75,7 @@ export function Icon({ name, size = 28, title, ...rest }: Props) {
           stroke={m.stroke}
           strokeWidth={m.sw}
           strokeDasharray={m.dash}
-          opacity={m.opacity}
+          opacity={lite && m.wash ? 0.8 : m.opacity}
           transform={m.t}
         />
       ))}

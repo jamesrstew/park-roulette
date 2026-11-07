@@ -12,7 +12,7 @@ A just-for-fun, mobile-first web app: the Stewarts' quest to visit every playgro
 
 ## Design laws (this app lives or dies on delight)
 
-1. **Everything looks drawn by a kid with crayons.** Use the design system: `.doodle-box`, `.crayon-btn` + `.wax` + a `bg-crayon-*` color, `.chip`, `.highlight`, `.tape`, `.field`; SVG filters `url(#crayon)` / `url(#wobble)` / `url(#hatch-yellow)` from `CrayonDefs`; doodles in `components/Scribbles.tsx`; rough.js for scribbled fills. Fonts: `font-hand` (Gochi Hand, headings/labels), `font-body` (Shantell Sans), `font-sketch` (Cabin Sketch, wordmark and big numbers).
+1. **Everything looks drawn by a kid with crayons.** Use the design system: `.doodle-box`, `.crayon-btn` + `.wax` + a `bg-crayon-*` color, `.chip`, `.highlight`, `.tape`, `.field`; SVG filters `url(#crayon)` / `url(#wobble)` / `url(#hatch-yellow)` from `CrayonDefs`; doodles in `components/Scribbles.tsx`; rough.js for scribbled fills. Fonts: `font-hand` (Gochi Hand: titles, labels, big numbers) and `font-body` (Shantell Sans). There is no third font; don't add one. Page titles use `<PageTitle>` (one crayon accent word, a two-color scribble underline). Icons use `<Icon name=…>` from `components/icons` (hand-drawn crayon set; preview at /icons), never emoji, except people-picked buddy avatars.
 2. **Colors only from the crayon box** (`src/lib/crayons.ts` / `--color-crayon-*`), ink `#2b2a33`, paper `#fffaf0`.
 3. **Mobile first, thumb first.** Design at 390px. Primary actions are big and low on the screen. Keep tap targets at least 44px. The bottom nav is fixed, so leave `pb-32`.
 4. **Copy is short, warm, playful, and in American English.** Talk like a fun parent, not a SaaS app. ("Let's go!", "We went!", "Colored in").

@@ -12,10 +12,14 @@ import { SoundBox } from "@/components/me/SoundBox";
 import { PageTitle } from "@/components/PageTitle";
 import { CRAYON_NAMES, type CrayonName } from "@/lib/crayons";
 
-const isCrayonName = (c: string): c is CrayonName =>
-  (CRAYON_NAMES as string[]).includes(c);
 import { getMe } from "@/lib/data";
 import { getCrewMembers, getCrewStampCount } from "@/lib/data-me";
+
+/** Light crayons (yellow, orange) are too pale for a title on paper. */
+function titleCrayon(c: string): CrayonName {
+  if (!(CRAYON_NAMES as string[]).includes(c)) return "purple";
+  return c === "yellow" || c === "orange" ? "purple" : (c as CrayonName);
+}
 
 export const metadata: Metadata = { title: "Me" };
 
@@ -33,7 +37,7 @@ async function MeScreen() {
         lead="Hi,"
         accent={me.name}
         trail="!"
-        color={(isCrayonName(me.color) ? me.color : "purple") as CrayonName}
+        color={titleCrayon(me.color)}
         underline={me.color === "pink" ? "yellow" : "pink"}
         underlineWidth="w-44"
         subtitle={<p>Explorer with {me.crew.name}</p>}

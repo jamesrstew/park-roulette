@@ -72,9 +72,9 @@ export function AttrToggle({
         <span
           className="absolute -top-2 -right-1.5 grid place-items-center rounded-full border-2 border-ink bg-white p-px"
           title="The map says it's here"
-          aria-label="(on the map)"
         >
           <Icon name="map" size={13} />
+          <span className="sr-only">(on the map)</span>
         </span>
       )}
     </button>

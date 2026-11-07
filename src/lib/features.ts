@@ -234,7 +234,7 @@ export const SMART_FILTERS: {
   },
   {
     key: "shade",
-    label: "Shady",
+    label: "Nice and shady",
     emoji: "🌳",
     any: ["shade"],
     none: ["no_shade"],
