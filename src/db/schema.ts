@@ -59,6 +59,8 @@ export const parks = pgTable(
     lng: doublePrecision("lng").notNull(),
     address: text("address"),
     kind: text("kind").notNull().default("park"),
+    /** playground | nature (natural play, no structure) | none (a park, no playground). */
+    play: text("play").notNull().default("playground"),
     features: text("features")
       .array()
       .notNull()

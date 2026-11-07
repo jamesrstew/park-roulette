@@ -62,6 +62,8 @@ export type ParkSummary = {
   cover: string | null;
   /** How many explorer reviews reported each attribute key. */
   reports: Record<string, number>;
+  /** playground | nature | none */
+  play: string;
   /** "active", or why it was crossed off the bucket list. */
   status: string;
   statusNote: string | null;
@@ -166,6 +168,7 @@ async function summaries(
     visitCount: vn ?? 0,
     cover: cover ?? null,
     reports: reports.get(park.id) ?? {},
+    play: park.play,
     status: park.status,
     statusNote: park.statusNote,
   }));

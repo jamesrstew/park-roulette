@@ -38,12 +38,12 @@ console.log(
 
 for (const p of parks) {
   await sql`
-    insert into parks (slug, name, city, lat, lng, address, kind, features, confidence, sources, notes)
-    values (${p.slug}, ${p.name}, ${p.city}, ${p.lat}, ${p.lng}, ${p.address ?? null}, ${p.kind ?? "park"},
+    insert into parks (slug, name, city, lat, lng, address, kind, play, features, confidence, sources, notes)
+    values (${p.slug}, ${p.name}, ${p.city}, ${p.lat}, ${p.lng}, ${p.address ?? null}, ${p.kind ?? "park"}, ${p.play ?? "playground"},
             ${p.features ?? []}, ${p.confidence ?? "unverified"}, ${p.sources ?? []}, ${p.notes ?? null})
     on conflict (slug) do update set
       name = excluded.name, city = excluded.city, lat = excluded.lat, lng = excluded.lng,
-      address = excluded.address, kind = excluded.kind, sources = excluded.sources, notes = excluded.notes,
+      address = excluded.address, kind = excluded.kind, play = excluded.play, sources = excluded.sources, notes = excluded.notes,
       -- keep crowd-fixed features/confidence once a human has confirmed them
       features = case when parks.confidence = 'confirmed' and parks.sources @> array['crowd'] then parks.features else excluded.features end,
       confidence = case when parks.confidence = 'confirmed' then parks.confidence else excluded.confidence end`;

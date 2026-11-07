@@ -1,0 +1,198 @@
+/* Map-only styles (pins, overlays). Shared tokens come from globals.css. */
+
+/* Contain Leaflet's z-indexes (panes 400+, controls 1000) so our overlays
+   and the fixed bottom nav sit above the map without z-index wars. */
+.pr-map {
+  isolation: isolate;
+  z-index: 0;
+}
+
+/* Keep the attribution clear of the fixed bottom nav. */
+.pr-map.pr-map-full .leaflet-bottom {
+  bottom: calc(max(env(safe-area-inset-bottom), 0.6rem) + 76px);
+}
+.pr-map .leaflet-control-attribution {
+  font-family: var(--font-body);
+  font-size: 10px;
+  background: rgb(255 253 247 / 0.8);
+  border-radius: 8px 0 0 8px;
+}
+
+/* ---------- park pins ---------- */
+.leaflet-div-icon.park-pin {
+  background: none;
+  border: none;
+}
+.pin-hit {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  cursor: pointer;
+}
+.pin-art {
+  transition: transform 0.18s cubic-bezier(0.2, 1.4, 0.4, 1);
+  transform-origin: 50% 60%;
+  overflow: visible;
+}
+.pin-hit:active .pin-art {
+  transform: scale(0.9);
+}
+.pin-hit.is-selected .pin-art {
+  transform: scale(1.45) rotate(-8deg);
+}
+.pin-hit.is-selected .pin-star {
+  transform: scale(1.35) rotate(-8deg);
+}
+.pin-star {
+  animation: pin-stamp 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes pin-stamp {
+  from {
+    transform: scale(0.2) rotate(-40deg);
+    opacity: 0;
+  }
+}
+
+/* ---------- clusters ---------- */
+.pin-cluster {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+  cursor: pointer;
+}
+.pin-cluster-blob {
+  display: grid;
+  place-items: center;
+  width: var(--s);
+  height: var(--s);
+  background: #fffdf7;
+  border: 3px solid var(--c);
+  border-radius: var(--radius-blob);
+  box-shadow:
+    0 0 0 2px var(--color-ink),
+    3px 4px 0 2px var(--color-ink);
+  transition: transform 0.15s ease;
+}
+.pin-cluster:active .pin-cluster-blob {
+  transform: scale(0.92);
+}
+.pin-cluster-blob.is-done {
+  background: #fbe08a;
+}
+.pin-cluster-n {
+  font-family: var(--font-hand);
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--color-ink);
+}
+.pin-cluster-label {
+  position: absolute;
+  top: calc(50% + var(--s) / 2 + 2px);
+  padding: 0 6px;
+  font-family: var(--font-hand);
+  font-size: 0.95rem;
+  line-height: 1.25;
+  white-space: nowrap;
+  color: #fff;
+  background: var(--c);
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-wobbly-2);
+  transform: rotate(-3deg);
+}
+
+/* ---------- you are here ---------- */
+.leaflet-div-icon.me-pin {
+  background: none;
+  border: none;
+}
+.pin-me {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+.pin-me-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-blob);
+  background: var(--color-crayon-blue);
+  border: 3px solid #fff;
+  box-shadow: 0 0 0 2px var(--color-ink);
+}
+.pin-me-pulse {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-blob);
+  border: 3px dashed var(--color-crayon-blue);
+  animation: me-pulse 1.8s ease-out infinite;
+}
+@keyframes me-pulse {
+  from {
+    transform: scale(1) rotate(0);
+    opacity: 0.9;
+  }
+  to {
+    transform: scale(3.4) rotate(90deg);
+    opacity: 0;
+  }
+}
+.pin-me-label {
+  position: absolute;
+  left: calc(50% + 12px);
+  top: -6px;
+  font-family: var(--font-hand);
+  font-size: 1.1rem;
+  color: var(--color-crayon-blue);
+  transform: rotate(-10deg);
+  text-shadow:
+    0 0 3px #fff,
+    0 0 3px #fff;
+}
+
+/* ---------- add-a-park picker ---------- */
+.leaflet-div-icon.push-pin {
+  background: none;
+  border: none;
+}
+.pin-push {
+  width: 40px;
+  height: 52px;
+  filter: drop-shadow(2px 3px 0 rgb(43 42 51 / 0.35));
+  transition: transform 0.15s ease;
+}
+.leaflet-dragging .pin-push,
+.pin-push:active {
+  transform: translateY(-8px) scale(1.08);
+}
+.pin-ghost {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--c);
+  border: 2px solid var(--color-ink);
+  opacity: 0.55;
+}
+
+/* ---------- sheet ---------- */
+.map-sheet-enter {
+  animation: sheet-up 0.32s cubic-bezier(0.2, 1.25, 0.4, 1) both;
+}
+@keyframes sheet-up {
+  from {
+    transform: translateY(110%);
+  }
+}
+.map-hide-scrollbar {
+  scrollbar-width: none;
+}
+.map-hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}

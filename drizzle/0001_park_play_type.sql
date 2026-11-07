@@ -1,0 +1,1 @@
+ALTER TABLE "parks" ADD COLUMN "play" text DEFAULT 'playground' NOT NULL;
