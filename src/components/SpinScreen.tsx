@@ -34,9 +34,9 @@ import {
 import { stampMilestone, type Milestone } from "@/lib/milestones";
 import { MilestoneCard } from "./Milestone";
 import { Stars } from "./Stars";
-import { Underline } from "./Scribbles";
 import { Wheel, type WheelHandle, type WheelItem } from "./Wheel";
 import { sfx } from "@/lib/sound";
+import { PageTitle } from "./PageTitle";
 import { SoundToggle } from "./SoundToggle";
 
 const MAX_WEDGES = 10;
@@ -225,27 +225,32 @@ export function SpinScreen({
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="relative pt-2 text-center">
-        <div className="absolute -top-1 -right-2">
+      <div className="relative">
+        <div className="absolute top-1 -right-2 z-10">
           <SoundToggle />
         </div>
-        <h1 className="font-sketch text-[3.2rem] leading-none font-bold tracking-tight">
-          Park <span className="text-crayon-red">Roulette</span>
-        </h1>
-        <Underline className="mx-auto -mt-1 h-4 w-56" color="#f7c933" />
-        <p className="mt-1 font-hand text-xl text-ink-soft">
-          {signedIn ? (
-            <>
-              <span className="highlight">{quest.done}</span> of {quest.total}{" "}
-              playgrounds done!
-            </>
-          ) : (
-            <span className="text-balance">
-              {playgroundsLeft} playgrounds in Central Oregon. Where to?
-            </span>
-          )}
-        </p>
-      </header>
+        <PageTitle
+          lead="Park"
+          accent="Roulette"
+          color="red"
+          underline="yellow"
+          underlineWidth="w-56"
+          subtitle={
+            <p>
+              {signedIn ? (
+                <>
+                  <span className="highlight">{quest.done}</span> of{" "}
+                  {quest.total} playgrounds done!
+                </>
+              ) : (
+                <span className="text-balance">
+                  {playgroundsLeft} playgrounds in Central Oregon. Where to?
+                </span>
+              )}
+            </p>
+          }
+        />
+      </div>
 
       {/* Filters: compact summary, expandable drawer */}
       <section aria-label="Filters" className="flex flex-col gap-2">

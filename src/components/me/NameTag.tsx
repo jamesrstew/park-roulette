@@ -39,9 +39,7 @@ export function NameTag({
           className="wax px-4 pt-2 pb-1.5 text-center transition-colors duration-300"
           style={{ backgroundColor: hex, color: inkOn(color) }}
         >
-          <p className="font-sketch text-3xl leading-none font-bold tracking-wider">
-            HELLO
-          </p>
+          <p className="font-hand text-3xl leading-none">HELLO</p>
           <p className="font-hand text-lg leading-tight">my name is</p>
         </div>
         <div className="flex min-h-24 items-center gap-3 px-4 py-3">

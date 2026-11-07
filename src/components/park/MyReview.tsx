@@ -183,9 +183,7 @@ function ThanksCritic({
       <span className="text-5xl" aria-hidden>
         🏆
       </span>
-      <span className="font-sketch text-4xl leading-none font-bold">
-        Thanks, critic!
-      </span>
+      <span className="font-hand text-4xl leading-none">Thanks, critic!</span>
       <span className="font-hand text-xl text-ink-soft">
         {formatStars(tenths)} stars · {verdict(tenths)}
       </span>

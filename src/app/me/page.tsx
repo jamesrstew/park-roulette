@@ -8,6 +8,11 @@ import { ShareCard } from "@/components/me/ShareCard";
 import { SignedOutIntro } from "@/components/me/SignedOutIntro";
 import { SignOutButton } from "@/components/me/SignOutButton";
 import { SoundBox } from "@/components/me/SoundBox";
+import { PageTitle } from "@/components/PageTitle";
+import { CRAYON_NAMES, type CrayonName } from "@/lib/crayons";
+
+const isCrayonName = (c: string): c is CrayonName =>
+  (CRAYON_NAMES as string[]).includes(c);
 import { getMe } from "@/lib/data";
 import { getCrewMembers, getCrewStampCount } from "@/lib/data-me";
 
@@ -23,9 +28,15 @@ async function MeScreen() {
 
   return (
     <div className="flex flex-col gap-7 pt-2">
-      <h1 className="text-center font-sketch text-4xl font-bold">
-        Hi, {me.name}!
-      </h1>
+      <PageTitle
+        lead="Hi,"
+        accent={me.name}
+        trail="!"
+        color={(isCrayonName(me.color) ? me.color : "purple") as CrayonName}
+        underline={me.color === "pink" ? "yellow" : "pink"}
+        underlineWidth="w-44"
+        subtitle={<p>Explorer with {me.crew.name}</p>}
+      />
 
       <ProfileCard
         initial={{

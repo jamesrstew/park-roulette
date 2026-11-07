@@ -22,7 +22,7 @@ import { formatMiles, milesBetween, type LatLng } from "@/lib/geo";
 import { stampMilestone, type Milestone } from "@/lib/milestones";
 import { formatStars } from "@/lib/rating";
 import { MilestoneCard } from "../Milestone";
-import { Underline } from "../Scribbles";
+import { PageTitle } from "../PageTitle";
 import { sfx } from "@/lib/sound";
 
 type Show = "all" | "todo" | "done" | "crossed";
@@ -136,15 +136,17 @@ export function BucketList({
 
   return (
     <div className="flex flex-col gap-4">
-      <header className="pt-2 text-center">
-        <h1 className="text-5xl">
-          The <span className="text-crayon-blue">Bucket List</span>
-        </h1>
-        <Underline className="mx-auto -mt-1 h-4 w-52" color="#3aa35b" />
-        <p className="mt-1 font-hand text-xl text-balance text-ink-soft">
-          Every playground in Central Oregon. Every last one.
-        </p>
-      </header>
+      <PageTitle
+        lead="The"
+        accent="Bucket List"
+        color="blue"
+        underline="green"
+        subtitle={
+          <p className="text-balance">
+            Every playground in Central Oregon. Every last one.
+          </p>
+        }
+      />
 
       <div
         role="tablist"

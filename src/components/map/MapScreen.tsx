@@ -142,10 +142,8 @@ export function MapScreen({
               {signedIn ? (
                 <>
                   <p className="font-hand text-xl leading-tight">
-                    <span className="font-sketch text-2xl font-bold">
-                      {done}
-                    </span>{" "}
-                    of {quest.total} playgrounds
+                    <span className="font-hand text-2xl">{done}</span> of{" "}
+                    {quest.total} playgrounds
                     {done > 0 && done === quest.total ? " 🏆" : ""}
                   </p>
                   <ProgressBar value={done} max={quest.total} />
@@ -153,7 +151,7 @@ export function MapScreen({
               ) : (
                 <>
                   <p className="font-hand text-xl leading-tight">
-                    <span className="font-sketch text-2xl font-bold">
+                    <span className="font-hand text-2xl">
                       {playgroundsLeft}
                     </span>{" "}
                     playgrounds to find!

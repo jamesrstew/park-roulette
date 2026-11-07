@@ -343,7 +343,7 @@ export const Wheel = forwardRef<WheelHandle, Props>(function Wheel(
         type="button"
         onClick={() => spin(0)}
         disabled={disabled || n === 0}
-        className="crayon-btn wax absolute top-1/2 left-1/2 h-24 w-24 -translate-x-1/2 -translate-y-[calc(50%+5px)] rounded-full! bg-crayon-yellow p-0 font-sketch text-3xl font-bold"
+        className="crayon-btn wax absolute top-1/2 left-1/2 h-24 w-24 -translate-x-1/2 -translate-y-[calc(50%+5px)] rounded-full! bg-crayon-yellow p-0 font-hand text-3xl"
         style={{ borderRadius: "50% 48% 52% 50% / 48% 52% 50% 50%" }}
         aria-label="Spin the wheel"
       >

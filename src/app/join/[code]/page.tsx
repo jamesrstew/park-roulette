@@ -41,7 +41,7 @@ function Smudged() {
   return (
     <div className="flex flex-col items-center gap-4 pt-10 text-center">
       <SmudgedCrayon className="w-60 animate-pop-in" />
-      <h1 className="font-sketch text-4xl font-bold">Oops, smudged!</h1>
+      <h1 className="font-hand text-4xl">Oops, smudged!</h1>
       <p className="max-w-xs text-lg leading-snug">
         This invite link got a little smudged. Ask whoever sent it for a fresh
         one.

@@ -72,7 +72,7 @@ export const ATTRIBUTES: Record<string, Attr> = {
     group: "littles",
   },
   // Comfort
-  shade: { label: "Shade", emoji: "🌳", kind: "good", group: "comfort" },
+  shade: { label: "Nice and shady", emoji: "🌳", kind: "good", group: "comfort" },
   restrooms: {
     label: "Restrooms",
     emoji: "🚻",

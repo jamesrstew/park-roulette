@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Arrow } from "@/components/Scribbles";
+import { PageTitle } from "../PageTitle";
 
 const PREVIEW = [
   { emoji: "🎟️", title: "First Stamp", color: "#f7c933", rot: -8 },
@@ -11,17 +12,14 @@ const PREVIEW = [
 export function SignedOut() {
   return (
     <div className="flex flex-col gap-6 pt-2">
-      <header className="text-center">
-        <p className="font-hand text-lg tracking-[0.25em] text-ink-soft uppercase">
-          The
-        </p>
-        <h1 className="font-sketch text-[3rem] leading-none font-bold">
-          Park <span className="text-crayon-red">Passport</span>
-        </h1>
-        <p className="mt-2 font-hand text-xl text-ink-soft">
-          One little book for your whole crew.
-        </p>
-      </header>
+      <PageTitle
+        lead="The"
+        accent="Passport"
+        color="purple"
+        underline="orange"
+        underlineWidth="w-44"
+        subtitle={<p>One little book for your whole crew.</p>}
+      />
 
       {/* A peek inside: two stamps and a dashed "next one" */}
       <div className="doodle-box relative mx-2 rotate-[-1.5deg] px-4 pt-6 pb-5 shadow-[4px_5px_0_#2b2a33]">
@@ -132,7 +130,7 @@ function FakeStamp({
         {town}
       </span>
       <span className="font-hand leading-none">{name}</span>
-      <span className="font-sketch text-xs font-bold">{date}</span>
+      <span className="font-hand text-xs">{date}</span>
     </div>
   );
 }

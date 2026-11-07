@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { todayInBend, SectionTitle } from "@/components/passport/bits";
+import { PageTitle } from "@/components/PageTitle";
 import { Cover } from "@/components/passport/Cover";
 import { FreshScribbles } from "@/components/passport/FreshScribbles";
 import { FunStats } from "@/components/passport/FunStats";
@@ -77,7 +78,14 @@ async function Passport() {
   });
 
   return (
-    <div className="flex flex-col gap-9 pt-1">
+    <div className="flex flex-col gap-6 pt-1">
+      <PageTitle
+        lead="Our"
+        accent="Passport"
+        color="purple"
+        underline="orange"
+        underlineWidth="w-44"
+      />
       <Cover
         crew={data.crew}
         members={data.members}

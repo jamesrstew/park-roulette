@@ -132,9 +132,9 @@ export function Cover({
         <p className="relative font-hand text-sm tracking-[0.3em] text-white/90 uppercase">
           Official Park Passport
         </p>
-        <h1 className="relative pr-10 font-sketch text-[2.4rem] leading-none font-bold text-white drop-shadow-[2px_2px_0_#2b2a33]">
+        <h2 className="relative pr-10 font-hand text-[2.4rem] leading-none text-white drop-shadow-[2px_2px_0_#2b2a33]">
           {crew.name}
-        </h1>
+        </h2>
       </div>
 
       {/* Crew avatars, peeking over the band edge */}
@@ -167,14 +167,14 @@ export function Cover({
       >
         <Ring progress={progress} color={color} />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="font-sketch text-[4.2rem] leading-[0.9] font-bold">
+          <span className="font-hand text-[4.2rem] leading-[0.9]">
             {progress.done}
           </span>
           <span className="font-hand text-xl leading-tight text-ink-soft">
             of {progress.total} playgrounds
           </span>
           <span
-            className={`highlight mt-1 font-sketch font-bold ${finished ? "animate-float text-2xl" : "text-3xl"}`}
+            className={`highlight mt-1 font-hand ${finished ? "animate-float text-2xl" : "text-3xl"}`}
             style={{ ["--hl" as string]: "#f7c933" }}
           >
             {finished ? "🏆 We did it!" : `${percent}%`}

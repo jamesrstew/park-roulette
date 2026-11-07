@@ -32,7 +32,7 @@ export default function ParkNotFound() {
         </svg>
         <Pines className="absolute bottom-0 left-0 w-3/4" />
       </div>
-      <h1 className="font-sketch text-4xl font-bold">Hmm, no park here!</h1>
+      <h1 className="font-hand text-4xl">Hmm, no park here!</h1>
       <p className="max-w-xs font-hand text-xl text-ink-soft">
         We looked under every slide. This page must have wandered off.
       </p>

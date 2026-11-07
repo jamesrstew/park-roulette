@@ -141,7 +141,7 @@ export function CrayonPicker({
               strokeLinecap="round"
             />
           </svg>
-          <p className="mt-3 font-sketch text-3xl leading-none font-bold tracking-widest text-[#fffdf7] [text-shadow:2px_2px_0_#2b2a33]">
+          <p className="mt-3 font-hand text-3xl leading-none text-[#fffdf7] [text-shadow:2px_2px_0_#2b2a33]">
             CRAYONS
           </p>
         </div>

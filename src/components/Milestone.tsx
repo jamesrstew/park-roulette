@@ -43,7 +43,7 @@ export function MilestoneCard({
         <span className="animate-float text-6xl" aria-hidden>
           {milestone.emoji}
         </span>
-        <h2 className="mt-1 font-sketch text-[2.1rem] leading-none font-bold text-balance">
+        <h2 className="mt-1 font-hand text-[2.1rem] leading-none text-balance">
           {milestone.title}
         </h2>
         <p className="font-hand text-xl text-ink-soft">{milestone.line}</p>
