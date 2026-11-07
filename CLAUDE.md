@@ -28,7 +28,7 @@ A just-for-fun, mobile-first web app: the Stewarts' quest to visit every playgro
 
 ## Shipping (James, 2026-11-06)
 
-- **Run `/scrutinize` on every change before it reaches `main`.** Pushing `main` deploys production on Vercel (park-roulette.vercel.app), so main stays scrutinized. Fix the findings, then push.
+- **Run `/scrutinize` on every change before it reaches `main`.** Pushing `main` deploys production on Vercel (parkroulette.quest), so main stays scrutinized. Fix the findings, then push.
 - This project is separate from belief-systems. Run `railway`/`vercel` commands only from this folder; it's linked to the Railway project `park-roulette` and the Vercel project `park-roulette`. Never re-link or change CLI defaults for other folders.
 - Prod DB is Railway Postgres (`park-roulette` project). Migrations are additive; never drop data (it's people's reviews and photos).
 

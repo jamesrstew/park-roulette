@@ -5,7 +5,7 @@ describe("inviteCodeFrom", () => {
   it("reads full links, bare codes, and trims", () => {
     expect(
       inviteCodeFrom(
-        "https://park-roulette.vercel.app/join/wiggly-otter-k7pqm2vx9a",
+        "https://parkroulette.quest/join/wiggly-otter-k7pqm2vx9a",
       ),
     ).toBe("wiggly-otter-k7pqm2vx9a");
     expect(inviteCodeFrom("  Wiggly-Otter-K7PQ  ")).toBe("wiggly-otter-k7pq");
