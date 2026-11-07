@@ -16,6 +16,7 @@ async function Spin() {
           avatar={me.avatar}
           color={me.color}
           crewName={me.crew.name}
+          crewLink={`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/join/${me.crew.joinCode}`}
         />
       ) : null}
     </>

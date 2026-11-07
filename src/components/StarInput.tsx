@@ -23,6 +23,8 @@ const GAP = 8;
 const W = STAR_W * 5 + GAP * 4;
 const H = STAR_W;
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 function starPoints(
   cx: number,
   cy: number,
@@ -32,7 +34,12 @@ function starPoints(
   return Array.from({ length: 10 }, (_, i) => {
     const r = i % 2 === 0 ? outer : inner;
     const a = -Math.PI / 2 + (i * Math.PI) / 5;
-    return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as [number, number];
+    // Rounded: Math.cos can differ in the last bits between the server and
+    // the phone, which would make React's hydration complain.
+    return [round2(cx + r * Math.cos(a)), round2(cy + r * Math.sin(a))] as [
+      number,
+      number,
+    ];
   });
 }
 

@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   title: "You're invited!",
   description:
     "Come play! Join the quest to visit every playground in Central Oregon.",
+  // Invite links are private keys to a crew: keep them out of search results.
+  robots: { index: false, follow: false },
 };
 
 async function Join({ params }: { params: Promise<{ code: string }> }) {

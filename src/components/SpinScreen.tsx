@@ -1,5 +1,6 @@
 "use client";
 
+import { storage } from "@/lib/storage";
 import confetti from "canvas-confetti";
 import Link from "next/link";
 import {
@@ -10,7 +11,7 @@ import {
   useState,
   useTransition,
 } from "react";
-import { logVisit } from "@/lib/actions";
+import { logVisit } from "@/lib/client-actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import {
@@ -101,7 +102,7 @@ export function SpinScreen({
   useEffect(() => {
     let saved: Partial<Filters> | null = null;
     try {
-      saved = JSON.parse(localStorage.getItem("pr:filters") ?? "null");
+      saved = JSON.parse(storage.get("pr:filters") ?? "null");
     } catch {}
     hydrated.current = true;
     if (saved) {
@@ -112,7 +113,7 @@ export function SpinScreen({
   }, []);
   useEffect(() => {
     if (!hydrated.current) return;
-    localStorage.setItem("pr:filters", JSON.stringify(filters));
+    storage.set("pr:filters", JSON.stringify(filters));
   }, [filters]);
 
   const towns = useMemo(
@@ -125,7 +126,6 @@ export function SpinScreen({
     [everything],
   );
   const playgroundsLeft = parks.filter(hasPlayground).length;
-  const visitedCount = parks.filter((p) => p.lastVisit).length;
 
   const pool = useMemo(
     () =>
@@ -140,6 +140,15 @@ export function SpinScreen({
       }),
     [parks, filters, here, signedIn],
   );
+
+  // "Everywhere" is judged within what the wheel spins (playgrounds unless
+  // "parks without playgrounds too" is on), not across every park.
+  const scope = filters.allParks ? parks : parks.filter(hasPlayground);
+  const everywhere =
+    signedIn &&
+    filters.newOnly &&
+    scope.length > 0 &&
+    scope.every((p) => p.lastVisit);
 
   // Re-deal the wheel whenever the pool changes.
   const poolKey = pool.map((p) => p.id).join(",");
@@ -248,7 +257,11 @@ export function SpinScreen({
       </header>
 
       {/* Filters: compact summary, expandable drawer */}
-      <section aria-label="Filters" className="flex flex-col gap-2">
+      <section
+        aria-label="Filters"
+        className={`flex flex-col gap-2 transition-opacity ${spinning ? "opacity-60" : ""}`}
+        inert={spinning}
+      >
         <div className="-mx-4 flex [scrollbar-width:none] gap-2 overflow-x-auto px-4 pb-1">
           {signedIn && (
             <button
@@ -373,10 +386,12 @@ export function SpinScreen({
 
       {pool.length === 0 ? (
         <EmptyWheel
-          everywhere={
-            signedIn && filters.newOnly && visitedCount === parks.length
+          everywhere={everywhere}
+          onReset={() =>
+            // Finished everything in scope? Then the reset has to include
+            // visited parks too, or the wheel stays empty.
+            setFilters({ ...DEFAULT_FILTERS, newOnly: !everywhere })
           }
-          onReset={() => setFilters(DEFAULT_FILTERS)}
         />
       ) : (
         <>

@@ -2,7 +2,7 @@
 
 import confetti from "canvas-confetti";
 import { useState, useTransition } from "react";
-import { logVisit, removeVisit } from "@/lib/actions";
+import { logVisit, removeVisit } from "@/lib/client-actions";
 import { CRAYONS } from "@/lib/crayons";
 import { directionsUrl, placeUrl } from "@/lib/geo";
 import { formatDay, todayLocal } from "./format";
@@ -167,6 +167,7 @@ export function ParkActions({
 
 function OurVisits({ visits }: { visits: Visit[] }) {
   const [confirming, setConfirming] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   return (
     <div className="mt-1">
@@ -174,6 +175,11 @@ function OurVisits({ visits }: { visits: Visit[] }) {
         Our visits{" "}
         <span className="text-lg text-ink-soft">({visits.length})</span>
       </h2>
+      {error && (
+        <p role="alert" className="font-hand text-lg text-crayon-red">
+          {error}
+        </p>
+      )}
       <ul className="mt-1 flex flex-col gap-1.5">
         {visits.map((v, i) => (
           <li
@@ -204,9 +210,10 @@ function OurVisits({ visits }: { visits: Visit[] }) {
                   disabled={pending}
                   onClick={() =>
                     start(async () => {
-                      await removeVisit(v.id);
-                      sfx.undo();
+                      const res = await removeVisit(v.id);
                       setConfirming(null);
+                      if (!res.ok) return (sfx.oops(), setError(res.error));
+                      sfx.undo();
                     })
                   }
                 >

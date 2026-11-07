@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
-import { claimExplorer, joinWithCode } from "@/lib/actions";
+import { claimExplorer, joinWithCode } from "@/lib/client-actions";
 import { AVATARS, CRAYON_NAMES, crayon } from "@/lib/crayons";
 import { AvatarPicker } from "./AvatarPicker";
 import { CrayonPicker } from "./CrayonPicker";

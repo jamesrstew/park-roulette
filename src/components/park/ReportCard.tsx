@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateFeatures } from "@/lib/actions";
+import { updateFeatures } from "@/lib/client-actions";
 import { ATTR_GROUPS, ATTRIBUTES, attributeScores } from "@/lib/features";
 import { AttrSticker, AttrToggle } from "./AttrChip";
 import { JoinNudge } from "./JoinNudge";

@@ -1,5 +1,6 @@
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import { Stars } from "../Stars";
+import { CoverPhoto } from "./CoverPhoto";
 import { Underline } from "../Scribbles";
 import { BackButton } from "./BackButton";
 import { DoodleScene } from "./Doodles";
@@ -50,11 +51,10 @@ export function ParkHero({
         <span className="tape -top-3 left-1/2 z-10 -translate-x-1/2 rotate-3" />
         <div className="border-2 border-ink/80 bg-white p-2.5 pb-3 shadow-[3px_5px_0_rgb(43_42_51/0.25)]">
           {cover ? (
-            // eslint-disable-next-line @next/next/no-img-element -- Blob URLs, no image optimizer
-            <img
+            <CoverPhoto
               src={cover}
               alt={`A photo of ${name}`}
-              className="aspect-[4/3] w-full object-cover"
+              playground={playground}
             />
           ) : (
             <DoodleScene

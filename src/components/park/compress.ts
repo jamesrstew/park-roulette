@@ -29,14 +29,24 @@ async function decode(
   }
 }
 
+/** The browser couldn't open this photo (e.g. HEIC outside Safari). */
+export class UnreadablePhoto extends Error {}
+
 /**
- * Shrink a photo to a ~2000px JPEG before upload. If the browser can't decode
- * it (HEIC on most non-Apple browsers), the original goes up untouched.
+ * Re-draw every photo as a ~2000px JPEG before upload. Re-encoding also strips
+ * EXIF (including GPS location), which matters because uploads are public.
+ * Photos the browser can't decode are refused rather than uploaded raw: a raw
+ * HEIC would show as a broken image for everyone not on Safari.
  */
 export async function compressImage(file: File): Promise<File> {
   if (file.type === "image/gif") return file;
+  let src: Awaited<ReturnType<typeof decode>>;
   try {
-    const src = await decode(file);
+    src = await decode(file);
+  } catch {
+    throw new UnreadablePhoto(file.name);
+  }
+  {
     const scale = Math.min(1, MAX_SIDE / Math.max(src.width, src.height));
     const w = Math.round(src.width * scale);
     const h = Math.round(src.height * scale);
@@ -44,7 +54,7 @@ export async function compressImage(file: File): Promise<File> {
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
+    if (!ctx) throw new UnreadablePhoto(file.name);
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, w, h);
     ctx.drawImage(src, 0, 0, w, h);
@@ -52,15 +62,9 @@ export async function compressImage(file: File): Promise<File> {
     const blob = await new Promise<Blob | null>((r) =>
       canvas.toBlob(r, "image/jpeg", 0.85),
     );
-    if (
-      !blob ||
-      (scale === 1 && blob.size >= file.size && file.type === "image/jpeg")
-    )
-      return file;
+    if (!blob) throw new UnreadablePhoto(file.name);
     const base = file.name.replace(/\.[^.]+$/, "") || "photo";
     return new File([blob], `${base}.jpg`, { type: "image/jpeg" });
-  } catch {
-    return file;
   }
 }
 

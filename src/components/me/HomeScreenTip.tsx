@@ -1,5 +1,6 @@
 "use client";
 
+import { storage } from "@/lib/storage";
 import { useState, useSyncExternalStore } from "react";
 
 const noop = () => () => {};
@@ -18,7 +19,7 @@ export function HomeScreenTip() {
         (navigator as Navigator & { standalone?: boolean }).standalone === true;
       let hidden = false;
       try {
-        hidden = localStorage.getItem(KEY) === "1";
+        hidden = storage.get(KEY) === "1";
       } catch {}
       return ios && !standalone && !hidden;
     },
@@ -42,7 +43,7 @@ export function HomeScreenTip() {
         aria-label="Hide this tip"
         onClick={() => {
           try {
-            localStorage.setItem(KEY, "1");
+            storage.set(KEY, "1");
           } catch {}
           setDismissed(true);
         }}

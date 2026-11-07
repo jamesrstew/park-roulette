@@ -2,13 +2,19 @@
 
 import { upload } from "@vercel/blob/client";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { saveReview } from "@/lib/actions";
+import { saveReview } from "@/lib/client-actions";
 import { CRAYONS } from "@/lib/crayons";
 import type { ReviewView } from "@/lib/data";
 import { ATTR_GROUPS, ATTRIBUTES } from "@/lib/features";
 import { AttrToggle } from "./AttrChip";
 import { CrayonProgress } from "./Doodles";
-import { compressImage, formatMB, isVideo, safeName } from "./compress";
+import {
+  compressImage,
+  formatMB,
+  isVideo,
+  safeName,
+  UnreadablePhoto,
+} from "./compress";
 import { StarInput } from "../StarInput";
 import { sfx } from "@/lib/sound";
 
@@ -77,7 +83,18 @@ export function ReviewComposer({
     patch(u.key, { status: "prep", pct: 0, error: undefined });
     let file = u.file;
     if (u.kind === "image") {
-      file = await compressImage(file);
+      try {
+        file = await compressImage(file);
+      } catch (e) {
+        patch(u.key, {
+          status: "error",
+          error:
+            e instanceof UnreadablePhoto
+              ? "This photo type won't open here. Try a screenshot of it!"
+              : "Couldn't get that photo ready.",
+        });
+        return;
+      }
       patch(u.key, { file });
     }
     if (file.size > MAX_BYTES) {
@@ -128,7 +145,14 @@ export function ReviewComposer({
     if (files.length > room)
       setError(`That's a lot of memories! We kept the first ${room}.`);
     setUploads((us) => [...us, ...fresh]);
-    fresh.forEach(send);
+    // Two at a time: decoding a dozen full-size photos at once can run an
+    // older iPhone out of memory and crash the tab.
+    const queue = [...fresh];
+    const worker = async () => {
+      for (let next = queue.shift(); next; next = queue.shift())
+        await send(next);
+    };
+    void Promise.all([worker(), worker()]);
   }
 
   function drop(key: string) {

@@ -112,6 +112,7 @@ export function Lightbox({
               src={item.url}
               alt=""
               draggable={false}
+              onError={(e) => (e.currentTarget.style.visibility = "hidden")}
               className="max-h-full max-w-full rounded-sm border-[6px] border-white object-contain select-none"
             />
           )}
@@ -189,6 +190,7 @@ export function MediaGrid({ items }: { items: MediaItem[] }) {
                   src={m.url}
                   alt=""
                   loading="lazy"
+                  onError={(e) => (e.currentTarget.style.visibility = "hidden")}
                   className="h-full w-full object-cover"
                 />
               )}

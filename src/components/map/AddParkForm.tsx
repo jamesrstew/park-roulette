@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
-import { addPark } from "@/lib/actions";
+import { addPark } from "@/lib/client-actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkPin } from "@/lib/data-map";
 import { ATTR_GROUPS, ATTRIBUTES } from "@/lib/features";

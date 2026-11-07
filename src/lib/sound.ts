@@ -1,5 +1,6 @@
 "use client";
 
+import { storage } from "@/lib/storage";
 /**
  * The Park Roulette sound box. Every sound is synthesized with WebAudio:
  * no files to download, no licenses, and one consistent "crayon box" voice.
@@ -22,11 +23,11 @@ let noise: AudioBuffer | null = null;
 
 export function soundOn(): boolean {
   if (typeof window === "undefined") return false;
-  return localStorage.getItem(KEY) !== "off";
+  return storage.get(KEY) !== "off";
 }
 
 export function setSoundOn(on: boolean) {
-  localStorage.setItem(KEY, on ? "on" : "off");
+  storage.set(KEY, on ? "on" : "off");
   listeners.forEach((l) => l(on));
   if (on) sfx.pop();
 }
@@ -38,35 +39,60 @@ export function onSoundChange(l: Listener) {
 
 function audio(): AudioContext | null {
   if (typeof window === "undefined" || !soundOn()) return null;
-  if (!ctx) {
-    // iOS 17+: behave like a game, honor the silent switch.
-    const nav = navigator as Navigator & { audioSession?: { type: string } };
-    if (nav.audioSession) nav.audioSession.type = "ambient";
-    const Ctor =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext })
-        .webkitAudioContext;
-    if (!Ctor) return null;
-    ctx = new Ctor();
-    master = ctx.createGain();
-    master.gain.value = 0.8;
-    // A gentle compressor keeps stacked sounds (confetti + chord) from clipping.
-    const comp = ctx.createDynamicsCompressor();
-    master.connect(comp).connect(ctx.destination);
-    noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const d = noise.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  try {
+    if (!ctx) {
+      // iOS 17+: behave like a game, honor the silent switch.
+      const nav = navigator as Navigator & { audioSession?: { type: string } };
+      if (nav.audioSession) nav.audioSession.type = "ambient";
+      const Ctor =
+        window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext;
+      if (!Ctor) return null;
+      ctx = new Ctor();
+      master = ctx.createGain();
+      master.gain.value = 0.8;
+      // A gentle compressor keeps stacked sounds (confetti + chord) from clipping.
+      const comp = ctx.createDynamicsCompressor();
+      master.connect(comp).connect(ctx.destination);
+      noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+      const d = noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    // "suspended" before the first gesture; WebKit's "interrupted" after a
+    // phone call, Siri, or a trip to Google Maps. Anything but "running" gets
+    // a nudge.
+    if (ctx.state !== "running") void ctx.resume().catch(() => {});
+    return ctx;
+  } catch {
+    return null; // sound is a nicety; never break the page over it
   }
-  if (ctx.state === "suspended") void ctx.resume();
-  return ctx;
 }
 
-// Unlock audio on the very first tap anywhere, so sounds that play after an
-// await (e.g. "stamped!" once the server says OK) still work on iOS.
+/**
+ * Unlock audio on real user gestures. Touch browsers grant "user activation"
+ * on pointerup/touchend/click (not pointerdown), so listen to all of them and
+ * keep listening until the context is actually running. Coming back to the
+ * tab (e.g. from Google Maps) re-arms it, since WebKit may have interrupted it.
+ */
 if (typeof window !== "undefined") {
-  window.addEventListener("pointerdown", () => audio(), {
-    once: true,
-    capture: true,
+  const GESTURES = ["pointerup", "touchend", "click", "keydown"] as const;
+  const opts = { capture: true, passive: true } as const;
+  const onGesture = () => {
+    audio();
+    if (ctx?.state === "running")
+      GESTURES.forEach((g) => window.removeEventListener(g, onGesture, opts));
+  };
+  const arm = () =>
+    GESTURES.forEach((g) => window.addEventListener(g, onGesture, opts));
+  arm();
+  document.addEventListener("visibilitychange", () => {
+    if (
+      document.visibilityState === "visible" &&
+      ctx &&
+      ctx.state !== "running"
+    )
+      arm();
   });
 }
 

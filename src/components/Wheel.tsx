@@ -21,14 +21,17 @@ const R = 160;
 /** Radial room for a label between the hub and the rim. */
 const LABEL_SPACE = 92;
 
+/** Trig differs in the last bits between server and phone; round for hydration. */
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 function wedgePath(i: number, n: number) {
   const seg = (Math.PI * 2) / n;
   const a0 = i * seg - Math.PI / 2;
   const a1 = a0 + seg;
-  const x0 = C + R * Math.cos(a0);
-  const y0 = C + R * Math.sin(a0);
-  const x1 = C + R * Math.cos(a1);
-  const y1 = C + R * Math.sin(a1);
+  const x0 = round2(C + R * Math.cos(a0));
+  const y0 = round2(C + R * Math.sin(a0));
+  const x1 = round2(C + R * Math.cos(a1));
+  const y1 = round2(C + R * Math.sin(a1));
   const large = seg > Math.PI ? 1 : 0;
   return `M${C},${C} L${x0},${y0} A${R},${R} 0 ${large} 1 ${x1},${y1} Z`;
 }
@@ -279,8 +282,8 @@ export const Wheel = forwardRef<WheelHandle, Props>(function Wheel(
             return (
               <circle
                 key={i}
-                cx={C + (R + 3) * Math.cos(a)}
-                cy={C + (R + 3) * Math.sin(a)}
+                cx={round2(C + (R + 3) * Math.cos(a))}
+                cy={round2(C + (R + 3) * Math.sin(a))}
                 r="4.5"
                 fill="#f7c933"
                 stroke="#2b2a33"

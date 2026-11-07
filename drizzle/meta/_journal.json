@@ -15,6 +15,13 @@
       "when": 1794027452866,
       "tag": "0001_park_play_type",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794030357525,
+      "tag": "0002_backfill_legacy_no_playground",
+      "breakpoints": true
     }
   ]
 }

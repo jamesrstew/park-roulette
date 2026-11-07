@@ -4,7 +4,7 @@ import confetti from "canvas-confetti";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Stars } from "@/components/Stars";
-import { logVisit } from "@/lib/actions";
+import { logVisit } from "@/lib/client-actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import { sfx } from "@/lib/sound";
@@ -99,7 +99,13 @@ export function ParkSheet({
           transform: drag ? `translateY(${drag}px)` : undefined,
           transition: drag ? "none" : "transform 0.2s ease",
         }}
-        onTouchStart={(e) => (startY.current = e.touches[0].clientY)}
+        onTouchStart={(e) => {
+          // Only swipe-to-close from the top: if the card's own content is
+          // scrolled, the finger is scrolling it, not dismissing it.
+          const scroller = e.currentTarget.querySelector("article");
+          startY.current =
+            scroller && scroller.scrollTop > 0 ? null : e.touches[0].clientY;
+        }}
         onTouchMove={(e) => {
           if (startY.current == null) return;
           setDrag(Math.max(0, e.touches[0].clientY - startY.current));

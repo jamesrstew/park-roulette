@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useMemo, useState, useTransition } from "react";
-import { logVisit, setParkPlay, setParkStatus } from "@/lib/actions";
+import { logVisit, setParkPlay, setParkStatus } from "@/lib/client-actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import {
@@ -123,8 +123,7 @@ export function BucketList({
         setHere({ lat: pos.coords.latitude, lng: pos.coords.longitude });
         setSort("near");
       },
-      () =>
-        setToast({ text: "Couldn't find you. Check location permissions." }),
+      () => flash({ text: "Couldn't find you. Check location permissions." }),
       { timeout: 10000, maximumAge: 300000 },
     );
   }
@@ -294,6 +293,7 @@ export function BucketList({
                   here={sort === "near" ? here : null}
                   signedIn={signedIn}
                   onMenu={() => setMenuFor(p)}
+                  onFail={(error) => flash({ text: error })}
                   onStamped={() => {
                     const m = stampMilestone(allParks, p.id);
                     if (m) setMilestone(m);
@@ -451,12 +451,14 @@ function Row({
   signedIn,
   onMenu,
   onStamped,
+  onFail,
 }: {
   park: ParkSummary;
   here: LatLng | null;
   signedIn: boolean;
   onMenu: () => void;
   onStamped: () => void;
+  onFail: (error: string) => void;
 }) {
   const [pending, start] = useTransition();
   const [justChecked, setJustChecked] = useState(false);
@@ -488,6 +490,9 @@ function Row({
               setJustChecked(true);
               navigator.vibrate?.(15);
               onStamped();
+            } else {
+              sfx.oops();
+              onFail(r.error);
             }
           })
         }

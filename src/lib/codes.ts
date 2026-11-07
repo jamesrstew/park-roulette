@@ -29,9 +29,16 @@ const NOUN = [
   "kite",
 ];
 
-/** Friendly but unguessable invite codes, e.g. "wiggly-otter-48213". */
+const ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"; // no 0/o/1/l lookalikes
+
+/**
+ * Friendly but unguessable invite codes, e.g. "wiggly-otter-k7pqm2vx9a".
+ * 10 random chars from a 32-letter alphabet = 50 bits, plus ~7 from the words.
+ */
 export function inviteCode(): string {
-  return `${ADJ[randomInt(ADJ.length)]}-${NOUN[randomInt(NOUN.length)]}-${randomInt(10000, 99999)}${randomInt(100, 999)}`;
+  let tail = "";
+  for (let i = 0; i < 10; i++) tail += ALPHABET[randomInt(ALPHABET.length)];
+  return `${ADJ[randomInt(ADJ.length)]}-${NOUN[randomInt(NOUN.length)]}-${tail}`;
 }
 
 export function slugify(s: string): string {

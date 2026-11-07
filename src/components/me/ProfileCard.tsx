@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateProfile } from "@/lib/actions";
+import { updateProfile } from "@/lib/client-actions";
 import { AvatarPicker } from "./AvatarPicker";
 import { CrayonPicker } from "./CrayonPicker";
 import { NameTag } from "./NameTag";

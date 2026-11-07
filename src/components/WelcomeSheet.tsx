@@ -15,12 +15,16 @@ export function WelcomeSheet({
   avatar,
   color,
   crewName,
+  crewLink,
 }: {
   name: string;
   avatar: string;
   color: string;
   crewName: string;
+  /** This crew's join link: the only way back in on a new phone. */
+  crewLink: string;
 }) {
+  const [copied, setCopied] = useState(false);
   const params = useSearchParams();
   // Latch on first render: we strip ?welcome=1 from the URL right away.
   const [wanted] = useState(() => params.get("welcome") === "1");
@@ -114,6 +118,26 @@ export function WelcomeSheet({
             </li>
           ))}
         </ol>
+        <div className="mt-4 rounded-xl border-2 border-dashed border-ink/30 px-3 py-2 text-left">
+          <p className="font-hand text-lg leading-tight">
+            Save your crew link! It&apos;s how you (and only your crew) get back
+            in on a new phone.
+          </p>
+          <button
+            type="button"
+            className="chip mt-1.5 min-h-11"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(crewLink);
+                setCopied(true);
+              } catch {
+                window.prompt("Copy your crew link:", crewLink);
+              }
+            }}
+          >
+            {copied ? "Copied!" : "Copy my crew link"}
+          </button>
+        </div>
         <button
           type="button"
           onClick={() => setClosed(true)}

@@ -6,8 +6,8 @@ const MB = 1024 * 1024;
 
 /** Issues short-lived tokens so phones upload photos/videos straight to Vercel Blob. */
 export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
   try {
+    const body = (await request.json()) as HandleUploadBody;
     const json = await handleUpload({
       body,
       request,

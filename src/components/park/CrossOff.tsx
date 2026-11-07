@@ -2,7 +2,7 @@
 
 import confetti from "canvas-confetti";
 import { useState, useTransition } from "react";
-import { setParkPlay, setParkStatus } from "@/lib/actions";
+import { setParkPlay, setParkStatus } from "@/lib/client-actions";
 import { CRAYONS } from "@/lib/crayons";
 import { CROSS_OFF_REASONS, PLAY_TYPES, type PlayType } from "@/lib/features";
 import { ScribbleOut } from "./Doodles";

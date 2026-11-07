@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signOut } from "@/lib/actions";
+import { signOut } from "@/lib/client-actions";
 
 /** Two taps on purpose: without a password, your crew link is the way back. */
 export function SignOutButton({ name }: { name: string }) {

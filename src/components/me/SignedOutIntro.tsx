@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PasteInvite } from "./PasteInvite";
 import { Pines, Underline } from "@/components/Scribbles";
 import { DoodleGo, DoodleSpin, DoodleStamp } from "./Doodles";
 
@@ -67,6 +68,9 @@ export function SignedOutIntro() {
           Ask your crew for an invite link. Tap it and you&apos;re in. No
           passwords, promise.
         </p>
+        <div className="mt-4">
+          <PasteInvite />
+        </div>
       </section>
 
       <section className="flex flex-col items-center gap-3 text-center">

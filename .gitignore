@@ -47,3 +47,6 @@ next-env.d.ts
 
 # raw API dumps from data/scripts (regenerable)
 /data/raw/
+
+# seed output for non-local DBs (crew invite links)
+.crew-links.local

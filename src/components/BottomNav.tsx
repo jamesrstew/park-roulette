@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
+import { navHistory } from "@/lib/nav-history";
 
 const TABS = [
   { href: "/", label: "Spin", emoji: "🎡", match: (p: string) => p === "/" },
@@ -32,7 +34,10 @@ const TABS = [
 ];
 
 export function BottomNav() {
-  return <NavBar path={usePathname()} />;
+  const path = usePathname();
+  // Count in-app page views so Back buttons know if there's somewhere to go.
+  useEffect(() => navHistory.visited(), [path]);
+  return <NavBar path={path} />;
 }
 
 /** Hook-free nav, also used as the static Suspense fallback. */

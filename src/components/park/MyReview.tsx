@@ -2,7 +2,7 @@
 
 import confetti from "canvas-confetti";
 import { useEffect, useState, useTransition } from "react";
-import { deleteReview } from "@/lib/actions";
+import { deleteReview } from "@/lib/client-actions";
 import { CRAYONS } from "@/lib/crayons";
 import type { ReviewView } from "@/lib/data";
 import { formatStars, verdict } from "@/lib/rating";
@@ -44,6 +44,7 @@ export function MyReview({
   }, []);
   const [thanks, setThanks] = useState<number | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, start] = useTransition();
 
   useEffect(() => {
@@ -93,7 +94,15 @@ export function MyReview({
           review={review}
           mine
           actions={
-            <div className="mt-1 flex items-center gap-2 border-t-2 border-dashed border-ink/15 pt-3">
+            <div className="mt-1 flex flex-wrap items-center gap-2 border-t-2 border-dashed border-ink/15 pt-3">
+              {deleteError && (
+                <p
+                  role="alert"
+                  className="w-full font-hand text-lg text-crayon-red"
+                >
+                  {deleteError}
+                </p>
+              )}
               {confirmDelete ? (
                 <>
                   <span className="flex-1 font-hand text-lg leading-tight">
@@ -112,8 +121,12 @@ export function MyReview({
                     disabled={deleting}
                     onClick={() =>
                       start(async () => {
-                        await deleteReview(parkId);
+                        const res = await deleteReview(parkId);
                         setConfirmDelete(false);
+                        if (!res.ok) {
+                          sfx.oops();
+                          setDeleteError(res.error);
+                        } else setDeleteError(null);
                       })
                     }
                   >

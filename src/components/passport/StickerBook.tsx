@@ -1,5 +1,6 @@
 "use client";
 
+import { storage } from "@/lib/storage";
 import confetti from "canvas-confetti";
 import { useEffect, useRef, useState } from "react";
 import type { Badge } from "@/lib/badges";
@@ -29,7 +30,7 @@ export function StickerBook({
     const key = `pr:stickers:${crewId}`;
     let seen: string[] = [];
     try {
-      seen = JSON.parse(localStorage.getItem(key) ?? "[]");
+      seen = JSON.parse(storage.get(key) ?? "[]");
     } catch {}
     const ids = earnedKey ? earnedKey.split(",") : [];
     const newOnes = ids.filter((id) => !seen.includes(id));
@@ -43,10 +44,7 @@ export function StickerBook({
         if (!entry.isIntersecting) return;
         io.disconnect();
         setPlaying(true);
-        localStorage.setItem(
-          key,
-          JSON.stringify([...new Set([...seen, ...ids])]),
-        );
+        storage.set(key, JSON.stringify([...new Set([...seen, ...ids])]));
         const box = el.getBoundingClientRect();
         sfx.sticker();
         confetti({
