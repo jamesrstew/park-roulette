@@ -49,6 +49,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${gochi.variable} ${shantell.variable} h-full antialiased`}
     >
+      <head>
+        {/* Android's install prompt can fire before our JS loads; keep it for later. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e;});",
+          }}
+        />
+      </head>
       <body className="flex min-h-full flex-col">
         <CrayonDefs />
         <main className="mx-auto w-full max-w-xl flex-1 px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-32">

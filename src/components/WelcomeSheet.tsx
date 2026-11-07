@@ -4,7 +4,7 @@ import { InstallSheet } from "./InstallSheet";
 import { shouldOfferInstall } from "@/lib/install";
 import confetti from "canvas-confetti";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/icons";
 import { CRAYONS, crayon } from "@/lib/crayons";
 import { sfx } from "@/lib/sound";
@@ -44,6 +44,10 @@ export function WelcomeSheet({
     setClosed(true);
     if (offerInstall) setInstallOpen(true);
   };
+  const finishRef = useRef(finish);
+  useEffect(() => {
+    finishRef.current = finish;
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -68,7 +72,8 @@ export function WelcomeSheet({
 
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setClosed(true);
+    const onKey = (e: KeyboardEvent) =>
+      e.key === "Escape" && finishRef.current();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
@@ -87,8 +92,9 @@ export function WelcomeSheet({
     <div className="fixed inset-0 z-[1200] flex items-end justify-center">
       <button
         type="button"
-        aria-label="Close"
-        onClick={() => setClosed(true)}
+        aria-hidden
+        tabIndex={-1}
+        onClick={finish}
         className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
       />
       <div
@@ -142,31 +148,30 @@ export function WelcomeSheet({
             </li>
           ))}
         </ol>
-        {!offerInstall && (
-          <div className="mt-4 rounded-xl border-2 border-dashed border-ink/30 px-3 py-2 text-left">
-            <p className="font-hand text-lg leading-tight">
-              Save your crew link! It&apos;s how you (and only your crew) get
-              back in on a new phone.
-            </p>
-            <button
-              type="button"
-              className="chip mt-1.5 min-h-11"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(crewLink);
-                  setCopied(true);
-                } catch {
-                  window.prompt("Copy your crew link:", crewLink);
-                }
-              }}
-            >
-              {copied ? "Copied!" : "Copy my crew link"}
-            </button>
-          </div>
-        )}
+        <div className="mt-4 rounded-xl border-2 border-dashed border-ink/30 px-3 py-2 text-left">
+          <p className="font-hand text-lg leading-tight">
+            Save your crew link! It&apos;s how you (and only your crew) get back
+            in on a new phone.
+          </p>
+          <button
+            type="button"
+            className="chip mt-1.5 min-h-11"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(crewLink);
+                setCopied(true);
+              } catch {
+                window.prompt("Copy your crew link:", crewLink);
+              }
+            }}
+          >
+            {copied ? "Copied!" : "Copy my crew link"}
+          </button>
+        </div>
         <button
           type="button"
           onClick={finish}
+          autoFocus
           className="crayon-btn wax mt-5 w-full bg-crayon-yellow py-3.5 text-3xl"
         >
           Let&apos;s spin!

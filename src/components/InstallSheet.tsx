@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/icons";
 import {
+  browserNames,
   canPromptAndroid,
   installLater,
   installPlatform,
@@ -40,15 +41,46 @@ export function InstallSheet({
   const platform = usePlatform();
   const androidReady = useAndroidPrompt();
   const [step, setStep] = useState<"offer" | "steps">("offer");
-  const [copied, setCopied] = useState(false);
+  /** "copied" only after a real clipboard write; "manual" shows the link to copy by hand. */
+  const [copy, setCopy] = useState<"idle" | "copied" | "manual">("idle");
+  const panel = useRef<HTMLDivElement>(null);
+  const names = browserNames();
 
+  // Every way out (Escape, backdrop, the bottom button) does the same thing:
+  // before the steps it's "maybe later" (a snooze); after them it's just done.
+  const latest = useRef({ step, onClose });
+  useEffect(() => {
+    latest.current = { step, onClose };
+  });
+  const dismiss = () => {
+    if (latest.current.step === "offer") installLater();
+    latest.current.onClose();
+  };
+
+  // On open: fresh state, a sound, focus into the sheet. On close: focus back.
   useEffect(() => {
     if (!open) return;
+    /* eslint-disable react-hooks/set-state-in-effect -- reset each time the sheet opens */
+    setStep("offer");
+    setCopy("idle");
+    /* eslint-enable react-hooks/set-state-in-effect */
+    const opener = document.activeElement as HTMLElement | null;
     sfx.slide();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const raf = requestAnimationFrame(() =>
+      panel.current?.querySelector<HTMLElement>("[data-autofocus]")?.focus(),
+    );
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (latest.current.step === "offer") installLater();
+      latest.current.onClose();
+    };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener("keydown", onKey);
+      opener?.focus?.();
+    };
+  }, [open]);
 
   if (!open || platform === "none") return null;
 
@@ -56,28 +88,25 @@ export function InstallSheet({
     if (!crewLink) return;
     try {
       await navigator.clipboard.writeText(crewLink);
-      setCopied(true);
+      setCopy("copied");
       sfx.pop();
     } catch {
-      window.prompt("Copy your crew link:", crewLink);
-      setCopied(true);
+      setCopy("manual"); // show it in a box they can press and hold to copy
     }
   }
-
-  const later = () => {
-    installLater();
-    onClose();
-  };
+  const n = (i: number) => (crewLink ? i + 1 : i);
 
   return (
     <div className="fixed inset-0 z-[1250] flex items-end justify-center">
       <button
         type="button"
-        aria-label="Close"
-        onClick={later}
+        aria-hidden
+        tabIndex={-1}
+        onClick={dismiss}
         className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
       />
       <div
+        ref={panel}
         role="dialog"
         aria-modal="true"
         aria-labelledby="install-h"
@@ -110,20 +139,19 @@ export function InstallSheet({
               compass, then <b>Open in browser</b>.
             </p>
             {crewLink && (
-              <button
-                type="button"
-                className="crayon-btn bg-paper text-lg"
-                onClick={copyLink}
-              >
-                <Icon name={copied ? "check" : "link"} size={24} />
-                {copied ? "Copied! Paste it in Safari" : "Copy my crew link"}
-              </button>
+              <CopyRow
+                copy={copy}
+                crewLink={crewLink}
+                onCopy={copyLink}
+                autoFocus
+              />
             )}
           </div>
         ) : platform === "android" && androidReady ? (
           <div className="mt-5 flex flex-col gap-3">
             <button
               type="button"
+              data-autofocus
               className="crayon-btn wax bg-crayon-green py-3.5 text-2xl text-white"
               onClick={async () => {
                 if (await promptAndroidInstall()) {
@@ -134,60 +162,49 @@ export function InstallSheet({
             >
               <Icon name="phone" size={28} /> Add to Home Screen
             </button>
+            {crewLink && (
+              <CopyRow copy={copy} crewLink={crewLink} onCopy={copyLink} />
+            )}
           </div>
         ) : step === "offer" ? (
           <div className="mt-5 flex flex-col gap-3">
             <button
               type="button"
+              data-autofocus
               className="crayon-btn wax bg-crayon-green py-3.5 text-2xl text-white"
               onClick={async () => {
                 setStep("steps");
                 await copyLink();
               }}
             >
-              Show me how
+              {crewLink ? "Copy my link & show me how" : "Show me how"}
             </button>
           </div>
         ) : (
           <ol className="mt-4 flex flex-col gap-3">
             {crewLink && (
-              <Step n={1} done={copied}>
-                <span>
-                  {copied ? (
-                    <>
-                      <b>Crew link copied.</b> If the app ever asks who you are,
-                      paste it.
-                    </>
-                  ) : (
-                    <>
-                      <b>Copy your crew link</b> so the app knows it&apos;s you.
-                    </>
-                  )}
-                </span>
-                {!copied && (
-                  <button
-                    type="button"
-                    className="chip min-h-11 shrink-0"
-                    onClick={copyLink}
-                  >
-                    Copy
-                  </button>
-                )}
+              <Step n={1} done={copy === "copied"}>
+                <CopyRow
+                  copy={copy}
+                  crewLink={crewLink}
+                  onCopy={copyLink}
+                  compact
+                />
               </Step>
             )}
-            <Step n={crewLink ? 2 : 1}>
+            <Step n={n(1)}>
               <span>
                 {platform === "android" ? (
                   <>
-                    Tap the <b>⋮</b> menu in Chrome.
+                    Tap the <b>⋮</b> menu in {names.menu}.
                   </>
                 ) : (
                   <>
                     Tap{" "}
                     <Kbd>
                       <ShareGlyph /> Share
-                    </Kbd>{" "}
-                    in Safari.{" "}
+                    </Kbd>
+                    {names.menu === "Safari" ? " in Safari. " : ". "}
                     <span className="text-ink-soft">
                       (Can&apos;t see it? Tap <b>•••</b> first.)
                     </span>
@@ -195,7 +212,7 @@ export function InstallSheet({
                 )}
               </span>
             </Step>
-            <Step n={crewLink ? 3 : 2}>
+            <Step n={n(2)}>
               <span>
                 Tap{" "}
                 <Kbd>
@@ -206,7 +223,7 @@ export function InstallSheet({
                   : ". Scroll down a little if you don't see it."}
               </span>
             </Step>
-            <Step n={crewLink ? 4 : 3}>
+            <Step n={n(3)}>
               <span>
                 Tap <b className="text-crayon-blue">Add</b>. Then look for the
                 wheel on your Home Screen!
@@ -217,13 +234,75 @@ export function InstallSheet({
 
         <button
           type="button"
-          onClick={step === "steps" ? onClose : later}
-          className="mt-4 w-full font-hand text-xl text-ink-soft underline"
+          onClick={dismiss}
+          className="mt-4 min-h-11 w-full font-hand text-xl text-ink-soft underline"
         >
           {step === "steps" ? "Got it!" : "Maybe later"}
         </button>
       </div>
     </div>
+  );
+}
+
+/** The crew link: copy it, or (if the clipboard says no) a box to copy by hand. */
+function CopyRow({
+  copy,
+  crewLink,
+  onCopy,
+  compact,
+  autoFocus,
+}: {
+  copy: "idle" | "copied" | "manual";
+  crewLink: string;
+  onCopy: () => void;
+  compact?: boolean;
+  autoFocus?: boolean;
+}) {
+  if (copy === "copied")
+    return (
+      <span>
+        <b>Crew link copied.</b> If the app ever asks who you are, paste it.
+      </span>
+    );
+  if (copy === "manual")
+    return (
+      <span className="flex w-full flex-col gap-1">
+        <span>
+          <b>Copy your crew link:</b> press and hold it, then tap Copy.
+        </span>
+        <input
+          readOnly
+          value={crewLink}
+          onFocus={(e) => e.currentTarget.select()}
+          className="field py-1.5 text-sm"
+          aria-label="Your crew link"
+        />
+      </span>
+    );
+  if (compact)
+    return (
+      <span className="flex w-full items-center justify-between gap-2">
+        <span>
+          <b>Copy your crew link</b> so the app knows it&apos;s you.
+        </span>
+        <button
+          type="button"
+          className="chip min-h-11 shrink-0"
+          onClick={onCopy}
+        >
+          Copy
+        </button>
+      </span>
+    );
+  return (
+    <button
+      type="button"
+      {...(autoFocus ? { "data-autofocus": true } : {})}
+      className="crayon-btn bg-paper text-lg"
+      onClick={onCopy}
+    >
+      <Icon name="link" size={24} /> Copy my crew link
+    </button>
   );
 }
 

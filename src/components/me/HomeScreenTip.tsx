@@ -3,13 +3,13 @@
 import { useState, useSyncExternalStore } from "react";
 import { Icon } from "@/components/icons";
 import { InstallSheet } from "@/components/InstallSheet";
-import { installPlatform } from "@/lib/install";
+import { installPlatform, markedInstalled } from "@/lib/install";
 
 /** "Make it an app!" card on Me. Opens the install sheet; hidden once installed. */
 export function HomeScreenTip({ crewLink }: { crewLink?: string }) {
   const show = useSyncExternalStore(
     () => () => {},
-    () => installPlatform() !== "none",
+    () => installPlatform() !== "none" && !markedInstalled(),
     () => false,
   );
   const [open, setOpen] = useState(false);

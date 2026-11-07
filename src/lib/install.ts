@@ -19,6 +19,10 @@ let deferred: BeforeInstallPromptEvent | null = null;
 const listeners = new Set<() => void>();
 
 if (typeof window !== "undefined") {
+  // The root layout captures the event before any JS chunk loads (Chrome
+  // fires it once, often right after load). Adopt it if we were late.
+  const early = (window as Window & { __bip?: BeforeInstallPromptEvent }).__bip;
+  if (early) deferred = early;
   window.addEventListener("beforeinstallprompt", (e) => {
     e.preventDefault(); // we show our own, nicer prompt
     deferred = e as BeforeInstallPromptEvent;
@@ -60,6 +64,23 @@ export function installPlatform(): InstallPlatform {
   if (ios) return "ios";
   if (/Android/i.test(ua)) return "android";
   return "none";
+}
+
+/** Words for the browser's own UI, so instructions match what's on screen. */
+export function browserNames(): { share: string; menu: string } {
+  const ua = typeof navigator === "undefined" ? "" : navigator.userAgent;
+  if (/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua))
+    return { share: "Share", menu: "your browser" };
+  if (/iPhone|iPad|iPod|Macintosh/.test(ua))
+    return { share: "Share", menu: "Safari" };
+  if (/SamsungBrowser|Firefox|OPR|EdgA/.test(ua))
+    return { share: "Share", menu: "your browser" };
+  return { share: "Share", menu: "Chrome" };
+}
+
+/** Installed (Android said so, or we've been opened from the Home Screen here). */
+export function markedInstalled(): boolean {
+  return storage.get(INSTALLED_KEY) === "1";
 }
 
 /** Should the first-run flow offer installing? (Me tab always can.) */

@@ -58,6 +58,10 @@ export function appIconSvg({ safe = false, tiny = false } = {}): string {
     const d = wedge(cx, cy, R, i, WEDGES.length);
     parts.push(`<path d="${d}" fill="${color}" opacity="${tiny ? 1 : 0.55}"/>`);
     if (!tiny) {
+      // Keep the crayon inside the lines: clip each wedge's scribbles to it.
+      parts.push(
+        `<clipPath id="w${i}"><path d="${d}"/></clipPath><g clip-path="url(#w${i})">`,
+      );
       const hatch = gen.path(d, {
         seed: 11 + i * 5,
         stroke: "none",
@@ -74,6 +78,7 @@ export function appIconSvg({ safe = false, tiny = false } = {}): string {
           `<path d="${p.d}" fill="none" stroke="${color}" stroke-width="${p.strokeWidth}" stroke-linecap="round"/>`,
         );
       }
+      parts.push(`</g>`);
     }
     const outline = gen.path(d, {
       seed: 40 + i,
