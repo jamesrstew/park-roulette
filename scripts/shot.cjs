@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 // Mobile screenshot helper for design review:
 //   node scripts/shot.cjs <url> <out.png> [selector-to-click]
-// Uses CHROME_PATH or Playwright's bundled browser.
+// LOGIN_ID=1 signs in as explorer 1 first (dev only). Uses CHROME_PATH or Playwright's bundled browser.
 const { chromium, devices } = require("playwright");
 const fs = require("node:fs");
 const os = require("node:os");
@@ -20,6 +20,10 @@ const executablePath =
     "console",
     (m) => m.type() === "error" && console.log("CONSOLE", m.text()),
   );
+  if (process.env.LOGIN_ID) {
+    const origin = new URL(url).origin;
+    await p.goto(`${origin}/api/dev-login?id=${process.env.LOGIN_ID}`);
+  }
   await p.goto(url, { waitUntil: "networkidle" });
   if (click) {
     await p.click(click);
