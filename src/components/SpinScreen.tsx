@@ -36,6 +36,8 @@ import { MilestoneCard } from "./Milestone";
 import { Stars } from "./Stars";
 import { Underline } from "./Scribbles";
 import { Wheel, type WheelHandle, type WheelItem } from "./Wheel";
+import { sfx } from "@/lib/sound";
+import { SoundToggle } from "./SoundToggle";
 
 const MAX_WEDGES = 10;
 const RADII = [5, 10, 20, 40];
@@ -224,6 +226,9 @@ export function SpinScreen({
   return (
     <div className="flex flex-col gap-4">
       <header className="relative pt-2 text-center">
+        <div className="absolute -top-1 -right-2">
+          <SoundToggle />
+        </div>
         <h1 className="font-sketch text-[3.2rem] leading-none font-bold tracking-tight">
           Park <span className="text-crayon-red">Roulette</span>
         </h1>
@@ -553,7 +558,8 @@ function ResultCard({
                       parkId: park.id,
                       visitedOn: todayLocal(),
                     });
-                    if (!r.ok) return setError(r.error);
+                    if (!r.ok) return (sfx.oops(), setError(r.error));
+                    sfx.stamp();
                     setLogged(true);
                     onStamped(park.id);
                   })

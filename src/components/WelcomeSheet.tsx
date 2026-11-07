@@ -4,6 +4,7 @@ import confetti from "canvas-confetti";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CRAYONS, crayon } from "@/lib/crayons";
+import { sfx } from "@/lib/sound";
 
 /**
  * Shown once on /?welcome=1 right after joining or re-claiming on a new phone.
@@ -33,6 +34,7 @@ export function WelcomeSheet({
     url.searchParams.delete("welcome");
     window.history.replaceState(window.history.state, "", url);
     const t = setTimeout(() => {
+      sfx.tada();
       confetti({
         particleCount: 110,
         spread: 80,

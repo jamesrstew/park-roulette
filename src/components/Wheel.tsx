@@ -3,6 +3,7 @@
 import rough from "roughjs";
 import { forwardRef, useImperativeHandle, useMemo, useRef } from "react";
 import { crayon } from "@/lib/crayons";
+import { sfx, unlockAudio } from "@/lib/sound";
 
 export type WheelItem = { id: number; label: string; color: string };
 export type WheelHandle = { spin: (velocity?: number) => void };
@@ -36,54 +37,6 @@ function truncate(s: string, n: number) {
   return s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s;
 }
 
-/** Tiny "tick" made with WebAudio so we ship no sound files. */
-function useTicker() {
-  const ctxRef = useRef<AudioContext | null>(null);
-  return {
-    unlock() {
-      if (!ctxRef.current && typeof window !== "undefined") {
-        const Ctor =
-          window.AudioContext ??
-          (window as unknown as { webkitAudioContext: typeof AudioContext })
-            .webkitAudioContext;
-        if (Ctor) ctxRef.current = new Ctor();
-      }
-      void ctxRef.current?.resume();
-    },
-    tick(pitch = 1) {
-      const ctx = ctxRef.current;
-      if (!ctx) return;
-      const t = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "triangle";
-      osc.frequency.setValueAtTime(900 * pitch, t);
-      osc.frequency.exponentialRampToValueAtTime(380 * pitch, t + 0.04);
-      gain.gain.setValueAtTime(0.12, t);
-      gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.06);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(t);
-      osc.stop(t + 0.07);
-    },
-    tada() {
-      const ctx = ctxRef.current;
-      if (!ctx) return;
-      [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
-        const t = ctx.currentTime + i * 0.09;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "square";
-        osc.frequency.value = f;
-        gain.gain.setValueAtTime(0.05, t);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.26);
-      });
-    },
-  };
-}
-
 /** Ease out with a tiny overshoot so the wheel "settles" like a real one. */
 function settle(t: number) {
   const c1 = 0.9;
@@ -108,7 +61,6 @@ export const Wheel = forwardRef<WheelHandle, Props>(function Wheel(
     lastT: number;
     vel: number;
   } | null>(null);
-  const ticker = useTicker();
   const n = items.length;
   const seg = 360 / Math.max(n, 1);
 
@@ -163,8 +115,9 @@ export const Wheel = forwardRef<WheelHandle, Props>(function Wheel(
   function spin(velocity = 0) {
     if (spinning.current || disabled || n === 0) return;
     spinning.current = true;
-    ticker.unlock();
+    unlockAudio();
     onSpinStart?.();
+    sfx.whoosh();
     const winner = Math.floor(Math.random() * n);
     const jitter = (Math.random() - 0.5) * seg * 0.7;
     const landAt = -(winner * seg + seg / 2 + jitter);
@@ -187,7 +140,7 @@ export const Wheel = forwardRef<WheelHandle, Props>(function Wheel(
       const idx = indexAt(deg);
       if (idx !== lastIdx) {
         lastIdx = idx;
-        ticker.tick(1 + (1 - t) * 0.3);
+        sfx.tick(1 - t);
         flickPointer();
         if (t > 0.6) navigator.vibrate?.(4);
       }
@@ -195,7 +148,7 @@ export const Wheel = forwardRef<WheelHandle, Props>(function Wheel(
         requestAnimationFrame(frame);
       } else {
         spinning.current = false;
-        ticker.tada();
+        sfx.tada();
         navigator.vibrate?.([20, 40, 30]);
         onResult(items[indexAt(deg)].id);
       }
@@ -223,7 +176,7 @@ export const Wheel = forwardRef<WheelHandle, Props>(function Wheel(
         className="h-full w-full touch-none overflow-visible"
         onPointerDown={(e) => {
           if (spinning.current || disabled) return;
-          ticker.unlock();
+          unlockAudio();
           e.currentTarget.setPointerCapture(e.pointerId);
           const a = angleOf(e);
           drag.current = {

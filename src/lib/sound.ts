@@ -61,6 +61,20 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
+// Unlock audio on the very first tap anywhere, so sounds that play after an
+// await (e.g. "stamped!" once the server says OK) still work on iOS.
+if (typeof window !== "undefined") {
+  window.addEventListener("pointerdown", () => audio(), {
+    once: true,
+    capture: true,
+  });
+}
+
+/** Call from a pointer/click handler: iOS only starts audio inside a gesture. */
+export function unlockAudio() {
+  audio();
+}
+
 // ---------- building blocks ----------
 
 function tone(

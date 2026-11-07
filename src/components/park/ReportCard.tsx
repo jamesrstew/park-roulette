@@ -5,6 +5,7 @@ import { updateFeatures } from "@/lib/actions";
 import { ATTR_GROUPS, ATTRIBUTES, attributeScores } from "@/lib/features";
 import { AttrSticker, AttrToggle } from "./AttrChip";
 import { JoinNudge } from "./JoinNudge";
+import { sfx } from "@/lib/sound";
 
 const TILTS = [-1.5, 1, -0.5, 1.8, -1, 0.6];
 
@@ -180,7 +181,8 @@ function FeatureEditor({
           onClick={() =>
             start(async () => {
               const res = await updateFeatures({ parkId, features: picked });
-              if (!res.ok) return setError(res.error);
+              if (!res.ok) return (sfx.oops(), setError(res.error));
+              sfx.scribble();
               onDone();
             })
           }

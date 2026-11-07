@@ -7,6 +7,7 @@ import { CRAYONS } from "@/lib/crayons";
 import { CROSS_OFF_REASONS, PLAY_TYPES, type PlayType } from "@/lib/features";
 import { ScribbleOut } from "./Doodles";
 import { JoinNudge } from "./JoinNudge";
+import { sfx } from "@/lib/sound";
 
 type Reason = keyof typeof CROSS_OFF_REASONS;
 
@@ -77,7 +78,8 @@ export function CrossedOffBanner({
           onClick={() =>
             start(async () => {
               const res = await setParkStatus({ parkId, status: "active" });
-              if (!res.ok) setError(res.error);
+              if (!res.ok) return (sfx.oops(), setError(res.error));
+              sfx.undo();
             })
           }
         >
@@ -131,7 +133,8 @@ export function PlaySign({
           onClick={() =>
             start(async () => {
               const res = await setParkPlay({ parkId, play: "playground" });
-              if (!res.ok) setError(res.error);
+              if (!res.ok) return (sfx.oops(), setError(res.error));
+              sfx.pop();
             })
           }
         >
@@ -173,7 +176,9 @@ export function CrossOffFooter({
         status: reason,
         note: note.trim() || CROSS_OFF_REASONS[reason].label,
       });
-      if (!res.ok) return setError(res.error);
+      if (!res.ok) return (sfx.oops(), setError(res.error));
+      if (isFix) sfx.scribble();
+      else sfx.strike();
       setOpen(false);
       setReason(null);
       setNote("");

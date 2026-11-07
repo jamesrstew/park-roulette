@@ -7,6 +7,7 @@ import { Stars } from "@/components/Stars";
 import { logVisit } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
+import { sfx } from "@/lib/sound";
 import {
   ATTRIBUTES,
   CROSS_OFF_REASONS,
@@ -201,7 +202,8 @@ function ActiveBody({
     setError(null);
     start(async () => {
       const r = await logVisit({ parkId: park.id, visitedOn: todayLocal() });
-      if (!r.ok) return setError(r.error);
+      if (!r.ok) return (sfx.oops(), setError(r.error));
+      sfx.stamp();
       setLogged(true);
       if (onStamped?.(park.id)) return;
       if (!park.lastVisit)

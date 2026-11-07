@@ -10,6 +10,7 @@ import { JoinNudge } from "./JoinNudge";
 import { ReviewCard } from "./ReviewCard";
 import { STAR } from "../Stars";
 import { ReviewComposer } from "./ReviewComposer";
+import { sfx } from "@/lib/sound";
 
 /** My review (editable, always first) or the composer. Anchor: #review. */
 export function MyReview({
@@ -54,6 +55,7 @@ export function MyReview({
   function celebrate(tenths: number) {
     setEditing(false);
     setThanks(tenths);
+    sfx.yay();
     const colors = Object.values(CRAYONS);
     confetti({
       particleCount: 90,

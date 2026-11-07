@@ -10,6 +10,7 @@ import { AttrToggle } from "./AttrChip";
 import { CrayonProgress } from "./Doodles";
 import { compressImage, formatMB, isVideo, safeName } from "./compress";
 import { StarInput } from "../StarInput";
+import { sfx } from "@/lib/sound";
 
 const MAX_NEW = 12;
 const MAX_BYTES = 300 * 1024 * 1024;
@@ -164,7 +165,7 @@ export function ReviewComposer({
           .map((u) => ({ url: u.url!, kind: u.kind })),
         removeMediaIds: removed,
       });
-      if (!res.ok) return setError(res.error);
+      if (!res.ok) return (sfx.oops(), setError(res.error));
       onSaved(Math.round(stars * 10));
     });
   }
@@ -285,6 +286,7 @@ export function ReviewComposer({
             multiple
             hidden
             onChange={(e) => {
+              if (e.target.files?.length) sfx.shutter();
               pick(e.target.files);
               e.target.value = "";
             }}

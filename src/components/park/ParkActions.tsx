@@ -7,6 +7,7 @@ import { CRAYONS } from "@/lib/crayons";
 import { directionsUrl, placeUrl } from "@/lib/geo";
 import { formatDay, todayLocal } from "./format";
 import { JoinNudge } from "./JoinNudge";
+import { sfx } from "@/lib/sound";
 
 type Visit = { id: number; visitedOn: string; by: string };
 
@@ -32,7 +33,8 @@ export function ParkActions({
     const first = visits.length === 0;
     start(async () => {
       const res = await logVisit({ parkId: park.id, visitedOn: date });
-      if (!res.ok) return setError(res.error);
+      if (!res.ok) return (sfx.oops(), setError(res.error));
+      sfx.stamp();
       setOpen(false);
       setJustStamped(true);
       confetti({
@@ -203,6 +205,7 @@ function OurVisits({ visits }: { visits: Visit[] }) {
                   onClick={() =>
                     start(async () => {
                       await removeVisit(v.id);
+                      sfx.undo();
                       setConfirming(null);
                     })
                   }

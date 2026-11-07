@@ -23,6 +23,7 @@ import { stampMilestone, type Milestone } from "@/lib/milestones";
 import { formatStars } from "@/lib/rating";
 import { MilestoneCard } from "../Milestone";
 import { Underline } from "../Scribbles";
+import { sfx } from "@/lib/sound";
 
 type Show = "all" | "todo" | "done" | "crossed";
 type Sort = "town" | "near";
@@ -483,6 +484,7 @@ function Row({
               visitedOn: todayLocal(),
             });
             if (r.ok) {
+              sfx.stamp();
               setJustChecked(true);
               navigator.vibrate?.(15);
               onStamped();
@@ -640,6 +642,10 @@ function CrossOffSheet({
   const act = (status: "active" | keyof typeof CROSS_OFF_REASONS) =>
     start(async () => {
       const r = await setParkStatus({ parkId: park.id, status });
+      if (!r.ok) sfx.oops();
+      else if (status === "active") sfx.undo();
+      else if (status === "no_playground") sfx.scribble();
+      else sfx.strike();
       onDone(
         !r.ok
           ? r.error
@@ -653,6 +659,8 @@ function CrossOffSheet({
   const hasPlayground = () =>
     start(async () => {
       const r = await setParkPlay({ parkId: park.id, play: "playground" });
+      if (r.ok) sfx.pop();
+      else sfx.oops();
       onDone(r.ok ? `Ooh! ${park.name} has a playground now.` : r.error);
     });
 

@@ -4,6 +4,7 @@ import confetti from "canvas-confetti";
 import { useEffect } from "react";
 import { CRAYONS } from "@/lib/crayons";
 import type { Milestone } from "@/lib/milestones";
+import { sfx } from "@/lib/sound";
 
 /** A big-moment card (first stamp, a town finished, the whole list). */
 export function MilestoneCard({
@@ -14,6 +15,7 @@ export function MilestoneCard({
   onClose: () => void;
 }) {
   useEffect(() => {
+    sfx.celebrate();
     const colors = Object.values(CRAYONS);
     confetti({
       particleCount: 160,

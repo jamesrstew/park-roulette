@@ -4,6 +4,7 @@ import confetti from "canvas-confetti";
 import rough from "roughjs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatStars, toTenths, verdict } from "@/lib/rating";
+import { sfx, unlockAudio } from "@/lib/sound";
 
 /**
  * The star crayon. Color the stars in to rate a park, to the tenth.
@@ -53,65 +54,6 @@ function tenthsAt(x: number) {
   return toTenths(i + within);
 }
 
-// ---------- sound: a tiny crayon xylophone ----------
-
-const PENTA = [0, 2, 4, 7, 9];
-function noteFreq(step: number) {
-  const octave = Math.floor(step / 5);
-  return 261.63 * Math.pow(2, (PENTA[step % 5] + 12 * octave) / 12);
-}
-
-function useXylophone() {
-  const ctx = useRef<AudioContext | null>(null);
-  const ping = (freq: number, at = 0, gain = 0.09) => {
-    const c = ctx.current;
-    if (!c) return;
-    const t = c.currentTime + at;
-    for (const [mult, g] of [
-      [1, gain],
-      [4, gain * 0.18],
-    ] as const) {
-      const osc = c.createOscillator();
-      const amp = c.createGain();
-      osc.type = "sine";
-      osc.frequency.value = freq * mult;
-      amp.gain.setValueAtTime(g, t);
-      amp.gain.exponentialRampToValueAtTime(
-        0.0001,
-        t + (mult === 1 ? 0.35 : 0.12),
-      );
-      osc.connect(amp).connect(c.destination);
-      osc.start(t);
-      osc.stop(t + 0.4);
-    }
-  };
-  return {
-    /** Browsers only allow sound after a tap, so call this from a gesture. */
-    ensure() {
-      if (!ctx.current) {
-        const Ctor =
-          window.AudioContext ??
-          (window as unknown as { webkitAudioContext: typeof AudioContext })
-            .webkitAudioContext;
-        if (Ctor) ctx.current = new Ctor();
-      }
-      void ctx.current?.resume();
-    },
-    tenth(tenths: number) {
-      ping(noteFreq(Math.round((tenths / 50) * 14)), 0, 0.06);
-    },
-    star(whole: number) {
-      const base = noteFreq(whole * 2 + 2);
-      ping(base, 0, 0.07);
-      ping(base * 1.25, 0.05, 0.05);
-      ping(base * 1.5, 0.1, 0.05);
-    },
-    fanfare() {
-      [0, 2, 4, 5, 7].forEach((s, i) => ping(noteFreq(10 + s), i * 0.08, 0.08));
-    },
-  };
-}
-
 // ---------- the component ----------
 
 type Sparkle = { id: number; x: number; angle: number; color: string };
@@ -132,7 +74,6 @@ export function StarInput({
   const press = useRef<{ x: number; moved: boolean } | null>(null);
   const prev = useRef<number | null>(tenths);
   const sparkleId = useRef(0);
-  const xylo = useXylophone();
 
   // Rough.js scribbles: seeded, so the stars look hand-colored but never jitter.
   const art = useMemo(() => {
@@ -172,13 +113,13 @@ export function StarInput({
     const reduce = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
     ).matches;
-    xylo.tenth(tenths);
+    sfx.note(tenths);
     navigator.vibrate?.(3);
     const wholeNow = Math.floor(tenths / 10);
     const wholeBefore = before == null ? 0 : Math.floor(before / 10);
     if (wholeNow > wholeBefore && wholeNow > 0) {
       const i = wholeNow - 1;
-      xylo.star(wholeNow);
+      sfx.star(wholeNow);
       setPopStar(i);
       if (!reduce) {
         const colors = ["#f7c933", "#f58a2c", "#ee6aa7", "#2f78d4"];
@@ -194,7 +135,7 @@ export function StarInput({
       }
     }
     if (tenths === 50 && before !== 50) {
-      xylo.fanfare();
+      sfx.fanfare();
       if (!reduce) {
         const box = svgRef.current?.getBoundingClientRect();
         confetti({
@@ -214,7 +155,6 @@ export function StarInput({
       }
     }
     setBump((b) => b + 1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tenths]);
 
   function toViewX(clientX: number) {
@@ -268,7 +208,7 @@ export function StarInput({
             tenths == null ? "Not rated yet" : `${formatStars(tenths)} stars`
           }
           onPointerDown={(e) => {
-            xylo.ensure();
+            unlockAudio();
             e.currentTarget.setPointerCapture(e.pointerId);
             press.current = { x: e.clientX, moved: false };
           }}
@@ -299,7 +239,7 @@ export function StarInput({
             setDrawing(false);
           }}
           onKeyDown={(e) => {
-            xylo.ensure();
+            unlockAudio();
             const step = e.shiftKey ? 10 : 1;
             if (e.key === "ArrowRight" || e.key === "ArrowUp") {
               e.preventDefault();
@@ -449,7 +389,7 @@ export function StarInput({
               <button
                 key={d}
                 type="button"
-                onClick={() => (xylo.ensure(), set(t))}
+                onClick={() => (unlockAudio(), set(t))}
                 aria-label={`${formatStars(t)} stars`}
                 aria-pressed={selected}
                 className={`relative flex h-11 flex-1 flex-col items-center justify-end rounded-lg font-hand text-base transition-transform active:scale-90 ${
@@ -472,7 +412,7 @@ export function StarInput({
           })}
           <button
             type="button"
-            onClick={() => (xylo.ensure(), set(50))}
+            onClick={() => (unlockAudio(), set(50))}
             aria-label="5.0 stars"
             aria-pressed={tenths === 50}
             className={`ml-1 h-11 rounded-lg px-2 font-hand text-base ${

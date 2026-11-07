@@ -7,6 +7,7 @@ import { ProfileCard } from "@/components/me/ProfileCard";
 import { ShareCard } from "@/components/me/ShareCard";
 import { SignedOutIntro } from "@/components/me/SignedOutIntro";
 import { SignOutButton } from "@/components/me/SignOutButton";
+import { SoundBox } from "@/components/me/SoundBox";
 import { getMe } from "@/lib/data";
 import { getCrewMembers, getCrewStampCount } from "@/lib/data-me";
 
@@ -95,6 +96,8 @@ async function MeScreen() {
           tilt={0.6}
         />
       </div>
+
+      <SoundBox />
 
       <HomeScreenTip />
 

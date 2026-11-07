@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Badge } from "@/lib/badges";
 import { CRAYONS, crayon } from "@/lib/crayons";
 import { tilt } from "./bits";
+import { sfx } from "@/lib/sound";
 
 /**
  * The sticker book. Earned stickers are peel-and-stick colorful; locked ones
@@ -47,6 +48,7 @@ export function StickerBook({
           JSON.stringify([...new Set([...seen, ...ids])]),
         );
         const box = el.getBoundingClientRect();
+        sfx.sticker();
         confetti({
           particleCount: 90,
           spread: 75,
