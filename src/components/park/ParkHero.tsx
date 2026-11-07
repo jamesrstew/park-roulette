@@ -79,7 +79,7 @@ export function ParkHero({
 
       <div className="mt-1 text-center">
         <h1
-          className={`font-sketch text-[2.6rem] leading-[0.95] font-bold tracking-tight text-balance ${crossedOff ? "text-ink-soft" : ""}`}
+          className={`font-hand text-[2.6rem] leading-[0.95] text-balance ${crossedOff ? "text-ink-soft" : ""}`}
         >
           {name}
         </h1>
@@ -133,7 +133,7 @@ function VisitStamp({
         <span className="font-hand text-sm leading-none tracking-[0.2em] uppercase">
           Stamped
         </span>
-        <span className="font-sketch text-[1.35rem] leading-tight font-bold">
+        <span className="font-hand text-[1.35rem] leading-tight">
           {formatDay(lastVisit).replace(/, \d{4}$/, "")}
         </span>
         <span className="text-base leading-none">

@@ -17,7 +17,6 @@
 
   --font-hand: var(--font-gochi), "Comic Sans MS", cursive;
   --font-body: var(--font-shantell), "Comic Sans MS", system-ui, sans-serif;
-  --font-sketch: var(--font-cabin-sketch), var(--font-gochi), cursive;
 
   --radius-wobbly: 255px 15px 225px 15px / 15px 225px 15px 255px;
   --radius-wobbly-2: 15px 255px 15px 225px / 225px 15px 255px 15px;

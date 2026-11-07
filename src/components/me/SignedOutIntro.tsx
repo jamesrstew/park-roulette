@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { PageTitle } from "@/components/PageTitle";
+import { Pines } from "@/components/Scribbles";
 import { PasteInvite } from "./PasteInvite";
-import { Pines, Underline } from "@/components/Scribbles";
 import { DoodleGo, DoodleSpin, DoodleStamp } from "./Doodles";
 
 const STEPS = [
@@ -28,14 +29,18 @@ const STEPS = [
 export function SignedOutIntro() {
   return (
     <div className="flex flex-col gap-7 pt-4">
-      <header className="text-center">
-        <p className="font-hand text-xl text-ink-soft">Welcome to</p>
-        <h1 className="font-sketch text-5xl font-bold">Park Roulette</h1>
-        <Underline className="mx-auto -mt-1 h-4 w-56" />
-        <p className="mx-auto mt-2 max-w-xs text-lg leading-snug">
-          Every playground in Central Oregon, one spin at a time.
-        </p>
-      </header>
+      <PageTitle
+        lead="Welcome to"
+        accent="Park Roulette"
+        color="red"
+        underline="teal"
+        underlineWidth="w-60"
+        subtitle={
+          <p className="mx-auto max-w-xs text-balance">
+            Every playground in Central Oregon, one spin at a time.
+          </p>
+        }
+      />
 
       <ol className="flex flex-col gap-4">
         {STEPS.map(({ Doodle, title, line, hl }, i) => (
@@ -47,7 +52,7 @@ export function SignedOutIntro() {
             <Doodle className="size-20 shrink-0" />
             <div>
               <h2 className="text-3xl">
-                <span className="mr-1 font-sketch text-ink-soft">{i + 1}.</span>
+                <span className="mr-1 font-hand text-ink-soft">{i + 1}.</span>
                 <span className="highlight" style={{ ["--hl" as string]: hl }}>
                   {title}
                 </span>

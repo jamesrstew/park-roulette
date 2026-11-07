@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Cabin_Sketch, Gochi_Hand, Shantell_Sans } from "next/font/google";
+import { Gochi_Hand, Shantell_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { BottomNav, NavBar } from "@/components/BottomNav";
 import { CrayonDefs } from "@/components/CrayonDefs";
@@ -12,11 +12,6 @@ const gochi = Gochi_Hand({
 });
 const shantell = Shantell_Sans({
   variable: "--font-shantell",
-  subsets: ["latin"],
-});
-const sketch = Cabin_Sketch({
-  variable: "--font-cabin-sketch",
-  weight: ["400", "700"],
   subsets: ["latin"],
 });
 
@@ -52,7 +47,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${gochi.variable} ${shantell.variable} ${sketch.variable} h-full antialiased`}
+      className={`${gochi.variable} ${shantell.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
         <CrayonDefs />

@@ -37,7 +37,7 @@ export function FunStats({
 }) {
   const byId = new Map(members.map((m) => [m.id, m]));
   const big = (n: number | string) => (
-    <b className="font-sketch text-[1.3rem] font-bold">{n}</b>
+    <b className="font-hand text-[1.3rem]">{n}</b>
   );
   return (
     <section aria-labelledby="stats-h">

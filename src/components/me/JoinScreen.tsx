@@ -81,7 +81,7 @@ export function JoinScreen({
           <p className="font-hand text-xl text-ink-soft">
             {isFriend ? "Psst! Your friends at" : "Hooray! You're invited to"}
           </p>
-          <h1 className="my-1 font-sketch text-[2.6rem] leading-[1.05] font-bold">
+          <h1 className="my-1 font-hand text-[2.6rem] leading-[1.05]">
             {isFriend ? (
               <span
                 className="highlight"

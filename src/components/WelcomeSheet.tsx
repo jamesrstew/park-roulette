@@ -83,10 +83,7 @@ export function WelcomeSheet({
         >
           {avatar}
         </span>
-        <h2
-          id="welcome-h"
-          className="text-center font-sketch text-4xl font-bold"
-        >
+        <h2 id="welcome-h" className="text-center font-hand text-4xl">
           Welcome, {name}!
         </h2>
         <p className="mt-1 text-center font-hand text-xl text-ink-soft">
