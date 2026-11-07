@@ -337,7 +337,7 @@ export async function addPark(
 
 const flagInput = z.object({
   parkId: z.number().int().positive(),
-  status: z.enum(["active", "no_playground", "closed"]),
+  status: z.enum(["active", "no_playground", "closed", "private"]),
   note: z.string().trim().max(300).optional(),
 });
 

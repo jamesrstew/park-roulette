@@ -60,11 +60,43 @@ export type ParkSummary = {
   lastVisit: string | null;
   visitCount: number;
   cover: string | null;
+  /** How many explorer reviews reported each attribute key. */
+  reports: Record<string, number>;
+  /** "active", or why it was crossed off the bucket list. */
+  status: string;
+  statusNote: string | null;
 };
 
-/** Every active park plus ratings and my crew's visit status. */
+/** Every active (still-to-play) park plus ratings and my crew's visit status. */
 export async function getParkSummaries(
   crewId: number | null,
+): Promise<ParkSummary[]> {
+  return summaries(crewId, false);
+}
+
+/** The whole bucket list: active parks and crossed-off ones. */
+export async function getBucketList(
+  crewId: number | null,
+): Promise<ParkSummary[]> {
+  return summaries(crewId, true);
+}
+
+async function reportCounts(): Promise<Map<number, Record<string, number>>> {
+  const rows = await db.execute<{ park_id: number; tag: string; n: number }>(
+    sql`select park_id, tag, count(*)::int as n from ${reviews}, unnest(${reviews.tags}) as tag group by park_id, tag`,
+  );
+  const out = new Map<number, Record<string, number>>();
+  for (const r of rows) {
+    const rec = out.get(r.park_id) ?? {};
+    rec[r.tag] = r.n;
+    out.set(r.park_id, rec);
+  }
+  return out;
+}
+
+async function summaries(
+  crewId: number | null,
+  includeCrossedOff: boolean,
 ): Promise<ParkSummary[]> {
   const ratingAgg = db
     .select({
@@ -100,6 +132,7 @@ export async function getParkSummaries(
     .groupBy(reviews.parkId)
     .as("c");
 
+  const reportsP = reportCounts();
   const rows = await db
     .select({
       park: parks,
@@ -113,8 +146,9 @@ export async function getParkSummaries(
     .leftJoin(ratingAgg, eq(ratingAgg.parkId, parks.id))
     .leftJoin(visitAgg, eq(visitAgg.parkId, parks.id))
     .leftJoin(coverAgg, eq(coverAgg.parkId, parks.id))
-    .where(eq(parks.status, "active"))
+    .where(includeCrossedOff ? undefined : eq(parks.status, "active"))
     .orderBy(asc(parks.city), asc(parks.name));
+  const reports = await reportsP;
 
   return rows.map(({ park, avg, n, last, vn, cover }) => ({
     id: park.id,
@@ -131,6 +165,9 @@ export async function getParkSummaries(
     lastVisit: last ?? null,
     visitCount: vn ?? 0,
     cover: cover ?? null,
+    reports: reports.get(park.id) ?? {},
+    status: park.status,
+    statusNote: park.statusNote,
   }));
 }
 

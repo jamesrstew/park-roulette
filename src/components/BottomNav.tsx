@@ -12,6 +12,12 @@ const TABS = [
     match: (p: string) => p.startsWith("/map"),
   },
   {
+    href: "/list",
+    label: "List",
+    emoji: "📋",
+    match: (p: string) => p.startsWith("/list"),
+  },
+  {
     href: "/passport",
     label: "Passport",
     emoji: "📒",
