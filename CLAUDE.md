@@ -26,6 +26,11 @@ A just-for-fun, mobile-first web app: the Stewarts' quest to visit every playgro
 - `node scripts/shot.cjs <url> <out.png> [click-selector]` takes an iPhone-sized screenshot for design review. **Look at your screens.**
 - Schema change: edit `src/db/schema.ts`, then run `pnpm db:generate --name <what>` and commit the SQL in `drizzle/`.
 
+## Shipping (James, 2026-11-06)
+- **Run `/scrutinize` on every change before it reaches `main`.** Pushing `main` deploys production on Vercel (park-roulette.vercel.app), so main stays scrutinized. Fix the findings, then push.
+- This project is separate from belief-systems. Run `railway`/`vercel` commands only from this folder; it's linked to the Railway project `park-roulette` and the Vercel project `park-roulette`. Never re-link or change CLI defaults for other folders.
+- Prod DB is Railway Postgres (`park-roulette` project). Migrations are additive; never drop data (it's people's reviews and photos).
+
 ## Git
 
 - Conventional Commits (`feat:`, `fix:`, `style:`, `chore:`, `docs:`, `refactor:`, `test:`). `main` deploys to production on Vercel; work on short branches, open PRs, and squash-merge.
