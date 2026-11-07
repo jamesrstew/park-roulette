@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
 import { crews, explorers, media, parks, reviews, visits } from "@/db/schema";
+import { isOurBlobUrl } from "./blob";
 import { AVATARS, CRAYON_NAMES } from "./crayons";
 import { FEATURE_KEYS, REVIEW_TAGS } from "./features";
 import { inviteCode, slugify } from "./codes";
@@ -204,8 +205,6 @@ export async function removeVisit(visitId: number): Promise<ActionResult> {
 
 // ---------- reviews ----------
 
-const BLOB_HOST = /^https:\/\/[a-z0-9-]+\.public\.blob\.vercel-storage\.com\//i;
-
 const reviewInput = z.object({
   parkId: z.number().int().positive(),
   stars: z.number().min(0).max(5),
@@ -218,7 +217,10 @@ const reviewInput = z.object({
       z.object({
         url: z
           .string()
-          .regex(BLOB_HOST, "Uploads must come from our photo box"),
+          .refine(
+            (u) => isOurBlobUrl(u),
+            "Uploads must come from our photo box",
+          ),
         kind: z.enum(["image", "video"]),
       }),
     )
