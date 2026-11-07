@@ -17,6 +17,7 @@ type SeedPark = {
   lng: number;
   address?: string | null;
   kind?: string;
+  play?: string;
   features?: string[];
   confidence?: string;
   sources?: string[];
