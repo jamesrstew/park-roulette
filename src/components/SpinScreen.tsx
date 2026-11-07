@@ -6,7 +6,12 @@ import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { logVisit } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
-import { FEATURES } from "@/lib/features";
+import {
+  ATTRIBUTES,
+  SMART_FILTERS,
+  attributeScores,
+  matchesSmartFilter,
+} from "@/lib/features";
 import {
   directionsUrl,
   formatMiles,
@@ -20,13 +25,6 @@ import { Wheel, type WheelHandle, type WheelItem } from "./Wheel";
 
 const MAX_WEDGES = 10;
 const RADII = [5, 10, 20, 40];
-const FEATURE_FILTERS = [
-  "splash_pad",
-  "toddler_area",
-  "restrooms",
-  "shade",
-  "fenced",
-];
 
 type Filters = {
   newOnly: boolean;
@@ -103,7 +101,8 @@ export function SpinScreen({
         if (filters.town && p.city !== filters.town) return false;
         if (filters.radius && here && milesBetween(here, p) > filters.radius)
           return false;
-        return filters.features.every((f) => p.features.includes(f));
+        const scores = attributeScores(p.features, p.reports);
+        return filters.features.every((k) => matchesSmartFilter(k, scores));
       }),
     [parks, filters, here, signedIn],
   );
@@ -284,9 +283,9 @@ export function SpinScreen({
               </div>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="font-hand text-lg">Must have…</span>
+              <span className="font-hand text-lg">Today we want…</span>
               <div className="flex flex-wrap gap-2">
-                {FEATURE_FILTERS.map((k) => (
+                {SMART_FILTERS.map(({ key: k, emoji, label }) => (
                   <button
                     key={k}
                     className="chip"
@@ -300,13 +299,13 @@ export function SpinScreen({
                       }))
                     }
                   >
-                    {FEATURES[k].emoji} {FEATURES[k].label}
+                    {emoji} {label}
                   </button>
                 ))}
               </div>
               <p className="text-sm text-ink-soft">
-                Features come from maps and visits, so some parks are missing
-                stickers. Fix them on a park page!
+                These come from maps and your reviews, so they get smarter every
+                time you rate a park.
               </p>
             </div>
             <button
@@ -442,21 +441,7 @@ function ResultCard({
             <span className="font-hand text-lg">✅ been here</span>
           )}
         </div>
-        {park.features.length > 0 && (
-          <ul className="flex flex-wrap justify-center gap-1.5">
-            {park.features.slice(0, 8).map((f) =>
-              FEATURES[f] ? (
-                <li
-                  key={f}
-                  className="rounded-full bg-paper-dark px-2 py-0.5 text-sm"
-                  title={FEATURES[f].label}
-                >
-                  {FEATURES[f].emoji} {FEATURES[f].label}
-                </li>
-              ) : null,
-            )}
-          </ul>
-        )}
+        <ReportCard park={park} />
         {park.confidence !== "confirmed" && (
           <p className="text-center text-sm text-ink-soft">
             🔍 We think there&apos;s a playground here. Let us know if
@@ -528,6 +513,47 @@ function ResultCard({
           )}
         </div>
       </article>
+    </div>
+  );
+}
+
+/** Good stuff as stickers, heads-ups as orange warnings so a parent spots them fast. */
+function ReportCard({ park }: { park: ParkSummary }) {
+  const scores = attributeScores(park.features, park.reports);
+  const keys = Object.keys(scores)
+    .filter((k) => ATTRIBUTES[k] && scores[k] > 0)
+    .sort((a, b) => scores[b] - scores[a]);
+  const good = keys.filter((k) => ATTRIBUTES[k].kind === "good").slice(0, 6);
+  const heads = keys
+    .filter((k) => ATTRIBUTES[k].kind === "heads_up")
+    .slice(0, 3);
+  if (!good.length && !heads.length) return null;
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      {good.length > 0 && (
+        <ul className="flex flex-wrap justify-center gap-1.5">
+          {good.map((k) => (
+            <li
+              key={k}
+              className="rounded-full bg-paper-dark px-2 py-0.5 text-sm"
+            >
+              {ATTRIBUTES[k].emoji} {ATTRIBUTES[k].label}
+            </li>
+          ))}
+        </ul>
+      )}
+      {heads.length > 0 && (
+        <ul className="flex flex-wrap justify-center gap-1.5">
+          {heads.map((k) => (
+            <li
+              key={k}
+              className="rounded-full border-2 border-dashed border-crayon-orange bg-[#fff1e3] px-2 py-0.5 text-sm"
+            >
+              ⚠️ {ATTRIBUTES[k].label}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
