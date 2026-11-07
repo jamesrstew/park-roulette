@@ -1,0 +1,101 @@
+[
+  {
+    "slug": "drake-park-bend",
+    "name": "Drake Park",
+    "city": "Bend",
+    "lat": 44.0587,
+    "lng": -121.3201,
+    "kind": "park",
+    "features": ["swings", "slides", "restrooms", "water_view", "picnic"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  },
+  {
+    "slug": "pine-nursery-park-bend",
+    "name": "Pine Nursery Park",
+    "city": "Bend",
+    "lat": 44.0903,
+    "lng": -121.2616,
+    "kind": "park",
+    "features": ["slides", "climbing", "restrooms", "dog_park"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  },
+  {
+    "slug": "larkspur-park-bend",
+    "name": "Larkspur Park",
+    "city": "Bend",
+    "lat": 44.0472,
+    "lng": -121.2903,
+    "kind": "park",
+    "features": ["swings", "slides", "trail"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  },
+  {
+    "slug": "juniper-park-bend",
+    "name": "Juniper Park",
+    "city": "Bend",
+    "lat": 44.0526,
+    "lng": -121.2959,
+    "kind": "park",
+    "features": ["swings", "restrooms", "shade"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  },
+  {
+    "slug": "hollinshead-park-bend",
+    "name": "Hollinshead Park",
+    "city": "Bend",
+    "lat": 44.0717,
+    "lng": -121.2706,
+    "kind": "park",
+    "features": ["picnic", "shade"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  },
+  {
+    "slug": "sam-johnson-park-redmond",
+    "name": "Sam Johnson Park",
+    "city": "Redmond",
+    "lat": 44.272,
+    "lng": -121.1739,
+    "kind": "park",
+    "features": ["swings", "slides", "restrooms"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  },
+  {
+    "slug": "creekside-park-sisters",
+    "name": "Creekside Park",
+    "city": "Sisters",
+    "lat": 44.2894,
+    "lng": -121.544,
+    "kind": "park",
+    "features": ["swings", "water_view"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  },
+  {
+    "slug": "ochoco-creek-park-prineville",
+    "name": "Ochoco Creek Park",
+    "city": "Prineville",
+    "lat": 44.3001,
+    "lng": -120.834,
+    "kind": "park",
+    "features": ["slides", "splash_pad", "restrooms"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  },
+  {
+    "slug": "sahalee-park-madras",
+    "name": "Sahalee Park",
+    "city": "Madras",
+    "lat": 44.6349,
+    "lng": -121.1283,
+    "kind": "park",
+    "features": ["swings", "shade"],
+    "confidence": "unverified",
+    "sources": ["dev-sample"]
+  }
+]

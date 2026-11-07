@@ -1,0 +1,58 @@
+{
+  "name": "park-roulette",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx --env-file=.env.local scripts/migrate.mts",
+    "db:seed": "tsx --env-file=.env.local scripts/seed.mts",
+    "db:studio": "drizzle-kit studio",
+    "db:local": "bash scripts/local-db.sh",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm format:check"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.2",
+    "canvas-confetti": "^1.9.4",
+    "drizzle-orm": "^0.45.4",
+    "leaflet": "^1.9.4",
+    "nanoid": "^6.0.2",
+    "next": "16.4.5",
+    "postgres": "^4.1.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-leaflet": "^5.0.0",
+    "roughjs": "^4.6.6",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/turbopack": "^4",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/leaflet": "^1.9.22",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9",
+    "eslint-config-next": "16.4.5",
+    "playwright": "^1.65.0",
+    "prettier": "^3.9.10",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5",
+    "vitest": "^5.1.0"
+  },
+  "packageManager": "pnpm@10.24.0",
+  "engines": {
+    "node": ">=22"
+  }
+}
