@@ -37,7 +37,7 @@ export function FreshScribbles({
 }) {
   return (
     <section aria-labelledby="fresh-h">
-      <SectionTitle emoji="✏️" color="#1fa4a8">
+      <SectionTitle icon="edit" color="#1fa4a8">
         <span id="fresh-h">Fresh scribbles</span>
       </SectionTitle>
       {reviews.length === 0 ? (

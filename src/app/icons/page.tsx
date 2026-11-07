@@ -1,60 +1,6 @@
 import type { Metadata } from "next";
 import { Icon, type IconName } from "@/components/icons";
 import { ATTRIBUTES } from "@/lib/features";
-// Doodle Icons by Khushmeen Sidhu (CC0, khushmeen.com/icons.html): a
-// side-by-side comparison only. Not used anywhere else in the app.
-import DOODLE from "./doodle-compare.json";
-
-type DoodleIcon = { viewBox: string; d: string[]; source: string };
-
-function Doodle({ icon, size }: { icon: DoodleIcon; size: number }) {
-  return (
-    <svg
-      viewBox={icon.viewBox}
-      width={size}
-      height={size}
-      aria-hidden
-      fill="#2b2a33"
-    >
-      {icon.d.map((d, i) => (
-        <path key={i} d={d} />
-      ))}
-    </svg>
-  );
-}
-
-function Compare() {
-  const rows = Object.entries(DOODLE as Record<string, DoodleIcon>);
-  return (
-    <section className="space-y-3" id="compare">
-      <h2 className="text-3xl">Ours vs. Doodle Icons</h2>
-      <p className="text-sm text-ink-soft">
-        Left: our crayon set. Right: Doodle Icons by Khushmeen Sidhu (CC0), for
-        the 24 icons both sets have. Doodle Icons has no playground icons
-        (slides, swings, dogs, restrooms…), so those would be ours either way.
-      </p>
-      <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        {rows.map(([name, icon]) => (
-          <li
-            key={name}
-            className="doodle-box flex items-center justify-between gap-2 px-3 py-2"
-          >
-            <span className="flex items-center gap-1.5">
-              <Icon name={name as IconName} size={44} />
-              <Icon name={name as IconName} size={22} />
-            </span>
-            <span className="font-hand text-sm text-ink-soft">{name}</span>
-            <span className="flex items-center gap-1.5">
-              <Doodle icon={icon} size={22} />
-              <Doodle icon={icon} size={44} />
-            </span>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
 export const metadata: Metadata = {
   title: "Crayon icons",
   robots: { index: false, follow: false },
@@ -265,8 +211,6 @@ export default function IconsPage() {
           </span>
         </div>
       </section>
-
-      <Compare />
 
       {GROUPS.map((g) => (
         <section key={g.title} className="space-y-3">

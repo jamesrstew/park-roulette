@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { Pines, Sun } from "@/components/Scribbles";
 import type { Progress } from "@/lib/badges";
 import { crayon } from "@/lib/crayons";
@@ -177,28 +178,46 @@ export function Cover({
             className={`highlight mt-1 font-sketch font-bold ${finished ? "animate-float text-2xl" : "text-3xl"}`}
             style={{ ["--hl" as string]: "#f7c933" }}
           >
-            {finished ? "🏆 We did it!" : `${percent}%`}
+            {finished ? (
+              <>
+                <Icon
+                  name="trophy"
+                  size={28}
+                  className="mr-1 inline-block align-[-4px]"
+                />
+                We did it!
+              </>
+            ) : (
+              `${percent}%`
+            )}
           </span>
         </div>
       </div>
 
       <ul className="mt-1 flex flex-wrap justify-center gap-2">
         <li className="chip" style={{ backgroundColor: `${color}26` }}>
-          🖍️ {progress.coloredIn} colored in
+          <Icon name="crayon" size={22} /> {progress.coloredIn} colored in
         </li>
         {progress.crossedOff > 0 && (
           <li className="chip">
-            <span className="line-through decoration-2">✏️</span>{" "}
-            {progress.crossedOff} crossed off
+            <Icon name="close" size={18} /> {progress.crossedOff} crossed off
           </li>
         )}
         <li className="chip">
-          {toGo === 0 ? "🎉 All done!" : `🎯 ${toGo} to go`}
+          {toGo === 0 ? (
+            <>
+              <Icon name="party" size={22} /> All done!
+            </>
+          ) : (
+            <>
+              <Icon name="pin" size={22} /> {toGo} to go
+            </>
+          )}
         </li>
       </ul>
       {every.total > progress.total && (
-        <p className="mt-2 text-center font-hand text-lg text-ink-soft">
-          🌳 Every park, playground or not:{" "}
+        <p className="mt-2 flex items-center justify-center gap-1 text-center font-hand text-lg text-ink-soft">
+          <Icon name="park" size={22} /> Every park, playground or not:{" "}
           <span className="text-ink">
             {every.done} of {every.total}
           </span>

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Stars } from "@/components/Stars";
+import { Icon, type IconName } from "@/components/icons";
 import { criticStyle, type PassportStats } from "@/lib/badges";
 import { crayon } from "@/lib/crayons";
 import { formatStars } from "@/lib/rating";
@@ -7,17 +8,23 @@ import { SectionTitle } from "./bits";
 
 type Member = { id: number; name: string; color: string; avatar: string };
 
+/** A stat line. `emoji` is for an explorer's own avatar; UI rows use `icon`. */
 function Row({
+  icon,
   emoji,
   children,
 }: {
-  emoji: string;
+  icon?: IconName;
+  emoji?: string;
   children: React.ReactNode;
 }) {
   return (
     <li className="flex items-start gap-3 py-2">
-      <span aria-hidden className="w-8 shrink-0 text-center text-2xl leading-7">
-        {emoji}
+      <span
+        aria-hidden
+        className="flex h-7 w-8 shrink-0 items-center justify-center text-2xl"
+      >
+        {icon ? <Icon name={icon} size={28} /> : emoji}
       </span>
       <span className="flex-1 text-[1.02rem] leading-snug">{children}</span>
     </li>
@@ -41,18 +48,18 @@ export function FunStats({
   );
   return (
     <section aria-labelledby="stats-h">
-      <SectionTitle emoji="📊" color="#8a5cc6">
+      <SectionTitle icon="confetti" color="#8a5cc6">
         <span id="stats-h">Fun stats</span>
       </SectionTitle>
       <ul className="doodle-box-alt divide-y-2 divide-dashed divide-ink/15 px-3 py-1">
-        <Row emoji="🛝">
+        <Row icon="playground">
           {big(stats.totalVisits)} trip{stats.totalVisits === 1 ? "" : "s"} to
           the park
         </Row>
-        <Row emoji="🗺️">
+        <Row icon="map">
           {big(townsExplored)} of {townsTotal} towns explored
         </Row>
-        <Row emoji={stats.monthStreak >= 2 ? "🔥" : "📅"}>
+        <Row icon={stats.monthStreak >= 2 ? "flame" : "calendar"}>
           {stats.thisMonth > 0 ? (
             <>
               {big(stats.thisMonth)} park{stats.thisMonth === 1 ? "" : "s"} this
@@ -73,7 +80,7 @@ export function FunStats({
           )}
         </Row>
         {stats.favorite ? (
-          <Row emoji="💛">
+          <Row icon="heart">
             Crew favorite:{" "}
             <Link
               href={`/parks/${stats.favorite.slug}`}
@@ -84,12 +91,16 @@ export function FunStats({
             <Stars tenths={stats.favorite.avgTenths} size={14} />
           </Row>
         ) : (
-          <Row emoji="💛">No favorite yet. Rate a park to crown one!</Row>
+          <Row icon="heart">No favorite yet. Rate a park to crown one!</Row>
         )}
         {stats.critics.map((c) => {
           const m = byId.get(c.id);
           return (
-            <Row key={c.id} emoji={m?.avatar ?? "🖍️"}>
+            <Row
+              key={c.id}
+              icon={m?.avatar ? undefined : "crayon"}
+              emoji={m?.avatar}
+            >
               <b
                 className="font-hand text-xl"
                 style={{ color: m ? crayon(m.color) : undefined }}

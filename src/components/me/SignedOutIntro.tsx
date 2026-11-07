@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Icon } from "@/components/icons";
 import { Pines, Underline } from "@/components/Scribbles";
 import { DoodleGo, DoodleSpin, DoodleStamp } from "./Doodles";
 
@@ -77,7 +78,7 @@ export function SignedOutIntro() {
           href="/"
           className="crayon-btn wax w-full max-w-xs bg-crayon-orange"
         >
-          Take it for a spin 🎡
+          Take it for a spin <Icon name="spin" size={28} />
         </Link>
       </section>
 

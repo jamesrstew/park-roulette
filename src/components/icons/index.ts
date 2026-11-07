@@ -6,7 +6,12 @@ export {
   type IconName,
 } from "./Icon";
 export { ALIASES } from "./drawings";
-import type { IconName } from "./Icon";
+import { isIconName, type IconName } from "./Icon";
+
+/** ATTRIBUTES keys double as icon names; anything unknown gets sparkles. */
+export function attrIcon(key: string): IconName {
+  return isIconName(key) ? key : "sparkles";
+}
 
 /** Bottom nav tabs, by route. */
 export const NAV_ICONS = {

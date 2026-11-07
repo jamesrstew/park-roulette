@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { Icon, attrIcon } from "@/components/icons";
 import { useMemo, useState, useTransition } from "react";
 import { addPark } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
@@ -161,8 +162,8 @@ export function AddParkForm({
           </div>
           {!pin && (
             <p className="pointer-events-none absolute inset-x-0 bottom-3 z-[1] flex justify-center">
-              <span className="doodle-box-alt animate-pop-in bg-[#fffdf7] px-3 py-1 font-hand text-lg shadow-[2px_3px_0_#2b2a33]">
-                👆 Tap where the playground is
+              <span className="doodle-box-alt inline-flex animate-pop-in items-center gap-1.5 bg-[#fffdf7] px-3 py-1 font-hand text-lg shadow-[2px_3px_0_#2b2a33]">
+                <Icon name="pin" size={22} /> Tap where the playground is
               </span>
             </p>
           )}
@@ -174,7 +175,8 @@ export function AddParkForm({
             onClick={useMyLocation}
             disabled={locating}
           >
-            📍 {locating ? "Finding you…" : "Use my location"}
+            <Icon name="near_me" size={24} />
+            {locating ? "Finding you…" : "Use my location"}
           </button>
           <span className="text-sm text-ink-soft">
             {pin ? "Drag the pin to fine-tune." : "Or tap the map."}
@@ -182,7 +184,12 @@ export function AddParkForm({
         </div>
         {duplicate && (
           <p className="doodle-box-alt animate-pop-in bg-[#fff1e3] px-3 py-2 text-sm">
-            🤔 <b>{duplicate.name}</b> is right there. Same one?{" "}
+            <Icon
+              name="warning"
+              size={20}
+              className="mr-1 inline-block align-[-4px]"
+            />
+            <b>{duplicate.name}</b> is right there. Same one?{" "}
             <Link
               href={`/parks/${duplicate.slug}`}
               className="font-hand text-base whitespace-nowrap text-crayon-blue underline"
@@ -218,7 +225,7 @@ export function AddParkForm({
             aria-pressed={town === OTHER}
             onClick={() => (setTown(OTHER), setTownTouched(true))}
           >
-            ✏️ Somewhere else
+            <Icon name="edit" size={22} /> Somewhere else
           </button>
         </div>
         {town === OTHER && (
@@ -251,8 +258,7 @@ export function AddParkForm({
                   aria-pressed={features.includes(k)}
                   onClick={() => toggle(k)}
                 >
-                  <span aria-hidden>{ATTRIBUTES[k].emoji}</span>{" "}
-                  {ATTRIBUTES[k].label}
+                  <Icon name={attrIcon(k)} size={22} /> {ATTRIBUTES[k].label}
                 </button>
               ))}
             </div>
@@ -286,7 +292,13 @@ export function AddParkForm({
           className="crayon-btn wax bg-crayon-green py-3 text-2xl text-white"
           disabled={pending}
         >
-          {pending ? "Drawing it in…" : "🖍️ Put it on the map!"}
+          {pending ? (
+            "Drawing it in…"
+          ) : (
+            <>
+              <Icon name="crayon" size={30} /> Put it on the map!
+            </>
+          )}
         </button>
         <Link
           href="/map"

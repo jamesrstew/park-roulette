@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { Icon, type IconName } from "@/components/icons";
 import { crayon } from "@/lib/crayons";
 import { QrCode } from "./QrCode";
 
@@ -42,7 +43,7 @@ async function copyText(text: string) {
 }
 
 export function ShareCard({
-  emoji,
+  icon,
   title,
   blurb,
   warning,
@@ -52,7 +53,7 @@ export function ShareCard({
   shareText,
   tilt = 0,
 }: {
-  emoji: string;
+  icon: IconName;
   title: string;
   blurb: string;
   warning?: string;
@@ -94,11 +95,11 @@ export function ShareCard({
     >
       <div className="flex items-start gap-3">
         <span
-          className="wax grid size-12 shrink-0 place-items-center rounded-[var(--radius-blob)] border-[2.5px] border-ink text-2xl"
+          className="wax grid size-12 shrink-0 place-items-center rounded-[var(--radius-blob)] border-[2.5px] border-ink"
           style={{ backgroundColor: hex }}
           aria-hidden
         >
-          {emoji}
+          <Icon name={icon} size={30} />
         </span>
         <div className="min-w-0">
           <h3 className="text-2xl">{title}</h3>
@@ -108,7 +109,7 @@ export function ShareCard({
 
       {warning ? (
         <p className="mt-3 flex gap-2 rounded-xl bg-crayon-yellow/25 px-3 py-2 text-sm leading-snug">
-          <span aria-hidden>🔒</span>
+          <Icon name="lock" size={20} className="mt-px" />
           <span>{warning}</span>
         </p>
       ) : null}
@@ -125,16 +126,16 @@ export function ShareCard({
           <button
             type="button"
             onClick={share}
-            className="crayon-btn wax flex-1 text-xl whitespace-nowrap text-white [text-shadow:1px_1px_0_#2b2a33]"
+            className="crayon-btn wax flex-1 px-3 text-xl whitespace-nowrap text-white [text-shadow:1px_1px_0_#2b2a33]"
             style={{ backgroundColor: hex }}
           >
-            Send 💌
+            <Icon name="mail" size={24} /> Send
           </button>
         ) : null}
         <button
           type="button"
           onClick={copy}
-          className={`crayon-btn relative flex-1 text-xl whitespace-nowrap ${canShare ? "bg-[#fffdf7]" : "wax"}`}
+          className={`crayon-btn relative flex-1 px-3 text-xl whitespace-nowrap ${canShare ? "bg-[#fffdf7]" : "wax"}`}
           style={canShare ? undefined : { backgroundColor: hex }}
         >
           {copied ? (
@@ -157,7 +158,9 @@ export function ShareCard({
               </svg>
             </>
           ) : (
-            "Copy link"
+            <>
+              <Icon name="link" size={22} /> Copy link
+            </>
           )}
         </button>
         <button
@@ -167,7 +170,7 @@ export function ShareCard({
           aria-label={showQr ? "Hide QR code" : "Show QR code"}
           className="crayon-btn bg-[#fffdf7] px-3 text-xl"
         >
-          <QrGlyph />
+          <Icon name="qr" size={26} />
         </button>
       </div>
       <span className="sr-only" aria-live="polite">
@@ -189,23 +192,5 @@ export function ShareCard({
         </div>
       ) : null}
     </section>
-  );
-}
-
-function QrGlyph() {
-  return (
-    <svg viewBox="0 0 24 24" className="size-6" fill="none" aria-hidden>
-      <g stroke="#2b2a33" strokeWidth="2.2" strokeLinejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-      </g>
-      <g fill="#2b2a33">
-        <rect x="14" y="14" width="3" height="3" />
-        <rect x="18" y="18" width="3" height="3" />
-        <rect x="18" y="14" width="3" height="2" />
-        <rect x="14" y="19" width="2" height="2" />
-      </g>
-    </svg>
   );
 }

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CROSS_OFF_ICONS, Icon } from "@/components/icons";
 import { crayon, townCrayon } from "@/lib/crayons";
 import type { PassportPark } from "@/lib/data-passport";
 import { CROSS_OFF_REASONS, hasPlayground, isCrossedOff } from "@/lib/features";
@@ -50,7 +51,7 @@ export function Towns({
   return (
     <section aria-labelledby="towns-h">
       <SectionTitle
-        emoji="🏘️"
+        icon="home"
         color="#3aa35b"
         aside={
           <span className="pb-2 font-hand text-lg text-ink-soft">
@@ -77,13 +78,12 @@ export function Towns({
                   <span className="w-[7.5rem] shrink-0 truncate font-hand text-xl leading-tight">
                     {t.name}
                     {all && (
-                      <span
-                        className="ml-1 inline-block -rotate-6 text-base"
-                        role="img"
-                        aria-label="every playground done"
-                      >
-                        👑
-                      </span>
+                      <Icon
+                        name="crown"
+                        size={20}
+                        title="every playground done"
+                        className="ml-1 inline-block -rotate-6 align-[-2px]"
+                      />
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -130,19 +130,23 @@ export function Towns({
                           </span>
                           {extra && !crossed && (
                             <span
-                              className="shrink-0 text-sm text-ink-soft"
+                              className="inline-flex shrink-0 items-center gap-1 text-sm text-ink-soft"
                               title="A park without a playground. Bonus!"
                             >
-                              🌳 bonus
+                              <Icon name="park" size={18} /> bonus
                             </span>
                           )}
                           {crossed && reason && (
-                            <span
-                              className="text-sm text-ink-soft"
+                            <Icon
+                              name={
+                                CROSS_OFF_ICONS[
+                                  p.status as keyof typeof CROSS_OFF_ICONS
+                                ]
+                              }
+                              size={20}
                               title={reason.label}
-                            >
-                              {reason.emoji}
-                            </span>
+                              className="opacity-70"
+                            />
                           )}
                         </Link>
                       </li>

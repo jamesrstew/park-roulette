@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
+import { Icon } from "@/components/icons";
 import { SmudgedCrayon } from "@/components/me/Doodles";
 import { JoinScreen } from "@/components/me/JoinScreen";
 import { findCrewByCode, getMe } from "@/lib/data";
@@ -48,7 +49,7 @@ function Smudged() {
       </p>
       <div className="mt-4 flex w-full max-w-xs flex-col gap-3">
         <Link href="/" className="crayon-btn wax bg-crayon-yellow">
-          Spin the wheel anyway 🎡
+          Spin the wheel anyway <Icon name="spin" size={28} />
         </Link>
         <Link href="/me" className="crayon-btn bg-[#fffdf7] text-xl">
           What&apos;s Park Roulette?

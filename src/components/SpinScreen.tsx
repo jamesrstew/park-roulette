@@ -10,12 +10,17 @@ import {
   useState,
   useTransition,
 } from "react";
+import {
+  Icon,
+  PLAY_ICONS,
+  SMART_FILTER_ICONS,
+  attrIcon,
+} from "@/components/icons";
 import { logVisit } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
 import {
   ATTRIBUTES,
-  PLAY_TYPES,
   SMART_FILTERS,
   attributeScores,
   hasPlayground,
@@ -256,7 +261,7 @@ export function SpinScreen({
               aria-pressed={filters.newOnly}
               onClick={() => setFilters((f) => ({ ...f, newOnly: !f.newOnly }))}
             >
-              ✨ New to us
+              <Icon name="sparkles" size={22} /> New to us
             </button>
           )}
           <button
@@ -265,7 +270,7 @@ export function SpinScreen({
             onClick={() => locate(filters.radius ? null : 10)}
             disabled={locating}
           >
-            📍{" "}
+            <Icon name="near_me" size={22} />
             {locating
               ? "Finding you…"
               : filters.radius
@@ -277,7 +282,8 @@ export function SpinScreen({
             aria-pressed={showFilters}
             onClick={() => setShowFilters((s) => !s)}
           >
-            🎛️ More{activeFilterCount ? ` (${activeFilterCount})` : ""}
+            <Icon name="filter" size={22} /> More
+            {activeFilterCount ? ` (${activeFilterCount})` : ""}
           </button>
         </div>
 
@@ -335,10 +341,10 @@ export function SpinScreen({
                   setFilters((f) => ({ ...f, allParks: !f.allParks }))
                 }
               >
-                🌳 Parks without playgrounds too
+                <Icon name="park" size={22} /> Parks without playgrounds too
               </button>
               <div className="flex flex-wrap gap-2">
-                {SMART_FILTERS.map(({ key: k, emoji, label }) => (
+                {SMART_FILTERS.map(({ key: k, label }) => (
                   <button
                     key={k}
                     className="chip"
@@ -352,7 +358,13 @@ export function SpinScreen({
                       }))
                     }
                   >
-                    {emoji} {label}
+                    <Icon
+                      name={
+                        SMART_FILTER_ICONS[k as keyof typeof SMART_FILTER_ICONS]
+                      }
+                      size={22}
+                    />{" "}
+                    {label}
                   </button>
                 ))}
               </div>
@@ -402,7 +414,7 @@ export function SpinScreen({
                   setResult(null)
                 )}
               >
-                🔀 Shuffle
+                <Icon name="shuffle" size={22} /> Shuffle
               </button>
             )}
           </div>
@@ -438,7 +450,9 @@ function EmptyWheel({
 }) {
   return (
     <div className="doodle-box flex flex-col items-center gap-3 p-8 text-center">
-      <span className="animate-float text-6xl">{everywhere ? "🏆" : "🤷"}</span>
+      <span className="animate-float">
+        <Icon name={everywhere ? "trophy" : "search"} size={64} />
+      </span>
       <h2 className="text-3xl">
         {everywhere ? "You've been EVERYWHERE!" : "No parks match"}
       </h2>
@@ -497,19 +511,22 @@ function ResultCard({
             {park.city}
           </span>
           {here && (
-            <span className="font-hand text-lg">
-              🚗 {formatMiles(milesBetween(here, park))}
+            <span className="inline-flex items-center gap-1 font-hand text-lg">
+              <Icon name="car" size={22} />{" "}
+              {formatMiles(milesBetween(here, park))}
             </span>
           )}
           {park.reviewCount > 0 && <Stars tenths={park.avgTenths} size={18} />}
           {park.lastVisit && (
-            <span className="font-hand text-lg">✅ been here</span>
+            <span className="inline-flex items-center gap-1 font-hand text-lg">
+              <Icon name="check" size={20} /> been here
+            </span>
           )}
         </div>
         {park.notes && <ParkNote text={park.notes} />}
         {play !== "playground" && (
-          <p className="text-center font-hand text-lg">
-            {PLAY_TYPES[play].emoji}{" "}
+          <p className="flex items-center justify-center gap-1.5 text-center font-hand text-lg">
+            <Icon name={PLAY_ICONS[play]} size={24} />
             {play === "none"
               ? "Just a park, no playground. Bring a ball!"
               : "Nature play: logs, rocks, and dirt."}
@@ -518,8 +535,13 @@ function ResultCard({
         <ReportCard park={park} />
         {park.confidence !== "confirmed" && play === "playground" && (
           <p className="text-center text-sm text-ink-soft">
-            🔍 We think there&apos;s a playground here. Let us know if
-            we&apos;re wrong!
+            <Icon
+              name="search"
+              size={18}
+              className="mr-1 inline-block align-[-4px]"
+            />
+            We think there&apos;s a playground here. Let us know if we&apos;re
+            wrong!
           </p>
         )}
         <div className="mt-1 grid grid-cols-1 gap-3">
@@ -529,22 +551,22 @@ function ResultCard({
             target="_blank"
             rel="noreferrer"
           >
-            🚗 Let&apos;s go!
+            <Icon name="directions" size={30} /> Let&apos;s go!
           </a>
           <div className="grid grid-cols-2 gap-3">
             <a
-              className="crayon-btn bg-paper text-lg"
+              className="crayon-btn bg-paper px-3 text-lg whitespace-nowrap"
               href={placeUrl(park)}
               target="_blank"
               rel="noreferrer"
             >
-              👀 Peek
+              <Icon name="peek" size={26} /> Peek
             </a>
             <Link
-              className="crayon-btn bg-paper text-lg"
+              className="crayon-btn bg-paper px-3 text-lg whitespace-nowrap"
               href={`/parks/${park.slug}`}
             >
-              📖 Park page
+              <Icon name="book" size={26} /> Park page
             </Link>
           </div>
           <div className="grid grid-cols-2 gap-3">
@@ -565,18 +587,31 @@ function ResultCard({
                   })
                 }
               >
-                {logged ? "✅ Stamped!" : pending ? "Stamping…" : "📒 We went!"}
+                {logged ? (
+                  <>
+                    <Icon name="check" size={26} /> Stamped!
+                  </>
+                ) : pending ? (
+                  "Stamping…"
+                ) : (
+                  <>
+                    <Icon name="stamp" size={26} /> We went!
+                  </>
+                )}
               </button>
             ) : (
-              <Link className="crayon-btn bg-paper text-lg" href="/me">
-                🖍️ Join to track
+              <Link
+                className="crayon-btn bg-paper px-3 text-lg whitespace-nowrap"
+                href="/me"
+              >
+                <Icon name="crayon" size={26} /> Join to track
               </Link>
             )}
             <button
               className="crayon-btn wax bg-crayon-pink text-lg"
               onClick={onAgain}
             >
-              🎡 Again!
+              <Icon name="spin" size={26} /> Again!
             </button>
           </div>
           {error && (
@@ -590,9 +625,9 @@ function ResultCard({
           {logged && (
             <Link
               href={`/parks/${park.slug}#review`}
-              className="min-h-11 text-center font-hand text-xl text-crayon-blue underline"
+              className="inline-flex min-h-11 items-center justify-center gap-1.5 font-hand text-xl text-crayon-blue underline"
             >
-              Now give it some stars ⭐
+              Now give it some stars <Icon name="star" size={24} />
             </Link>
           )}
         </div>
@@ -628,9 +663,9 @@ function ReportCard({ park }: { park: ParkSummary }) {
           {good.map((k) => (
             <li
               key={k}
-              className="rounded-full bg-paper-dark px-2 py-0.5 text-sm"
+              className="inline-flex items-center gap-1 rounded-full bg-paper-dark py-0.5 pr-2.5 pl-1.5 text-sm"
             >
-              {ATTRIBUTES[k].emoji} {ATTRIBUTES[k].label}
+              <Icon name={attrIcon(k)} size={20} /> {ATTRIBUTES[k].label}
             </li>
           ))}
         </ul>
@@ -640,9 +675,9 @@ function ReportCard({ park }: { park: ParkSummary }) {
           {heads.map((k) => (
             <li
               key={k}
-              className="rounded-full border-2 border-dashed border-crayon-orange bg-[#fff1e3] px-2 py-0.5 text-sm"
+              className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-crayon-orange bg-[#fff1e3] py-0.5 pr-2.5 pl-1.5 text-sm"
             >
-              ⚠️ {ATTRIBUTES[k].label}
+              <Icon name={attrIcon(k)} size={20} /> {ATTRIBUTES[k].label}
             </li>
           ))}
         </ul>

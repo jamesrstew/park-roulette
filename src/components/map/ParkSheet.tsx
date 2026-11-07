@@ -4,6 +4,12 @@ import confetti from "canvas-confetti";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Stars } from "@/components/Stars";
+import {
+  CROSS_OFF_ICONS,
+  Icon,
+  PLAY_ICONS,
+  attrIcon,
+} from "@/components/icons";
 import { logVisit } from "@/lib/actions";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import type { ParkSummary } from "@/lib/data";
@@ -11,7 +17,6 @@ import { sfx } from "@/lib/sound";
 import {
   ATTRIBUTES,
   CROSS_OFF_REASONS,
-  PLAY_TYPES,
   attributeScores,
   isCrossedOff,
   playOf,
@@ -115,9 +120,9 @@ export function ParkSheet({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="absolute top-1 right-1 grid h-11 w-11 place-items-center font-hand text-2xl text-ink-soft active:scale-90"
+            className="absolute top-1 right-1 grid h-11 w-11 place-items-center active:scale-90"
           >
-            ✕
+            <Icon name="close" size={22} className="opacity-70" />
           </button>
           {crossedOff ? (
             <CrossedOffBody park={park} />
@@ -156,8 +161,16 @@ function CrossedOffBody({ park }: { park: ParkSummary }) {
       </h2>
       <div className="flex flex-wrap items-center gap-2">
         <TownPill city={park.city} />
-        <span className="font-hand text-lg">
-          {reason ? `${reason.emoji} ${reason.label}` : "Crossed off"}
+        <span className="inline-flex items-center gap-1 font-hand text-lg">
+          {park.status in CROSS_OFF_ICONS && (
+            <Icon
+              name={
+                CROSS_OFF_ICONS[park.status as keyof typeof CROSS_OFF_ICONS]
+              }
+              size={22}
+            />
+          )}
+          {reason ? reason.label : "Crossed off"}
         </span>
       </div>
       <p className="text-sm text-ink-soft">
@@ -168,7 +181,7 @@ function CrossedOffBody({ park }: { park: ParkSummary }) {
         className="crayon-btn mt-1 bg-paper text-lg"
         href={`/parks/${park.slug}`}
       >
-        📖 Park page
+        <Icon name="book" size={26} /> Park page
       </Link>
     </>
   );
@@ -228,8 +241,9 @@ function ActiveBody({
           <span className="font-hand text-lg text-ink-soft">No stars yet</span>
         )}
         {here && (
-          <span className="font-hand text-lg">
-            🚗 {formatMiles(milesBetween(here, park))}
+          <span className="inline-flex items-center gap-1 font-hand text-lg">
+            <Icon name="car" size={22} />{" "}
+            {formatMiles(milesBetween(here, park))}
           </span>
         )}
       </div>
@@ -239,8 +253,8 @@ function ActiveBody({
         </p>
       )}
       {play !== "playground" && (
-        <p className="font-hand text-lg leading-tight">
-          {PLAY_TYPES[play].emoji}{" "}
+        <p className="flex items-center gap-1.5 font-hand text-lg leading-tight">
+          <Icon name={PLAY_ICONS[play]} size={24} />
           {play === "none"
             ? "Just a park, no playground. Bonus stamp!"
             : "Nature play: logs, rocks, and dirt."}
@@ -251,7 +265,14 @@ function ActiveBody({
         <p className="font-hand text-lg leading-tight">
           {visited ? (
             <>
-              <span className="highlight">⭐ Colored in!</span>{" "}
+              <span className="highlight">
+                <Icon
+                  name="star"
+                  size={20}
+                  className="mr-1 inline-block align-[-3px]"
+                />
+                Colored in!
+              </span>{" "}
               <span className="text-ink-soft">
                 {logged
                   ? "Stamped today"
@@ -260,7 +281,12 @@ function ActiveBody({
             </>
           ) : (
             <span className="text-ink-soft">
-              🖍️ Not yet! Still to color in.
+              <Icon
+                name="crayon"
+                size={20}
+                className="mr-1 inline-block align-[-3px]"
+              />
+              Not yet! Still to color in.
             </span>
           )}
         </p>
@@ -271,18 +297,18 @@ function ActiveBody({
           {headsUp.map((k) => (
             <li
               key={k}
-              className="shrink-0 rounded-full border-2 border-dashed border-crayon-orange bg-[#fff1e3] px-2 py-0.5 text-sm"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border-2 border-dashed border-crayon-orange bg-[#fff1e3] py-0.5 pr-2.5 pl-1.5 text-sm"
               title="Heads up"
             >
-              {ATTRIBUTES[k].emoji} {ATTRIBUTES[k].label}
+              <Icon name={attrIcon(k)} size={20} /> {ATTRIBUTES[k].label}
             </li>
           ))}
           {good.slice(0, MAX_STICKERS).map((k) => (
             <li
               key={k}
-              className="shrink-0 rounded-full bg-paper-dark px-2 py-0.5 text-sm"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-paper-dark py-0.5 pr-2.5 pl-1.5 text-sm"
             >
-              {ATTRIBUTES[k].emoji} {ATTRIBUTES[k].label}
+              <Icon name={attrIcon(k)} size={20} /> {ATTRIBUTES[k].label}
             </li>
           ))}
           {good.length > MAX_STICKERS && (
@@ -294,7 +320,12 @@ function ActiveBody({
       )}
       {park.confidence !== "confirmed" && play === "playground" && (
         <p className="text-sm leading-snug text-ink-soft">
-          🔍 Not checked yet. No playground? Fix it on the park page.
+          <Icon
+            name="search"
+            size={18}
+            className="mr-1 inline-block align-[-4px]"
+          />
+          Not checked yet. No playground? Fix it on the park page.
         </p>
       )}
 
@@ -305,7 +336,7 @@ function ActiveBody({
           target="_blank"
           rel="noreferrer"
         >
-          🚗 Let&apos;s go!
+          <Icon name="directions" size={28} /> Let&apos;s go!
         </a>
         {signedIn ? (
           <button
@@ -313,11 +344,21 @@ function ActiveBody({
             disabled={pending || logged}
             onClick={stamp}
           >
-            {logged ? "✅ Stamped!" : pending ? "Stamping…" : "📒 We went!"}
+            {logged ? (
+              <>
+                <Icon name="check" size={26} /> Stamped!
+              </>
+            ) : pending ? (
+              "Stamping…"
+            ) : (
+              <>
+                <Icon name="stamp" size={26} /> We went!
+              </>
+            )}
           </button>
         ) : (
           <Link className="crayon-btn bg-paper text-lg" href="/me">
-            🖍️ Join in
+            <Icon name="crayon" size={26} /> Join in
           </Link>
         )}
         <a
@@ -326,13 +367,13 @@ function ActiveBody({
           target="_blank"
           rel="noreferrer"
         >
-          👀 Peek
+          <Icon name="peek" size={24} /> Peek
         </a>
         <Link
           className="crayon-btn min-h-11 bg-paper py-1.5 text-lg"
           href={`/parks/${park.slug}`}
         >
-          📖 Park page
+          <Icon name="book" size={24} /> Park page
         </Link>
       </div>
       {error && (
@@ -346,9 +387,9 @@ function ActiveBody({
       {logged && (
         <Link
           href={`/parks/${park.slug}#review`}
-          className="min-h-11 text-center font-hand text-xl text-crayon-blue underline"
+          className="inline-flex min-h-11 items-center justify-center gap-1.5 font-hand text-xl text-crayon-blue underline"
         >
-          Now give it some stars ⭐
+          Now give it some stars <Icon name="star" size={24} />
         </Link>
       )}
     </>

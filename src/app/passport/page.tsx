@@ -88,7 +88,7 @@ async function Passport() {
       <Stamps stamps={[...stampMap.values()]} />
       <section aria-labelledby="stickers-h">
         <SectionTitle
-          emoji="🌈"
+          icon="sparkles"
           color="#ee6aa7"
           aside={
             <span className="pb-2 font-hand text-lg text-ink-soft">

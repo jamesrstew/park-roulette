@@ -3,6 +3,7 @@
 import confetti from "canvas-confetti";
 import { useEffect, useRef, useState } from "react";
 import type { Badge } from "@/lib/badges";
+import { Icon } from "@/components/icons";
 import { CRAYONS, crayon } from "@/lib/crayons";
 import { tilt } from "./bits";
 import { sfx } from "@/lib/sound";
@@ -123,7 +124,7 @@ function Sticker({
               aria-hidden
               className="drop-shadow-[1px_2px_0_rgb(0_0_0/0.15)]"
             >
-              {b.emoji}
+              {b.icon ? <Icon name={b.icon} size={46} /> : b.emoji}
             </span>
             {/* Glossy sticker shine */}
             <span
@@ -137,7 +138,7 @@ function Sticker({
             style={{ transform: `rotate(${rot / 2}deg)` }}
           >
             <span aria-hidden className="opacity-25 grayscale">
-              {b.emoji}
+              {b.icon ? <Icon name={b.icon} size={40} /> : b.emoji}
             </span>
             {b.progress && b.progress.need > 0 && (
               <span className="absolute -bottom-2 rounded-full border-[1.5px] border-ink/40 bg-paper px-1.5 font-hand text-sm leading-5 text-ink-soft">

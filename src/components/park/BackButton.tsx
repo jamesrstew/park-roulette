@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Icon } from "@/components/icons";
 
 /** Goes back if we came from inside the app, else to the wheel. */
 export function BackButton() {
@@ -17,7 +18,7 @@ export function BackButton() {
         else router.push("/");
       }}
     >
-      ← Back
+      <Icon name="arrow_left" size={22} /> Back
     </button>
   );
 }
