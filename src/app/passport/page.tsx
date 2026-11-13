@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { AvatarBlob } from "@/components/me/NameTag";
+import { NOINDEX } from "@/lib/site";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { todayInBend, SectionTitle } from "@/components/passport/bits";
@@ -11,10 +14,11 @@ import { Stamps, type StampView } from "@/components/passport/Stamps";
 import { Towns } from "@/components/passport/Towns";
 import { computeBadges, computeStats, progressOf } from "@/lib/badges";
 import { getMe } from "@/lib/data";
+import { adminQueueSize } from "@/lib/data-admin";
 import { getPassportData } from "@/lib/data-passport";
 import { ATTRIBUTES, hasPlayground } from "@/lib/features";
 
-export const metadata: Metadata = { title: "Passport" };
+export const metadata: Metadata = { title: "Passport", ...NOINDEX };
 
 const HEADS_UP = Object.entries(ATTRIBUTES)
   .filter(([, a]) => a.kind === "heads_up")
@@ -24,7 +28,10 @@ async function Passport() {
   const me = await getMe();
   if (!me) return <SignedOut />;
 
-  const data = await getPassportData(me.crew.id);
+  const [data, adminQueue] = await Promise.all([
+    getPassportData(me.crew.id),
+    me.isAdmin && me.trusted ? adminQueueSize() : Promise.resolve(0),
+  ]);
   const now = new Date();
   const visitedIds = new Set(data.visits.map((v) => v.parkId));
   const progress = progressOf(data.parks, visitedIds);
@@ -75,6 +82,29 @@ async function Passport() {
 
   return (
     <div className="flex flex-col gap-6 pt-1">
+      <Link
+        href="/me"
+        className="doodle-box-alt -mb-2 flex min-h-12 items-center gap-3 self-end py-1.5 pr-3 pl-2 transition-transform active:scale-95"
+      >
+        <span className="relative">
+          <AvatarBlob avatar={me.avatar} color={me.color} size="sm" />
+          {adminQueue > 0 && (
+            <span className="absolute -top-1 -right-1 grid h-5 min-w-5 place-items-center rounded-full border-2 border-ink bg-crayon-red px-1 text-xs text-white">
+              {adminQueue}
+              <span className="sr-only"> things for the admin to look at</span>
+            </span>
+          )}
+        </span>
+        <span className="font-hand text-lg leading-tight">
+          {me.name}
+          <span className="block text-xs text-ink-soft">
+            Family &amp; settings
+          </span>
+        </span>
+        <span aria-hidden className="font-hand text-2xl">
+          ›
+        </span>
+      </Link>
       <PageTitle
         lead="Our"
         accent="Passport"

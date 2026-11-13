@@ -2,7 +2,7 @@ import type { getParkDetail, Me } from "@/lib/data";
 import type { PendingFix } from "@/lib/park-votes";
 import { Icon } from "@/components/icons";
 import { isCrossedOff, playOf } from "@/lib/features";
-import { averageTenths } from "@/lib/rating";
+import { averageTenths, formatStars } from "@/lib/rating";
 import { CrossedOffBanner, CrossOffFooter, PlaySign } from "./CrossOff";
 import { MyReview } from "./MyReview";
 import { ParkActions } from "./ParkActions";
@@ -12,6 +12,8 @@ import { ReviewCard } from "./ReviewCard";
 import { NewParkBanner, ParkFixes } from "./ParkFixes";
 import { ReportButton } from "./ReportButton";
 import { JoinNudge } from "./JoinNudge";
+import { AboutPark } from "./AboutPark";
+import { parkFacts } from "@/lib/park-facts";
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getParkDetail>>>;
 
@@ -19,14 +21,17 @@ export function ParkView({
   detail,
   fixes,
   me,
+  townLink,
   justAdded,
 }: {
   detail: Detail;
   fixes: PendingFix[];
   me: Me | null;
+  /** The town's guide page (or its spot on the Central Oregon page). */
+  townLink: string;
   justAdded: boolean;
 }) {
-  const { park, reviews, myVisits, stats, unseen } = detail;
+  const { park, reviews, myVisits, stats, unseen, otherRatings } = detail;
   /** Park fixes and reports count from grown-ups who sign in with a number. */
   const canVote = !!me && !me.isKid && !!me.phone && me.trusted;
   const signedIn = !!me;
@@ -67,6 +72,7 @@ export function ParkView({
       <ParkHero
         name={park.name}
         city={park.city}
+        townLink={townLink}
         avgTenths={avg}
         reviewCount={stats.ratings.length}
         cover={cover}
@@ -154,6 +160,22 @@ export function ParkView({
             }
           />
         ))}
+        {otherRatings.length > 0 && (
+          <p className="doodle-box-alt flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-3 leading-snug">
+            <Icon name="star" size={24} />
+            <span>
+              {otherRatings.length === 1
+                ? "1 more rating:"
+                : `${otherRatings.length} more ratings:`}
+            </span>
+            {otherRatings.map((t, i) => (
+              <span key={i} className="font-hand text-xl">
+                {formatStars(t)}
+                {i < otherRatings.length - 1 ? "," : ""}
+              </span>
+            ))}
+          </p>
+        )}
         {unseen > 0 && (
           <JoinNudge
             icon="eyes"
@@ -161,6 +183,19 @@ export function ParkView({
           />
         )}
       </section>
+
+      <AboutPark
+        summary={
+          parkFacts({
+            ...park,
+            reports,
+            avgTenths: avg,
+            reviewCount: stats.ratings.length,
+          }).summary
+        }
+        city={park.city}
+        townLink={townLink}
+      />
 
       {!crossedOff && (
         <CrossOffFooter parkId={park.id} play={play} signedIn={signedIn} />

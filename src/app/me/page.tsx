@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NOINDEX } from "@/lib/site";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { Icon } from "@/components/icons";
@@ -27,7 +28,10 @@ function titleCrayon(c: string): CrayonName {
   return c === "yellow" || c === "orange" ? "purple" : (c as CrayonName);
 }
 
-export const metadata: Metadata = { title: "Me" };
+export const metadata: Metadata = {
+  title: "Family & settings",
+  ...NOINDEX,
+};
 
 async function MeScreen({
   searchParams,
@@ -54,6 +58,12 @@ async function MeScreen({
 
   return (
     <div className="flex flex-col gap-7 pt-2">
+      <Link
+        href="/passport"
+        className="-mb-4 flex min-h-11 items-center gap-1 self-start font-hand text-lg underline-offset-4 hover:underline"
+      >
+        <Icon name="arrow_left" size={22} /> Passport
+      </Link>
       <PageTitle
         lead="Hi,"
         accent={me.name}

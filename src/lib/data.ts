@@ -4,7 +4,13 @@ import { db } from "@/db";
 import { crews, explorers, media, parks, reviews, visits } from "@/db/schema";
 import { isCrossedOff, normalizePlay } from "./features";
 import { readSession, trusted } from "./session";
-import { canSee, canSeeMedia, mediaSrc, viewerOf } from "./visibility";
+import {
+  canSee,
+  canSeeMedia,
+  mediaSrc,
+  SHOW_AFTER_MS,
+  viewerOf,
+} from "./visibility";
 
 export type Me = {
   id: number;
@@ -338,6 +344,25 @@ export async function getParkDetail(slug: string, me: Me | null) {
     stats,
     /** Signed out: reviews signing in would show (their stars already count). */
     unseen,
+    /**
+     * Stars from reviews this viewer can't read, with no names: everyone
+     * sees every rating (the park's score is the point of the app).
+     */
+    otherRatings: counted
+      .filter((r) => !shown.includes(r))
+      // Settled ones only (an hour after the last change), so a named card
+      // and an anonymous star can't be matched up by timing.
+      .filter(
+        (r) =>
+          Date.now() -
+            Math.max(
+              r.review.createdAt.getTime(),
+              r.review.updatedAt.getTime(),
+            ) >=
+          SHOW_AFTER_MS,
+      )
+      .map((r) => r.review.ratingTenths)
+      .sort((a, b) => b - a),
     myVisits,
   };
 }

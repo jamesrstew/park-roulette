@@ -33,7 +33,7 @@ export const VISIBILITY_LABELS: Record<
   public: {
     label: "Everyone",
     short: "Everyone",
-    line: "Anyone can read it. Photos still only show to signed-in families.",
+    line: "Anyone can read it, including search engines. Photos still only show to signed-in families.",
     icon: "sun",
   },
   members: {

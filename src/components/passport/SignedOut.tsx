@@ -89,15 +89,18 @@ export function SignedOut() {
       <div className="doodle-box-alt relative flex flex-col items-center gap-3 px-4 py-5 text-center">
         <h2 className="text-[1.7rem]">Want in?</h2>
         <p className="leading-snug text-ink-soft">
-          Played before? Sign in with your phone. New here? Ask someone who
-          plays for an invite link.
+          Start your family&apos;s passport free, or sign in with your phone if
+          you&apos;ve played before.
         </p>
         <Arrow className="absolute top-12 -left-1 h-10 w-14 -scale-x-100 rotate-[200deg] opacity-70" />
+        <Link href="/start" className="crayon-btn wax w-full bg-crayon-yellow">
+          <Icon name="sparkles" size={28} /> Start our family
+        </Link>
         <Link
           href="/me?next=%2Fpassport#signin"
-          className="crayon-btn wax w-full bg-crayon-yellow"
+          className="crayon-btn w-full bg-paper text-xl"
         >
-          <Icon name="crayon" size={28} /> Hop in
+          <Icon name="phone" size={26} /> Sign in
         </Link>
         <Link
           href="/"

@@ -34,7 +34,7 @@ export async function requireVoter() {
   const me = await requireGrownUp();
   if (!me.phone || !me.trusted)
     throw new UserError(
-      "Add your number on the Me page so your park fixes count!",
+      "Add your number in Family & settings (tap your name on the Passport) so your park fixes count!",
     );
   return me;
 }

@@ -294,8 +294,9 @@ function AddKidSheet({
           <AvatarPicker value={avatar} color={color} onChange={setAvatar} />
         </fieldset>
         <p className="text-sm leading-snug text-ink-soft">
-          Kids don&apos;t need a phone number. This phone switches to them; tap
-          your face on the Me page to switch back.
+          Kids don&apos;t need a phone number. This phone switches to them. To
+          switch back, open Passport, tap your kid&apos;s name at the top, then
+          tap your face.
         </p>
         {error ? <ErrorLine>{error}</ErrorLine> : null}
         <button

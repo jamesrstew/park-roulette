@@ -30,7 +30,7 @@ export async function photoUnderReview(mediaId: number): Promise<boolean> {
   return (r?.n ?? 0) > 0;
 }
 
-/** How many things wait for an admin (for the badge on Me). */
+/** How many things wait for an admin (for the dot on the Passport chip and the Admin card). */
 export async function adminQueueSize(): Promise<number> {
   const [r] = await db.execute<{ n: number }>(sql`
     select

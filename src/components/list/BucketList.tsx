@@ -143,6 +143,18 @@ export function BucketList({
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Thumb zone, always in reach: switch to the map. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-[calc(max(env(safe-area-inset-bottom),0.6rem)+5.5rem)] z-[900] px-4">
+        <div className="mx-auto flex max-w-xl justify-end">
+          <Link
+            href="/map"
+            className="crayon-btn wax pointer-events-auto min-h-12 bg-crayon-blue px-4 text-lg text-white shadow-[2px_3px_0_#2b2a33] [text-shadow:1px_1px_0_#2b2a33]"
+            aria-label="Show on the map"
+          >
+            <Icon name="map" size={26} /> Map
+          </Link>
+        </div>
+      </div>
       <PageTitle
         lead="The"
         accent="Bucket List"

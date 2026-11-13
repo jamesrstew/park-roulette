@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CRAYONS, townCrayon } from "@/lib/crayons";
 import { Icon } from "@/components/icons";
 import { Stars } from "../Stars";
@@ -10,6 +11,7 @@ import { formatDay, plural } from "./format";
 export function ParkHero({
   name,
   city,
+  townLink,
   avgTenths,
   reviewCount,
   cover,
@@ -25,6 +27,7 @@ export function ParkHero({
   playground?: boolean;
   name: string;
   city: string;
+  townLink: string;
   avgTenths: number | null;
   reviewCount: number;
   cover: string | null;
@@ -38,13 +41,14 @@ export function ParkHero({
     <header className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <BackButton />
-        <span
-          className="chip wax text-ink"
+        <Link
+          href={townLink}
+          className="chip wax min-h-11 text-ink"
           style={{ backgroundColor: town }}
-          title={`${city}, Oregon`}
+          title={`Playgrounds in ${city}, Oregon`}
         >
           <Icon name="pin" size={22} /> {city}
-        </span>
+        </Link>
       </div>
 
       {/* Polaroid, taped to the page */}

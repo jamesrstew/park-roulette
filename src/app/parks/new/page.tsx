@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NOINDEX } from "@/lib/site";
 import Link from "next/link";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
@@ -8,7 +9,7 @@ import { AddParkForm } from "@/components/map/AddParkForm";
 import { getMe } from "@/lib/data";
 import { getParkPins, townsOf } from "@/lib/data-map";
 
-export const metadata: Metadata = { title: "Add a park" };
+export const metadata: Metadata = { title: "Add a park", ...NOINDEX };
 
 function coord(v: string | string[] | undefined, min: number, max: number) {
   const n = typeof v === "string" ? Number(v) : NaN;

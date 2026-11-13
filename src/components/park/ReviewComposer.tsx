@@ -369,7 +369,7 @@ export function ReviewComposer({
         </Step>
       )}
 
-      <Step n={isKid ? 3 : 5} title="Who can see it?">
+      <Step n={isKid ? 3 : 5} title="Who sees your words?">
         <VisibilityPicker
           value={visibility}
           onChange={setVisibility}

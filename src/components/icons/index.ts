@@ -20,16 +20,6 @@ export function attrIcon(key: string): IconName {
     : "sparkles";
 }
 
-/** Bottom nav tabs, by route. */
-export const NAV_ICONS = {
-  "/": "spin",
-  "/map": "map",
-  "/list": "list",
-  "/news": "sparkles",
-  "/passport": "passport",
-  "/me": "me",
-} as const satisfies Record<string, IconName>;
-
 /** PLAY_TYPES keys → icon. */
 export const PLAY_ICONS = {
   playground: "playground",

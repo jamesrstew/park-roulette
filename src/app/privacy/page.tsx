@@ -57,9 +57,10 @@ export default function PrivacyPage() {
           number.
         </p>
         <p>
-          A grown-up can remove a kid any time on the Me page, which deletes the
-          kid&apos;s profile and ratings. If you think a child has given us
-          personal information, email <Mail /> and we&apos;ll delete it.
+          A grown-up can remove a kid any time in Family &amp; settings (tap
+          your name at the top of your Passport), which deletes the kid&apos;s
+          profile and ratings. If you think a child has given us personal
+          information, email <Mail /> and we&apos;ll delete it.
         </p>
       </Section>
 
@@ -187,12 +188,18 @@ export default function PrivacyPage() {
           <li>
             <b>Names on reviews</b>: the writer&apos;s name, buddy picture and
             family name show with their review to everyone who can see it.
-            Kids&apos; reviews only ever show to signed-in families or your own
-            family, never to people who aren&apos;t signed in.
+            &ldquo;Everyone&rdquo; reviews (words, stars and first name) can
+            also appear in search engines and AI assistants. Kids&apos; reviews
+            only ever show to signed-in families or your own family, never to
+            people who aren&apos;t signed in.
           </li>
           <li>
-            <b>Star scores</b>: stars and stickers from every review count
-            toward a park&apos;s score, without any names.
+            <b>Stars are always public</b>: every review&apos;s star rating
+            counts toward the park&apos;s score, whoever can read the review.
+            When you can&apos;t read a review, its stars show without a name, an
+            hour after it was last changed (like everything else). Stickers
+            count toward the park&apos;s report card the same way. Your choice
+            of who sees a review covers its words, photos and your name.
           </li>
           <li>
             <b>Photos</b>: only signed-in families, and only when the review
@@ -339,11 +346,11 @@ export default function PrivacyPage() {
             delete it.
           </li>
           <li>
-            Remove a kid or delete yourself on the Me page. Your family&apos;s
-            founding grown-up (the earliest member who signs in with a number)
-            can delete the whole family. For safety, deleting needs you signed
-            in with your number or on the phone you joined with. Or just email{" "}
-            <Mail />.
+            Remove a kid or delete yourself in Family &amp; settings (tap your
+            name at the top of your Passport). Your family&apos;s founding
+            grown-up (the earliest member who signs in with a number) can delete
+            the whole family. For safety, deleting needs you signed in with your
+            number or on the phone you joined with. Or just email <Mail />.
           </li>
           <li>
             Deleting yourself removes your profile, number, reviews, photos and

@@ -85,7 +85,7 @@ export default function TermsPage() {
           <li>
             <b>Stopping:</b> reply STOP to stop texts. You won&apos;t be able to
             sign in by text until you reply START. You can also remove your
-            number on the Me page.
+            number in Family &amp; settings.
           </li>
           <li>
             <b>Which phones:</b> US mobile numbers only.
@@ -261,7 +261,8 @@ export default function TermsPage() {
 
       <Section title="13. Leaving">
         <p>
-          You can remove a kid or delete yourself any time on the Me page. Your
+          You can remove a kid or delete yourself any time in Family &amp;
+          settings (tap your name at the top of your Passport). Your
           family&apos;s founding grown-up (the earliest member who signs in with
           a number) can delete the whole family. We can suspend or close
           accounts as described in section 6, or stop offering Park Roulette.

@@ -15,6 +15,7 @@ export async function getParkShare(slug: string) {
       city: parks.city,
       play: parks.play,
       status: parks.status,
+      approved: sql<boolean>`${parks.approvedAt} is not null`,
     })
     .from(parks)
     .where(eq(parks.slug, slug));

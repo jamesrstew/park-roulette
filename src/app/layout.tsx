@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+import { DesktopAside } from "@/components/DesktopAside";
+import { SITE_URL } from "@/lib/site";
 import { Gochi_Hand, Shantell_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { BottomNav, NavBar } from "@/components/BottomNav";
@@ -16,7 +18,7 @@ const shantell = Shantell_Sans({
   subsets: ["latin"],
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteUrl = SITE_URL;
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -64,6 +66,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <CrayonDefs />
         <HelloToast />
+        <Suspense fallback={null}>
+          <DesktopAside />
+        </Suspense>
         <main className="mx-auto w-full max-w-xl flex-1 px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-32">
           {children}
         </main>

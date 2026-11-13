@@ -239,7 +239,7 @@ export function JoinScreen({
               </Link>{" "}
               Adding a kid on this phone?{" "}
               <Link href="/me#crew-h" className="font-hand text-lg underline">
-                Do it on Me
+                Do it in Family &amp; settings
               </Link>
               .
             </>

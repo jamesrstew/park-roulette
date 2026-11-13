@@ -7,7 +7,7 @@ import {
   type Visibility,
 } from "@/lib/visibility";
 
-/** "Who can see it?" Three big choices, the safe one picked to start. */
+/** "Who sees your words?" Three big choices (stars are always public), the safe one picked to start. */
 export function VisibilityPicker({
   value,
   onChange,
@@ -22,7 +22,7 @@ export function VisibilityPicker({
     <div
       className="flex flex-col gap-2"
       role="radiogroup"
-      aria-label="Who can see it?"
+      aria-label="Who can see your words and photos?"
     >
       {VISIBILITIES.filter((v) => !isKid || v !== "public").map((v) => {
         const on = v === value;
@@ -47,7 +47,8 @@ export function VisibilityPicker({
         );
       })}
       <p className="text-xs leading-snug text-ink-soft">
-        Your stars always count toward the park&apos;s score.
+        Your stars always show to everyone and count toward the park&apos;s
+        score. This picks who sees your words and photos.
       </p>
     </div>
   );
