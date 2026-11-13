@@ -56,18 +56,19 @@ export function SignedOutIntro({ next }: { next?: string }) {
       >
         <span className="tape -top-3 left-8 -rotate-3" aria-hidden />
         <h2 id="signin-h" className="text-3xl">
-          Played before?{" "}
+          Sign in or{" "}
           <span
             className="highlight"
             style={{
               ["--hl" as string]: `color-mix(in srgb, ${CRAYONS.green} 55%, #fffdf7)`,
             }}
           >
-            Hop in!
+            start!
           </span>
         </h2>
         <p className="mb-3 leading-snug text-ink-soft">
-          Sign in with your phone number. No passwords, ever.
+          Type your mobile number and we&apos;ll text a code. New here?
+          You&apos;ll make your family next. No passwords, ever.
         </p>
         <PhoneCode mode="signin" next={next} />
       </section>
@@ -98,9 +99,9 @@ export function SignedOutIntro({ next }: { next?: string }) {
           className="tape -top-3 left-1/2 -translate-x-1/2 -rotate-2"
           aria-hidden
         />
-        <h2 className="text-3xl">New here?</h2>
+        <h2 className="text-3xl">Got an invite link?</h2>
         <p className="mt-1 leading-snug">
-          Ask someone who plays for an invite link. Tap it and you&apos;re in.
+          Joining your family, or a friend sent one? Tap it, or paste it here.
         </p>
         <div className="mt-4">
           <PasteInvite />

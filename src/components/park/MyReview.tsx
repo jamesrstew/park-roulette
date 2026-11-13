@@ -19,6 +19,8 @@ export function MyReview({
   parkFeatures,
   review,
   signedIn,
+  crewId,
+  isKid,
   firstCritic,
   startOpen,
 }: {
@@ -26,6 +28,8 @@ export function MyReview({
   parkFeatures: string[];
   review: ReviewView | null;
   signedIn: boolean;
+  crewId: number | null;
+  isKid: boolean;
   firstCritic: boolean;
   /** Open the composer right away (e.g. our crew has been here). */
   startOpen: boolean;
@@ -168,6 +172,8 @@ export function MyReview({
         <ReviewComposer
           key={review?.updatedAt ?? "new"}
           parkId={parkId}
+          crewId={crewId ?? 0}
+          isKid={isKid}
           parkFeatures={parkFeatures}
           initial={review}
           firstCritic={firstCritic}

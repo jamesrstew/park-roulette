@@ -7,7 +7,7 @@ export const metadata: Metadata = { title: "Map" };
 
 async function MapData() {
   const me = await getMe();
-  const parks = await getBucketList(me?.crew.id ?? null);
+  const parks = await getBucketList(me);
   return <MapScreen parks={parks} signedIn={!!me} />;
 }
 

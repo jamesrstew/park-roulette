@@ -4,14 +4,13 @@ import { CrayonLoading } from "@/components/Loading";
 import { todayInBend, SectionTitle } from "@/components/passport/bits";
 import { PageTitle } from "@/components/PageTitle";
 import { Cover } from "@/components/passport/Cover";
-import { FreshScribbles } from "@/components/passport/FreshScribbles";
 import { FunStats } from "@/components/passport/FunStats";
 import { SignedOut } from "@/components/passport/SignedOut";
 import { StickerBook } from "@/components/passport/StickerBook";
 import { Stamps, type StampView } from "@/components/passport/Stamps";
 import { Towns } from "@/components/passport/Towns";
 import { computeBadges, computeStats, progressOf } from "@/lib/badges";
-import { getMe, getRecentReviews } from "@/lib/data";
+import { getMe } from "@/lib/data";
 import { getPassportData } from "@/lib/data-passport";
 import { ATTRIBUTES, hasPlayground } from "@/lib/features";
 
@@ -25,10 +24,7 @@ async function Passport() {
   const me = await getMe();
   if (!me) return <SignedOut />;
 
-  const [data, recent] = await Promise.all([
-    getPassportData(me.crew.id),
-    getRecentReviews(6),
-  ]);
+  const data = await getPassportData(me.crew.id);
   const now = new Date();
   const visitedIds = new Set(data.visits.map((v) => v.parkId));
   const progress = progressOf(data.parks, visitedIds);
@@ -117,7 +113,6 @@ async function Passport() {
         townsExplored={townsExplored}
         townsTotal={towns.size}
       />
-      <FreshScribbles reviews={recent} now={now.getTime()} />
     </div>
   );
 }

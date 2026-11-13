@@ -18,7 +18,12 @@ export async function POST(request: Request): Promise<NextResponse> {
       onBeforeGenerateToken: async (pathname) => {
         const me = await getMe(); // checks the session epoch too
         if (!me) throw new UploadError("Hop in to upload");
-        if (!pathname.startsWith("reviews/"))
+        if (me.isKid)
+          throw new UploadError(
+            "Photos are for grown-ups. Ask one to add them!",
+          );
+        // Each family uploads into its own folder; saving checks it.
+        if (!pathname.startsWith(`reviews/${me.crew.id}/`))
           throw new UploadError("Bad upload path");
         return {
           allowedContentTypes: [
@@ -32,7 +37,7 @@ export async function POST(request: Request): Promise<NextResponse> {
             "video/quicktime",
             "video/webm",
           ],
-          maximumSizeInBytes: 300 * MB,
+          maximumSizeInBytes: 100 * MB,
           addRandomSuffix: true,
           tokenPayload: JSON.stringify({ explorerId: me.id }),
         };

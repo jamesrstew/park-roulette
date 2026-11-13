@@ -1,4 +1,5 @@
 import "server-only";
+import { parkShownSql } from "./data";
 import { asc, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { crews, explorers, media, parks, reviews, visits } from "@/db/schema";
@@ -50,6 +51,7 @@ export async function getPassportData(crewId: number) {
           status: parks.status,
         })
         .from(parks)
+        .where(parkShownSql(crewId))
         .orderBy(asc(parks.city), asc(parks.name)),
       db
         .select({

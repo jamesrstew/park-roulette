@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
-import { joinWithCode, startClaim } from "@/lib/client-actions";
+import { joinWithCode, startClaim, startFamily } from "@/lib/client-actions";
 import { CodeSheet, focusClaimCode } from "@/components/CodeSheet";
 import { ErrorLine } from "@/components/ErrorLine";
 import { sayHello } from "@/components/HelloToast";
@@ -33,7 +33,8 @@ export function JoinScreen({
   me,
   provedPhone,
 }: {
-  kind: "join" | "friend";
+  /** join: an existing family. friend: a friend's invite. start: no invite. */
+  kind: "join" | "friend" | "start";
   code: string;
   crewName: string;
   crewColor: string;
@@ -62,18 +63,33 @@ export function JoinScreen({
   /** A member with no phone: "Hop in as Wifey?" before switching. */
   const [confirmFor, setConfirmFor] = useState<Member | null>(null);
   const [usePhone, setUsePhone] = useState(true);
+  const [agreed, setAgreed] = useState(false);
   // Signed in and holding a friend's link: you probably don't want to leave
   // your crew. Show "you're all set" first; the form is one tap away.
   const [startAnyway, setStartAnyway] = useState(false);
 
-  const isFriend = kind === "friend";
+  const isStart = kind === "start";
+  /** Starts a new family (a friend's invite, or no invite at all). */
+  const isFriend = kind === "friend" || isStart;
   const alreadyHere = !isFriend && me && members.some((m) => m.id === me.id);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     start(async () => {
+      if (isStart) {
+        const r = await startFamily({
+          agree: agreed as true,
+          name,
+          color,
+          avatar,
+          crewName: newCrew,
+        });
+        if (r && !r.ok) setError(r.error);
+        return;
+      }
       const res = await joinWithCode({
+        agree: agreed as true,
         code,
         name,
         color,
@@ -85,16 +101,17 @@ export function JoinScreen({
     });
   }
 
-  /** Tap a face. A phone: open the code sheet now, inside the tap. */
+  /** Tap a face: confirm first, so a mistap never texts someone else. */
   function claim(m: Member) {
     setClaimError(null);
-    if (m.hasPhone) {
-      setConfirmFor(null);
-      flushSync(() => setCodeFor(m));
-      focusClaimCode(); // inside the tap, so iOS raises the keyboard
-      return;
-    }
     setConfirmFor(m);
+  }
+
+  /** "Text Sarah a code": open the code sheet inside the tap (iOS keyboard). */
+  function textCode(m: Member) {
+    setConfirmFor(null);
+    flushSync(() => setCodeFor(m));
+    focusClaimCode();
   }
 
   function hopIn(m: Member) {
@@ -162,10 +179,21 @@ export function JoinScreen({
           <span className="tape -top-3 left-6 -rotate-6" aria-hidden />
           <span className="tape -top-3 right-6 rotate-6" aria-hidden />
           <p className="font-hand text-xl text-ink-soft">
-            {isFriend ? "Psst! Your friends at" : "Hooray! You're invited to"}
+            {isStart
+              ? "Welcome to"
+              : isFriend
+                ? "Psst! Your friends at"
+                : "Hooray! You're invited to"}
           </p>
           <h1 className="my-1 font-hand text-[2.6rem] leading-[1.05]">
-            {isFriend ? (
+            {isStart ? (
+              <span
+                className="highlight"
+                style={{ ["--hl" as string]: crayon("yellow") }}
+              >
+                Park Roulette
+              </span>
+            ) : isFriend ? (
               <span
                 className="highlight"
                 style={{ ["--hl" as string]: crayon(crewColor) }}
@@ -185,14 +213,17 @@ export function JoinScreen({
             )}
           </h1>
           <p className="font-hand text-xl leading-snug">
-            {isFriend
-              ? "want you on the playground quest too!"
-              : "on the quest to play at every playground in Central Oregon."}
+            {isStart
+              ? "Spin for a playground, go play, stamp your passport!"
+              : isFriend
+                ? "want you on the playground quest too!"
+                : "on the quest to play at every playground in Central Oregon."}
           </p>
           {isFriend ? (
             <p className="mx-auto mt-3 max-w-[19rem] text-[0.95rem] leading-snug text-ink-soft">
-              You&apos;ll get your own family passport. Everyone shares reviews,
-              so you can see their tips and they can see yours.
+              {isStart
+                ? "A free game for Central Oregon families. You'll get your own family passport and see other families' tips."
+                : "You'll get your own family passport. Everyone shares reviews, so you can see their tips and they can see yours."}
             </p>
           ) : null}
         </div>
@@ -252,13 +283,17 @@ export function JoinScreen({
             <div className="mt-3 flex animate-pop-in flex-col items-center gap-2">
               <button
                 type="button"
-                onClick={() => hopIn(confirmFor)}
+                onClick={() =>
+                  confirmFor.hasPhone ? textCode(confirmFor) : hopIn(confirmFor)
+                }
                 disabled={pending}
                 className="crayon-btn wax w-full bg-crayon-yellow text-xl"
               >
                 {claiming === confirmFor.id
                   ? "One sec…"
-                  : `Hop in as ${confirmFor.name}`}
+                  : confirmFor.hasPhone
+                    ? `I'm ${confirmFor.name}: text me a code`
+                    : `Hop in as ${confirmFor.name}`}
               </button>
               <button
                 type="button"
@@ -331,7 +366,15 @@ export function JoinScreen({
           <AvatarPicker value={avatar} color={color} onChange={setAvatar} />
         </fieldset>
 
-        {provedPhone ? (
+        {provedPhone && isStart ? (
+          <p className="doodle-box-alt flex items-center gap-3 px-4 py-3 leading-snug">
+            <Icon name="phone" size={28} />
+            <span>
+              You&apos;ll sign in with{" "}
+              <b className="whitespace-nowrap">{provedPhone}</b>.
+            </span>
+          </p>
+        ) : provedPhone ? (
           <label className="doodle-box-alt flex min-h-11 items-center gap-3 px-4 py-3">
             <input
               type="checkbox"
@@ -346,11 +389,32 @@ export function JoinScreen({
           </label>
         ) : null}
 
+        <label className="flex min-h-11 items-start gap-3 px-1">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 size-6 shrink-0 accent-crayon-green"
+            required
+          />
+          <span className="text-sm leading-snug">
+            I&apos;m 18 or older and I agree to the{" "}
+            <Link href="/terms" className="underline" target="_blank">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="underline" target="_blank">
+              Privacy Policy
+            </Link>
+            . (Kids join inside a grown-up&apos;s family.)
+          </span>
+        </label>
+
         {error ? <ErrorLine>{error}</ErrorLine> : null}
 
         <button
           type="submit"
-          disabled={pending || !name.trim()}
+          disabled={pending || !name.trim() || !agreed}
           className="crayon-btn wax w-full bg-crayon-yellow py-4 text-3xl"
         >
           {pending && claiming === null ? (

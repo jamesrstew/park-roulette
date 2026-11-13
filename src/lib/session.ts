@@ -91,17 +91,26 @@ export async function setExplorer(
   epoch: number,
   by: Exclude<SignedInBy, "legacy">,
 ) {
-  (await cookies()).set(COOKIE, sign(id, epoch, by), {
+  const jar = await cookies();
+  jar.set(COOKIE, sign(id, epoch, by), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     maxAge: TWO_YEARS,
     path: "/",
   });
+  // Someone else signed in properly: forget the grown-up who handed this
+  // phone to a kid (handing it to a kid is an "l" sign-in, which keeps it).
+  if (by !== "l") {
+    const back = verifyGrownUp(jar.get("pr_grownup")?.value);
+    if (back && back.id !== id) jar.delete("pr_grownup");
+  }
 }
 
 export async function clearExplorer() {
-  (await cookies()).delete(COOKIE);
+  const jar = await cookies();
+  jar.delete(COOKIE);
+  jar.delete("pr_grownup");
 }
 
 // ---------- a just-verified phone number ----------
@@ -148,4 +157,67 @@ export async function verifiedPhone(): Promise<string | null> {
 
 export async function forgetVerifiedPhone() {
   (await cookies()).delete(PHONE_COOKIE);
+}
+
+// ---------- the grown-up who handed this phone to a kid ----------
+// A grown-up who's properly signed in taps their kid ("A kid on this phone",
+// or the kid's face). We remember who they were on this phone, so tapping
+// themselves again switches back with no text code and the same trust.
+// Bumping the grown-up's epoch (number changed, signed out everywhere)
+// forgets it.
+
+const GROWN_UP_COOKIE = "pr_grownup";
+const GROWN_UP_TTL_S = 60 * 60 * 24 * 30;
+
+export function signGrownUp(
+  t: SessionToken & { by: Exclude<SignedInBy, "legacy" | "l"> },
+  expires: number,
+): string {
+  const body = `${t.id}.${t.epoch}.${t.by}.${expires}`;
+  return `${body}.${mac(`grownup:${body}`)}`;
+}
+
+export function verifyGrownUp(
+  token: string | undefined,
+  now = Date.now(),
+): (SessionToken & { by: "j" | "c" }) | null {
+  if (!token || token.length > 200) return null;
+  const parts = token.split(".");
+  if (parts.length !== 5) return null;
+  const [id, epoch, by, exp, m] = parts;
+  const body = `${id}.${epoch}.${by}.${exp}`;
+  if (!sameMac(m, mac(`grownup:${body}`))) return null;
+  if (by !== "j" && by !== "c") return null;
+  if (!(Number(exp) > now)) return null;
+  const n = Number(id);
+  const e = Number(epoch);
+  if (!Number.isSafeInteger(n) || !Number.isSafeInteger(e)) return null;
+  return { id: n, epoch: e, by };
+}
+
+/** Remember the grown-up handing the phone to a kid (trusted sessions only). */
+export async function rememberGrownUp(s: SessionToken) {
+  if (s.by === "l") return;
+  const by = s.by === "legacy" ? "c" : s.by;
+  (await cookies()).set(
+    GROWN_UP_COOKIE,
+    signGrownUp({ ...s, by }, Date.now() + GROWN_UP_TTL_S * 1000),
+    {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: GROWN_UP_TTL_S,
+      path: "/",
+    },
+  );
+}
+
+export async function grownUpOnThisPhone() {
+  const token = (await cookies()).get(GROWN_UP_COOKIE)?.value;
+  await connection();
+  return verifyGrownUp(token);
+}
+
+export async function forgetGrownUp() {
+  (await cookies()).delete(GROWN_UP_COOKIE);
 }

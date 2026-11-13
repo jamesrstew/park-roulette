@@ -266,6 +266,29 @@ export function SpinScreen({
         />
       </div>
 
+      {!signedIn && (
+        <div className="doodle-box -mt-1 flex items-center gap-3 bg-[color-mix(in_srgb,var(--color-crayon-yellow)_22%,#fffdf7)] px-4 py-2.5">
+          <Icon name="passport" size={34} className="shrink-0" />
+          <p className="flex-1 text-sm leading-snug">
+            <b className="font-hand text-lg font-normal">New here?</b> A free
+            game for Central Oregon families. Spin, go play, stamp your
+            family&apos;s passport.{" "}
+            <Link
+              href="/me#signin"
+              className="inline-block py-1 font-semibold whitespace-nowrap underline underline-offset-2"
+            >
+              Played before? Sign in
+            </Link>
+          </p>
+          <Link
+            href="/start"
+            className="crayon-btn wax min-h-11 shrink-0 bg-crayon-yellow px-3 text-base"
+          >
+            Start
+          </Link>
+        </div>
+      )}
+
       {/* Filters: compact summary, expandable drawer */}
       <section
         aria-label="Filters"
@@ -622,9 +645,9 @@ function ResultCard({
             ) : (
               <Link
                 className="crayon-btn bg-paper px-3 text-lg whitespace-nowrap"
-                href="/me#signin"
+                href="/start"
               >
-                <Icon name="crayon" size={26} /> Hop in to track
+                <Icon name="stamp" size={26} /> Save it
               </Link>
             )}
             <button

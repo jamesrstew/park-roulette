@@ -11,6 +11,7 @@ export type CrewMember = {
   reviewCount: number;
   /** Switching to them on a shared phone needs a code (never the number). */
   hasPhone: boolean;
+  isKid: boolean;
 };
 
 /** Everyone in a crew, oldest first, with how many reviews each has written. */
@@ -30,6 +31,7 @@ export async function getCrewMembers(crewId: number): Promise<CrewMember[]> {
       color: explorers.color,
       avatar: explorers.avatar,
       hasPhone: sql<boolean>`${explorers.phone} is not null`,
+      isKid: explorers.isKid,
       n: counts.n,
     })
     .from(explorers)

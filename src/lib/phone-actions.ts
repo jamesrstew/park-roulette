@@ -28,6 +28,9 @@ import {
 } from "./phone-format";
 import {
   forgetVerifiedPhone,
+  grownUpOnThisPhone,
+  readSession,
+  rememberGrownUp,
   rememberVerifiedPhone,
   verifiedPhone,
 } from "./session";
@@ -247,7 +250,24 @@ export async function startClaim(
       joinCodeInput.parse(joinCode),
     );
     if (!target) throw new UserError("Couldn't find that explorer.");
+    // Back to the grown-up who handed this phone to a kid: no code needed.
+    const back = await grownUpOnThisPhone();
+    if (back && back.id === target.id && back.epoch === target.sessionEpoch) {
+      await signInAs(target, back.by);
+      return { ok: true, done: true, name: target.name };
+    }
     if (!target.phone) {
+      // A properly signed-in grown-up handing the phone to their kid.
+      const now = await readSession();
+      const me = now ? await getMe() : null;
+      if (
+        now &&
+        me &&
+        !me.isKid &&
+        target.isKid &&
+        me.crew.id === target.crewId
+      )
+        await rememberGrownUp(now);
       await signInAs(target, "l");
       return { ok: true, done: true, name: target.name };
     }

@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: "The Bucket List" };
 
 async function List() {
   const me = await getMe();
-  const parks = await getBucketList(me?.crew.id ?? null);
+  const parks = await getBucketList(me);
   return <BucketList parks={parks} signedIn={!!me} />;
 }
 

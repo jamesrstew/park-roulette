@@ -7,6 +7,7 @@ import { verdict } from "@/lib/rating";
 import { Stars } from "../Stars";
 import { formatStamp } from "./format";
 import { MediaGrid } from "./Lightbox";
+import { VisibilityTag } from "./VisibilityPicker";
 
 /** One critic's take. Works on the server and inside client components. */
 export function ReviewCard({
@@ -62,6 +63,7 @@ export function ReviewCard({
             {review.explorer.crewName} · {formatStamp(review.updatedAt)}
             {edited ? " (edited)" : ""}
           </p>
+          {mine && <VisibilityTag value={review.visibility} />}
         </div>
         <div className="flex flex-col items-end">
           <Stars tenths={review.ratingTenths} size={15} />
@@ -70,6 +72,14 @@ export function ReviewCard({
           </span>
         </div>
       </header>
+
+      {review.hidden && (
+        <p className="flex items-start gap-2 rounded-lg border-2 border-dashed border-crayon-orange bg-[color-mix(in_srgb,var(--color-crayon-orange)_10%,#fffdf7)] p-2 text-sm leading-snug">
+          <Icon name="eyes" size={22} className="shrink-0" />
+          Someone asked us to take a look at this one, so only your family sees
+          it for now. Questions? hello@parkroulette.quest
+        </p>
+      )}
 
       {review.body && (
         <p className="leading-relaxed whitespace-pre-line">{review.body}</p>

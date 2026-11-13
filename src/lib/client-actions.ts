@@ -11,6 +11,7 @@
  */
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import * as A from "./actions";
+import * as C from "./community-actions";
 import * as P from "./phone-actions";
 import type { ActionResult } from "./actions";
 
@@ -40,6 +41,7 @@ function wrap<Args extends unknown[], R extends ActionResult>(
 }
 
 export const joinWithCode = wrap(A.joinWithCode);
+export const startFamily = wrap(A.startFamily);
 export const updateProfile = wrap(A.updateProfile);
 export const addKid = wrap(A.addKid);
 export const logVisit = wrap(A.logVisit);
@@ -50,6 +52,18 @@ export const addPark = wrap(A.addPark);
 export const setParkStatus = wrap(A.setParkStatus);
 export const setParkPlay = wrap(A.setParkPlay);
 export const updateFeatures = wrap(A.updateFeatures);
+export const voteOnFix = wrap(A.voteOnFix);
+export const confirmPark = wrap(A.confirmPark);
+export const reportReview = wrap(C.reportReview);
+export const restoreReview = wrap(C.restoreReview);
+export const removeReview = wrap(C.removeReview);
+export const applyFix = wrap(C.applyFix);
+export const dropFix = wrap(C.dropFix);
+export const rejectPark = wrap(C.rejectPark);
+export const acceptTerms = wrap(C.acceptTerms);
+export const deleteMe = wrap(C.deleteMe);
+export const deleteFamily = wrap(C.deleteFamily);
+export const removeKid = wrap(C.removeKid);
 export const sendSignInCode = wrap(P.sendSignInCode);
 export const checkSignInCode = wrap(P.checkSignInCode);
 export const sendAddPhoneCode = wrap(P.sendAddPhoneCode);

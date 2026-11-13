@@ -19,6 +19,11 @@ const TABS = [
     match: (p: string) => p.startsWith("/list"),
   },
   {
+    href: "/news",
+    label: "News",
+    match: (p: string) => p.startsWith("/news"),
+  },
+  {
     href: "/passport",
     label: "Passport",
     match: (p: string) => p.startsWith("/passport"),

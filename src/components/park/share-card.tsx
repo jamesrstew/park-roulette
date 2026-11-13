@@ -2,15 +2,15 @@ import "server-only";
 import { ImageResponse } from "next/og";
 import { INK, PAPER, WheelArt } from "@/components/me/brand-art";
 import { handFont, OG_SIZE } from "@/components/me/og-card";
-import { isOurBlobUrl } from "@/lib/blob";
 import { CRAYONS } from "@/lib/crayons";
 import { PLAY_TYPES, playOf } from "@/lib/features";
 import { formatStars } from "@/lib/rating";
 
 /**
  * A park's link preview (iMessage, group chats): "Let's go here!", the
- * park's name and town, its stars, and a photo from a review if there is one.
- * Fetched by messaging apps without anyone signed in, so only public things.
+ * park's name and town and its stars, next to the crayon wheel. Never review
+ * photos: link previews are seen by anyone, and photos are for signed-in
+ * families only.
  */
 
 export type ParkShare = {
@@ -20,53 +20,9 @@ export type ParkShare = {
   status: string;
   avgTenths: number | null;
   reviewCount: number;
-  photos: string[];
 };
 
 const SOFT = "#5d5a6b";
-const PHOTO_TIMEOUT_MS = 3500;
-const PHOTO_MAX_BYTES = 6 * 1024 * 1024;
-
-/**
- * A review photo as a data URI, or null (then the card shows the wheel).
- * Only our own Blob store, only real JPEG/PNG bytes (what the renderer can
- * draw; the uploader's label isn't trusted), never too big or too slow.
- * Photos are re-encoded in the browser before upload, so they're already a
- * sensible size with their rotation baked in.
- */
-async function photoData(url: string): Promise<string | null> {
-  if (!isOurBlobUrl(url)) return null;
-  try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS),
-      redirect: "error",
-    });
-    const size = Number(res.headers.get("content-length") ?? 0);
-    if (!res.ok || size > PHOTO_MAX_BYTES) {
-      await res.body?.cancel();
-      return null;
-    }
-    const buf = Buffer.from(await res.arrayBuffer());
-    if (buf.length > PHOTO_MAX_BYTES) return null;
-    const jpeg = buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff;
-    const png = buf
-      .subarray(0, 4)
-      .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
-    if (!jpeg && !png) return null;
-    return `data:image/${jpeg ? "jpeg" : "png"};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
-  }
-}
-
-/** The first of the park's newest photos that we can use. */
-async function firstPhoto(urls: string[]): Promise<string | null> {
-  for (const url of urls.slice(0, 4)) {
-    const data = await photoData(url);
-    if (data) return data;
-  }
-  return null;
-}
 
 /** One crayon star, filled 0..1 from the left. */
 function Star({ fill, size }: { fill: number; size: number }) {
@@ -132,19 +88,8 @@ function titleSize(name: string) {
 }
 
 export async function parkShareCard(park: ParkShare): Promise<Response> {
-  const photo = await firstPhoto(park.photos);
-  // Draw the whole card before sending anything: a photo the renderer
-  // chokes on would otherwise break the preview mid-stream (and get cached).
-  try {
-    return await buffered(renderParkCard(park, photo));
-  } catch (e) {
-    if (!photo) throw e;
-    console.error(
-      "[share-card] photo failed to draw; using the wheel",
-      (e as Error)?.name,
-    );
-    return buffered(renderParkCard(park, null));
-  }
+  // Drawn in full before sending, so a render problem can't send half a card.
+  return buffered(renderParkCard(park, null));
 }
 
 async function buffered(card: Promise<ImageResponse>): Promise<Response> {

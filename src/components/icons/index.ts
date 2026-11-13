@@ -6,11 +6,18 @@ export {
   type IconName,
 } from "./Icon";
 export { ALIASES } from "./drawings";
-import { isIconName, type IconName } from "./Icon";
+import { ALIASES, DRAWINGS } from "./drawings";
+import type { IconName } from "./Icon";
 
-/** ATTRIBUTES keys double as icon names; anything unknown gets sparkles. */
+/**
+ * ATTRIBUTES keys double as icon names; anything unknown gets sparkles.
+ * Checks the drawings directly (not Icon.tsx's isIconName) because server
+ * components call this, and Icon.tsx is a client module.
+ */
 export function attrIcon(key: string): IconName {
-  return isIconName(key) ? key : "sparkles";
+  return Object.hasOwn(DRAWINGS, key) || Object.hasOwn(ALIASES, key)
+    ? (key as IconName)
+    : "sparkles";
 }
 
 /** Bottom nav tabs, by route. */
@@ -18,6 +25,7 @@ export const NAV_ICONS = {
   "/": "spin",
   "/map": "map",
   "/list": "list",
+  "/news": "sparkles",
   "/passport": "passport",
   "/me": "me",
 } as const satisfies Record<string, IconName>;

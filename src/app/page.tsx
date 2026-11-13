@@ -8,7 +8,7 @@ import { getBucketList, getMe } from "@/lib/data";
 
 async function Spin() {
   const me = await getMe();
-  const parks = await getBucketList(me?.crew.id ?? null);
+  const parks = await getBucketList(me);
   return (
     <>
       <AppMoments signedIn={!!me} />

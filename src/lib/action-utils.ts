@@ -19,6 +19,33 @@ export async function requireMe() {
   return me;
 }
 
+/** Words, photos, new parks: grown-ups only (kids give stars and tags). */
+export async function requireGrownUp() {
+  const me = await requireMe();
+  if (me.isKid) throw new UserError("Ask a grown-up to do this one!");
+  return me;
+}
+
+/**
+ * Park fixes count from grown-ups who sign in with a number, so nobody can
+ * out-vote the town with throwaway families.
+ */
+export async function requireVoter() {
+  const me = await requireGrownUp();
+  if (!me.phone || !me.trusted)
+    throw new UserError(
+      "Add your number on the Me page so your park fixes count!",
+    );
+  return me;
+}
+
+/** Moderation: an admin, signed in with a code (or joined) on this phone. */
+export async function requireAdmin() {
+  const me = await requireMe();
+  if (!me.isAdmin || !me.trusted) throw new UserError("That's for admins.");
+  return me;
+}
+
 /**
  * Turn any failure into a friendly result. Validation, UserError and SmsError
  * messages are shown as-is; anything else (DB, network) is logged on the

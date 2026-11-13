@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { updateFeatures } from "@/lib/client-actions";
+import { sayWaiting } from "./fix-toast";
 import { Icon } from "@/components/icons";
 import { ATTR_GROUPS, ATTRIBUTES, attributeScores } from "@/lib/features";
 import { AttrSticker, AttrToggle } from "./AttrChip";
@@ -151,6 +152,7 @@ function FeatureEditor({
       <p className="text-[0.95rem] leading-snug">
         This list came from maps, so it may be wrong. Tap what&apos;s{" "}
         <span className="highlight">really there</span>, the way you saw it.
+        Changes show for everyone once another family agrees.
       </p>
       {ATTR_GROUPS.map((g) => (
         <fieldset key={g.key}>
@@ -191,8 +193,9 @@ function FeatureEditor({
             start(async () => {
               const res = await updateFeatures({ parkId, features: picked });
               if (!res.ok) return (sfx.oops(), setError(res.error));
-              sfx.scribble();
               onDone();
+              if (res.outcome === "waiting") return sayWaiting();
+              sfx.scribble();
             })
           }
         >

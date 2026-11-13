@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { crews, explorers, media, parks, reviews, visits } from "@/db/schema";
 import { isCrossedOff, normalizePlay } from "./features";
 import { readSession, trusted } from "./session";
+import { canSee, canSeeMedia, mediaSrc, viewerOf } from "./visibility";
 
 export type Me = {
   id: number;
@@ -17,6 +18,12 @@ export type Me = {
    * before phone sign-in)? Only then may it add or change a number.
    */
   trusted: boolean;
+  /** A kid's explorer: stars and tags only, no words or photos. */
+  isKid: boolean;
+  /** Can moderate (hide reviews, settle park fixes). */
+  isAdmin: boolean;
+  /** Has agreed to the Terms and Privacy Policy. */
+  termsAccepted: boolean;
   crew: {
     id: number;
     name: string;
@@ -41,6 +48,9 @@ export async function getMe(): Promise<Me | null> {
       avatar: explorers.avatar,
       phone: explorers.phone,
       sessionEpoch: explorers.sessionEpoch,
+      isKid: explorers.isKid,
+      isAdmin: explorers.isAdmin,
+      termsAcceptedAt: explorers.termsAcceptedAt,
       crew: {
         id: crews.id,
         name: crews.name,
@@ -61,6 +71,9 @@ export async function getMe(): Promise<Me | null> {
     avatar: row.avatar,
     phone: row.phone,
     trusted: trusted(session.by),
+    isKid: row.isKid,
+    isAdmin: row.isAdmin,
+    termsAccepted: row.termsAcceptedAt != null,
     crew: row.crew,
   };
 }
@@ -80,7 +93,6 @@ export type ParkSummary = {
   /** ISO date of my crew's most recent visit, or null if we haven't been. */
   lastVisit: string | null;
   visitCount: number;
-  cover: string | null;
   /** How many explorer reviews reported each attribute key. */
   reports: Record<string, number>;
   /** playground | nature | none */
@@ -90,25 +102,23 @@ export type ParkSummary = {
   /** "active", or why it was crossed off the bucket list. */
   status: string;
   statusNote: string | null;
+  /** False for a family-added park nobody else has confirmed yet. */
+  approved: boolean;
 };
 
 /** Every park still on the list (not closed/private), with ratings and my crew's visits. */
-export async function getParkSummaries(
-  crewId: number | null,
-): Promise<ParkSummary[]> {
-  return summaries(crewId, false);
+export async function getParkSummaries(me: Me | null): Promise<ParkSummary[]> {
+  return summaries(me, false);
 }
 
 /** The whole bucket list: parks still on it and crossed-off ones. */
-export async function getBucketList(
-  crewId: number | null,
-): Promise<ParkSummary[]> {
-  return summaries(crewId, true);
+export async function getBucketList(me: Me | null): Promise<ParkSummary[]> {
+  return summaries(me, true);
 }
 
 async function reportCounts(): Promise<Map<number, Record<string, number>>> {
   const rows = await db.execute<{ park_id: number; tag: string; n: number }>(
-    sql`select park_id, tag, count(*)::int as n from ${reviews}, unnest(${reviews.tags}) as tag group by park_id, tag`,
+    sql`select park_id, tag, count(*)::int as n from ${reviews}, unnest(${reviews.tags}) as tag where ${reviews.hiddenAt} is null group by park_id, tag`,
   );
   const out = new Map<number, Record<string, number>>();
   for (const r of rows) {
@@ -119,10 +129,20 @@ async function reportCounts(): Promise<Map<number, Record<string, number>>> {
   return out;
 }
 
+/**
+ * A family-added park counts for everyone once a second family (or an
+ * admin) confirms it. Until then only the family that added it sees it on
+ * their wheel, map and list.
+ */
+export function parkShownSql(crewId: number | null) {
+  return sql`(${parks.approvedAt} is not null or ${parks.addedBy} in (select ${explorers.id} from ${explorers} where ${explorers.crewId} = ${crewId ?? -1}))`;
+}
+
 async function summaries(
-  crewId: number | null,
+  me: Me | null,
   includeCrossedOff: boolean,
 ): Promise<ParkSummary[]> {
+  const crewId = me?.crew.id ?? null;
   const ratingAgg = db
     .select({
       parkId: reviews.parkId,
@@ -130,6 +150,7 @@ async function summaries(
       n: sql<number>`count(*)::int`.as("n"),
     })
     .from(reviews)
+    .where(sql`${reviews.hiddenAt} is null`)
     .groupBy(reviews.parkId)
     .as("r");
 
@@ -144,19 +165,6 @@ async function summaries(
     .groupBy(visits.parkId)
     .as("v");
 
-  const coverAgg = db
-    .select({
-      parkId: reviews.parkId,
-      url: sql<string>`(array_agg(${media.url} order by ${media.createdAt} desc))[1]`.as(
-        "cover",
-      ),
-    })
-    .from(media)
-    .innerJoin(reviews, eq(reviews.id, media.reviewId))
-    .where(eq(media.kind, "image"))
-    .groupBy(reviews.parkId)
-    .as("c");
-
   const reportsP = reportCounts();
   const rows = await db
     .select({
@@ -165,16 +173,15 @@ async function summaries(
       n: ratingAgg.n,
       last: visitAgg.last,
       vn: visitAgg.n,
-      cover: coverAgg.url,
     })
     .from(parks)
     .leftJoin(ratingAgg, eq(ratingAgg.parkId, parks.id))
     .leftJoin(visitAgg, eq(visitAgg.parkId, parks.id))
-    .leftJoin(coverAgg, eq(coverAgg.parkId, parks.id))
+    .where(parkShownSql(crewId))
     .orderBy(asc(parks.city), asc(parks.name));
   const reports = await reportsP;
 
-  const all = rows.map(({ park, avg, n, last, vn, cover }) =>
+  const all = rows.map(({ park, avg, n, last, vn }) =>
     normalizePlay({
       id: park.id,
       slug: park.slug,
@@ -189,12 +196,12 @@ async function summaries(
       reviewCount: n ?? 0,
       lastVisit: last ?? null,
       visitCount: vn ?? 0,
-      cover: cover ?? null,
       reports: reports.get(park.id) ?? {},
       play: park.play,
       notes: park.notes?.trim() || null,
       status: park.status,
       statusNote: park.statusNote,
+      approved: park.approvedAt != null,
     }),
   );
   return includeCrossedOff ? all : all.filter((p) => !isCrossedOff(p));
@@ -205,6 +212,9 @@ export type ReviewView = {
   ratingTenths: number;
   body: string;
   tags: string[];
+  visibility: string;
+  /** Hidden by reports or an admin (only the author's family sees it then). */
+  hidden: boolean;
   createdAt: string;
   updatedAt: string;
   explorer: {
@@ -213,14 +223,18 @@ export type ReviewView = {
     color: string;
     avatar: string;
     crewName: string;
+    crewId: number;
   };
+  /** `url` is our own /photos/<id> door, never the storage address. */
   media: { id: number; url: string; kind: string }[];
 };
 
-export async function getParkDetail(slug: string, crewId: number | null) {
+export async function getParkDetail(slug: string, me: Me | null) {
   const row = (await db.select().from(parks).where(eq(parks.slug, slug)))[0];
   if (!row) return null;
   const park = normalizePlay(row);
+  const crewId = me?.crew.id ?? null;
+  const viewer = viewerOf(me);
 
   const reviewRows = await db
     .select({
@@ -230,6 +244,7 @@ export async function getParkDetail(slug: string, crewId: number | null) {
         name: explorers.name,
         color: explorers.color,
         avatar: explorers.avatar,
+        crewId: explorers.crewId,
       },
       crewName: crews.name,
     })
@@ -239,35 +254,61 @@ export async function getParkDetail(slug: string, crewId: number | null) {
     .where(eq(reviews.parkId, park.id))
     .orderBy(desc(reviews.updatedAt));
 
-  const ids = reviewRows.map((r) => r.review.id);
+  // Stars and tags from every review that isn't hidden count for the park;
+  // the reviews themselves only show to people allowed to see them.
+  const counted = reviewRows.filter((r) => r.review.hiddenAt == null);
+  const stats = {
+    ratings: counted.map((r) => r.review.ratingTenths),
+    tags: counted.map((r) => r.review.tags),
+  };
+  const accessOf = (r: (typeof reviewRows)[number]) => ({
+    visibility: r.review.visibility,
+    hidden: r.review.hiddenAt != null,
+    crewId: r.explorer.crewId,
+    createdAt: r.review.createdAt,
+    updatedAt: r.review.updatedAt,
+  });
+  const shown = reviewRows.filter((r) => canSee(viewer, accessOf(r)));
+  // Signed out: reviews that signing in would show ("hop in to read them").
+  const unseen = viewer
+    ? 0
+    : reviewRows.filter((r) => canSee({ crewId: -1 }, accessOf(r))).length -
+      shown.length;
+
+  const ids = shown.map((r) => r.review.id);
   const mediaRows = ids.length
     ? await db
-        .select()
+        .select({
+          id: media.id,
+          reviewId: media.reviewId,
+          kind: media.kind,
+        })
         .from(media)
         .where(inArray(media.reviewId, ids))
         .orderBy(asc(media.createdAt))
     : [];
 
-  const reviewViews: ReviewView[] = reviewRows.map(
-    ({ review, explorer, crewName }) => ({
+  const reviewViews: ReviewView[] = shown.map((r) => {
+    const { review, explorer, crewName } = r;
+    const access = accessOf(r);
+    return {
       id: review.id,
       ratingTenths: review.ratingTenths,
       body: review.body,
       tags: review.tags,
+      visibility: review.visibility,
+      hidden: review.hiddenAt != null,
       createdAt: review.createdAt.toISOString(),
       updatedAt: review.updatedAt.toISOString(),
-      explorer: {
-        id: explorer.id,
-        name: explorer.name,
-        color: explorer.color,
-        avatar: explorer.avatar,
-        crewName,
-      },
+      explorer: { ...explorer, crewName },
       media: mediaRows
-        .filter((m) => m.reviewId === review.id)
-        .map((m) => ({ id: m.id, url: m.url, kind: m.kind })),
-    }),
-  );
+        .filter(
+          (m) =>
+            m.reviewId === review.id && canSeeMedia(viewer, access, m.kind),
+        )
+        .map((m) => ({ id: m.id, url: mediaSrc(m.id), kind: m.kind })),
+    };
+  });
 
   const myVisits = crewId
     ? await db
@@ -282,7 +323,23 @@ export async function getParkDetail(slug: string, crewId: number | null) {
         .orderBy(desc(visits.visitedOn))
     : [];
 
-  return { park, reviews: reviewViews, myVisits };
+  let addedByUs = false;
+  if (row.addedBy && crewId) {
+    const [a] = await db
+      .select({ crewId: explorers.crewId })
+      .from(explorers)
+      .where(eq(explorers.id, row.addedBy));
+    addedByUs = a?.crewId === crewId;
+  }
+
+  return {
+    park: { ...park, approved: row.approvedAt != null, addedByUs },
+    reviews: reviewViews,
+    stats,
+    /** Signed out: reviews signing in would show (their stars already count). */
+    unseen,
+    myVisits,
+  };
 }
 
 export async function findCrewByCode(code: string) {
@@ -308,26 +365,4 @@ export async function findCrewByCode(code: string) {
   )[0];
   if (byFriend) return { kind: "friend" as const, crew: byFriend, members: [] };
   return null;
-}
-
-/** Recent reviews across everyone, for the "fresh scribbles" feed. */
-export async function getRecentReviews(limit = 8) {
-  return db
-    .select({
-      id: reviews.id,
-      ratingTenths: reviews.ratingTenths,
-      body: reviews.body,
-      updatedAt: reviews.updatedAt,
-      park: { slug: parks.slug, name: parks.name, city: parks.city },
-      explorer: {
-        name: explorers.name,
-        color: explorers.color,
-        avatar: explorers.avatar,
-      },
-    })
-    .from(reviews)
-    .innerJoin(parks, eq(parks.id, reviews.parkId))
-    .innerJoin(explorers, eq(explorers.id, reviews.explorerId))
-    .orderBy(desc(reviews.updatedAt))
-    .limit(limit);
 }

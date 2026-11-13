@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Icon } from "@/components/icons";
@@ -377,8 +378,17 @@ export function PhoneCode({
         >
           <Icon name="phone" size={28} /> {submitLabel}
         </button>
-        <p className="text-center text-sm leading-snug text-ink-soft">
-          We&apos;ll text you a 6-digit code.
+        <p className="text-center text-xs leading-snug text-ink-soft">
+          We&apos;ll text a 6-digit sign-in code, one per request. Only for
+          signing in, never shared or used for ads. Msg &amp; data rates may
+          apply. Reply HELP for help, STOP to opt out.{" "}
+          <Link href="/terms" className="underline">
+            Terms
+          </Link>{" "}
+          &amp;{" "}
+          <Link href="/privacy" className="underline">
+            Privacy
+          </Link>
         </p>
         {onSkip ? (
           <button
@@ -513,21 +523,24 @@ export function PhoneCode({
           tabIndex={-1}
           className="font-hand text-2xl leading-tight outline-none"
         >
-          We don&apos;t know <span className="whitespace-nowrap">{shown}</span>{" "}
-          yet!
+          Welcome, new explorer!
         </p>
         <p className="leading-snug">
-          <b>New here?</b> Paste the invite link someone sent you, and this
-          number will sign you in from then on.
+          <span className="whitespace-nowrap">{shown}</span> is all set. Make
+          your explorer and start your family&apos;s passport.
         </p>
-        <p className="leading-snug">
-          <b>Played before without a number?</b> Paste your family link and tap
-          yourself.
+        {/* A full load: /start reads the number we just proved. */}
+        <a
+          href="/start"
+          className="crayon-btn wax bg-crayon-yellow py-3 text-2xl"
+        >
+          Start our family <Icon name="sparkles" size={28} />
+        </a>
+        <p className="mt-2 leading-snug">
+          <b>Got an invite link?</b> Joining your family or a friend&apos;s?
+          Paste it here and this number comes along.
         </p>
         <PasteInvite label="Paste your link:" />
-        <p className="text-sm leading-snug text-ink-soft">
-          No link? Ask someone who plays to send one from their Me page.
-        </p>
         <button
           type="button"
           onClick={changeNumber}

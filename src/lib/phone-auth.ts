@@ -34,6 +34,7 @@ export async function explorerForClaim(id: number) {
       crewId: explorers.crewId,
       phone: explorers.phone,
       sessionEpoch: explorers.sessionEpoch,
+      isKid: explorers.isKid,
       joinCode: crews.joinCode,
     })
     .from(explorers)

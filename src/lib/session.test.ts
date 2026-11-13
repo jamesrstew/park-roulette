@@ -63,3 +63,19 @@ describe("verified phone cookie", () => {
     expect(S.verify(S.signPhone("+15415550123", 9e12))).toBeNull();
   });
 });
+
+describe("grown-up on this phone cookie", () => {
+  const exp = Date.now() + 60_000;
+  it("round-trips a trusted grown-up", () => {
+    const t = S.signGrownUp({ id: 7, epoch: 2, by: "c" }, exp);
+    expect(S.verifyGrownUp(t)).toEqual({ id: 7, epoch: 2, by: "c" });
+  });
+  it("rejects tampering, expiry and untrusted sign-ins", () => {
+    const t = S.signGrownUp({ id: 7, epoch: 2, by: "j" }, exp);
+    expect(S.verifyGrownUp(t.replace(/^7\./, "8."))).toBeNull();
+    expect(S.verifyGrownUp(t, exp + 1)).toBeNull();
+    const forged = `7.2.l.${exp}.${t.split(".")[4]}`;
+    expect(S.verifyGrownUp(forged)).toBeNull();
+    expect(S.verifyGrownUp(undefined)).toBeNull();
+  });
+});

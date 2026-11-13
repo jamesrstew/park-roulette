@@ -102,7 +102,8 @@ export async function clientIp(): Promise<string> {
 }
 
 /** Keep phones and IPs for two days, no longer. */
-async function sweep() {
+/** Deletes rate-limit rows (phone + IP) after two days. Also run daily by cron. */
+export async function sweep() {
   await db
     .delete(smsEvents)
     .where(lt(smsEvents.createdAt, sql`now() - interval '2 days'`));

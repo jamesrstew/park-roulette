@@ -22,6 +22,11 @@ A just-for-fun, mobile-first web app: the Stewarts' quest to visit every playgro
   family-link tap or shared-phone switch to someone without a number is
   untrusted and can't add a number, so a borrowed family link can't become a
   takeover. Members with a number are only reachable with a code.
+- **Community rules (2026-11-13).** Grown-ups (18+) hold accounts; anyone can start a family at /start with a texted number (no invite needed). Kids (`explorers.is_kid`, made with "A kid on this phone") give stars and tags only: no words, photos, park edits or reports. A grown-up who hands the phone to a kid can switch back with no code (`pr_grownup` cookie, session.ts).
+- **Who sees what** lives in one place, src/lib/visibility.ts (`canSee`, `canSeeMedia`, `visibleSql`). Every read of review text, photos or author names goes through it. Reviews are public / members / family; photos never show signed out; videos only to the author's family; another family's review waits an hour; hidden (reported) reviews only show to their own family. Admins get no extra reach (they see reported reviews on /admin). Stars and tags always count toward park scores.
+- **Photos are private.** Vercel Blob private store; browsers only ever see `/photos/<mediaId>` (src/app/photos/[id]/route.ts), which checks `canSeeMedia` and redirects to a 1-hour signed link. Never send `media.url` to a browser. Uploads go to `reviews/<crewId>/…`; every removal path deletes the file (`deleteFiles`), and a daily cron (/api/cron/cleanup) deletes unsaved uploads.
+- **Park facts need two families** (src/lib/park-votes.ts): status, play type and stickers change when two verified families (a grown-up with a number) agree, or an admin (`explorers.is_admin`, set by hand) says so. Family-added parks wait for one other family to confirm (`parks.approved_at`).
+- **Legal:** /terms and /privacy (True Craft Ventures LLC, hello@parkroulette.quest). If you change what we collect, who sees it, or who we share with, update /privacy in the same change.
 - Every export of a "use server" file is a public endpoint. Helpers that
   trust an explorer id (src/lib/phone-auth.ts) live in server-only files.
 

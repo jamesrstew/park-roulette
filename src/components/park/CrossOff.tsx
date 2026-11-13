@@ -3,6 +3,7 @@
 import confetti from "canvas-confetti";
 import { useState, useTransition } from "react";
 import { setParkPlay, setParkStatus } from "@/lib/client-actions";
+import { sayWaiting } from "./fix-toast";
 import { CROSS_OFF_ICONS, Icon, PLAY_ICONS } from "@/components/icons";
 import { CRAYONS } from "@/lib/crayons";
 import { CROSS_OFF_REASONS, type PlayType } from "@/lib/features";
@@ -11,14 +12,6 @@ import { JoinNudge } from "./JoinNudge";
 import { sfx } from "@/lib/sound";
 
 type Reason = keyof typeof CROSS_OFF_REASONS;
-
-/** statusNote is saved as "note (Name)". Split it back apart. */
-function parseNote(statusNote: string | null) {
-  const m = statusNote?.match(/^(.*) \(([^()]+)\)$/);
-  return m
-    ? { note: m[1], by: m[2] }
-    : { note: statusNote ?? "", by: null as string | null };
-}
 
 /** The scribbled-out banner on a crossed-off park, with Undo. */
 export function CrossedOffBanner({
@@ -37,7 +30,7 @@ export function CrossedOffBanner({
   const reason = CROSS_OFF_REASONS[status as Reason] ?? {
     label: "Crossed off",
   };
-  const { note, by } = parseNote(statusNote);
+  const note = statusNote ?? "";
   const showNote = note && note !== reason.label && note !== "Flagged";
 
   return (
@@ -62,8 +55,7 @@ export function CrossedOffBanner({
             <p className="mt-0.5 text-[0.95rem] italic">&ldquo;{note}&rdquo;</p>
           )}
           <p className="mt-1 text-sm text-ink-soft">
-            {by ? `By ${by}. ` : ""}It&apos;s off the wheel. One less to hunt
-            for!
+            It&apos;s off the wheel. One less to hunt for!
           </p>
         </div>
       </div>
@@ -77,6 +69,7 @@ export function CrossedOffBanner({
             start(async () => {
               const res = await setParkStatus({ parkId, status: "active" });
               if (!res.ok) return (sfx.oops(), setError(res.error));
+              if (res.outcome === "waiting") return sayWaiting();
               sfx.undo();
             })
           }
@@ -135,6 +128,7 @@ export function PlaySign({
             start(async () => {
               const res = await setParkPlay({ parkId, play: "playground" });
               if (!res.ok) return (sfx.oops(), setError(res.error));
+              if (res.outcome === "waiting") return sayWaiting();
               sfx.pop();
             })
           }
@@ -185,11 +179,12 @@ export function CrossOffFooter({
         note: note.trim() || CROSS_OFF_REASONS[reason].label,
       });
       if (!res.ok) return (sfx.oops(), setError(res.error));
-      if (isFix) sfx.scribble();
-      else sfx.strike();
       setOpen(false);
       setReason(null);
       setNote("");
+      if (res.outcome === "waiting") return sayWaiting();
+      if (isFix) sfx.scribble();
+      else sfx.strike();
       window.scrollTo({ top: 0, behavior: "smooth" });
       if (!isFix)
         confetti({
@@ -256,8 +251,8 @@ export function CrossOffFooter({
           {reason && (
             <p className="-mt-1 text-sm text-ink-soft">
               {isFix
-                ? "It stays on the every-park list and comes off the playground count. Anyone can undo it."
-                : "It comes off the wheel and counts as done. Anyone can undo it."}
+                ? "It stays on the every-park list and comes off the playground count once another family agrees."
+                : "It comes off the wheel for everyone once another family agrees."}
             </p>
           )}
           <input

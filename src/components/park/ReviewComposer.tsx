@@ -17,10 +17,16 @@ import {
   UnreadablePhoto,
 } from "./compress";
 import { StarInput } from "../StarInput";
+import { VisibilityPicker } from "./VisibilityPicker";
+import {
+  DEFAULT_VISIBILITY,
+  isVisibility,
+  type Visibility,
+} from "@/lib/visibility";
 import { sfx } from "@/lib/sound";
 
 const MAX_NEW = 12;
-const MAX_BYTES = 300 * 1024 * 1024;
+const MAX_BYTES = 100 * 1024 * 1024;
 const BAR_COLORS = [
   CRAYONS.green,
   CRAYONS.blue,
@@ -43,6 +49,8 @@ type Upload = {
 
 export function ReviewComposer({
   parkId,
+  crewId,
+  isKid,
   parkFeatures,
   initial,
   firstCritic,
@@ -51,6 +59,10 @@ export function ReviewComposer({
   onSaved,
 }: {
   parkId: number;
+  /** Uploads go in our family's own folder. */
+  crewId: number;
+  /** Kids give stars and stickers; words and photos are for grown-ups. */
+  isKid: boolean;
   parkFeatures: string[];
   initial: ReviewView | null;
   firstCritic: boolean;
@@ -65,6 +77,12 @@ export function ReviewComposer({
     initial?.tags.filter((t) => ATTRIBUTES[t]) ?? [],
   );
   const [body, setBody] = useState(initial?.body ?? "");
+  const [visibility, setVisibility] = useState<Visibility>(
+    isVisibility(initial?.visibility) &&
+      !(isKid && initial.visibility === "public")
+      ? initial.visibility
+      : DEFAULT_VISIBILITY,
+  );
   const [removed, setRemoved] = useState<number[]>([]);
   const [uploads, setUploads] = useState<Upload[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -101,17 +119,17 @@ export function ReviewComposer({
     if (file.size > MAX_BYTES) {
       patch(u.key, {
         status: "error",
-        error: "Too big (300 MB max). Try a shorter clip!",
+        error: "Too big (100 MB max). Try a shorter clip!",
       });
       return;
     }
     patch(u.key, { status: "uploading" });
     try {
       const blob = await upload(
-        `reviews/${parkId}/${safeName(file.name)}`,
+        `reviews/${crewId}/${parkId}-${safeName(file.name)}`,
         file,
         {
-          access: "public",
+          access: "private",
           handleUploadUrl: "/api/upload",
           contentType: file.type || undefined,
           multipart: file.size > 20 * 1024 * 1024,
@@ -183,8 +201,9 @@ export function ReviewComposer({
       const res = await saveReview({
         parkId,
         stars,
-        body,
+        body: isKid ? "" : body,
         tags,
+        visibility,
         addMedia: uploads
           .filter((u) => u.status === "done" && u.url)
           .map((u) => ({ url: u.url!, kind: u.kind })),
@@ -207,7 +226,9 @@ export function ReviewComposer({
         </h3>
         {!initial && (
           <p className="mt-1 text-sm text-ink-soft">
-            Four quick steps. Only the stars are required.
+            {isKid
+              ? "Color in the stars and pick your stickers!"
+              : "A few quick steps. Only the stars are required."}
           </p>
         )}
       </div>
@@ -224,123 +245,136 @@ export function ReviewComposer({
         />
       </Step>
 
-      <Step n={3} title="Tell us more">
-        <textarea
-          className="field min-h-28 resize-y leading-relaxed"
-          value={body}
-          maxLength={4000}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Best slide in town? Too many wasps? Spill it!"
-          aria-label="Your review"
-        />
-      </Step>
-
-      <Step n={4} title="Photos & videos">
-        <div className="flex flex-col gap-3">
-          {(kept.length > 0 || uploads.length > 0) && (
-            <ul className="grid grid-cols-3 gap-2.5">
-              {kept.map((m) => (
-                <li key={m.id} className="relative">
-                  <Thumb url={m.url} kind={m.kind} />
-                  <RemoveDot
-                    label="Remove this one"
-                    onClick={() => setRemoved((r) => [...r, m.id])}
-                  />
-                </li>
-              ))}
-              {uploads.map((u, i) => (
-                <li key={u.key} className="relative flex flex-col gap-1">
-                  <Thumb
-                    url={u.preview}
-                    kind={u.kind}
-                    dim={u.status !== "done"}
-                  />
-                  <RemoveDot
-                    label="Remove this one"
-                    onClick={() => drop(u.key)}
-                  />
-                  <CrayonProgress
-                    pct={u.status === "error" ? 100 : u.pct}
-                    color={BAR_COLORS[i % BAR_COLORS.length]}
-                    failed={u.status === "error"}
-                  />
-                  <span className="text-center font-hand text-sm leading-tight">
-                    {u.status === "prep" && "Shrinking…"}
-                    {u.status === "uploading" && `${Math.round(u.pct)}%`}
-                    {u.status === "done" && (
-                      <>
-                        <Icon
-                          name="check"
-                          size={16}
-                          className="inline-block align-[-4px]"
-                        />{" "}
-                        Ready!
-                      </>
-                    )}
-                    {u.status === "error" && (
-                      <button
-                        type="button"
-                        className="min-h-8 text-crayon-red underline"
-                        onClick={() => send(u)}
-                      >
-                        <Icon
-                          name="undo"
-                          size={16}
-                          className="inline-block align-[-4px]"
-                        />{" "}
-                        Try again
-                      </button>
-                    )}
-                  </span>
-                  {u.kind === "video" && u.status !== "error" && (
-                    <span className="text-center text-[0.7rem] leading-tight text-ink-soft">
-                      {formatMB(u.file.size)} video
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {failed > 0 && (
-            <div className="flex gap-2 rounded-lg border-2 border-dashed border-crayon-red/60 bg-[color-mix(in_srgb,var(--color-crayon-orange)_10%,#fffdf7)] p-3 text-sm leading-snug">
-              <Icon name="warning" size={24} />
-              <p>
-                {failed === 1 ? "One upload" : `${failed} uploads`} got stuck.
-                Tap &ldquo;Try again,&rdquo; or just save. Your stars and words
-                still count!
-                {uploads
-                  .find((u) => u.status === "error")
-                  ?.error?.startsWith("Too big") && " (One file is too big.)"}
-              </p>
-            </div>
-          )}
-
-          <input
-            ref={input}
-            type="file"
-            accept="image/*,video/*"
-            multiple
-            hidden
-            onChange={(e) => {
-              if (e.target.files?.length) sfx.shutter();
-              pick(e.target.files);
-              e.target.value = "";
-            }}
+      {!isKid && (
+        <Step n={3} title="Tell us more">
+          <textarea
+            className="field min-h-28 resize-y leading-relaxed"
+            value={body}
+            maxLength={4000}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Best slide in town? Too many wasps? Spill it!"
+            aria-label="Your review"
           />
-          <button
-            type="button"
-            className="crayon-btn min-h-12 w-full border-dashed bg-paper text-xl"
-            onClick={() => input.current?.click()}
-            disabled={uploads.length >= MAX_NEW}
-          >
-            <Icon name="camera" size={28} /> Add photos or videos
-          </button>
-          <p className="-mt-1 text-center text-xs text-ink-soft">
-            Photos get shrunk to save data. Videos go up full size, so Wi-Fi
-            helps.
-          </p>
-        </div>
+        </Step>
+      )}
+
+      {!isKid && (
+        <Step n={4} title="Photos & videos">
+          <div className="flex flex-col gap-3">
+            {(kept.length > 0 || uploads.length > 0) && (
+              <ul className="grid grid-cols-3 gap-2.5">
+                {kept.map((m) => (
+                  <li key={m.id} className="relative">
+                    <Thumb url={m.url} kind={m.kind} />
+                    <RemoveDot
+                      label="Remove this one"
+                      onClick={() => setRemoved((r) => [...r, m.id])}
+                    />
+                  </li>
+                ))}
+                {uploads.map((u, i) => (
+                  <li key={u.key} className="relative flex flex-col gap-1">
+                    <Thumb
+                      url={u.preview}
+                      kind={u.kind}
+                      dim={u.status !== "done"}
+                    />
+                    <RemoveDot
+                      label="Remove this one"
+                      onClick={() => drop(u.key)}
+                    />
+                    <CrayonProgress
+                      pct={u.status === "error" ? 100 : u.pct}
+                      color={BAR_COLORS[i % BAR_COLORS.length]}
+                      failed={u.status === "error"}
+                    />
+                    <span className="text-center font-hand text-sm leading-tight">
+                      {u.status === "prep" && "Shrinking…"}
+                      {u.status === "uploading" && `${Math.round(u.pct)}%`}
+                      {u.status === "done" && (
+                        <>
+                          <Icon
+                            name="check"
+                            size={16}
+                            className="inline-block align-[-4px]"
+                          />{" "}
+                          Ready!
+                        </>
+                      )}
+                      {u.status === "error" && (
+                        <button
+                          type="button"
+                          className="min-h-8 text-crayon-red underline"
+                          onClick={() => send(u)}
+                        >
+                          <Icon
+                            name="undo"
+                            size={16}
+                            className="inline-block align-[-4px]"
+                          />{" "}
+                          Try again
+                        </button>
+                      )}
+                    </span>
+                    {u.kind === "video" && u.status !== "error" && (
+                      <span className="text-center text-[0.7rem] leading-tight text-ink-soft">
+                        {formatMB(u.file.size)} video
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {failed > 0 && (
+              <div className="flex gap-2 rounded-lg border-2 border-dashed border-crayon-red/60 bg-[color-mix(in_srgb,var(--color-crayon-orange)_10%,#fffdf7)] p-3 text-sm leading-snug">
+                <Icon name="warning" size={24} />
+                <p>
+                  {failed === 1 ? "One upload" : `${failed} uploads`} got stuck.
+                  Tap &ldquo;Try again,&rdquo; or just save. Your stars and
+                  words still count!
+                  {uploads
+                    .find((u) => u.status === "error")
+                    ?.error?.startsWith("Too big") && " (One file is too big.)"}
+                </p>
+              </div>
+            )}
+
+            <input
+              ref={input}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              hidden
+              onChange={(e) => {
+                if (e.target.files?.length) sfx.shutter();
+                pick(e.target.files);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              className="crayon-btn min-h-12 w-full border-dashed bg-paper text-xl"
+              onClick={() => input.current?.click()}
+              disabled={uploads.length >= MAX_NEW}
+            >
+              <Icon name="camera" size={28} /> Add photos or videos
+            </button>
+            <p className="-mt-1 text-center text-xs leading-snug text-ink-soft">
+              Photos only show to signed-in families, never the open web. Videos
+              only show to your family. Please skip faces of other people&apos;s
+              kids.
+            </p>
+          </div>
+        </Step>
+      )}
+
+      <Step n={isKid ? 3 : 5} title="Who can see it?">
+        <VisibilityPicker
+          value={visibility}
+          onChange={setVisibility}
+          isKid={isKid}
+        />
       </Step>
 
       {error && (

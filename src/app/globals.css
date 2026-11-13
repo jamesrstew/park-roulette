@@ -238,3 +238,12 @@
   background: none;
   border: none;
 }
+
+/* Legal pages: readable lists in the crayon frame. */
+.legal ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}

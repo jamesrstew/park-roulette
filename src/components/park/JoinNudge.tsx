@@ -27,7 +27,7 @@ export function JoinNudge({
       <div className="flex-1">
         <p className="font-hand text-xl leading-tight">{line}</p>
         <p className="text-sm text-ink-soft">
-          Played before? Sign in with your phone. No passwords.
+          New or played before, sign in with your phone. No passwords.
         </p>
       </div>
       <div className="flex flex-col items-end gap-1">

@@ -36,9 +36,12 @@ function go(to: string) {
 export function CrewSwitcher({
   members,
   meId,
+  backTo = null,
 }: {
   members: Member[];
   meId: number;
+  /** The grown-up who handed this phone to a kid: switches back, no code. */
+  backTo?: number | null;
 }) {
   const [busy, setBusy] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export function CrewSwitcher({
   function pick(m: Member) {
     if (m.id === meId || busy) return;
     setError(null);
-    if (m.hasPhone) {
+    if (m.hasPhone && m.id !== backTo) {
       flushSync(() => setCodeFor(m));
       focusClaimCode(); // inside the tap, so iOS raises the keyboard
       return;

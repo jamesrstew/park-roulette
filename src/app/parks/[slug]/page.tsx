@@ -5,6 +5,7 @@ import { CrayonLoading } from "@/components/Loading";
 import { ParkView } from "@/components/park/ParkView";
 import { getMe, getParkDetail } from "@/lib/data";
 import { getParkShare } from "@/lib/data-park";
+import { pendingFixes } from "@/lib/park-votes";
 import { isCrossedOff } from "@/lib/features";
 import { formatStars } from "@/lib/rating";
 
@@ -38,9 +39,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 async function ParkLoader({ params, searchParams }: Props) {
   const [{ slug }, sp] = await Promise.all([params, searchParams]);
   const me = await getMe();
-  const detail = await getParkDetail(slug, me?.crew.id ?? null);
+  const detail = await getParkDetail(slug, me);
   if (!detail) notFound();
-  return <ParkView detail={detail} me={me} justAdded={sp.added === "1"} />;
+  const fixes = await pendingFixes(detail.park.id, me?.crew.id ?? null);
+  return (
+    <ParkView
+      detail={detail}
+      fixes={fixes}
+      me={me}
+      justAdded={sp.added === "1"}
+    />
+  );
 }
 
 export default function ParkPage(props: Props) {

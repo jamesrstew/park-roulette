@@ -5,6 +5,12 @@ import { Icon } from "@/components/icons";
 
 const KEY = "pr:hello";
 const CANCEL = "pr:hello-cancel";
+const NOW = "pr:hello-now";
+
+/** A quick note on this page, right now ("Got it! …"). */
+export function toastNow(message: string) {
+  window.dispatchEvent(new CustomEvent(NOW, { detail: message }));
+}
 
 /** A bigger moment is happening (the app's first launch): skip the hello. */
 export function cancelHello() {
@@ -45,6 +51,20 @@ export function HelloToast() {
     return () => {
       clearTimeout(t);
       window.removeEventListener(CANCEL, hide);
+    };
+  }, []);
+
+  useEffect(() => {
+    let t: ReturnType<typeof setTimeout> | undefined;
+    const show = (e: Event) => {
+      setMessage(String((e as CustomEvent).detail).slice(0, 80));
+      clearTimeout(t);
+      t = setTimeout(() => setMessage(null), 3500);
+    };
+    window.addEventListener(NOW, show);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener(NOW, show);
     };
   }, []);
 

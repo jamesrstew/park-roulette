@@ -4,6 +4,7 @@
  *
  *  - never touches visits, reviews, media, crews or explorers
  *  - never touches a park's status / statusNote (cross-offs people made)
+ *  - seeded parks count for everyone (approved_at), like curated ones
  *  - keeps play when a person corrected it (sources has "crowd:play")
  *  - keeps features when a person fixed them (sources has "crowd")
  *  - keeps confidence once "confirmed"
@@ -91,10 +92,10 @@ try {
 
     for (const p of parks) {
       await tx`
-        insert into parks (slug, name, city, lat, lng, address, kind, play, features, confidence, sources, notes)
+        insert into parks (slug, name, city, lat, lng, address, kind, play, features, confidence, sources, notes, approved_at)
         values (${p.slug}, ${p.name}, ${p.city}, ${p.lat}, ${p.lng}, ${p.address ?? null}, ${p.kind ?? "park"},
                 ${p.play ?? "playground"}, ${p.features ?? []}, ${p.confidence ?? "unverified"},
-                ${p.sources ?? []}, ${p.notes ?? null})
+                ${p.sources ?? []}, ${p.notes ?? null}, now())
         on conflict (slug) do update set
           name = excluded.name,
           city = excluded.city,
@@ -103,6 +104,7 @@ try {
           address = excluded.address,
           kind = excluded.kind,
           notes = excluded.notes,
+          approved_at = coalesce(parks.approved_at, now()),
           play = case when parks.sources @> array['crowd:play'] then parks.play else excluded.play end,
           features = case when parks.sources @> array['crowd'] then parks.features else excluded.features end,
           confidence = case when parks.confidence = 'confirmed' then parks.confidence else excluded.confidence end,

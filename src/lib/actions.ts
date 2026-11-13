@@ -10,27 +10,31 @@ import { isOurBlobUrl } from "./blob";
 import { AVATARS, CRAYON_NAMES } from "./crayons";
 import { FEATURE_KEYS, REVIEW_TAGS } from "./features";
 import { inviteCode, slugify } from "./codes";
+import { deleteFiles } from "./photos";
+import { castVote, validVote, type VoteOutcome } from "./park-votes";
 import { toTenths } from "./rating";
+import { DEFAULT_VISIBILITY, VISIBILITIES } from "./visibility";
 import {
   type ActionResult,
   fail,
   isUniqueViolation,
+  requireGrownUp,
   requireMe,
+  requireVoter,
   uniqueConstraint,
   UserError,
 } from "./action-utils";
 import {
   clearExplorer,
+  forgetGrownUp,
   forgetVerifiedPhone,
+  readSession,
+  rememberGrownUp,
   setExplorer,
   verifiedPhone,
 } from "./session";
 
 export type { ActionResult };
-
-/** Markers in parks.sources that tell the seed "a person fixed this; keep it". */
-const CROWD_FEATURES = "crowd";
-const CROWD_PLAY = "crowd:play";
 
 /** Max photos + videos on one review, across every save. */
 const MAX_MEDIA_PER_REVIEW = 24;
@@ -43,14 +47,16 @@ const featureList = z
   .max(FEATURE_KEYS.length)
   .transform((f) => [...new Set(f)]);
 
-/** Adds a marker to parks.sources once (keeps the array tidy). */
-const addSource = (marker: string) =>
-  sql`array(select distinct unnest(${parks.sources} || array[${marker}]::text[]))`;
-
 // ---------- crews & explorers ----------
+
+/** "I'm 18 or older and agree to the Terms and Privacy Policy." */
+const agree = z.literal(true, {
+  error: "Tick the box to say you're a grown-up and agree first.",
+});
 
 const joinInput = z.object({
   code: z.string().trim().min(4).max(80),
+  agree,
   /** Attach the number they just proved (they ticked the box). */
   usePhone: z.boolean().optional(),
   name,
@@ -132,11 +138,74 @@ async function insertExplorer(
         name: data.name,
         color: data.color,
         avatar: data.avatar,
+        // The join button says "you agree to the Terms and Privacy Policy".
+        termsAcceptedAt: new Date(),
         ...(phone ? { phone, phoneVerifiedAt: new Date() } : {}),
       })
       .returning({ id: explorers.id });
     return explorer.id;
   });
+}
+
+const startInput = z.object({
+  agree,
+  name,
+  color,
+  avatar,
+  crewName: z.string().trim().max(40).optional(),
+});
+
+/**
+ * Start a brand-new family from the homepage, no invite needed. Takes a
+ * number proved by text a minute ago, so every family that starts this way
+ * has a real grown-up behind it (and can sign in again on any phone).
+ */
+export async function startFamily(
+  input: z.input<typeof startInput>,
+): Promise<ActionResult> {
+  try {
+    const data = startInput.parse(input);
+    const phone = await verifiedPhone();
+    if (!phone)
+      throw new UserError(
+        "Your text code timed out. Type your number again to get a new one!",
+      );
+    const id = await db.transaction(async (tx) => {
+      const [crew] = await tx
+        .insert(crews)
+        .values({
+          name: data.crewName?.trim() || `${data.name}'s Family`,
+          color: data.color,
+          joinCode: inviteCode(),
+          friendCode: inviteCode(),
+        })
+        .returning();
+      const [explorer] = await tx
+        .insert(explorers)
+        .values({
+          crewId: crew.id,
+          name: data.name,
+          color: data.color,
+          avatar: data.avatar,
+          phone,
+          phoneVerifiedAt: new Date(),
+          termsAcceptedAt: new Date(),
+        })
+        .returning({ id: explorers.id });
+      return explorer.id;
+    });
+    await forgetVerifiedPhone();
+    await setExplorer(id, 0, "j");
+    console.info(`[auth] explorer ${id} started a family`);
+  } catch (e) {
+    if (uniqueConstraint(e) === "explorers_phone_unique")
+      return {
+        ok: false,
+        error: "That number already has an explorer. Sign in with it instead!",
+      };
+    return fail("startFamily", e);
+  }
+  redirect("/?welcome=1");
 }
 
 const kidInput = z.object({ name, color, avatar });
@@ -150,12 +219,15 @@ export async function addKid(
   input: z.input<typeof kidInput>,
 ): Promise<ActionResult & { name?: string }> {
   try {
-    const me = await requireMe();
+    const me = await requireGrownUp();
     const data = kidInput.parse(input);
+    const session = await readSession();
     const [kid] = await db
       .insert(explorers)
-      .values({ crewId: me.crew.id, ...data })
+      .values({ crewId: me.crew.id, ...data, isKid: true })
       .returning({ id: explorers.id, epoch: explorers.sessionEpoch });
+    // Remember who handed over the phone, so switching back needs no code.
+    if (session && me.trusted) await rememberGrownUp(session);
     await setExplorer(kid.id, kid.epoch, "l");
     console.info(`[auth] explorer ${me.id} added kid ${kid.id}`);
     return { ok: true, name: data.name };
@@ -172,6 +244,7 @@ export async function addKid(
 export async function signOut() {
   await clearExplorer();
   await forgetVerifiedPhone();
+  await forgetGrownUp();
   redirect("/me");
 }
 
@@ -186,7 +259,7 @@ export async function updateProfile(
   input: z.input<typeof profileInput>,
 ): Promise<ActionResult> {
   try {
-    const me = await requireMe();
+    const me = await requireGrownUp();
     const data = profileInput.parse(input);
     await db.transaction(async (tx) => {
       await tx
@@ -284,6 +357,7 @@ const reviewInput = z.object({
     .max(12)
     .transform((m) => [...new Map(m.map((x) => [x.url, x])).values()]),
   removeMediaIds: z.array(z.number().int().positive()).max(50),
+  visibility: z.enum(VISIBILITIES).default(DEFAULT_VISIBILITY),
 });
 
 export async function saveReview(
@@ -292,7 +366,22 @@ export async function saveReview(
   try {
     const me = await requireMe();
     const data = reviewInput.parse(input);
+    // Kids give stars and tap tags. Words and photos are for grown-ups
+    // (it keeps Park Roulette a grown-up's app; see the Privacy Policy).
+    if (me.isKid && data.visibility === "public")
+      throw new UserError(
+        "Kids' reviews stay with signed-in families. Pick another one!",
+      );
+    if (me.isKid && (data.body || data.addMedia.length))
+      throw new UserError(
+        "Words and photos are for grown-ups. Stars and stickers are all yours!",
+      );
+    // Only files this family uploaded (its own folder in the photo box).
+    const ours = `/reviews/${me.crew.id}/`;
+    if (data.addMedia.some((m) => !new URL(m.url).pathname.startsWith(ours)))
+      throw new UserError("That photo didn't come from your family's upload.");
     const tenths = toTenths(data.stars);
+    const gone: string[] = [];
     await db.transaction(async (tx) => {
       const [review] = await tx
         .insert(reviews)
@@ -302,6 +391,7 @@ export async function saveReview(
           ratingTenths: tenths,
           body: data.body,
           tags: data.tags,
+          visibility: data.visibility,
         })
         .onConflictDoUpdate({
           target: [reviews.parkId, reviews.explorerId],
@@ -309,19 +399,22 @@ export async function saveReview(
             ratingTenths: tenths,
             body: data.body,
             tags: data.tags,
+            visibility: data.visibility,
             updatedAt: sql`now()`,
           },
         })
         .returning();
       if (data.removeMediaIds.length) {
-        await tx
+        const removed = await tx
           .delete(media)
           .where(
             and(
               eq(media.reviewId, review.id),
               inArray(media.id, data.removeMediaIds),
             ),
-          );
+          )
+          .returning({ url: media.url });
+        gone.push(...removed.map((m) => m.url));
       }
       if (data.addMedia.length) {
         const existing = await tx
@@ -344,6 +437,7 @@ export async function saveReview(
           );
       }
     });
+    await deleteFiles(gone);
     refresh();
     return { ok: true };
   } catch (e) {
@@ -355,9 +449,31 @@ export async function deleteReview(parkId: number): Promise<ActionResult> {
   try {
     const me = await requireMe();
     const id = z.number().int().positive().parse(parkId);
+    // A reported review stays put until an admin looks (deleting and posting
+    // it again would dodge the report). Email us and we'll delete it.
+    const [held] = await db
+      .select({ id: reviews.id })
+      .from(reviews)
+      .where(
+        and(
+          eq(reviews.parkId, id),
+          eq(reviews.explorerId, me.id),
+          sql`${reviews.hiddenAt} is not null`,
+        ),
+      );
+    if (held)
+      throw new UserError(
+        "We're taking a look at this one. Email hello@parkroulette.quest and we'll delete it right away.",
+      );
+    const files = await db
+      .select({ url: media.url })
+      .from(media)
+      .innerJoin(reviews, eq(reviews.id, media.reviewId))
+      .where(and(eq(reviews.parkId, id), eq(reviews.explorerId, me.id)));
     await db
       .delete(reviews)
       .where(and(eq(reviews.parkId, id), eq(reviews.explorerId, me.id)));
+    await deleteFiles(files.map((f) => f.url));
     refresh();
     return { ok: true };
   } catch (e) {
@@ -384,7 +500,19 @@ export async function addPark(
 ): Promise<ActionResult & { slug?: string }> {
   let slug: string;
   try {
-    const me = await requireMe();
+    const me = await requireGrownUp();
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(parks)
+      .innerJoin(explorers, eq(explorers.id, parks.addedBy))
+      .where(
+        and(
+          eq(explorers.crewId, me.crew.id),
+          sql`${parks.createdAt} > now() - interval '1 day'`,
+        ),
+      );
+    if (n >= 5 && !me.isAdmin)
+      throw new UserError("That's a lot of new parks! Try again tomorrow.");
     const data = parkInput.parse(input);
     const suffix = () => Date.now().toString(36).slice(-5);
     slug = slugify(`${data.name}-${data.city}`);
@@ -405,6 +533,8 @@ export async function addPark(
       sources: [`explorer:${me.id}`],
       notes: data.notes || null,
       addedBy: me.id,
+      // Waits for a second family to confirm it, unless an admin added it.
+      approvedAt: me.isAdmin ? new Date() : null,
     });
   } catch (e) {
     return fail("addPark", e);
@@ -418,42 +548,39 @@ const flagInput = z.object({
   note: z.string().trim().max(300).optional(),
 });
 
+/** What happened to a suggested park fix. */
+export type FixResult =
+  { ok: true; outcome: VoteOutcome } | { ok: false; error: string };
+
 /**
- * Cross a park off the bucket list (closed, private) or put it back.
- * "no_playground" is a correction, not a cross-off: the park stays on the
- * list as a park without a playground. Anyone in any crew can undo.
+ * "This park is closed / private / back open." A suggestion: it changes the
+ * park once another family agrees (or an admin says so). "no_playground" is
+ * a play-type fix, not a cross-off.
  */
 export async function setParkStatus(
   input: z.input<typeof flagInput>,
-): Promise<ActionResult> {
+): Promise<FixResult> {
   try {
-    const me = await requireMe();
+    const me = await requireVoter();
     const data = flagInput.parse(input);
-    if (data.status === "no_playground") {
-      await db
-        .update(parks)
-        .set({
-          play: "none",
-          status: "active",
-          statusNote: `${data.note || "No playground here"} (${me.name})`,
-          sources: addSource(CROWD_PLAY),
-        })
-        .where(eq(parks.id, data.parkId));
-    } else {
-      await db
-        .update(parks)
-        .set({
-          status: data.status,
-          statusNote:
-            data.status === "active"
-              ? null
-              : `${data.note || "Crossed off"} (${me.name})`,
-          confidence: data.status === "active" ? "confirmed" : undefined,
-        })
-        .where(eq(parks.id, data.parkId));
-    }
+    const outcome =
+      data.status === "no_playground"
+        ? await castVote({
+            parkId: data.parkId,
+            topic: "play",
+            value: "none",
+            note: data.note,
+            me,
+          })
+        : await castVote({
+            parkId: data.parkId,
+            topic: "status",
+            value: data.status,
+            note: data.note,
+            me,
+          });
     refresh();
-    return { ok: true };
+    return { ok: true, outcome };
   } catch (e) {
     return fail("setParkStatus", e);
   }
@@ -464,25 +591,21 @@ const playInput = z.object({
   play: z.enum(["playground", "nature", "none"]),
 });
 
-/** "Actually there IS a playground!" (or the reverse). */
+/** "Actually there IS a playground!" (or the reverse). A suggestion too. */
 export async function setParkPlay(
   input: z.input<typeof playInput>,
-): Promise<ActionResult> {
+): Promise<FixResult> {
   try {
-    const me = await requireMe();
+    const me = await requireVoter();
     const data = playInput.parse(input);
-    await db
-      .update(parks)
-      .set({
-        play: data.play,
-        // A legacy "no_playground" status would otherwise keep overriding play.
-        status: sql`case when ${parks.status} = 'no_playground' then 'active' else ${parks.status} end`,
-        statusNote: `Marked ${data.play === "none" ? "no playground" : data.play} by ${me.name}`,
-        sources: addSource(CROWD_PLAY),
-      })
-      .where(eq(parks.id, data.parkId));
+    const outcome = await castVote({
+      parkId: data.parkId,
+      topic: "play",
+      value: data.play,
+      me,
+    });
     refresh();
-    return { ok: true };
+    return { ok: true, outcome };
   } catch (e) {
     return fail("setParkPlay", e);
   }
@@ -493,24 +616,85 @@ const featuresInput = z.object({
   features: featureList,
 });
 
-/** Crowd-fix the sticker list after a visit. */
+/**
+ * Fix the sticker list after a visit. Each sticker that changed is its own
+ * suggestion; it changes for everyone when another family agrees.
+ */
 export async function updateFeatures(
   input: z.input<typeof featuresInput>,
-): Promise<ActionResult> {
+): Promise<FixResult> {
   try {
-    await requireMe();
+    const me = await requireVoter();
     const data = featuresInput.parse(input);
-    await db
-      .update(parks)
-      .set({
-        features: data.features,
-        confidence: "confirmed",
-        sources: addSource(CROWD_FEATURES),
-      })
+    const [park] = await db
+      .select({ features: parks.features })
+      .from(parks)
       .where(eq(parks.id, data.parkId));
+    if (!park) throw new UserError("That park wandered off.");
+    const want = new Set(data.features);
+    const have = new Set(park.features);
+    const changed = FEATURE_KEYS.filter((k) => want.has(k) !== have.has(k));
+    let applied = 0;
+    for (const k of changed) {
+      const o = await castVote({
+        parkId: data.parkId,
+        topic: `feature:${k}`,
+        value: want.has(k) ? "yes" : "no",
+        me,
+      });
+      if (o === "applied") applied++;
+    }
     refresh();
-    return { ok: true };
+    return {
+      ok: true,
+      outcome: !changed.length
+        ? "same"
+        : applied === changed.length
+          ? "applied"
+          : "waiting",
+    };
   } catch (e) {
     return fail("updateFeatures", e);
+  }
+}
+
+const fixInput = z.object({
+  parkId: z.number().int().positive(),
+  topic: z.string().max(60),
+  value: z.string().max(20),
+});
+
+/** "Yes, that's right" / "No, it's still there" on someone's suggestion. */
+export async function voteOnFix(
+  input: z.input<typeof fixInput>,
+): Promise<FixResult> {
+  try {
+    const me = await requireVoter();
+    const data = fixInput.parse(input);
+    if (!validVote(data.topic, data.value))
+      throw new UserError("Hmm, that's not a fix we know.");
+    const outcome = await castVote({ ...data, me });
+    refresh();
+    return { ok: true, outcome };
+  } catch (e) {
+    return fail("voteOnFix", e);
+  }
+}
+
+/** "We've been here, it's real!" on a park another family added. */
+export async function confirmPark(parkId: number): Promise<FixResult> {
+  try {
+    const me = await requireVoter();
+    const id = z.number().int().positive().parse(parkId);
+    const outcome = await castVote({
+      parkId: id,
+      topic: "exists",
+      value: "yes",
+      me,
+    });
+    refresh();
+    return { ok: true, outcome };
+  } catch (e) {
+    return fail("confirmPark", e);
   }
 }
