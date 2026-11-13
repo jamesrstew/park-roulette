@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { DesktopAside } from "@/components/DesktopAside";
+import { SiteAnalytics } from "@/components/SiteAnalytics";
 import { SITE_URL } from "@/lib/site";
 import { Gochi_Hand, Shantell_Sans } from "next/font/google";
 import { Suspense } from "react";
@@ -74,6 +75,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </main>
         <Suspense fallback={<NavBar path="" />}>
           <BottomNav />
+        </Suspense>
+        <Suspense fallback={null}>
+          <SiteAnalytics />
         </Suspense>
       </body>
     </html>

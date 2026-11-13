@@ -19,8 +19,9 @@ export default function PrivacyPage() {
             <b>The short version.</b> Park Roulette is a free game for families
             visiting playgrounds in Central Oregon. It&apos;s run by {OPERATOR},
             a small Oregon company. We collect as little as we can, we never
-            sell it, there are no ads, and we don&apos;t use tracking or
-            analytics tools.
+            sell it, there are no ads, and we don&apos;t track you. We count
+            page visits with a privacy-friendly tool that uses no cookies and
+            doesn&apos;t identify you.
           </p>
           <p>
             Your phone number is only used to text you sign-in codes. Photos are
@@ -66,6 +67,12 @@ export default function PrivacyPage() {
 
       <Section title="What we collect">
         <ul>
+          <li>
+            <b>Page visits</b>: which pages are visited, the page that linked
+            you here (usually just the site&apos;s name), and your general
+            country, browser, operating system and device type. Counted by
+            Vercel Web Analytics with no cookies (more below).
+          </li>
           <li>
             <b>Your mobile number</b>, if you add one, so we can text you
             one-time sign-in codes. It must be a US mobile number. We keep it so
@@ -250,6 +257,17 @@ export default function PrivacyPage() {
             storage. It handles every request, so it sees IP addresses.
           </li>
           <li>
+            <b>Vercel Web Analytics</b> counts page visits so we can see which
+            pages families use. It gets the page, the page that linked you here
+            (usually just the site&apos;s name), and your general country,
+            browser, operating system and device type. It uses no cookies and
+            doesn&apos;t build a profile of you. Vercel uses your IP address to
+            work out the country and a visit code that resets every day, and
+            doesn&apos;t keep the IP address. Family invite codes and anything
+            after a &ldquo;?&rdquo; are removed from page addresses before a
+            visit is counted.
+          </li>
+          <li>
             <b>Railway</b> hosts our database, where accounts, reviews, stamps
             and phone numbers live.
           </li>
@@ -266,7 +284,7 @@ export default function PrivacyPage() {
         </ul>
         <p>
           Our fonts and pictures come from our own site. There are no
-          third-party ads, analytics, tracking pixels or social media widgets.
+          third-party ads, tracking pixels or social media widgets.
         </p>
       </Section>
 
