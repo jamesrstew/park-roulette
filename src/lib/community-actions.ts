@@ -24,7 +24,9 @@ import {
   UserError,
 } from "./action-utils";
 import { castVote, validVote } from "./park-votes";
-import { REPORT_REASONS } from "./reports";
+import { REPORT_LABELS, REPORT_REASONS } from "./reports";
+import { alertLater } from "./alerts";
+import { ev, EVENTS } from "./events";
 import { deleteFiles } from "./photos";
 import { clearExplorer, forgetGrownUp, forgetVerifiedPhone } from "./session";
 import { canSee } from "./visibility";
@@ -125,8 +127,21 @@ export async function reportReview(
     console.info(
       `[report] review ${data.reviewId} (${data.reason})${hidden ? " hidden" : ""}`,
     );
+    alertLater({
+      key: `report:${data.reviewId}:${data.reason}`,
+      subject:
+        data.reason === "my_kid"
+          ? 'Report: "It shows my kid" (review hidden, please look today)'
+          : `Report: ${REPORT_LABELS[data.reason]}${hidden ? " (review hidden)" : ""}`,
+      text: `A family reported review #${data.reviewId}: ${REPORT_LABELS[data.reason]}. ${hidden ? "It's hidden until you decide." : "It's still showing; a second report hides it."} Decide on /admin: "It's fine" or "Take it down".`,
+      everyMinutes: 24 * 60,
+    });
     refresh();
-    return { ok: true, hidden };
+    return {
+      ok: true,
+      hidden,
+      track: ev(EVENTS.reportSent, { reason: data.reason }),
+    };
   } catch (e) {
     return fail("reportReview", e);
   }

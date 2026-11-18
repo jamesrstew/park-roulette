@@ -75,7 +75,11 @@ export const smsEvents = pgTable(
   "sms_events",
   {
     id: serial("id").primaryKey(),
-    /** send, attempt (not sent: over a limit), check, bad_code, ok (a code that worked) */
+    /**
+     * send; quiet (over a daily budget, answered as if sent); refused (over
+     * a per-number or per-network limit); attempt (Twilio failed, refunded);
+     * check; bad_code; ok (a code that worked)
+     */
     kind: text("kind").notNull(),
     phone: text("phone").notNull(),
     ip: text("ip").notNull(),
@@ -291,6 +295,17 @@ export const media = pgTable(
   },
   (t) => [index("media_review").on(t.reviewId)],
 );
+
+/**
+ * When we last emailed James about something (a report, a cap, an error),
+ * so a bad hour sends one email instead of a hundred.
+ */
+export const alertLog = pgTable("alert_log", {
+  key: text("key").primaryKey(),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+  /** How many times it happened since the last email. */
+  suppressed: integer("suppressed").notNull().default(0),
+});
 
 export type Crew = typeof crews.$inferSelect;
 export type Explorer = typeof explorers.$inferSelect;

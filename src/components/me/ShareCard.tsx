@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Icon, type IconName } from "@/components/icons";
 import { crayon } from "@/lib/crayons";
 import { QrCode } from "./QrCode";
+import { EVENTS } from "@/lib/events";
+import { trackEvent } from "@/lib/events-client";
 
 const noop = () => () => {};
 
@@ -52,6 +54,7 @@ export function ShareCard({
   shareTitle,
   shareText,
   tilt = 0,
+  trackAs,
 }: {
   icon: IconName;
   title: string;
@@ -62,6 +65,8 @@ export function ShareCard({
   shareTitle: string;
   shareText: string;
   tilt?: number;
+  /** Analytics label for this invite ("family" or "friend"). */
+  trackAs?: string;
 }) {
   const origin = useOrigin();
   const canShare = useCanShare();
@@ -72,14 +77,18 @@ export function ShareCard({
   useEffect(() => () => clearTimeout(timer.current), []);
 
   async function copy() {
-    if (await copyText(url)) {
+    const ok = await copyText(url);
+    if (ok) {
       setCopied(true);
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setCopied(false), 2200);
     }
+    return ok;
   }
 
   async function share() {
+    if (trackAs)
+      trackEvent(EVENTS.inviteShared, { kind: trackAs, how: "share" });
     try {
       await navigator.share({ title: shareTitle, text: shareText, url });
     } catch (e) {
@@ -134,7 +143,11 @@ export function ShareCard({
         ) : null}
         <button
           type="button"
-          onClick={copy}
+          onClick={() => {
+            if (trackAs)
+              trackEvent(EVENTS.inviteShared, { kind: trackAs, how: "copy" });
+            void copy();
+          }}
           className={`crayon-btn relative flex-1 px-3 text-xl whitespace-nowrap ${canShare ? "bg-[#fffdf7]" : "wax"}`}
           style={canShare ? undefined : { backgroundColor: hex }}
         >

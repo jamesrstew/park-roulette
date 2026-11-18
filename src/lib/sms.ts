@@ -1,4 +1,5 @@
 import "server-only";
+import { alertLater } from "./alerts";
 import { and, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/db";
@@ -25,14 +26,26 @@ export const LIMITS = {
   perPhoneIpDay: 10,
   /** Texts to one number from anywhere (a backstop against text-bombing). */
   perPhoneDay: 20,
-  /** Attempts from one network, whether or not a text went out. */
-  perIpHour: 12,
-  /** Texts to numbers that belong to an explorer (real sign-ins). */
-  knownPerDay: 300,
+  /**
+   * Attempts from one network, whether or not a text went out. Phone
+   * carriers share addresses between many customers, so not too tight.
+   */
+  perIpHour: 20,
+  /**
+   * Site-wide daily budgets: sized for a newspaper-story day (a few hundred
+   * new families), not for an attack. Each text costs a few cents; James
+   * gets an email at half and 80% of either budget, and when one is hit.
+   */
+  knownPerDay: 2000,
   /** Texts to numbers nobody has yet: new people, typos, or a script. */
-  unknownPerDay: 60,
-  /** Texts to unknown numbers from one network (one actor can't use up the day). */
-  unknownPerIpDay: 15,
+  unknownPerDay: 800,
+  /** Texts to unknown numbers from one household network (an IPv6 /64 or one IPv4). */
+  unknownPerIpDay: 25,
+  /**
+   * The same for a wider IPv6 block (/48), so one actor can't hop addresses;
+   * higher, because a phone carrier can put many families in one /48.
+   */
+  unknownPerWideNetDay: 120,
   /** Wrong codes for one number from one network, and from anywhere. */
   badCodesPerPhoneIpDay: 10,
   badCodesPerPhoneDay: 40,
@@ -45,6 +58,79 @@ const LOCK_KEY = 72_726_001;
 const TWILIO_TIMEOUT_MS = 8000;
 
 export class SmsError extends Error {}
+
+export type Caps = {
+  /** This kind of text (sign-in or new number) hit the site-wide budget. */
+  siteFull: boolean;
+  /** This network hit its new-number budget. */
+  networkFull: boolean;
+  /** Some daily budget is full: show everyone "texts are backed up". */
+  backedUp: boolean;
+};
+
+/** Shown to everyone while texts are backed up (never tells who plays). */
+export const BACKED_UP =
+  "Texts are backed up right now. If a code arrives, type it in. If not, try again in a bit.";
+
+/** For the IPv6 /48 a /64 key belongs to (IPv4 stays as is). */
+export function wideNet(key: string): string {
+  const m = key.match(/^([0-9a-f]+:[0-9a-f]+:[0-9a-f]+):[0-9a-f]+::\/64$/);
+  return m ? m[1] : key;
+}
+
+const wideNetSql = (col: typeof smsEvents.ip) =>
+  sql`(case when ${col} like '%::/64' then split_part(${col}, ':', 1) || ':' || split_part(${col}, ':', 2) || ':' || split_part(${col}, ':', 3) else ${col} end)`;
+
+/** Which budget email (if any) this send should trigger. Pure, for tests. */
+export function budgetLevel(
+  verdict: Verdict,
+  used: number,
+  budget: number,
+  caps: Caps,
+): "hit" | "network" | 80 | 50 | null {
+  const refused =
+    verdict === "silent" ||
+    (typeof verdict === "object" && verdict.limit.endsWith("/day"));
+  if (refused)
+    return caps.siteFull ? "hit" : caps.networkFull ? "network" : null;
+  if (verdict !== "send") return null;
+  if (used + 1 >= (budget * 80) / 100) return 80;
+  if (used + 1 >= (budget * 50) / 100) return 50;
+  return null;
+}
+
+/** Email James as a daily texting budget fills up, and when it's hit. */
+function budgetAlerts(
+  known: boolean,
+  verdict: Verdict,
+  used: number,
+  budget: number,
+  caps: Caps,
+) {
+  const which = known ? "sign-ins" : "new numbers";
+  const kind = known ? "known" : "unknown";
+  const level = budgetLevel(verdict, used, budget, caps);
+  if (level === "hit")
+    alertLater({
+      key: `sms:budget-hit:${kind}`,
+      subject: `Sign-up texts paused: daily budget for ${which} used up`,
+      text: `The daily budget of ${budget} texts to ${which} is used up, so ${known ? "people signing in" : "new families"} aren't getting codes until it rolls over (a rolling 24 hours). Everyone sees "texts are backed up". If this is real interest (a news story), raise LIMITS in src/lib/sms.ts and redeploy. If it looks like abuse, leave it.`,
+    });
+  else if (level === "network")
+    alertLater({
+      key: "sms:network-cap",
+      subject: "One network hit its new-number texting limit",
+      text: `One network (a school, office, phone carrier, or one person) used its new-number texts for the day (${LIMITS.unknownPerIpDay} per household network, ${LIMITS.unknownPerWideNetDay} per wider IPv6 block). People there see "texts are backed up". Usually fine; if it's a big shared network on a busy day, consider raising unknownPerIpDay.`,
+      everyMinutes: 12 * 60,
+    });
+  else if (level)
+    alertLater({
+      key: `sms:budget-${level}:${kind}`,
+      subject: `Sign-up texts at ${level}% of today's budget`,
+      text: `${used + 1} of ${budget} texts to ${which} in the last 24 hours. Busy day! Nothing is broken; this is a heads-up before the budget runs out.`,
+      everyMinutes: 12 * 60,
+    });
+}
 
 const last4 = (phone: string) => `…${phone.slice(-4)}`;
 
@@ -109,7 +195,7 @@ export async function sweep() {
     .where(lt(smsEvents.createdAt, sql`now() - interval '2 days'`));
 }
 
-type Verdict = "send" | "silent" | { limit: string; message: string };
+export type Verdict = "send" | "silent" | { limit: string; message: string };
 
 /**
  * Check the limits and record the attempt BEFORE calling Twilio (and outside
@@ -121,25 +207,37 @@ async function reserveSend(
   ip: string,
   known: boolean,
   quietWhenOverBudget: boolean,
-): Promise<{ verdict: Verdict; rowId: number }> {
+): Promise<{
+  verdict: Verdict;
+  rowId: number;
+  used: number;
+  budget: number;
+  caps: Caps;
+}> {
   const result = await db.transaction(async (tx) => {
     // Don't let a flood stack up connections behind the lock.
     await tx.execute(sql`set local lock_timeout = '3s'`);
     await tx.execute(sql`select pg_advisory_xact_lock(${LOCK_KEY})`);
     const [c] = await tx
       .select({
-        phoneIpHour: sql<number>`count(*) filter (where ${smsEvents.kind} = 'send' and ${smsEvents.phone} = ${phone} and ${smsEvents.ip} = ${ip} and ${smsEvents.createdAt} > now() - interval '1 hour')::int`,
-        phoneIpDay: sql<number>`count(*) filter (where ${smsEvents.kind} = 'send' and ${smsEvents.phone} = ${phone} and ${smsEvents.ip} = ${ip})::int`,
-        phoneDay: sql<number>`count(*) filter (where ${smsEvents.kind} = 'send' and ${smsEvents.phone} = ${phone})::int`,
+        // Per-number caps count quiet (over-budget, unsent) requests like
+        // real sends, so known and unknown numbers hit them the same way.
+        // Refused requests never count, so nobody can lock a number out.
+        phoneIpHour: sql<number>`count(*) filter (where ${smsEvents.kind} in ('send', 'quiet') and ${smsEvents.phone} = ${phone} and ${smsEvents.ip} = ${ip} and ${smsEvents.createdAt} > now() - interval '1 hour')::int`,
+        phoneIpDay: sql<number>`count(*) filter (where ${smsEvents.kind} in ('send', 'quiet') and ${smsEvents.phone} = ${phone} and ${smsEvents.ip} = ${ip})::int`,
+        phoneDay: sql<number>`count(*) filter (where ${smsEvents.kind} in ('send', 'quiet') and ${smsEvents.phone} = ${phone})::int`,
         ipHour: sql<number>`count(*) filter (where ${smsEvents.ip} = ${ip} and ${smsEvents.createdAt} > now() - interval '1 hour')::int`,
         knownDay: sql<number>`count(*) filter (where ${smsEvents.kind} = 'send' and ${smsEvents.known})::int`,
+        // Wider than one household for IPv6 (a /48), so one network can't
+        // hop addresses to get around it.
         unknownIpDay: sql<number>`count(*) filter (where ${smsEvents.kind} = 'send' and not ${smsEvents.known} and ${smsEvents.ip} = ${ip})::int`,
+        unknownWideDay: sql<number>`count(*) filter (where ${smsEvents.kind} = 'send' and not ${smsEvents.known} and ${wideNetSql(smsEvents.ip)} = ${wideNet(ip)})::int`,
         unknownDay: sql<number>`count(*) filter (where ${smsEvents.kind} = 'send' and not ${smsEvents.known})::int`,
       })
       .from(smsEvents)
       .where(
         and(
-          inArray(smsEvents.kind, ["send", "attempt"]),
+          inArray(smsEvents.kind, ["send", "attempt", "quiet", "refused"]),
           gt(smsEvents.createdAt, sql`now() - interval '1 day'`),
         ),
       );
@@ -164,6 +262,18 @@ async function reserveSend(
       message: "Our texting crayon needs a rest. Try again in a little while.",
     };
     let verdict: Verdict = "send";
+    const used = known ? c.knownDay : c.unknownDay;
+    const budget = known ? LIMITS.knownPerDay : LIMITS.unknownPerDay;
+    const siteFull = used >= budget;
+    const netFull =
+      c.unknownIpDay >= LIMITS.unknownPerIpDay ||
+      c.unknownWideDay >= LIMITS.unknownPerWideNetDay;
+    const networkFull = !known && netFull;
+    // The same for every number from here, so it never tells who plays.
+    const backedUp =
+      c.unknownDay >= LIMITS.unknownPerDay ||
+      c.knownDay >= LIMITS.knownPerDay ||
+      netFull;
     if (c.ipHour >= LIMITS.perIpHour)
       verdict = {
         limit: "ip/hour",
@@ -177,9 +287,7 @@ async function reserveSend(
       verdict = busy;
     else if (
       (known && c.knownDay >= LIMITS.knownPerDay) ||
-      (!known &&
-        (c.unknownDay >= LIMITS.unknownPerDay ||
-          c.unknownIpDay >= LIMITS.unknownPerIpDay))
+      (!known && (c.unknownDay >= LIMITS.unknownPerDay || netFull))
     )
       // Signing in: answer exactly as if we'd texted, known number or not,
       // so the reply never tells a stranger which numbers play.
@@ -187,13 +295,24 @@ async function reserveSend(
     const [row] = await tx
       .insert(smsEvents)
       .values({
-        kind: verdict === "send" ? "send" : "attempt",
+        kind:
+          verdict === "send"
+            ? "send"
+            : verdict === "silent"
+              ? "quiet"
+              : "refused",
         phone,
         ip,
         known,
       })
       .returning({ id: smsEvents.id });
-    return { verdict, rowId: row.id };
+    return {
+      verdict,
+      rowId: row.id,
+      used,
+      budget,
+      caps: { siteFull, networkFull, backedUp },
+    };
   });
   await sweep();
   return result;
@@ -208,14 +327,21 @@ export async function sendCode(
   phone: string,
   known: boolean,
   { quiet = false }: { quiet?: boolean } = {},
-): Promise<void> {
+): Promise<{ sent: boolean; backedUp: boolean }> {
   const ip = await clientIp();
-  const { verdict, rowId } = await reserveSend(phone, ip, known, quiet);
+  const { verdict, rowId, used, budget, caps } = await reserveSend(
+    phone,
+    ip,
+    known,
+    quiet,
+  );
+  budgetAlerts(known, verdict, used, budget, caps);
+  const backedUp = caps.backedUp;
   if (verdict === "silent") {
     console.error(`[sms] daily budget reached; quietly not texting`);
     // Take about as long as a real send, so timing doesn't tell either.
     await new Promise((r) => setTimeout(r, 300 + Math.random() * 600));
-    return;
+    return { sent: false, backedUp };
   }
   if (verdict !== "send") {
     console.warn(`[sms] cap ${verdict.limit} hit for ${last4(phone)}`);
@@ -223,7 +349,7 @@ export async function sendCode(
   }
   if (fakeSms()) {
     console.log(`[sms:fake] code 000000 for ${last4(phone)}`);
-    return;
+    return { sent: true, backedUp };
   }
   // Twilio down or erroring on its side: don't charge the attempt to them.
   const refund = () =>
@@ -240,14 +366,26 @@ export async function sendCode(
     console.error(
       `[sms] send to ${last4(phone)} failed to reach Twilio: ${(e as Error)?.name}`,
     );
+    alertLater({
+      key: "sms:twilio-unreachable",
+      subject: "Sign-in texts: Twilio unreachable",
+      text: "A sign-in code couldn't be sent because Twilio didn't answer. If this repeats, people can't sign in or start a family.",
+    });
     throw new SmsError("Couldn't send a text just now. Try again in a sec?");
   }
-  if (reply.status < 300) return;
+  if (reply.status < 300) return { sent: true, backedUp };
   const code = Number(reply.body.code);
   if (reply.status >= 500 || reply.status === 429) await refund();
   console.error(
     `[sms] send to ${last4(phone)} failed: HTTP ${reply.status}, Twilio ${code}`,
   );
+  // A typo'd or landline number is normal; anything else is worth a look.
+  if (![60200, 21211, 21614, 60205, 60203, 60212, 20429].includes(code))
+    alertLater({
+      key: `sms:twilio-${reply.status}-${code || "x"}`,
+      subject: `Sign-in texts failing (Twilio ${code || reply.status})`,
+      text: `Twilio refused a sign-in code: HTTP ${reply.status}, error ${code || "none"}. Check the Twilio console (balance, geo permissions, Verify service). Error codes: https://www.twilio.com/docs/api/errors/${code || ""}`,
+    });
   if ([60200, 21211, 21614].includes(code))
     throw new SmsError("Hmm, that doesn't look like a real phone number.");
   if (code === 60205)

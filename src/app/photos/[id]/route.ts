@@ -1,5 +1,6 @@
 import { getMe } from "@/lib/data";
 import { photoUnderReview } from "@/lib/data-admin";
+import { alertLater } from "@/lib/alerts";
 import { photoLink, photoRecord } from "@/lib/photos";
 import { canSeeMedia, viewerOf } from "@/lib/visibility";
 
@@ -52,6 +53,11 @@ export async function GET(
     });
   } catch (e) {
     console.error("[photos]", (e as Error)?.name);
+    alertLater({
+      key: "error:photos",
+      subject: "Photos aren't loading",
+      text: "The photo door (/photos/<id>) failed to make a link. Families may see broken photos. Check the Vercel logs for [photos] and the Blob store.",
+    });
     return new Response("Try again", {
       status: 503,
       headers: { "cache-control": "no-store" },

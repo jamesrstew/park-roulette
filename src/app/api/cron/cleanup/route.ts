@@ -3,6 +3,7 @@ import { inArray } from "drizzle-orm";
 import { timingSafeEqual } from "node:crypto";
 import { db } from "@/db";
 import { media } from "@/db/schema";
+import { alertLater } from "@/lib/alerts";
 import { sweep } from "@/lib/sms";
 
 /**
@@ -26,6 +27,21 @@ function authorized(req: Request) {
 
 export async function GET(req: Request) {
   if (!authorized(req)) return new Response("Nope", { status: 401 });
+  try {
+    return await cleanup();
+  } catch (e) {
+    console.error("[cleanup] failed", (e as Error)?.name);
+    alertLater({
+      key: "error:cron-cleanup",
+      subject: "Daily cleanup job failed",
+      text: "The daily cleanup (old sign-in records, unsaved photo uploads) failed. Check the Vercel logs for [cleanup]. Sign-in records older than 2 days may be lingering, which the Privacy Policy promises won't happen.",
+      everyMinutes: 23 * 60,
+    });
+    return new Response("Failed", { status: 500 });
+  }
+}
+
+async function cleanup() {
   await sweep();
   let cursor: string | undefined;
   let checked = 0;

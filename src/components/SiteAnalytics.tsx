@@ -1,7 +1,10 @@
 "use client";
 
 import { Analytics } from "@vercel/analytics/react";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+import { URL_EVENTS } from "@/lib/events";
+import { trackEvent } from "@/lib/events-client";
 import { analyticsPath, analyticsUrl } from "@/lib/analytics-url";
 
 /**
@@ -11,6 +14,18 @@ import { analyticsPath, analyticsUrl } from "@/lib/analytics-url";
  */
 export function SiteAnalytics() {
   const clean = analyticsPath(usePathname() ?? "/");
+  // Events from actions that redirected (?ev=start-home): record once, drop.
+  const evKey = useSearchParams().get("ev");
+  useEffect(() => {
+    if (!evKey) return;
+    if (Object.prototype.hasOwnProperty.call(URL_EVENTS, evKey)) {
+      const t = URL_EVENTS[evKey];
+      trackEvent(t.name, t.props);
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("ev");
+    window.history.replaceState(window.history.state, "", url);
+  }, [evKey]);
   return (
     <Analytics
       // Versioned address: Vercel's CDN cached an empty script.js from

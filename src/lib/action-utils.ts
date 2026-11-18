@@ -1,4 +1,6 @@
 import "server-only";
+import { alertLater } from "./alerts";
+import type { Tracked } from "./events";
 import { z } from "zod";
 import { getMe } from "./data";
 import { SmsError } from "./sms";
@@ -8,7 +10,8 @@ import { SmsError } from "./sms";
  * file, because every export of a "use server" file is a public endpoint.
  */
 
-export type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult =
+  { ok: true; track?: Tracked } | { ok: false; error: string; track?: Tracked };
 
 /** An error whose message is written for people, safe to show in the UI. */
 export class UserError extends Error {}
@@ -60,6 +63,11 @@ export function fail(action: string, e: unknown): { ok: false; error: string } {
   if (e instanceof UserError || e instanceof SmsError)
     return { ok: false, error: e.message };
   console.error(`[action:${action}]`, redact(e));
+  alertLater({
+    key: `error:${action}`,
+    subject: `Something broke: ${action}`,
+    text: `"${action}" failed with an unexpected error. People see "Hmm, that didn't work". Details are in the Vercel logs (search for [action:${action}]).`,
+  });
   return { ok: false, error: "Hmm, that didn't work. Try again in a sec?" };
 }
 

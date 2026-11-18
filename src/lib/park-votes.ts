@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { explorers, parkChanges, parks, parkVotes } from "@/db/schema";
+import { alertLater } from "./alerts";
 import { FEATURE_KEYS } from "./features";
 
 /**
@@ -105,13 +106,28 @@ export type VoteOutcome = "applied" | "waiting" | "same";
  * A family's say on one fact. Returns "applied" if the park changed,
  * "waiting" if it needs another family, "same" if it already says that.
  */
-export async function castVote(opts: {
+export async function castVote(opts: VoteOpts): Promise<VoteOutcome> {
+  const outcome = await castVoteTx(opts);
+  // After the commit, so a vote that rolled back never emails.
+  if (outcome === "waiting")
+    alertLater({
+      key: `fix:${opts.parkId}:${opts.topic}`,
+      subject: "A park fix is waiting for a second family",
+      text: 'A family suggested a fix to a park. It changes when a second family agrees, or you can decide on /admin under "Suggested park fixes".',
+      everyMinutes: 24 * 60,
+    });
+  return outcome;
+}
+
+type VoteOpts = {
   parkId: number;
   topic: string;
   value: string;
   note?: string;
   me: { id: number; crew: { id: number }; isAdmin: boolean };
-}): Promise<VoteOutcome> {
+};
+
+async function castVoteTx(opts: VoteOpts): Promise<VoteOutcome> {
   const { parkId, topic, value, me } = opts;
   if (!validVote(topic, value)) throw new Error("bad vote");
   return db.transaction(async (tx) => {

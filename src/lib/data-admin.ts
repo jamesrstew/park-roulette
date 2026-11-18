@@ -126,3 +126,67 @@ export async function getAdminQueue(me: Me) {
     newParks,
   };
 }
+
+export type AdminStats = Awaited<ReturnType<typeof getAdminStats>>;
+
+/**
+ * How Park Roulette is doing, from our own database (no tracking needed):
+ * the family funnel, the last two weeks, and today's texting budget.
+ */
+export async function getAdminStats() {
+  const [funnel] = await db.execute<{
+    families: number;
+    families7: number;
+    families1: number;
+    stamped: number;
+    stamped3: number;
+    reviewed: number;
+    grew: number;
+    grownups: number;
+    withNumber: number;
+    kids: number;
+    reviews: number;
+    photos: number;
+    stamps: number;
+  }>(sql`
+    with fam as (
+      select c.id, c.created_at,
+        (select count(*) from visits v where v.crew_id = c.id) as stamps,
+        (select count(*) from reviews r join explorers e on e.id = r.explorer_id where e.crew_id = c.id) as reviews,
+        (select count(*) from explorers e where e.crew_id = c.id) as members
+      from crews c
+    )
+    select
+      (select count(*) from fam)::int as families,
+      (select count(*) from fam where created_at > now() - interval '7 days')::int as families7,
+      (select count(*) from fam where (created_at at time zone 'America/Los_Angeles')::date = (now() at time zone 'America/Los_Angeles')::date)::int as families1,
+      (select count(*) from fam where stamps > 0)::int as stamped,
+      (select count(*) from fam where stamps >= 3)::int as stamped3,
+      (select count(*) from fam where reviews > 0)::int as reviewed,
+      (select count(*) from fam where members > 1)::int as grew,
+      (select count(*) from explorers where not is_kid)::int as grownups,
+      (select count(*) from explorers where phone is not null)::int as "withNumber",
+      (select count(*) from explorers where is_kid)::int as kids,
+      (select count(*) from reviews)::int as reviews,
+      (select count(*) from media)::int as photos,
+      (select count(*) from visits)::int as stamps`);
+  const days = await db.execute<{
+    day: string;
+    families: number;
+    stamps: number;
+    reviews: number;
+  }>(sql`
+    with today as (select (now() at time zone 'America/Los_Angeles')::date as t)
+    select to_char(d, 'Mon DD') as day,
+      (select count(*) from crews where (created_at at time zone 'America/Los_Angeles')::date = d::date)::int as families,
+      (select count(*) from visits where (created_at at time zone 'America/Los_Angeles')::date = d::date)::int as stamps,
+      (select count(*) from reviews where (created_at at time zone 'America/Los_Angeles')::date = d::date)::int as reviews
+    from today, generate_series(today.t - 13, today.t, interval '1 day') as d
+    order by d desc`);
+  const [texts] = await db.execute<{ known: number; unknown: number }>(sql`
+    select
+      count(*) filter (where kind = 'send' and known)::int as known,
+      count(*) filter (where kind = 'send' and not known)::int as unknown
+    from sms_events where created_at > now() - interval '1 day'`);
+  return { funnel, days: [...days], texts };
+}

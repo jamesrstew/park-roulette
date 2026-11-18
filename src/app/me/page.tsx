@@ -145,6 +145,7 @@ async function MeScreen({
             path={`/join/${me.crew.joinCode}`}
             color="blue"
             shareTitle={`Join ${me.crew.name} on Park Roulette`}
+            trackAs="family"
             shareText={`Join ${me.crew.name} on Park Roulette! Tap to hop on our playground quest:`}
             tilt={-0.6}
           />
@@ -155,6 +156,7 @@ async function MeScreen({
             path={`/join/${me.crew.friendCode}`}
             color="green"
             shareTitle="Come play Park Roulette!"
+            trackAs="friend"
             shareText="We're trying to visit every playground in Central Oregon. Start your family's quest with us:"
             tilt={0.6}
           />

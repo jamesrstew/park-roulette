@@ -1,5 +1,7 @@
 "use client";
 
+import { EVENTS } from "@/lib/events";
+import { trackEvent } from "@/lib/events-client";
 import { storage } from "@/lib/storage";
 import confetti from "canvas-confetti";
 import Link from "next/link";
@@ -438,7 +440,11 @@ export function SpinScreen({
           <Wheel
             ref={wheel}
             items={items}
-            onSpinStart={() => (setSpinning(true), setResult(null))}
+            onSpinStart={() => (
+              setSpinning(true),
+              setResult(null),
+              trackEvent(EVENTS.spin)
+            )}
             onResult={onResult}
           />
           <div className="-mt-2 flex items-center justify-center gap-3 text-center">
@@ -593,6 +599,7 @@ function ResultCard({
             href={directionsUrl(park)}
             target="_blank"
             rel="noreferrer"
+            onClick={() => trackEvent(EVENTS.directions, { from: "spin" })}
           >
             <Icon name="directions" size={30} /> Let&apos;s go!
           </a>

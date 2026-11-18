@@ -68,10 +68,13 @@ export default function PrivacyPage() {
       <Section title="What we collect">
         <ul>
           <li>
-            <b>Page visits</b>: which pages are visited, the page that linked
-            you here (usually just the site&apos;s name), and your general
-            country, browser, operating system and device type. Counted by
-            Vercel Web Analytics with no cookies (more below).
+            <b>Page visits and taps</b>: which pages are visited, the page that
+            linked you here (usually just the site&apos;s name), your general
+            country, browser, operating system and device type, and a few
+            moments in the app (like spinning, stamping a park, or sharing an
+            invite) so we can see what families use. Counted by Vercel Web
+            Analytics with no cookies, and never tied to your name, number or
+            family (more below).
           </li>
           <li>
             <b>Your mobile number</b>, if you add one, so we can text you
@@ -257,15 +260,21 @@ export default function PrivacyPage() {
             storage. It handles every request, so it sees IP addresses.
           </li>
           <li>
-            <b>Vercel Web Analytics</b> counts page visits so we can see which
-            pages families use. It gets the page, the page that linked you here
-            (usually just the site&apos;s name), and your general country,
-            browser, operating system and device type. It uses no cookies and
-            doesn&apos;t build a profile of you. Vercel uses your IP address to
-            work out the country and a visit code that resets every day, and
-            doesn&apos;t keep the IP address. Family invite codes and anything
-            after a &ldquo;?&rdquo; are removed from page addresses before a
-            visit is counted.
+            <b>Vercel Web Analytics</b> counts page visits and a few in-app
+            moments (like a spin or a stamp) so we can see what families use. It
+            gets the page, the page that linked you here (usually just the
+            site&apos;s name), and your general country, browser, operating
+            system and device type. It uses no cookies and doesn&apos;t build a
+            profile of you. Vercel uses your IP address to work out the country
+            and a visit code that resets every day, and doesn&apos;t keep the IP
+            address. Family invite codes and anything after a &ldquo;?&rdquo;
+            are removed from page addresses before a visit is counted.
+          </li>
+          <li>
+            <b>Resend</b> sends emails to our team about things that need a
+            person (a reported review, a new park to confirm, something broken).
+            Those emails don&apos;t include your name, number, or what you
+            wrote.
           </li>
           <li>
             <b>Railway</b> hosts our database, where accounts, reviews, stamps

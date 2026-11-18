@@ -101,6 +101,8 @@ export function PhoneCode({
   const [step, setStep] = useState<Step>(claim ? "code" : "phone");
   const [phone, setPhone] = useState("");
   const [shown, setShown] = useState("");
+  /** "Texts are backed up right now…" (same for every number). */
+  const [note, setNote] = useState<string | null>(null);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   /** The code can't be used any more: expired, too many tries, or locked. */
@@ -220,6 +222,7 @@ export function PhoneCode({
         setBusy(null);
         if (r.ok) {
           setShown(r.shown ?? typePhone(e164));
+          setNote(r.note ?? null);
           save({ mode, phone: e164, shown: r.shown ?? "", sentAt: Date.now() });
           return;
         }
@@ -244,6 +247,7 @@ export function PhoneCode({
       : (mode === "add" ? sendAddPhoneCode : sendSignInCode)(phone);
     go.then((r: PhoneResult) => {
       setBusy(null);
+      setNote(r.ok ? (r.note ?? null) : null);
       if (!r.ok) {
         setError(r.error);
         sfx.oops();
@@ -444,6 +448,15 @@ export function PhoneCode({
             </button>
           )}
         </p>
+        {note ? (
+          <p
+            role="status"
+            className="flex items-start gap-2 rounded-lg border-2 border-dashed border-crayon-orange bg-[color-mix(in_srgb,var(--color-crayon-orange)_10%,#fffdf7)] p-2 text-sm leading-snug"
+          >
+            <Icon name="warning" size={20} className="shrink-0" />
+            {note}
+          </p>
+        ) : null}
         <label htmlFor={`${uid}-code`} className="sr-only">
           6-digit code
         </label>

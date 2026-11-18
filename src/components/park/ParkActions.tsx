@@ -1,5 +1,7 @@
 "use client";
 
+import { EVENTS } from "@/lib/events";
+import { trackEvent } from "@/lib/events-client";
 import confetti from "canvas-confetti";
 import { useState, useTransition } from "react";
 import { logVisit, removeVisit } from "@/lib/client-actions";
@@ -54,6 +56,7 @@ export function ParkActions({
         href={directionsUrl(park)}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={() => trackEvent(EVENTS.directions, { from: "park" })}
         className="crayon-btn wax min-h-16 w-full bg-crayon-green text-[1.7rem] text-white [text-shadow:1px_1px_0_#2b2a33]"
       >
         <Icon name="directions" size={34} /> Let&apos;s go!

@@ -1,5 +1,7 @@
 "use client";
 
+import { EVENTS } from "./events";
+import { trackEvent } from "./events-client";
 import { storage } from "./storage";
 
 /**
@@ -29,6 +31,7 @@ if (typeof window !== "undefined") {
     listeners.forEach((l) => l());
   });
   window.addEventListener("appinstalled", () => {
+    trackEvent(EVENTS.installed);
     deferred = null;
     storage.set(INSTALLED_KEY, "1");
     listeners.forEach((l) => l());

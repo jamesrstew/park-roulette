@@ -14,6 +14,8 @@ import * as A from "./actions";
 import * as C from "./community-actions";
 import * as P from "./phone-actions";
 import type { ActionResult } from "./actions";
+import type { Tracked } from "./events";
+import { trackEvent } from "./events-client";
 
 export type { ActionResult };
 
@@ -31,7 +33,12 @@ function wrap<Args extends unknown[], R extends ActionResult>(
 ) {
   return async (...args: Args): Promise<R | { ok: false; error: string }> => {
     try {
-      return await fn(...args);
+      const r = await fn(...args);
+      // Actions hand back their analytics event; record it here, in the
+      // browser, where page addresses are cleaned (see SiteAnalytics).
+      const t = (r as { track?: Tracked } | undefined)?.track;
+      if (t) trackEvent(t.name, t.props);
+      return r;
     } catch (e) {
       if (isRedirectError(e)) throw e; // let Next navigate
       console.error(e);

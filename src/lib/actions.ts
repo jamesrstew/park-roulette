@@ -10,6 +10,8 @@ import { isOurBlobUrl } from "./blob";
 import { AVATARS, CRAYON_NAMES } from "./crayons";
 import { FEATURE_KEYS, REVIEW_TAGS } from "./features";
 import { inviteCode, slugify } from "./codes";
+import { alertLater } from "./alerts";
+import { ev, EVENTS, type Tracked } from "./events";
 import { deleteFiles } from "./photos";
 import { castVote, validVote, type VoteOutcome } from "./park-votes";
 import { toTenths } from "./rating";
@@ -69,20 +71,23 @@ const joinInput = z.object({
 export async function joinWithCode(
   input: z.input<typeof joinInput>,
 ): Promise<ActionResult> {
+  let evKey = "join";
   try {
     const data = joinInput.parse(input);
     // A number they proved a minute ago ("we don't know that number yet")
     // comes along only if they said so on the join form.
     const proved = data.usePhone ? await verifiedPhone() : null;
-    let explorerId: number;
+    let made: { id: number; newFamily: boolean };
     try {
-      explorerId = await insertExplorer(data, proved);
+      made = await insertExplorer(data, proved);
     } catch (e) {
       // Someone else grabbed that number in the meantime: join without it.
       if (proved && uniqueConstraint(e) === "explorers_phone_unique")
-        explorerId = await insertExplorer(data, null);
+        made = await insertExplorer(data, null);
       else throw e;
     }
+    const explorerId = made.id;
+    evKey = made.newFamily ? "start-friend" : "join";
     if (proved) await forgetVerifiedPhone();
     await setExplorer(explorerId, 0, "j");
     console.info(
@@ -97,14 +102,14 @@ export async function joinWithCode(
       };
     return fail("joinWithCode", e);
   }
-  redirect("/?welcome=1");
+  redirect(`/?welcome=1&ev=${evKey}`);
 }
 
 /** The family for a join or friend code (a friend code starts a new one). */
 async function insertExplorer(
   data: z.output<typeof joinInput>,
   phone: string | null,
-): Promise<number> {
+): Promise<{ id: number; newFamily: boolean }> {
   return db.transaction(async (tx) => {
     const byJoin = (
       await tx.select().from(crews).where(eq(crews.joinCode, data.code))
@@ -143,7 +148,7 @@ async function insertExplorer(
         ...(phone ? { phone, phoneVerifiedAt: new Date() } : {}),
       })
       .returning({ id: explorers.id });
-    return explorer.id;
+    return { id: explorer.id, newFamily: !byJoin };
   });
 }
 
@@ -205,7 +210,7 @@ export async function startFamily(
       };
     return fail("startFamily", e);
   }
-  redirect("/?welcome=1");
+  redirect("/?welcome=1&ev=start-home");
 }
 
 const kidInput = z.object({ name, color, avatar });
@@ -230,7 +235,7 @@ export async function addKid(
     if (session && me.trusted) await rememberGrownUp(session);
     await setExplorer(kid.id, kid.epoch, "l");
     console.info(`[auth] explorer ${me.id} added kid ${kid.id}`);
-    return { ok: true, name: data.name };
+    return { ok: true, name: data.name, track: ev(EVENTS.kidAdded) };
   } catch (e) {
     if (isUniqueViolation(e))
       return {
@@ -311,8 +316,12 @@ export async function logVisit(
       loggedBy: me.id,
       visitedOn: data.visitedOn,
     });
+    const [{ n }] = await db
+      .select({ n: sql<number>`count(*)::int` })
+      .from(visits)
+      .where(eq(visits.crewId, me.crew.id));
     refresh();
-    return { ok: true };
+    return { ok: true, track: ev(EVENTS.stamped, { first: n === 1 }) };
   } catch (e) {
     return fail("logVisit", e);
   }
@@ -439,7 +448,13 @@ export async function saveReview(
     });
     await deleteFiles(gone);
     refresh();
-    return { ok: true };
+    return {
+      ok: true,
+      track: ev(EVENTS.reviewSaved, {
+        visibility: data.visibility,
+        photos: data.addMedia.length > 0,
+      }),
+    };
   } catch (e) {
     return fail("saveReview", e);
   }
@@ -536,10 +551,17 @@ export async function addPark(
       // Waits for a second family to confirm it, unless an admin added it.
       approvedAt: me.isAdmin ? new Date() : null,
     });
+    if (!me.isAdmin)
+      alertLater({
+        key: `park:new:${slug}`,
+        subject: "A family added a park to confirm",
+        text: "A family added a new park. Only they see it until another family (or you) confirms it's real. It's waiting on /admin under \"New parks to confirm\".",
+        everyMinutes: 24 * 60,
+      });
   } catch (e) {
     return fail("addPark", e);
   }
-  redirect(`/parks/${slug}?added=1`);
+  redirect(`/parks/${slug}?added=1&ev=park-added`);
 }
 
 const flagInput = z.object({
@@ -550,7 +572,8 @@ const flagInput = z.object({
 
 /** What happened to a suggested park fix. */
 export type FixResult =
-  { ok: true; outcome: VoteOutcome } | { ok: false; error: string };
+  | { ok: true; outcome: VoteOutcome; track?: Tracked }
+  | { ok: false; error: string };
 
 /**
  * "This park is closed / private / back open." A suggestion: it changes the
@@ -580,7 +603,7 @@ export async function setParkStatus(
             me,
           });
     refresh();
-    return { ok: true, outcome };
+    return { ok: true, outcome, track: ev(EVENTS.parkFix, { outcome }) };
   } catch (e) {
     return fail("setParkStatus", e);
   }
@@ -605,7 +628,7 @@ export async function setParkPlay(
       me,
     });
     refresh();
-    return { ok: true, outcome };
+    return { ok: true, outcome, track: ev(EVENTS.parkFix, { outcome }) };
   } catch (e) {
     return fail("setParkPlay", e);
   }
@@ -644,15 +667,13 @@ export async function updateFeatures(
       });
       if (o === "applied") applied++;
     }
+    const outcome: VoteOutcome = !changed.length
+      ? "same"
+      : applied === changed.length
+        ? "applied"
+        : "waiting";
     refresh();
-    return {
-      ok: true,
-      outcome: !changed.length
-        ? "same"
-        : applied === changed.length
-          ? "applied"
-          : "waiting",
-    };
+    return { ok: true, outcome, track: ev(EVENTS.parkFix, { outcome }) };
   } catch (e) {
     return fail("updateFeatures", e);
   }
@@ -675,7 +696,7 @@ export async function voteOnFix(
       throw new UserError("Hmm, that's not a fix we know.");
     const outcome = await castVote({ ...data, me });
     refresh();
-    return { ok: true, outcome };
+    return { ok: true, outcome, track: ev(EVENTS.parkFix, { outcome }) };
   } catch (e) {
     return fail("voteOnFix", e);
   }
@@ -693,7 +714,7 @@ export async function confirmPark(parkId: number): Promise<FixResult> {
       me,
     });
     refresh();
-    return { ok: true, outcome };
+    return { ok: true, outcome, track: ev(EVENTS.parkFix, { outcome }) };
   } catch (e) {
     return fail("confirmPark", e);
   }

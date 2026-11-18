@@ -12,6 +12,8 @@
 
 import { refresh } from "next/cache";
 import { z } from "zod";
+import { ev, EVENTS, type Tracked } from "./events";
+import { BACKED_UP } from "./sms";
 import { fail, requireMe, UserError } from "./action-utils";
 import { getMe } from "./data";
 import {
@@ -46,10 +48,17 @@ export type PhoneResult =
       /** Who's signed in now, for "Welcome back, Mom!" */
       name?: string;
       next?: string;
+      /**
+       * Texts are backed up (a daily budget is full, here or site-wide):
+       * the same note for every number, so it never tells who plays.
+       */
+      note?: string;
+      track?: Tracked;
     }
   | {
       ok: false;
       error: string;
+      track?: Tracked;
       /**
        * unknown: proved the number, but no explorer has it (we remember it).
        * crewmate: proved it; it signs in someone in my family.
@@ -106,8 +115,15 @@ export async function sendSignInCode(raw: string): Promise<PhoneResult> {
   try {
     const phone = phoneFrom(raw);
     const owner = await explorerByPhone(phone);
-    await sendCode(phone, !!owner, { quiet: true });
-    return { ok: true, shown: formatPhone(phone) };
+    const r = await sendCode(phone, !!owner, { quiet: true });
+    return {
+      ok: true,
+      shown: formatPhone(phone),
+      ...(r.backedUp ? { note: BACKED_UP } : {}),
+      // The same whether or not a text went out, so the reply never tells
+      // anyone which numbers play.
+      track: ev(EVENTS.codeRequested, { for: "sign-in" }),
+    };
   } catch (e) {
     return fail("sendSignInCode", e);
   }
@@ -128,13 +144,19 @@ export async function checkSignInCode(
       await rememberVerifiedPhone(phone);
       return {
         ok: false,
+        track: ev(EVENTS.numberVerified, { new: true }),
         reason: "unknown",
         error: "We don't know that number yet.",
       };
     }
     await signInAs(owner, "c");
     await forgetVerifiedPhone();
-    return { ok: true, name: owner.name, next: safeNext(next) };
+    return {
+      ok: true,
+      name: owner.name,
+      next: safeNext(next),
+      track: ev(EVENTS.signedIn, { how: "code" }),
+    };
   } catch (e) {
     return fail("checkSignInCode", e);
   }
