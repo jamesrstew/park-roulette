@@ -121,6 +121,20 @@ export function visibleSql(
     : others;
 }
 
+/**
+ * How a review's author is named to this viewer. Other families see a kid
+ * as "A kid" (from their family); your own family sees names. Grown-ups'
+ * display names show to anyone who can see the review.
+ */
+export function authorName(
+  viewer: Viewer,
+  author: { name: string; isKid: boolean; crewId: number },
+): string {
+  if (author.isKid && (!viewer || viewer.crewId !== author.crewId))
+    return "A kid";
+  return author.name;
+}
+
 /** Where a browser fetches a photo: our door, never the storage address. */
 export function mediaSrc(id: number): string {
   return `/photos/${id}`;

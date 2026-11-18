@@ -45,6 +45,7 @@ import { Stars } from "./Stars";
 import { Wheel, type WheelHandle, type WheelItem } from "./Wheel";
 import { sfx } from "@/lib/sound";
 import { PageTitle } from "./PageTitle";
+import { ParkNewsAsk } from "./ParkNews";
 import { SoundToggle } from "./SoundToggle";
 
 const MAX_WEDGES = 10;
@@ -83,10 +84,16 @@ function todayLocal() {
 export function SpinScreen({
   parks: everything,
   signedIn,
+  askParkNews = false,
+  meId = 0,
 }: {
   /** The whole bucket list; crossed-off parks never land on the wheel. */
   parks: ParkSummary[];
   signedIn: boolean;
+  /** A grown-up who hasn't answered park news yet: ask under the stamp. */
+  askParkNews?: boolean;
+  /** Who's signed in (park news views are counted per person). */
+  meId?: number;
 }) {
   const parks = useMemo(
     () => everything.filter((p) => !isCrossedOff(p)),
@@ -475,6 +482,8 @@ export function SpinScreen({
           park={result}
           here={here}
           signedIn={signedIn}
+          askParkNews={askParkNews}
+          meId={meId}
           onAgain={() => wheel.current?.spin(0)}
           onStamped={(id) => {
             const m = stampMilestone(everything, id);
@@ -524,12 +533,16 @@ function ResultCard({
   park,
   here,
   signedIn,
+  askParkNews,
+  meId,
   onAgain,
   onStamped,
 }: {
   park: ParkSummary;
   here: LatLng | null;
   signedIn: boolean;
+  askParkNews: boolean;
+  meId: number;
   onAgain: () => void;
   onStamped: (parkId: number) => void;
 }) {
@@ -675,10 +688,17 @@ function ResultCard({
           {logged && (
             <Link
               href={`/parks/${park.slug}#review`}
-              className="inline-flex min-h-11 items-center justify-center gap-1.5 font-hand text-xl text-crayon-blue underline"
+              className="crayon-btn wax min-h-12 w-full bg-crayon-yellow text-xl"
             >
               Now give it some stars <Icon name="star" size={24} />
             </Link>
+          )}
+          {logged && (
+            <ParkNewsAsk
+              source="stamp_card"
+              show={askParkNews}
+              explorerId={meId}
+            />
           )}
         </div>
       </article>

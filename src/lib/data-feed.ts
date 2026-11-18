@@ -10,7 +10,7 @@ import {
   reviews,
 } from "@/db/schema";
 import { parkShownSql, type Me } from "./data";
-import { mediaSrc, viewerOf, visibleSql } from "./visibility";
+import { authorName, mediaSrc, viewerOf, visibleSql } from "./visibility";
 
 export type FeedReview = {
   type: "review";
@@ -58,6 +58,7 @@ export async function getFeed(me: Me | null, limit = 30): Promise<FeedItem[]> {
         color: explorers.color,
         avatar: explorers.avatar,
         crewName: crews.name,
+        isKid: explorers.isKid,
       },
     })
     .from(reviews)
@@ -114,7 +115,12 @@ export async function getFeed(me: Me | null, limit = 30): Promise<FeedItem[]> {
       body: r.body,
       tags: r.tags,
       park: r.park,
-      explorer: r.explorer,
+      explorer: {
+        name: authorName(viewer, { ...r.explorer, crewId: r.crewId }),
+        color: r.explorer.color,
+        avatar: r.explorer.avatar,
+        crewName: r.explorer.crewName,
+      },
       ours: !!viewer && viewer.crewId === r.crewId,
       photos: photoRows
         .filter((p) => p.reviewId === r.id)

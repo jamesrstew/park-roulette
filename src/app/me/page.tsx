@@ -14,6 +14,7 @@ import { PageTitle } from "@/components/PageTitle";
 import { CRAYON_NAMES, type CrayonName } from "@/lib/crayons";
 
 import { AccountCard } from "@/components/me/AccountCard";
+import { ParkNewsSettings } from "@/components/ParkNews";
 import { TermsCard } from "@/components/me/TermsCard";
 import { getMe } from "@/lib/data";
 import { adminQueueSize } from "@/lib/data-admin";
@@ -113,6 +114,12 @@ async function MeScreen({
             phone={me.phone ? formatPhone(me.phone) : null}
             trusted={me.trusted}
             name={me.name}
+          />
+
+          <ParkNewsSettings
+            on={me.emailOptIn}
+            email={me.trusted && me.emailOptIn ? me.email : null}
+            trusted={me.trusted}
           />
         </>
       )}

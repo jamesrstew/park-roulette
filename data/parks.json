@@ -41,15 +41,17 @@
       "restrooms",
       "picnic",
       "trail",
-      "dog_park"
+      "dog_park",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/alpenglow-park/",
-      "osm:way/936183003"
+      "osm:way/936183003",
+      "https://visitbend.com/journal/parks-playgrounds-in-bend-oregon/"
     ],
-    "notes": "Bend's only free splash pad, next to the playground. Covered picnic tables."
+    "notes": "Bend's only free splash pad (seasonal sprayground, summer only), next to the playground. Bouldering area, fenced off-leash dog area, covered picnic tables."
   },
   {
     "slug": "alpine-park-bend",
@@ -78,7 +80,7 @@
     "address": "3015 NW Merchant Way, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [],
+    "features": ["picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -121,7 +123,8 @@
       "picnic",
       "trail",
       "sports_courts",
-      "dog_park"
+      "dog_park",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
@@ -141,7 +144,7 @@
     "address": "1155 Brookswood Blvd, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "sports_courts"],
+    "features": ["restrooms", "sports_courts", "shade", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -197,7 +200,7 @@
     "address": "1630 NE Butler Market Rd, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "trail"],
+    "features": ["shade", "restrooms", "picnic", "trail", "swings", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -206,7 +209,7 @@
       "osm:way/762569318",
       "osm:relation/3681244"
     ],
-    "notes": "Natural play area."
+    "notes": "Playground with swings, plus a natural play area with a water trough kids can route."
   },
   {
     "slug": "cinder-cone-natural-area-bend",
@@ -235,15 +238,16 @@
     "address": "264 NW Columbia St, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "trail"],
+    "features": ["shade", "restrooms", "picnic", "trail", "water_view"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/columbia-park/",
       "osm:way/772558457",
-      "osm:way/276799865"
+      "osm:way/276799865",
+      "https://www.bendparksandrec.org/project/columbia-park-river-access-project/"
     ],
-    "notes": null
+    "notes": "Closed for construction October 19, 2026, to early summer 2027. Known as \"Pirate Ship Park\" for its SS Columbia play ship."
   },
   {
     "slug": "compass-park-bend",
@@ -274,7 +278,6 @@
     "kind": "park",
     "play": "nature",
     "features": [
-      "splash_pad",
       "shade",
       "restrooms",
       "picnic",
@@ -286,7 +289,9 @@
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/discovery-park/",
-      "osm:way/276799867"
+      "osm:way/276799867",
+      "https://www.bendparksandrec.org/parks-trails/natural-play-areas",
+      "https://www.bendparksandrec.org/park_feature/water-play-feature/"
     ],
     "notes": "Natural play area and a water play feature by a three-acre lake."
   },
@@ -335,7 +340,7 @@
     "address": "62891 NE Nolan St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "picnic"],
+    "features": ["restrooms", "picnic", "swings", "climbing"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -379,7 +384,9 @@
       "restrooms",
       "picnic",
       "water_view",
-      "trail"
+      "trail",
+      "climbing",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
@@ -417,12 +424,13 @@
     "address": "1980 NW 1st St, Bend, OR 97703",
     "kind": "park",
     "play": "nature",
-    "features": ["restrooms", "picnic", "water_view", "trail"],
+    "features": ["restrooms", "picnic", "water_view", "trail", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/first-street-rapids-park/",
-      "osm:relation/3681247"
+      "osm:relation/3681247",
+      "https://www.bendparksandrec.org/parks-trails/natural-play-areas"
     ],
     "notes": "Natural play area plus Deschutes river access."
   },
@@ -435,7 +443,7 @@
     "address": "61308 Sunflower Ln, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "picnic"],
+    "features": ["restrooms", "picnic", "shade"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -491,7 +499,7 @@
     "address": "1100 NW Harmon Blvd, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "picnic", "water_view", "sports_courts"],
+    "features": ["restrooms", "picnic", "water_view", "sports_courts", "shade"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -547,7 +555,7 @@
     "address": "910 NW Saginaw Ave, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["restrooms"],
+    "features": ["shade", "trail", "restrooms"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -583,7 +591,7 @@
     "address": "1235 NE Jones Rd, Bend, OR 97701",
     "kind": "park",
     "play": "none",
-    "features": ["restrooms", "picnic", "trail", "dog_park"],
+    "features": ["restrooms", "picnic", "trail", "dog_park", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -601,7 +609,7 @@
     "address": "19489 Hollygrape St, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms"],
+    "features": ["restrooms", "picnic", "shade"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -644,14 +652,19 @@
       "restrooms",
       "picnic",
       "trail",
-      "sports_courts"
+      "sports_courts",
+      "swings",
+      "climbing",
+      "shade",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/juniper-park/",
       "osm:way/1022421858",
-      "osm:way/276799882"
+      "osm:way/276799882",
+      "https://ktvz.com/?p=299314"
     ],
     "notes": "Sound, tactile, spinning and balance play pods connected by paved paths."
   },
@@ -664,7 +677,7 @@
     "address": "800 SE Centennial St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "sports_courts"],
+    "features": ["restrooms", "sports_courts", "picnic"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -689,7 +702,8 @@
       "restrooms",
       "picnic",
       "trail",
-      "sports_courts"
+      "sports_courts",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
@@ -732,7 +746,14 @@
     "address": "61012 Parrell Rd, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "trail", "sports_courts"],
+    "features": [
+      "shade",
+      "restrooms",
+      "picnic",
+      "trail",
+      "sports_courts",
+      "parking"
+    ],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -785,7 +806,14 @@
     "address": "55 NW Riverside Blvd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["shade", "restrooms", "picnic", "water_view", "trail"],
+    "features": [
+      "shade",
+      "restrooms",
+      "picnic",
+      "water_view",
+      "trail",
+      "parking"
+    ],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -803,7 +831,7 @@
     "address": "1975 NE Providence Dr, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "sports_courts"],
+    "features": ["shade", "restrooms", "picnic", "sports_courts", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -822,7 +850,7 @@
     "address": "63800 Wellington St, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "picnic", "trail", "sports_courts"],
+    "features": ["restrooms", "picnic", "trail", "sports_courts", "shade"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -830,7 +858,7 @@
       "osm:way/1117296247",
       "osm:way/1117296233"
     ],
-    "notes": "Skate park."
+    "notes": "Small skate spot for beginners. Play area has shade sails, musical instruments and a sensory discovery area."
   },
   {
     "slug": "orchard-park-bend",
@@ -860,15 +888,16 @@
     "address": "475 NW 17th St, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": ["picnic", "dog_park"],
+    "features": ["picnic", "dog_park", "shade", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/overturf-park/",
       "osm:node/2814569109",
-      "osm:way/276799893"
+      "osm:way/276799893",
+      "https://www.openstreetmap.org/way/276897862"
     ],
-    "notes": null
+    "notes": "Off-leash dog area is next door on the City of Bend Overturf Butte Reservoir property, reached by trail from the park."
   },
   {
     "slug": "pacific-crest-athletic-fields-bend",
@@ -879,14 +908,14 @@
     "address": "19150 NW Skyliners Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["restrooms", "sports_courts"],
+    "features": ["restrooms", "sports_courts", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/pacific-crest-athletic-fields/",
       "osm:way/934545876"
     ],
-    "notes": null
+    "notes": "School-district fields: reserved for school use during school hours; open for drop-in use after school, weekends and summer when not reserved."
   },
   {
     "slug": "pacific-park-bend",
@@ -897,7 +926,7 @@
     "address": "200 NW Pacific Park Ln, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["water_view", "trail", "quiet"],
+    "features": ["water_view", "trail", "quiet", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -915,7 +944,7 @@
     "address": "691 NW Drake Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["picnic", "water_view"],
+    "features": ["picnic", "water_view", "shade"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -933,7 +962,7 @@
     "address": "1310 NE Hwy 20, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "trail"],
+    "features": ["shade", "restrooms", "picnic", "trail", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -959,7 +988,8 @@
       "picnic",
       "trail",
       "sports_courts",
-      "dog_park"
+      "dog_park",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
@@ -979,7 +1009,7 @@
     "address": "61250 Linfield Ct, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["climbing"],
+    "features": ["climbing", "picnic", "shade", "restrooms"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -998,7 +1028,7 @@
     "address": "1525 NW Wall St, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["shade", "restrooms", "picnic", "water_view"],
+    "features": ["shade", "restrooms", "picnic", "water_view", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1022,7 +1052,8 @@
       "restrooms",
       "picnic",
       "sports_courts",
-      "dog_park"
+      "dog_park",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
@@ -1042,7 +1073,7 @@
     "address": "1055 NE Providence Dr, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "picnic", "sports_courts"],
+    "features": ["restrooms", "picnic", "sports_courts", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1080,14 +1111,14 @@
     "address": "19975 Glen Vista Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["restrooms", "water_view", "trail"],
+    "features": ["restrooms", "water_view", "trail", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/riley-ranch-nature-reserve/",
       "osm:way/276799933"
     ],
-    "notes": "Trails through a nature reserve."
+    "notes": "Trails through a nature reserve. No dogs (even leashed) and no bikes. Open sunrise to sunset."
   },
   {
     "slug": "river-canyon-park-bend",
@@ -1140,7 +1171,8 @@
       "picnic",
       "water_view",
       "trail",
-      "dog_park"
+      "dog_park",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
@@ -1159,7 +1191,7 @@
     "address": "2555 NE Division St, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["picnic"],
+    "features": ["picnic", "water_view", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1177,16 +1209,24 @@
     "address": "20885 Egypt Dr, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "trail"],
+    "features": [
+      "shade",
+      "restrooms",
+      "picnic",
+      "trail",
+      "climbing",
+      "parking"
+    ],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/rockridge-park/",
       "osm:way/884175066",
       "osm:way/884175069",
-      "osm:way/276799917"
+      "osm:way/276799917",
+      "https://www.bendparksandrec.org/parks-trails/natural-play-areas/"
     ],
-    "notes": "Natural play area."
+    "notes": "Two play areas: a natural play area (juniper log forest, boulder scramble, climbing tree, hand-pump water play) and a traditional playground with a \"tree house\". Skatepark, bike skills course, disc golf."
   },
   {
     "slug": "sawyer-park-bend",
@@ -1202,9 +1242,10 @@
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/sawyer-park/",
-      "osm:relation/3681257"
+      "osm:relation/3681257",
+      "https://www.bendparksandrec.org/project/sawyerparkupgrades/"
     ],
-    "notes": "River access and trails."
+    "notes": "Parking lot on O.B. Riley Rd closed for construction since October 26, 2026 (through about summer 2027). The park is open to walkers and bikers via the Deschutes River Trail. River access and trails."
   },
   {
     "slug": "sawyer-uplands-park-bend",
@@ -1234,14 +1275,22 @@
     "address": "18920 NW Shevlin Park Rd, Bend, OR 97701",
     "kind": "park",
     "play": "none",
-    "features": ["shade", "restrooms", "picnic", "water_view", "trail"],
+    "features": [
+      "shade",
+      "restrooms",
+      "picnic",
+      "water_view",
+      "trail",
+      "parking"
+    ],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/shevlin-park/",
-      "osm:relation/3681259"
+      "osm:relation/3681259",
+      "https://www.bendparksandrec.org/park/pine-nursery-park/"
     ],
-    "notes": "Bend's big forest park: trails, Tumalo Creek and a stocked fishing pond."
+    "notes": "Bend's big forest park: trails, Tumalo Creek and a stocked fishing pond (pond fishing for kids 17 and under and anglers with disabilities)."
   },
   {
     "slug": "skyline-sports-complex-bend",
@@ -1252,7 +1301,7 @@
     "address": "19617 Mountaineer Way, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "sports_courts"],
+    "features": ["shade", "restrooms", "picnic", "sports_courts", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1270,7 +1319,7 @@
     "address": "61531 SE Stone Creek Ln, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "trail"],
+    "features": ["shade", "restrooms", "picnic", "trail", "sandbox", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1289,7 +1338,7 @@
     "address": "1650 NE Watson Dr, Bend, OR 97701",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "sports_courts"],
+    "features": ["restrooms", "sports_courts", "shade"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1307,7 +1356,7 @@
     "address": "1150 NW Promontory Dr, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["restrooms", "picnic", "trail", "sports_courts"],
+    "features": ["restrooms", "picnic", "trail", "sports_courts", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1368,9 +1417,10 @@
       "bucket-list-2026-11",
       "https://www.bendparksandrec.org/park/sylvan-park/",
       "osm:way/1393153961",
-      "osm:way/276799926"
+      "osm:way/276799926",
+      "https://www.bendparksandrec.org/project/sylvan-park-playground-renovation/"
     ],
-    "notes": null
+    "notes": "Playground closed for renovation; Bend Park & Rec expects it to reopen in late spring 2027. The rest of the park is open."
   },
   {
     "slug": "three-pines-park-bend",
@@ -1381,7 +1431,7 @@
     "address": "19089 Mount Hood Pl, Bend, OR 97703",
     "kind": "park",
     "play": "playground",
-    "features": [],
+    "features": ["picnic", "toddler_area"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1399,7 +1449,7 @@
     "address": "18144 Couch Market Rd, Bend, OR 97703",
     "kind": "park",
     "play": "none",
-    "features": ["picnic"],
+    "features": [],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1417,7 +1467,7 @@
     "address": "60955 River Rim Dr, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "picnic"],
+    "features": ["shade", "picnic", "toddler_area"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1437,7 +1487,7 @@
     "address": "61690 Woodriver Dr, Bend, OR 97702",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms", "picnic", "sports_courts"],
+    "features": ["restrooms", "picnic", "sports_courts", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
@@ -1470,18 +1520,20 @@
     "address": "421 1st Ave, Culver, OR 97734",
     "kind": "park",
     "play": "playground",
-    "features": ["splash_pad", "sports_courts"],
+    "features": ["splash_pad", "sports_courts", "restrooms", "picnic"],
     "confidence": "unverified",
     "sources": [
       "https://park-splash-pads-nuxt.nuxt.dev/splash-pads/culver-park-culver-or",
       "https://ktvz.com/?p=1579606",
-      "osm:way/321354709"
+      "osm:way/321354709",
+      "https://madraspioneer.com/2025/10/30/culver-skate-park-opens-with-celebration-after-six-years-of-community-effort/",
+      "https://www.dreamlandskateparks.com/culver-oregon"
     ],
     "notes": "Directory listings mention a splash pad, slides and swings; a skatepark and pickleball courts opened in October 2025. Playground not confirmed by an official source."
   },
   {
     "slug": "finley-butte-park-la-pine",
-    "name": "Finley Butte Park",
+    "name": "Finley Butte Sports Complex & Park",
     "city": "La Pine",
     "lat": 43.66691,
     "lng": -121.4956,
@@ -1516,7 +1568,7 @@
   },
   {
     "slug": "juniper-hill-park-madras",
-    "name": "Juniper Hill Park",
+    "name": "Juniper Hills Park",
     "city": "Madras",
     "lat": 44.63844,
     "lng": -121.10135,
@@ -1525,7 +1577,14 @@
     "play": "playground",
     "features": ["restrooms", "sports_courts"],
     "confidence": "confirmed",
-    "sources": ["osm:way/438313014", "osm:way/926835144", "osm:way/353942624"],
+    "sources": [
+      "osm:way/438313014",
+      "osm:way/926835144",
+      "osm:way/353942624",
+      "https://www.ci.madras.or.us/publicworks/park/juniper-hills-park",
+      "https://www.openstreetmap.org/way/353942624",
+      "https://madraspioneer.com/2013/06/26/just-kidding-summer-fun-with-your-kids/"
+    ],
     "notes": null
   },
   {
@@ -1537,9 +1596,19 @@
     "address": null,
     "kind": "park",
     "play": "playground",
-    "features": ["sports_courts"],
+    "features": [
+      "sports_courts",
+      "toddler_area",
+      "restrooms",
+      "picnic",
+      "shade"
+    ],
     "confidence": "confirmed",
-    "sources": ["osm:way/438300795", "osm:way/408002376"],
+    "sources": [
+      "osm:way/438300795",
+      "osm:way/408002376",
+      "https://www.madras.gov/publicworks/park/sahalee-park"
+    ],
     "notes": null
   },
   {
@@ -1557,7 +1626,8 @@
       "picnic",
       "water_view",
       "sports_courts",
-      "dog_park"
+      "dog_park",
+      "parking"
     ],
     "confidence": "confirmed",
     "sources": [
@@ -1590,7 +1660,7 @@
     "address": "755 NW Harwood Ave, Prineville, OR 97754",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "trail"],
+    "features": ["shade", "restrooms", "picnic", "trail", "water_view"],
     "confidence": "confirmed",
     "sources": [
       "https://www.ccprd.org/harwood-park",
@@ -1609,12 +1679,23 @@
     "address": "455 NE Juniper St, Prineville, OR 97754",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic", "trail", "sports_courts"],
+    "features": [
+      "shade",
+      "restrooms",
+      "picnic",
+      "trail",
+      "sports_courts",
+      "swings",
+      "slides",
+      "climbing",
+      "water_view"
+    ],
     "confidence": "confirmed",
     "sources": [
       "https://www.ccprd.org/ochoco-creek-park",
       "osm:way/601957891",
-      "osm:way/202623282"
+      "osm:way/202623282",
+      "https://www.openstreetmap.org/way/601957891"
     ],
     "notes": "Home of Castle Park, Prineville's most popular park."
   },
@@ -1680,12 +1761,20 @@
     "address": "850 SW Rimrock Way, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["climbing", "sports_courts"],
+    "features": [
+      "climbing",
+      "sports_courts",
+      "restrooms",
+      "picnic",
+      "parking",
+      "trail"
+    ],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "osm:way/248542141",
-      "osm:way/248542140"
+      "osm:way/248542140",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/12/"
     ],
     "notes": "Rock climbing structure built for little kids."
   },
@@ -1698,12 +1787,13 @@
     "address": "1532 SW 17th St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [],
+    "features": ["restrooms", "picnic", "parking", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "osm:way/1042395963",
-      "osm:way/304920410"
+      "osm:way/304920410",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/14/"
     ],
     "notes": null
   },
@@ -1716,9 +1806,14 @@
     "address": "725 SW Evergreen Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "none",
-    "features": ["splash_pad"],
+    "features": ["splash_pad", "restrooms", "shade"],
     "confidence": "confirmed",
-    "sources": ["bucket-list-2026-11", "osm:relation/14016039"],
+    "sources": [
+      "bucket-list-2026-11",
+      "osm:relation/14016039",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/18/2751",
+      "https://redmondspokesman.com/2023/10/31/city-parks-keep-redmond-looking-green"
+    ],
     "notes": "Free splash park, open daily in summer through Labor Day. No play structure."
   },
   {
@@ -1730,12 +1825,13 @@
     "address": "575 NE Quince Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["sports_courts"],
+    "features": ["sports_courts", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "osm:way/1042098826",
-      "osm:way/304917149"
+      "osm:way/304917149",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/20/2751"
     ],
     "notes": null
   },
@@ -1748,12 +1844,13 @@
     "address": "370 NW 23rd St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["sports_courts"],
+    "features": ["sports_courts", "restrooms", "picnic", "trail"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "osm:way/438488288",
-      "osm:way/304920947"
+      "osm:way/304920947",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/26/"
     ],
     "notes": null
   },
@@ -1766,12 +1863,13 @@
     "address": "1964 SW 35th St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["restrooms"],
+    "features": ["restrooms", "picnic", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "osm:way/1042397437",
-      "osm:way/363653960"
+      "osm:way/363653960",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/30/2751"
     ],
     "notes": null
   },
@@ -1802,9 +1900,14 @@
     "address": "1624 SW Kalama Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["sports_courts"],
+    "features": ["sports_courts", "restrooms", "picnic"],
     "confidence": "confirmed",
-    "sources": ["bucket-list-2026-11", "osm:way/304920378"],
+    "sources": [
+      "bucket-list-2026-11",
+      "osm:way/304920378",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/34",
+      "https://bendbulletin.com/2020/02/15/kalama-park-in-redmond-getting-new-playground"
+    ],
     "notes": null
   },
   {
@@ -1816,10 +1919,16 @@
     "address": "2001 SW Quartz Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["climbing"],
+    "features": ["climbing", "restrooms", "picnic", "parking", "trail"],
     "confidence": "confirmed",
-    "sources": ["bucket-list-2026-11", "osm:way/1133574252"],
-    "notes": "Modern playground with varied climbing, next to the skate park. New in 2023."
+    "sources": [
+      "bucket-list-2026-11",
+      "osm:way/1133574252",
+      "https://ktvz.com/news/redmond/2024/09/10/weekly-park-pick-quartz-park-in-redmond-offers-variety-of-features-for-all-to-enjoy/",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/2308/2751",
+      "https://romtec.com/portfolio/quartz-park"
+    ],
+    "notes": "Newer city park with a playground, pavilion, skate dots, a bike skills course, horseshoes and year-round restrooms."
   },
   {
     "slug": "quince-park-redmond",
@@ -1830,13 +1939,14 @@
     "address": "1101 NW Quince Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["trail"],
+    "features": ["trail", "restrooms", "picnic", "parking"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "osm:way/202620808",
       "osm:way/1042122488",
-      "osm:way/202620815"
+      "osm:way/202620815",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/38/342"
     ],
     "notes": "Enchanted forest-themed playground and walking trails."
   },
@@ -1849,12 +1959,21 @@
     "address": "333 SW 15th St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["toddler_area", "accessible", "sports_courts"],
+    "features": [
+      "toddler_area",
+      "accessible",
+      "sports_courts",
+      "restrooms",
+      "picnic",
+      "parking"
+    ],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "osm:way/938204267",
-      "osm:way/304914326"
+      "osm:way/304914326",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/40/",
+      "https://bendmagazine.com/hope-playground/"
     ],
     "notes": "Hope Playground: one of Oregon's largest inclusive playgrounds, with a dedicated baby and toddler area."
   },
@@ -1867,9 +1986,12 @@
     "address": "2910 NW 25th St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [],
+    "features": ["restrooms", "picnic", "trail"],
     "confidence": "confirmed",
-    "sources": ["bucket-list-2026-11"],
+    "sources": [
+      "bucket-list-2026-11",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/2313/2751"
+    ],
     "notes": "New in 2023."
   },
   {
@@ -1881,10 +2003,14 @@
     "address": "3000 SW Umatilla Ave, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["sports_courts"],
+    "features": ["sports_courts", "restrooms", "picnic", "parking", "trail"],
     "confidence": "likely",
-    "sources": ["osm:way/1042394290", "osm:way/304920495"],
-    "notes": "City of Redmond sports fields with a playground mapped in OpenStreetMap."
+    "sources": [
+      "osm:way/1042394290",
+      "osm:way/304920495",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/48/"
+    ],
+    "notes": "City of Redmond sports fields with a playground, picnic tables and restrooms."
   },
   {
     "slug": "varnish-park-redmond",
@@ -1895,9 +2021,12 @@
     "address": "3370 NW 16th St, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": [],
+    "features": ["picnic", "sports_courts", "trail"],
     "confidence": "confirmed",
-    "sources": ["bucket-list-2026-11"],
+    "sources": [
+      "bucket-list-2026-11",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/2312/2751"
+    ],
     "notes": "New in 2023."
   },
   {
@@ -1909,9 +2038,13 @@
     "address": "1018 NW Rimrock Dr, Redmond, OR 97756",
     "kind": "park",
     "play": "playground",
-    "features": ["trail", "sports_courts"],
+    "features": ["trail", "sports_courts", "restrooms", "picnic"],
     "confidence": "confirmed",
-    "sources": ["bucket-list-2026-11", "osm:way/135996095"],
+    "sources": [
+      "bucket-list-2026-11",
+      "osm:way/135996095",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/52/336"
+    ],
     "notes": "Playground on the Dry Canyon trail."
   },
   {
@@ -1920,15 +2053,16 @@
     "city": "Sisters",
     "lat": 44.29534,
     "lng": -121.54696,
-    "address": null,
+    "address": "550 N Larch St, Sisters, OR 97759",
     "kind": "park",
     "play": "playground",
-    "features": ["swings", "quiet"],
+    "features": ["swings", "quiet", "climbing", "spinny", "slides"],
     "confidence": "confirmed",
     "sources": [
       "osm:way/1037864247",
       "osm:way/99863527",
-      "https://nuggetnews.com/story/2011/08/23/news/new-playground-opens-in-sisters/20117.html"
+      "https://nuggetnews.com/story/2011/08/23/news/new-playground-opens-in-sisters/20117.html",
+      "https://centraloregondad.blogspot.com/2013/05/cliff-clemens-park-sisters.html"
     ],
     "notes": "Quiet neighborhood park on Larch Street; its playground opened in 2011 with the first swing set in a Sisters city park."
   },
@@ -1938,7 +2072,7 @@
     "city": "Sisters",
     "lat": 44.2958,
     "lng": -121.57918,
-    "address": null,
+    "address": "1750 W McKinney Butte Rd, Sisters, OR 97759",
     "kind": "standalone",
     "play": "playground",
     "features": [],
@@ -1952,17 +2086,25 @@
     "city": "Sisters",
     "lat": 44.28916,
     "lng": -121.54937,
-    "address": null,
+    "address": "305 S Fir St, Sisters, OR 97759",
     "kind": "park",
     "play": "playground",
-    "features": ["shade", "restrooms", "picnic"],
+    "features": [
+      "shade",
+      "restrooms",
+      "picnic",
+      "swings",
+      "slides",
+      "climbing"
+    ],
     "confidence": "likely",
     "sources": [
       "https://www.nuggetnews.com/story/2019/10/01/news/city-snapshot/29934.html",
       "https://www.sistersoregonguide.com/post/parks",
-      "osm:way/99862463"
+      "osm:way/99862463",
+      "https://redmondspokesman.com/2020/03/18/sisters-to-install-new-playground-at-village-green-park/"
     ],
-    "notes": "Downtown Sisters park between Elm and Fir streets, with a gazebo, barbecue area and restrooms. The city won a 2019 state grant to replace the play structure."
+    "notes": "Downtown Sisters park between Elm and Fir streets, with a gazebo, barbecue area and restrooms. Its play structure (climbing rocks, slides, traverse equipment, swing) was replaced in 2020."
   },
   {
     "slug": "fort-rock-park-sunriver",
@@ -1998,12 +2140,13 @@
     "address": "57250 Overlook Rd, Sunriver, OR 97707",
     "kind": "park",
     "play": "playground",
-    "features": ["climbing", "shade", "restrooms", "picnic"],
+    "features": ["climbing", "shade", "restrooms", "picnic", "sports_courts"],
     "confidence": "confirmed",
     "sources": [
       "bucket-list-2026-11",
       "osm:way/865362560",
-      "osm:way/865465864"
+      "osm:way/865465864",
+      "https://sunriverchamber.com/parks/"
     ],
     "notes": "Playground and rock climbing wall by the SHARC amphitheater."
   },
@@ -2016,9 +2159,56 @@
     "address": "9241 NE Crooked River Dr, Terrebonne, OR 97760",
     "kind": "park",
     "play": "none",
-    "features": ["shade", "restrooms", "picnic", "trail", "sports_courts"],
+    "features": [
+      "shade",
+      "restrooms",
+      "picnic",
+      "trail",
+      "parking",
+      "water_view"
+    ],
     "confidence": "confirmed",
-    "sources": ["bucket-list-2026-11", "osm:way/419727037"],
-    "notes": "No playground, but the most spectacular park near Bend: towering rock spires and river trails. About 35-40 min. Keep little ones close, there are steep drops."
+    "sources": [
+      "bucket-list-2026-11",
+      "osm:way/419727037",
+      "https://stateparks.oregon.gov/index.cfm?do=park.profile&parkId=36"
+    ],
+    "notes": "No playground, but the most spectacular park near Bend: towering rock spires and river trails. About 35-40 min. Keep little ones close, there are steep drops. Construction December 1, 2026, to May 31, 2027: the overflow lot and parts of the Rim Rock and North Point Loop trails close at times. Day-use parking permit required."
+  },
+  {
+    "slug": "sisters-community-park-sisters",
+    "name": "Sisters Community Park",
+    "city": "Sisters",
+    "lat": 44.2903,
+    "lng": -121.5415,
+    "address": "611 E Cascade Ave, Sisters, OR 97759",
+    "kind": "park",
+    "play": "playground",
+    "features": ["restrooms", "picnic", "sports_courts", "parking"],
+    "confidence": "likely",
+    "sources": [
+      "audit-2026-11-18",
+      "https://sistersrecreation.com/parks/sisters-community-park",
+      "https://www.openstreetmap.org/way/418654051"
+    ],
+    "notes": "New park on the former Sisters Elementary site (opened fall 2025): playground, picnic shelter, basketball and pickleball."
+  },
+  {
+    "slug": "crescent-park-madras",
+    "name": "Crescent Park",
+    "city": "Madras",
+    "lat": 44.63015,
+    "lng": -121.10369,
+    "address": "SE Honeysuckle Loop, Madras, OR 97741",
+    "kind": "park",
+    "play": "playground",
+    "features": ["picnic"],
+    "confidence": "confirmed",
+    "sources": [
+      "audit-2026-11-18",
+      "https://www.madras.gov/Facilities/Facility/Details/Crescent-Park-7",
+      "https://www.openstreetmap.org/way/781471211"
+    ],
+    "notes": "Neighborhood park with a play structure and picnic tables."
   }
 ]

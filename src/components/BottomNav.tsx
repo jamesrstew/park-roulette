@@ -38,7 +38,7 @@ const TABS = [
   {
     id: "news",
     href: "/news",
-    label: "News",
+    label: "Scoop",
     icon: "sparkles",
     match: (p: string) => p.startsWith("/news"),
   },

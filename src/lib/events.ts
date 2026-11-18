@@ -23,6 +23,7 @@ export const EVENTS = {
   parkFix: "Park fix",
   reportSent: "Report sent",
   installed: "Installed",
+  parkNews: "Park news signup",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

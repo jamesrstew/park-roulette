@@ -5,6 +5,7 @@ import { crews, explorers, media, parks, reviews, visits } from "@/db/schema";
 import { isCrossedOff, normalizePlay } from "./features";
 import { readSession, trusted } from "./session";
 import {
+  authorName,
   canSee,
   canSeeMedia,
   mediaSrc,
@@ -30,6 +31,11 @@ export type Me = {
   isAdmin: boolean;
   /** Has agreed to the Terms and Privacy Policy. */
   termsAccepted: boolean;
+  /** Park news email (only shown to me). */
+  email: string | null;
+  emailOptIn: boolean;
+  /** Answered the one-time park news card. */
+  parkNewsAsked: boolean;
   crew: {
     id: number;
     name: string;
@@ -57,6 +63,9 @@ export async function getMe(): Promise<Me | null> {
       isKid: explorers.isKid,
       isAdmin: explorers.isAdmin,
       termsAcceptedAt: explorers.termsAcceptedAt,
+      email: explorers.email,
+      emailOptIn: explorers.emailOptIn,
+      parkNewsAskedAt: explorers.parkNewsAskedAt,
       crew: {
         id: crews.id,
         name: crews.name,
@@ -80,6 +89,9 @@ export async function getMe(): Promise<Me | null> {
     isKid: row.isKid,
     isAdmin: row.isAdmin,
     termsAccepted: row.termsAcceptedAt != null,
+    email: row.email,
+    emailOptIn: row.emailOptIn,
+    parkNewsAsked: row.parkNewsAskedAt != null,
     crew: row.crew,
   };
 }
@@ -230,6 +242,8 @@ export type ReviewView = {
     avatar: string;
     crewName: string;
     crewId: number;
+    /** False for your own family's reviews (no "from …" needed). */
+    otherFamily: boolean;
   };
   /** `url` is our own /photos/<id> door, never the storage address. */
   media: { id: number; url: string; kind: string }[];
@@ -251,6 +265,7 @@ export async function getParkDetail(slug: string, me: Me | null) {
         color: explorers.color,
         avatar: explorers.avatar,
         crewId: explorers.crewId,
+        isKid: explorers.isKid,
       },
       crewName: crews.name,
     })
@@ -306,7 +321,15 @@ export async function getParkDetail(slug: string, me: Me | null) {
       hidden: review.hiddenAt != null,
       createdAt: review.createdAt.toISOString(),
       updatedAt: review.updatedAt.toISOString(),
-      explorer: { ...explorer, crewName },
+      explorer: {
+        id: explorer.id,
+        name: authorName(viewer, explorer),
+        color: explorer.color,
+        avatar: explorer.avatar,
+        crewId: explorer.crewId,
+        crewName,
+        otherFamily: viewer?.crewId !== explorer.crewId,
+      },
       media: mediaRows
         .filter(
           (m) =>

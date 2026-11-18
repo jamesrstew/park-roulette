@@ -100,6 +100,16 @@ export default function TermsPage() {
         </ul>
       </Section>
 
+      <Section title="3a. Park news by email" id="park-news">
+        <p>
+          If you give us your email for park news, we&apos;ll send occasional
+          emails about new playgrounds, closures and splash pad openings, about
+          once a month. It&apos;s optional and never needed to play. Stop any
+          time with &ldquo;Stop emails&rdquo; in Family &amp; settings or the
+          unsubscribe link in any email we send.
+        </p>
+      </Section>
+
       <Section title="4. What you post">
         <p>
           Reviews, photos, videos, park info and anything else you add stay

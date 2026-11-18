@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canSee, canSeeMedia, SHOW_AFTER_MS } from "./visibility";
+import { authorName, canSee, canSeeMedia, SHOW_AFTER_MS } from "./visibility";
 
 const NOW = Date.parse("2026-11-13T20:00:00Z");
 const old = new Date(NOW - SHOW_AFTER_MS - 1000);
@@ -54,5 +54,18 @@ describe("who can see photos and videos", () => {
   it("keeps videos in the family", () => {
     expect(canSeeMedia(them, review("public"), "video", NOW)).toBe(false);
     expect(canSeeMedia(us, review("public"), "video", NOW)).toBe(true);
+  });
+});
+
+describe("how authors are named", () => {
+  const kid = { name: "Junie", isKid: true, crewId: 1 };
+  const mom = { name: "Mom", isKid: false, crewId: 1 };
+  it("shows other families and signed-out visitors 'A kid'", () => {
+    expect(authorName({ crewId: 2 }, kid)).toBe("A kid");
+    expect(authorName(null, kid)).toBe("A kid");
+  });
+  it("shows the kid's name to their own family, and grown-ups' names", () => {
+    expect(authorName({ crewId: 1 }, kid)).toBe("Junie");
+    expect(authorName({ crewId: 2 }, mom)).toBe("Mom");
   });
 });

@@ -4,7 +4,7 @@ import { PageTitle } from "@/components/PageTitle";
 
 export const OPERATOR = "True Craft Ventures LLC";
 export const CONTACT = "hello@parkroulette.quest";
-export const UPDATED = "November 13, 2026";
+export const UPDATED = "November 18, 2026";
 
 /** A plain, readable legal page in the crayon frame. */
 export function LegalPage({
@@ -54,13 +54,16 @@ export function LegalPage({
 
 export function Section({
   title,
+  id,
   children,
 }: {
   title: string;
+  /** Anchor for links like /privacy#park-news. */
+  id?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="flex flex-col gap-2">
+    <section id={id} className="flex scroll-mt-6 flex-col gap-2">
       <h2 className="font-hand text-2xl leading-tight">{title}</h2>
       {children}
     </section>

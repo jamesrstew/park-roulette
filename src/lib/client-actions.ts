@@ -12,6 +12,7 @@
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import * as A from "./actions";
 import * as C from "./community-actions";
+import * as N from "./park-news-actions";
 import * as P from "./phone-actions";
 import type { ActionResult } from "./actions";
 import type { Tracked } from "./events";
@@ -71,6 +72,9 @@ export const acceptTerms = wrap(C.acceptTerms);
 export const deleteMe = wrap(C.deleteMe);
 export const deleteFamily = wrap(C.deleteFamily);
 export const removeKid = wrap(C.removeKid);
+export const joinParkNews = wrap(N.joinParkNews);
+export const dismissParkNews = wrap(N.dismissParkNews);
+export const stopParkNews = wrap(N.stopParkNews);
 export const sendSignInCode = wrap(P.sendSignInCode);
 export const checkSignInCode = wrap(P.checkSignInCode);
 export const sendAddPhoneCode = wrap(P.sendAddPhoneCode);

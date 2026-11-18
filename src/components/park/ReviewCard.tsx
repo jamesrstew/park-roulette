@@ -51,6 +51,8 @@ export function ReviewCard({
           {review.explorer.avatar}
         </span>
         <div className="min-w-0 flex-1">
+          {/* Name, then "from The Stewarts" on the next line: two families
+              can both have a Mom, and the stars need the room up here. */}
           <p className="truncate font-hand text-[1.4rem] leading-tight">
             <span
               className={isYellow ? "highlight" : ""}
@@ -60,7 +62,10 @@ export function ReviewCard({
             </span>
           </p>
           <p className="truncate text-xs text-ink-soft">
-            {review.explorer.crewName} · {formatStamp(review.updatedAt)}
+            {review.explorer.otherFamily
+              ? `from ${review.explorer.crewName} · `
+              : ""}
+            {formatStamp(review.updatedAt)}
             {edited ? " (edited)" : ""}
           </p>
           {mine && <VisibilityTag value={review.visibility} />}

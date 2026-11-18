@@ -37,14 +37,15 @@ export function Feed({
   return (
     <div className="flex flex-col gap-5">
       <PageTitle
-        lead="What's"
-        accent="new"
+        lead="The"
+        accent="scoop"
         color="teal"
         underline="pink"
-        underlineWidth="w-32"
+        underlineWidth="w-28"
         subtitle={
           <p>
-            Fresh reviews and park news from families around Central Oregon.
+            Fresh reviews and new park finds from families around Central
+            Oregon.
           </p>
         }
       />
@@ -108,14 +109,21 @@ function ReviewItem({ r, now }: { r: FeedReview; now: number }) {
           {r.explorer.avatar}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="font-hand text-xl leading-tight">
-            <span style={r.explorer.color === "yellow" ? undefined : { color }}>
+          <p className="flex min-w-0 items-baseline gap-1.5 font-hand text-xl leading-tight">
+            <span
+              className="shrink-0"
+              style={r.explorer.color === "yellow" ? undefined : { color }}
+            >
               {r.explorer.name}
-            </span>{" "}
-            reviewed {r.park.name}
+            </span>
+            {!r.ours && (
+              <span className="min-w-0 truncate text-lg">
+                from {r.explorer.crewName}
+              </span>
+            )}
           </p>
           <p className="truncate text-xs text-ink-soft">
-            {r.explorer.crewName} · {r.park.city} · {dayLabel(r.at, now)}
+            {r.park.name} · {r.park.city} · {dayLabel(r.at, now)}
           </p>
         </div>
       </div>

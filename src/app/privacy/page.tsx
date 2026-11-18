@@ -77,6 +77,13 @@ export default function PrivacyPage() {
             family (more below).
           </li>
           <li>
+            <b>Your email</b>, only if you sign up for park news (see{" "}
+            <a href="#park-news" className="underline">
+              Park news by email
+            </a>
+            ).
+          </li>
+          <li>
             <b>Your mobile number</b>, if you add one, so we can text you
             one-time sign-in codes. It must be a US mobile number. We keep it so
             you can sign in again, until you remove it.
@@ -201,7 +208,8 @@ export default function PrivacyPage() {
             &ldquo;Everyone&rdquo; reviews (words, stars and first name) can
             also appear in search engines and AI assistants. Kids&apos; reviews
             only ever show to signed-in families or your own family, never to
-            people who aren&apos;t signed in.
+            people who aren&apos;t signed in, and other families see &ldquo;A
+            kid&rdquo; instead of a kid&apos;s name.
           </li>
           <li>
             <b>Stars are always public</b>: every review&apos;s star rating
@@ -297,11 +305,46 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
+      <Section title="Park news by email" id="park-news">
+        <p>
+          If you choose to, you can give us your email for park news: new
+          playgrounds, closures and splash pad openings, about once a month.
+          It&apos;s never required, and kids are never asked.
+        </p>
+        <ul>
+          <li>
+            <b>What we keep</b>: your email, that you said yes, when, and where
+            in the app you said it, plus which version of the words you saw.
+          </li>
+          <li>
+            <b>Who sees it</b>: only you (in Family &amp; settings) and us.
+            Other families never do.
+          </li>
+          <li>
+            <b>Stopping</b>: tap &ldquo;Stop emails&rdquo; in Family &amp;
+            settings, or (once we start sending) use the unsubscribe link in any
+            email. Stopping removes your email right away; our record of your
+            choice keeps only a scrambled fingerprint of it, so we can show you
+            said stop. If you change your email, we keep only a fingerprint of
+            the old one.
+          </li>
+          <li>
+            <b>No tracking</b>: our emails will have no tracking pixels and no
+            tracked links.
+          </li>
+          <li>
+            We never sell your email or share it for anyone else&apos;s
+            marketing. An email service will send our emails for us and see your
+            address to do it.
+          </li>
+        </ul>
+      </Section>
+
       <Section title="We don't sell it">
         <p>
-          We don&apos;t sell or rent personal information, including precise
-          location or information about children or teens. We don&apos;t share
-          it for targeted advertising, and we don&apos;t share your mobile
+          We don&apos;t sell or rent personal information, including your email,
+          precise location or information about children or teens. We don&apos;t
+          share it for targeted advertising, and we don&apos;t share your mobile
           number or your agreement to get texts with anyone for their marketing.
           Because we don&apos;t track you across websites, there&apos;s nothing
           for a browser&apos;s &ldquo;Do Not Track&rdquo; or Global Privacy
@@ -331,6 +374,11 @@ export default function PrivacyPage() {
           </li>
           <li>
             <b>Your phone number</b>: until you remove it or delete yourself.
+          </li>
+          <li>
+            <b>Your park news email</b>: until you stop park news or delete
+            yourself. The record that you said yes or stopped goes when you
+            delete yourself.
           </li>
           <li>
             <b>Names, kid profiles, reviews, photos and videos</b>: until you

@@ -43,6 +43,13 @@
       "when": 1795042545339,
       "tag": "0005_alert_log",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795043619213,
+      "tag": "0006_park_news",
+      "breakpoints": true
     }
   ]
 }

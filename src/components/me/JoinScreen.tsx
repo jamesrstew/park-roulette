@@ -335,6 +335,10 @@ export function JoinScreen({
             enterKeyHint="next"
             required
           />
+          <span className="text-sm text-ink-soft">
+            What your family calls you, like “Mom” or “Sam”. Other families see
+            it with your family name.
+          </span>
         </label>
 
         {isFriend ? (
@@ -351,7 +355,8 @@ export function JoinScreen({
               enterKeyHint="done"
             />
             <span className="text-sm text-ink-soft">
-              Like “The Stewarts” or “Team Taco”. You can change it later.
+              Like “Team Taco” or “The Park Pirates.” It shows on your reviews.
+              You can change it later.
             </span>
           </label>
         ) : null}

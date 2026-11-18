@@ -20,37 +20,38 @@ playful first experience.
 
 ## Now (before the Bulletin story)
 
-1. **Sign-up holds up under a surge** (Claude). New-number texts were
-   capped at 60 a day site-wide, and over the cap the code silently never
-   arrives. Raise the caps for a few hundred sign-ups in a day, keep the
-   per-network abuse limits, and alert James before any cap is hit.
-2. **Twilio money: balance, auto-recharge, spend alerts** (James, Twilio
-   console; Claude wrote the steps). The CLI key can't read billing.
-3. **Hear about problems first** (Claude; James creates a Resend account
-   and adds its DNS records at Porkbun). Email hello@ on: a report (right
-   away), a new park to confirm, a suggested park fix, sign-up caps
-   nearing or hit, Twilio send failures, and a burst of server errors.
-   Throttled so a bad hour sends one email, not a hundred.
-4. **Know what people do** (Claude). Vercel custom events (Pro) for the
-   key steps, no personal data; and an admin stats page from our own
-   database with the funnel: started, verified a code, family created,
-   first spin, first stamp, first review, invited another family.
+1. **Twilio money: balance, auto-recharge, spend alerts** (James, Twilio
+   console). The CLI key can't read billing.
+2. **Turn alerts on: Resend account, DNS at Porkbun, `RESEND_API_KEY` in
+   Vercel** (James). Alerts are built and live; until the key exists they
+   only go to the server logs.
+3. **Check six parks in person** (James): Skyline Sports Complex (small
+   playground?), Stone Creek (structure or nature play only?), Culver City
+   Park (playground?), Coffield Community Center (playground still there?),
+   Fort Rock in Sunriver (what equipment?), Bean Park in Madras (add it?
+   pin?). Also the Little Fawn pin (the address geocodes ~165 m away).
+   Sources: data/audits/2026-11-18-*.md.
 
 ## Next
 
-5. **Stay in touch, the light way** (Claude builds; designer + critic).
-   Optional, never at sign-up: after a happy moment (first stamp) and in
-   Family & settings, offer park news by email, and separately by text,
-   each with its own unchecked consent that says exactly what we'll send.
-   Update Terms and Privacy in the same change. Email doubles as account
-   recovery for a lost number.
-6. **Before the first marketing text: A2P 10DLC registration** (James,
-   Twilio console). Required for any non-code texts in the US; codes keep
-   going through Verify. Also a mailing address for marketing emails
-   (CAN-SPAM): a PO box or virtual address for True Craft Ventures LLC.
-7. **Register a DMCA agent** (James, $6 at dmca.copyright.gov; Claude
-   updates Terms §7 with the agent). Keeps the copyright safe harbor for
-   photos people upload.
+4. **Before the first park news email** (Claude, once Resend is set up):
+   a confirmation email (single opt-in today, so anyone could add someone
+   else's address), a one-click unsubscribe link that works signed out,
+   List-Unsubscribe headers, open/click tracking off at the provider, the
+   provider named in Privacy, and a postal address in every email
+   (CAN-SPAM: a PO box or virtual address for True Craft Ventures LLC,
+   James).
+5. **Park news by text** (after James registers A2P 10DLC in Twilio): a
+   separate Messaging Service and number with Advanced Opt-Out, a texts row
+   in settings with its own consent, a confirmation text at opt-in, and the
+   Terms §3 and phone-field wording changes.
+6. **Register a DMCA agent** (James, $6 at dmca.copyright.gov; Claude adds
+   the agent to Terms §9).
+7. **Temporarily closed parks** (Claude): a real "closed until …" state
+   that keeps a park off the wheel without crossing it off. Today the
+   closures (Columbia until summer 2027, Sylvan's playground until spring
+   2027, Sawyer's parking lot) are in each park's notes. Revisit those
+   notes when they reopen.
 
 ## Later
 
@@ -71,6 +72,12 @@ playful first experience.
 - More guides once data supports them: fenced playgrounds, nature play.
 
 ## Done or dropped
+
+- Done 2026-11-18: launch readiness (sign-up caps for a news-story day,
+  "texts are backed up" note, email alerts, funnel events, admin stats);
+  park news by email (optional, inline), "The scoop" tab, "Name from
+  Family" bylines, kids shown as "A kid" to other families; park data audit
+  (103 fixes, 2 new parks, sources in data/audits).
 
 - Done 2026-11-18: SEO and AI search (town and feature guides, structured
   data, sitemap, llms.txt), four-tab nav, desktop panel, Vercel Web

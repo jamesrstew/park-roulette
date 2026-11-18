@@ -94,8 +94,10 @@ export function uniqueConstraint(e: unknown): string | null {
 export function redact(e: unknown): string {
   const err = e as { name?: string; message?: string; cause?: unknown };
   const inner = (err?.cause as { message?: string } | undefined)?.message;
-  const msg = String(inner ?? err?.message ?? e);
+  // Capped before the replacements so a huge message can't be slow.
+  const msg = String(inner ?? err?.message ?? e).slice(0, 2000);
   return `${err?.name ?? "Error"}: ${msg
+    .replace(/[^\s@"<>]+@[^\s@"'<>]+\.[a-z]{2,}/gi, "[email]")
     .replace(/\+?\d[\d\s().-]{8,}\d/g, "[number]")
     .replace(/\b\d{1,3}(\.\d{1,3}){3}\b/g, "[ip]")
     .replace(/\b[0-9a-f]{1,4}(:[0-9a-f]{0,4}){2,7}\b/gi, "[ip]")

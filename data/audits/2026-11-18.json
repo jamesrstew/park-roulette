@@ -1,0 +1,1317 @@
+[
+  {
+    "slug": "columbia-park-bend",
+    "field": "status",
+    "current": "active",
+    "proposed": "closed",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/project/columbia-park-river-access-project/",
+      "https://www.bendparksandrec.org/park/columbia-park/"
+    ],
+    "note": "Park (incl. playground) closed from Oct. 19, 2026 through early summer 2027 for the river access project and Gilchrist Bridge replacement. Set status_note; reopen summer 2027."
+  },
+  {
+    "slug": "columbia-park-bend",
+    "field": "notes",
+    "current": null,
+    "proposed": "Closed for construction Oct. 19, 2026 to early summer 2027. Known as \"Pirate Ship Park\" for its SS Columbia play ship.",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/project/columbia-park-river-access-project/"
+    ],
+    "note": "Closure must be visible to users."
+  },
+  {
+    "slug": "columbia-park-bend",
+    "field": "features",
+    "current": "+water_view",
+    "proposed": "add water_view",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/columbia-park/"],
+    "note": "River-edge park with benches facing the Deschutes; river access is fenced off."
+  },
+  {
+    "slug": "discovery-park-bend",
+    "field": "play",
+    "current": "none",
+    "proposed": "nature",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/discovery-park/",
+      "https://www.bendparksandrec.org/parks-trails/natural-play-areas"
+    ],
+    "note": "BPRD lists a Natural Play Area (no Playground feature); OSM has no leisure=playground within 200 m."
+  },
+  {
+    "slug": "discovery-park-bend",
+    "field": "features",
+    "current": "splash_pad (present)",
+    "proposed": "remove splash_pad",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/discovery-park/",
+      "https://www.bendparksandrec.org/parks-trails/natural-play-areas",
+      "https://www.bendparksandrec.org/park_feature/water-play-feature/"
+    ],
+    "note": "The water play feature is hand-pump-fed water courses in the natural play area, not a splash pad/sprayground. BPRD's only sprayground is Alpenglow."
+  },
+  {
+    "slug": "first-street-rapids-park-bend",
+    "field": "play",
+    "current": "none",
+    "proposed": "nature",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/first-street-rapids-park/",
+      "https://www.bendparksandrec.org/parks-trails/natural-play-areas"
+    ],
+    "note": "Listed on BPRD natural play areas page; park features list has Natural Play Area but no Playground. OSM: no playground within 200 m. Notes already say natural play area."
+  },
+  {
+    "slug": "first-street-rapids-park-bend",
+    "field": "features",
+    "current": "+parking",
+    "proposed": "add parking",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/first-street-rapids-park/"
+    ],
+    "note": "BPRD: Lot Parking."
+  },
+  {
+    "slug": "hillside-park-ii-bend",
+    "field": "features",
+    "current": "restrooms (present)",
+    "proposed": "remove restrooms",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/hillside-ii-park/"],
+    "note": "BPRD page lists only Natural Areas and says the site has a trash can and dog station; no restroom. OSM has an untagged toilets node ~80 m north (node/12895939206), likely serving the Hillside I / reservoir area. Check in person."
+  },
+  {
+    "slug": "hillside-park-ii-bend",
+    "field": "features",
+    "current": "+shade,+trail",
+    "proposed": "add shade, trail",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/hillside-ii-park/"],
+    "note": "Shade of mature trees; dirt track trails in the natural area east of 9th St."
+  },
+  {
+    "slug": "little-fawn-park-bend",
+    "field": "lat/lng",
+    "current": "44.01457, -121.31534",
+    "proposed": "44.01603, -121.31487",
+    "confidence": "medium",
+    "sources": [
+      "https://nominatim.openstreetmap.org/search?q=61012+Parrell+Road+Bend+OR&format=json",
+      "https://www.bendparksandrec.org/park/little-fawn-park/"
+    ],
+    "note": "Current point is ~165 m south of the geocoded park address (61012 Parrell Rd). The park itself is not mapped in OSM, so verify the pin on aerial imagery."
+  },
+  {
+    "slug": "little-fawn-park-bend",
+    "field": "features",
+    "current": "+parking",
+    "proposed": "add parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/little-fawn-park/"],
+    "note": "BPRD: small parking lot."
+  },
+  {
+    "slug": "alpenglow-park-bend",
+    "field": "features",
+    "current": "+parking",
+    "proposed": "add parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/alpenglow-park/"],
+    "note": "BPRD: Lot Parking."
+  },
+  {
+    "slug": "alpenglow-park-bend",
+    "field": "notes",
+    "current": "Bend's only free splash pad, next to the playground. Covered picnic tables.",
+    "proposed": "Bend's only free splash pad (seasonal sprayground, summer only), next to the playground. Bouldering area, fenced off-leash dog area, covered picnic tables.",
+    "confidence": "medium",
+    "sources": [
+      "https://www.bendparksandrec.org/park/alpenglow-park/",
+      "https://visitbend.com/journal/parks-playgrounds-in-bend-oregon/"
+    ],
+    "note": "\"Only free splash pad\" matches Visit Bend and BPRD (only park with Sprayground). BPRD currently says \"Sprayground closed for the season\", so say it is seasonal."
+  },
+  {
+    "slug": "big-sky-park-and-luke-damon-sports-complex-bend",
+    "field": "features",
+    "current": "+parking",
+    "proposed": "add parking",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/big-sky-park-luke-damon-sports-complex/"
+    ],
+    "note": "BPRD: Lot Parking."
+  },
+  {
+    "slug": "blakely-park-bend",
+    "field": "features",
+    "current": "+shade,+parking",
+    "proposed": "add shade, parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/blakely-park/"],
+    "note": "BPRD: shade trees; Lot Parking."
+  },
+  {
+    "slug": "canal-row-park-bend",
+    "field": "features",
+    "current": "+swings,+parking",
+    "proposed": "add swings, parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/canal-row-park/"],
+    "note": "BPRD: swing set; Lot Parking."
+  },
+  {
+    "slug": "canal-row-park-bend",
+    "field": "notes",
+    "current": "Natural play area.",
+    "proposed": "Playground with swings, plus a natural play area with a water trough kids can route.",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/canal-row-park/"],
+    "note": "The current note reads as if this were nature-only; it has a playground (play=playground is correct)."
+  },
+  {
+    "slug": "eagle-park-bend",
+    "field": "features",
+    "current": "+swings,+climbing",
+    "proposed": "add swings, climbing",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/eagle-park/"],
+    "note": "BPRD: basket swings and a frisbee climber."
+  },
+  {
+    "slug": "farewell-bend-park-bend",
+    "field": "features",
+    "current": "+climbing,+parking",
+    "proposed": "add climbing, parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/farewell-bend-park/"],
+    "note": "BPRD: small bouldering/climbing area next to the playground; Lot Parking."
+  },
+  {
+    "slug": "juniper-park-bend",
+    "field": "features",
+    "current": "+swings,+climbing,+shade,+parking",
+    "proposed": "add swings, climbing, shade, parking",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/juniper-park/",
+      "https://ktvz.com/?p=299314"
+    ],
+    "note": "Playground has swinging and climbing structures and a shade structure; Lot Parking. spinny is confirmed."
+  },
+  {
+    "slug": "larkspur-park-bend",
+    "field": "features",
+    "current": "+parking",
+    "proposed": "add parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/larkspur-park/"],
+    "note": "BPRD: Lot Parking (official trailhead)."
+  },
+  {
+    "slug": "hollinshead-park-bend",
+    "field": "features",
+    "current": "+parking",
+    "proposed": "add parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/hollinshead-park/"],
+    "note": "BPRD: Lot Parking. The off-leash area is unfenced (fencing is planned; the project finishes spring/summer 2028), so do not add fenced."
+  },
+  {
+    "slug": "awbrey-village-park-bend",
+    "field": "features",
+    "current": "+picnic",
+    "proposed": "add picnic",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/awbrey-village-park/"],
+    "note": "BPRD: picnic table."
+  },
+  {
+    "slug": "kiwanis-park-bend",
+    "field": "features",
+    "current": "+picnic",
+    "proposed": "add picnic",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/kiwanis-park/"],
+    "note": "BPRD: picnic shelter with tables."
+  },
+  {
+    "slug": "hollygrape-park-bend",
+    "field": "features",
+    "current": "+picnic,+shade",
+    "proposed": "add picnic, shade",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/hollygrape-park/"],
+    "note": "BPRD: picnic benches; lawn under mature trees."
+  },
+  {
+    "slug": "harmon-park-bend",
+    "field": "features",
+    "current": "+shade",
+    "proposed": "add shade",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/harmon-park/"],
+    "note": "BPRD: large shade trees. Note about the tugboat removal is accurate (BPRD news Sept. 3, 2026: other play features remain)."
+  },
+  {
+    "slug": "foxborough-park-bend",
+    "field": "features",
+    "current": "+shade",
+    "proposed": "add shade",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/foxborough-park/"],
+    "note": "BPRD: green space with large trees."
+  },
+  {
+    "slug": "skyline-sports-complex-bend",
+    "field": "play",
+    "current": "none",
+    "proposed": "playground",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/skyline-sports-complex/"],
+    "note": "BPRD page text: \"restrooms, drinking fountains, picnic shelter, small playground, outdoor basketball courts\"; its Features list includes \"Playground\", and the park is on the BPRD Playground feature list. OSM maps no playground, and the existing crowd:play report says none. Check in person before flipping; the playground is reportedly near the north ball field."
+  },
+  {
+    "slug": "skyline-sports-complex-bend",
+    "field": "status_note",
+    "current": "No playground (just a park)",
+    "proposed": "null (or \"Small playground near the north ball field\")",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/skyline-sports-complex/"],
+    "note": "Follows the play correction. Check in person."
+  },
+  {
+    "slug": "sylvan-park-bend",
+    "field": "status",
+    "current": "active",
+    "proposed": "closed (temporary: playground only)",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/sylvan-park/",
+      "https://www.bendparksandrec.org/project/sylvan-park-playground-renovation/"
+    ],
+    "note": "BPRD fall 2026 update: the playground renovation is unfinished. The poured-in-place surfacing will not go in until late spring 2027, and estimated completion is late spring 2027. \"All other finished amenities\" are open. The park itself (tennis, trails, lawn) is open. If the app has no temporary-closure state, keep active and set the status_note."
+  },
+  {
+    "slug": "sylvan-park-bend",
+    "field": "status_note",
+    "current": null,
+    "proposed": "Playground closed for renovation; BPRD expects it to reopen in late spring 2027.",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/project/sylvan-park-playground-renovation/"
+    ],
+    "note": ""
+  },
+  {
+    "slug": "stone-creek-park-bend",
+    "field": "play",
+    "current": "playground",
+    "proposed": "nature",
+    "confidence": "medium",
+    "sources": [
+      "https://www.bendparksandrec.org/park/stone-creek/",
+      "https://www.bendparksandrec.org/parks-trails/natural-play-areas/",
+      "https://www.openstreetmap.org/way/945547390",
+      "https://www.openstreetmap.org/way/936256930"
+    ],
+    "note": "BPRD describes only natural play areas: sand boxes with log steppers, a water trough, a mini excavator, and smoothed logs. It lists Stone Creek under Natural Play Areas. The OSM swings, structure, and climbing frame east of the park fall inside the Silver Rail Elementary School polygon (way/936256930), not the park (way/276799928). BPRD still tags the park \"Playground\", so check in person whether any manufactured structure exists in the park."
+  },
+  {
+    "slug": "stone-creek-park-bend",
+    "field": "features",
+    "current": "(no sandbox)",
+    "proposed": "+sandbox",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/stone-creek/"],
+    "note": "\"sand boxes with log steppers\". The water trough is a hand-pump water course, NOT a splash pad."
+  },
+  {
+    "slug": "tillicum-park-chase-ranch-bend",
+    "field": "features",
+    "current": "picnic",
+    "proposed": "remove picnic",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/tillicum-parkchase-ranch/"
+    ],
+    "note": "BPRD: \"while the site is open to public use, there are no formal park amenities.\""
+  },
+  {
+    "slug": "sawyer-park-bend",
+    "field": "status_note",
+    "current": null,
+    "proposed": "Parking lot on O.B. Riley Rd closed for construction since October 26, 2026 (through about summer 2027). Park open to walkers and bikers via the Deschutes River Trail.",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/sawyer-park/",
+      "https://www.bendparksandrec.org/project/sawyerparkupgrades/"
+    ],
+    "note": "Status stays active. The current restroom is a portable toilet; a permanent restroom is part of the project."
+  },
+  {
+    "slug": "rockridge-park-bend",
+    "field": "notes",
+    "current": "Natural play area.",
+    "proposed": "Two play areas: a natural play area (juniper log forest, boulder scramble, climbing tree, hand-pump water play) and a traditional playground with a \"tree house\". Skatepark, bike skills course, disc golf.",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/rockridge-park/",
+      "https://www.bendparksandrec.org/parks-trails/natural-play-areas/"
+    ],
+    "note": "The current note implies nature-only play, but the park also has a traditional structure (OSM playground=structure node/5312205390). play=playground is correct. The BPRD \"Water Play Feature\" is a hand-pump water course, not a splash pad."
+  },
+  {
+    "slug": "rockridge-park-bend",
+    "field": "features",
+    "current": "(no climbing)",
+    "proposed": "+climbing",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/rockridge-park/"],
+    "note": "\"boulder scrambles and a climbing tree\" plus the tree-house structure."
+  },
+  {
+    "slug": "pine-ridge-park-bend",
+    "field": "features",
+    "current": "climbing",
+    "proposed": "+picnic, +shade, +restrooms",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/pine-ridge-park/"],
+    "note": "BPRD: \"a picnic area with shade shelter\", \"many mature trees\". The Features list includes Picnic Shelter and \"Restroom - Spring-Fall\". The current \"climbing\" tag is unverified; BPRD calls it a play \"garden\", and OSM has one playground=structure node inside the park."
+  },
+  {
+    "slug": "northpointe-park-bend",
+    "field": "features",
+    "current": "(no shade)",
+    "proposed": "+shade",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/northpointe-park/"],
+    "note": "\"traditional play structure with shade sails\"."
+  },
+  {
+    "slug": "northpointe-park-bend",
+    "field": "notes",
+    "current": "Skate park.",
+    "proposed": "Small skate spot for beginners. Play area has shade sails, musical instruments and a sensory discovery area.",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/northpointe-park/"],
+    "note": "BPRD: \"a small skate feature for beginning and intermediate riders\". \"Skate park\" overstates it."
+  },
+  {
+    "slug": "stover-park-bend",
+    "field": "features",
+    "current": "(no shade)",
+    "proposed": "+shade",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/stover-park/"],
+    "note": "\"The playground has several good shade trees\"."
+  },
+  {
+    "slug": "overturf-park-bend",
+    "field": "features",
+    "current": "(no shade)",
+    "proposed": "+shade",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/overturf-park/"],
+    "note": "\"lawn with shade trees\"."
+  },
+  {
+    "slug": "overturf-park-bend",
+    "field": "notes",
+    "current": null,
+    "proposed": "Off-leash dog area is next door on the City of Bend Overturf Butte Reservoir property, reached by trail from the park.",
+    "confidence": "medium",
+    "sources": [
+      "https://www.bendparksandrec.org/park/overturf-park/",
+      "https://www.openstreetmap.org/way/276897862"
+    ],
+    "note": "Keeps dog_park, which BPRD lists, while staying accurate: the off-leash area is not inside the park (OSM puts it about 230 m away)."
+  },
+  {
+    "slug": "three-pines-park-bend",
+    "field": "features",
+    "current": "[]",
+    "proposed": "+picnic",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/three-pines-park/"],
+    "note": "\"features a picnic table and playground structure\"."
+  },
+  {
+    "slug": "three-pines-park-bend",
+    "field": "features",
+    "current": "[]",
+    "proposed": "+toddler_area",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/three-pines-park/"],
+    "note": "\"playground structure for young children with a railroad theme\". The whole structure is for young children, not a separate toddler zone."
+  },
+  {
+    "slug": "wildflower-park-bend",
+    "field": "features",
+    "current": "(no toddler_area)",
+    "proposed": "+toddler_area",
+    "confidence": "medium",
+    "sources": ["https://www.bendparksandrec.org/park/wildflower-park/"],
+    "note": "\"two playground areas for different ages\". OSM shows two playground polygons (way/784084917, way/784084918)."
+  },
+  {
+    "slug": "riverview-park-bend",
+    "field": "features",
+    "current": "picnic",
+    "proposed": "+water_view",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/riverview-park/"],
+    "note": "\"small roadside riverfront overlook\", with a wood bridge for river viewing."
+  },
+  {
+    "slug": "pageant-park-bend",
+    "field": "features",
+    "current": "picnic, water_view",
+    "proposed": "+shade",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/pageant-park/"],
+    "note": "\"shaded benches and tables\"."
+  },
+  {
+    "slug": "riley-ranch-nature-reserve-bend",
+    "field": "notes",
+    "current": "Trails through a nature reserve.",
+    "proposed": "Trails through a nature reserve. No dogs (even leashed) and no bikes. Open sunrise to sunset.",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/riley-ranch-nature-reserve/"
+    ],
+    "note": "Families arriving with a dog would be turned away. The coordinates sit about 136 m outside the OSM reserve polygon (likely the Glen Vista Rd trailhead); within tolerance."
+  },
+  {
+    "slug": "pacific-crest-athletic-fields-bend",
+    "field": "notes",
+    "current": null,
+    "proposed": "School-district fields: reserved for school use during school hours; open for drop-in use after school, weekends and summer when not reserved.",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/pacific-crest-athletic-fields/"
+    ],
+    "note": "Public, but only part-time."
+  },
+  {
+    "slug": "shevlin-park-bend",
+    "field": "notes",
+    "current": "Bend's big forest park: trails, Tumalo Creek and a stocked fishing pond.",
+    "proposed": "Bend's big forest park: trails, Tumalo Creek and a stocked fishing pond (pond fishing for kids 17 and under and anglers with disabilities).",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/pine-nursery-park/",
+      "https://www.bendparksandrec.org/park/shevlin-park/"
+    ],
+    "note": "Optional precision. BPRD: \"Fishing at Shevlin Park pond is open to youth, 17 years and under, and anglers with disabilities.\""
+  },
+  {
+    "slug": "millers-landing-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/millers-landing-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "mountain-view-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/mountain-view-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "overturf-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/overturf-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "pacific-crest-athletic-fields-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/pacific-crest-athletic-fields/"
+    ],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "pacific-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/pacific-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "pilot-butte-neighborhood-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/pilot-butte-neighborhood-park/"
+    ],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "pine-nursery-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/pine-nursery-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "pioneer-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/pioneer-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "ponderosa-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/ponderosa-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "providence-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/providence-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "riley-ranch-nature-reserve-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": [
+      "https://www.bendparksandrec.org/park/riley-ranch-nature-reserve/"
+    ],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "riverbend-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/riverbend-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "riverview-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/riverview-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "rockridge-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/rockridge-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "shevlin-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/shevlin-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "skyline-sports-complex-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/skyline-sports-complex/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "stone-creek-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/stone-creek/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "summit-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/summit-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "woodriver-park-bend",
+    "field": "features",
+    "current": "(no parking)",
+    "proposed": "+parking",
+    "confidence": "high",
+    "sources": ["https://www.bendparksandrec.org/park/woodriver-park/"],
+    "note": "Low priority. The BPRD page lists \"Lot Parking\". No park in this batch currently carries the parking key, which looks systemic. Excludes Sawyer (lot closed) and Three Pines (ADA stalls only)."
+  },
+  {
+    "slug": "american-legion-community-park-redmond",
+    "field": "features",
+    "current": "climbing,sports_courts",
+    "proposed": "add restrooms,picnic,parking,trail",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/12/"
+    ],
+    "note": "City directory: Play Structures, Restrooms (portable toilets in winter), Picnic Tables, Paved Parking, Walking Path/Trails, Baseball Diamond."
+  },
+  {
+    "slug": "baker-park-redmond",
+    "field": "features",
+    "current": "(none)",
+    "proposed": "add restrooms,picnic,parking,trail",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/14/"
+    ],
+    "note": "City directory: Play Structures, Pavilion, Picnic Tables, Restrooms (portable toilets in winter), Paved Parking, Walking Path/Trails."
+  },
+  {
+    "slug": "centennial-park-redmond",
+    "field": "features",
+    "current": "splash_pad",
+    "proposed": "add restrooms",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/18/2751",
+      "https://redmondspokesman.com/2023/10/31/city-parks-keep-redmond-looking-green"
+    ],
+    "note": "City directory: Restrooms open year-round, Water Feature/Splash Park, concession stand; no Play Structures listed, so play=none stands. Spray park runs Memorial Day to Labor Day, 10 a.m. to 6 p.m. Spokesman lists a shade pavilion (shade)."
+  },
+  {
+    "slug": "centennial-park-redmond",
+    "field": "features",
+    "current": "splash_pad",
+    "proposed": "add shade",
+    "confidence": "medium",
+    "sources": [
+      "https://redmondspokesman.com/2023/10/31/city-parks-keep-redmond-looking-green"
+    ],
+    "note": "Spokesman 2023: shade pavilion."
+  },
+  {
+    "slug": "centennial-park-redmond",
+    "field": "play",
+    "current": "none",
+    "proposed": "none (keep) - check in person",
+    "confidence": "low",
+    "sources": ["https://www.openstreetmap.org/way/1040398801"],
+    "note": "OSM maps an untagged leisure=playground polygon inside the park (2022 edit), likely the splash plaza. City amenity list has no play structure. Keep none; confirm on a visit."
+  },
+  {
+    "slug": "diamond-bar-ranch-park-redmond",
+    "field": "features",
+    "current": "sports_courts",
+    "proposed": "add restrooms,picnic,trail",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/20/2751"
+    ],
+    "note": "City directory (Diamond Bar Ranch Pavilion): Basketball Court, Pavilion, Picnic Tables, Play Structures, Restrooms, Walking Path/Trails."
+  },
+  {
+    "slug": "fairhaven-park-redmond",
+    "field": "features",
+    "current": "sports_courts",
+    "proposed": "add restrooms,picnic,trail",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/26/"
+    ],
+    "note": "City directory: Basketball Court, Horseshoe Pits, Picnic Tables, Play Structures, Restrooms (portable toilets in winter), Walking Path/Trails."
+  },
+  {
+    "slug": "hayden-park-redmond",
+    "field": "features",
+    "current": "restrooms",
+    "proposed": "add picnic,parking",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/30/2751"
+    ],
+    "note": "City directory: BBQ, Paved Parking, Picnic Tables, Play Structures, Restrooms."
+  },
+  {
+    "slug": "kalama-park-redmond",
+    "field": "features",
+    "current": "sports_courts",
+    "proposed": "add restrooms,picnic",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/34",
+      "https://bendbulletin.com/2020/02/15/kalama-park-in-redmond-getting-new-playground"
+    ],
+    "note": "City directory: Baseball Diamond, Basketball Court, BBQ, Picnic Tables, Play Structures, Restrooms. Playground replaced 2020."
+  },
+  {
+    "slug": "quartz-park-redmond",
+    "field": "notes",
+    "current": "Modern playground with varied climbing, next to the skate park. New in 2023.",
+    "proposed": "Newer city park with a playground, pavilion, skate dots, a bike skills course, horseshoes and year-round restrooms.",
+    "confidence": "high",
+    "sources": [
+      "https://ktvz.com/news/redmond/2024/09/10/weekly-park-pick-quartz-park-in-redmond-offers-variety-of-features-for-all-to-enjoy/",
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/2308/2751",
+      "https://romtec.com/portfolio/quartz-park"
+    ],
+    "note": "No skate park next to Quartz Park; the Redmond Skatepark is at SW 15th St and Antler Ave, about 2 km away. Quartz has \"skate dots\". Opening year 2023 not confirmed by a source I could read (dedication article rate-limited); drop the year or confirm."
+  },
+  {
+    "slug": "quartz-park-redmond",
+    "field": "features",
+    "current": "climbing",
+    "proposed": "add restrooms,picnic,parking,trail",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/2308/2751"
+    ],
+    "note": "City directory: BBQ, Paved Parking, Pavilion, Picnic Tables, Play Structures, Restrooms open year-round, Walking Path/Trails."
+  },
+  {
+    "slug": "quince-park-redmond",
+    "field": "features",
+    "current": "trail",
+    "proposed": "add restrooms,picnic,parking",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/38/342"
+    ],
+    "note": "City directory: BBQ, Paved Parking, Pavilion, Picnic Tables, Play Structures, Restrooms (open year-round), Walking Path/Trails."
+  },
+  {
+    "slug": "sam-johnson-park-redmond",
+    "field": "features",
+    "current": "toddler_area,accessible,sports_courts",
+    "proposed": "add zipline,restrooms,picnic,parking",
+    "confidence": "medium",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/40/",
+      "https://bendmagazine.com/hope-playground/"
+    ],
+    "note": "City directory: Pavilion, Picnic Tables, Paved Parking, Restrooms (portable toilets in winter), tennis/pickleball/basketball. Bend Magazine: Hope Playground has dual zip lines. Toddler area is supported only by travel guides (keep, medium)."
+  },
+  {
+    "slug": "spruce-park-redmond",
+    "field": "features",
+    "current": "(none)",
+    "proposed": "add restrooms,picnic,trail",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/2313/2751"
+    ],
+    "note": "City directory (Spruce Park Pavilion, 2910 NW 25th St): Pavilion, Picnic Tables, Play Structures, Restrooms, Trails. OSM has no playground mapped yet; city confirms play structures."
+  },
+  {
+    "slug": "umatilla-sports-complex-redmond",
+    "field": "features",
+    "current": "sports_courts",
+    "proposed": "add restrooms,picnic,parking,trail",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/48/"
+    ],
+    "note": "City directory: Baseball Diamond, Soccer Field, Picnic Tables, Play Structures, Restrooms (portable toilets in winter), Paved Parking, Walking Path."
+  },
+  {
+    "slug": "umatilla-sports-complex-redmond",
+    "field": "notes",
+    "current": "City of Redmond sports fields with a playground mapped in OpenStreetMap.",
+    "proposed": "City of Redmond sports fields with a playground, picnic tables and restrooms.",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/48/"
+    ],
+    "note": "Playground now confirmed by the city directory, not just OSM."
+  },
+  {
+    "slug": "varnish-park-redmond",
+    "field": "features",
+    "current": "(none)",
+    "proposed": "add picnic,sports_courts,trail",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/2312/2751"
+    ],
+    "note": "City directory (3370 NW 16th St): Basketball Court, Pavilion, Picnic Tables, Play Structures, Walking Path/Trails; Portable Toilets thru Winter only (no permanent restroom listed, so do not add restrooms)."
+  },
+  {
+    "slug": "west-canyon-rim-park-redmond",
+    "field": "features",
+    "current": "trail,sports_courts",
+    "proposed": "add restrooms,picnic",
+    "confidence": "high",
+    "sources": [
+      "https://www.redmondoregon.gov/Home/Components/FacilityDirectory/FacilityDirectory/52/336"
+    ],
+    "note": "City directory: Basketball Court, Picnic Tables, Play Structures, Restrooms, Walking Path/Trails (portable toilets in winter)."
+  },
+  {
+    "slug": "high-desert-sports-complex-redmond",
+    "field": "features",
+    "current": "sports_courts",
+    "proposed": "add restrooms,parking",
+    "confidence": "medium",
+    "sources": [
+      "https://www.redmondinn.net/events.html",
+      "https://www.raprd.org/parks",
+      "https://www.openstreetmap.org/way/1480492723"
+    ],
+    "note": "Restrooms and concession per secondary sources; playground mapped in OSM (recent edit) and mentioned by a third-party listing only. RAPRD page does not list amenities. Play=playground not officially confirmed: check in person."
+  },
+  {
+    "slug": "crooked-river-park-prineville",
+    "field": "features",
+    "current": "shade,restrooms,picnic,water_view,sports_courts,dog_park",
+    "proposed": "add parking (optional); keep all",
+    "confidence": "high",
+    "sources": ["https://www.ccprd.org/crooked-river-park"],
+    "note": "CCPRD confirms two children's playground areas (named Kiwanis Play Area in OSM), Fenced Dog Park, pavilion restrooms, river access, ball/soccer fields. Note is accurate."
+  },
+  {
+    "slug": "gervais-park-prineville",
+    "field": "water_view",
+    "current": "listed",
+    "proposed": "keep (Crooked River access per CCPRD)",
+    "confidence": "medium",
+    "sources": ["https://www.ccprd.org/gervis-park"],
+    "note": "CCPRD: play structure, children's play and learning area, picnic shelter, nature trails, gazebo, access to the Crooked River. No restrooms listed. OSM has no playground polygon here; official page confirms one."
+  },
+  {
+    "slug": "harwood-park-prineville",
+    "field": "features",
+    "current": "shade,restrooms,picnic,trail",
+    "proposed": "add water_view",
+    "confidence": "high",
+    "sources": ["https://www.ccprd.org/harwood-park"],
+    "note": "CCPRD: along Ochoco Creek, playground installed 2019, restrooms, shaded areas, covered picnic, walking trail. Note accurate."
+  },
+  {
+    "slug": "ochoco-creek-park-prineville",
+    "field": "features",
+    "current": "shade,restrooms,picnic,trail,sports_courts",
+    "proposed": "add swings,slides,climbing,water_view",
+    "confidence": "medium",
+    "sources": [
+      "https://www.ccprd.org/ochoco-creek-park",
+      "https://www.openstreetmap.org/way/601957891"
+    ],
+    "note": "CCPRD: playground, ADA restrooms, pavilions, paved path, basketball courts. OSM: Castle Park, a large wooden structure with monkey bars, swings and slides, heavily shaded by trees."
+  },
+  {
+    "slug": "pioneer-park-prineville",
+    "field": "features",
+    "current": "toddler_area,shade,restrooms,picnic",
+    "proposed": "keep; shade unconfirmed",
+    "confidence": "low",
+    "sources": ["https://www.ccprd.org/pioneer-park"],
+    "note": "CCPRD confirms toddler playground (Kiddie Park), ADA restrooms, picnic tables, Pioneer Cabin Museum. Shade is not mentioned: check in person."
+  },
+  {
+    "slug": "stryker-park-prineville",
+    "field": "features",
+    "current": "splash_pad,toddler_area,accessible,shade,picnic,sports_courts",
+    "proposed": "keep splash_pad,toddler_area,accessible; shade/picnic/sports_courts unconfirmed",
+    "confidence": "medium",
+    "sources": [
+      "https://ccprd.org/styrker-park",
+      "https://ccprd.org/kiwanis-splash-pad"
+    ],
+    "note": "CCPRD: Kiwanis Splash Park (June to September, 9 a.m. to 8 p.m.), phase-1 playground for ages 2-5, Inclusive Playground installed 2024. Courts/picnic not listed on the Stryker page (Stryker II Field nearby has picnic shelter and restrooms)."
+  },
+  {
+    "slug": "yellowpine-park-prineville",
+    "field": "features",
+    "current": "shade,restrooms,picnic",
+    "proposed": "keep; shade via gazebo",
+    "confidence": "high",
+    "sources": ["https://www.ccprd.org/yellowpine-park"],
+    "note": "CCPRD: large playground, reservable gazebo, ADA restrooms. Note accurate."
+  },
+  {
+    "slug": "cliff-clemens-park-sisters",
+    "field": "features",
+    "current": "swings,quiet",
+    "proposed": "add climbing,spinny,slides",
+    "confidence": "high",
+    "sources": [
+      "https://nuggetnews.com/story/2011/08/23/news/new-playground-opens-in-sisters/20117.html",
+      "https://centraloregondad.blogspot.com/2013/05/cliff-clemens-park-sisters.html"
+    ],
+    "note": "Nugget Aug 2011: swing set (first in a Sisters city park), climbing structure and rotating cups; note verified. Address 550 N Larch St."
+  },
+  {
+    "slug": "cliff-clemens-park-sisters",
+    "field": "address",
+    "current": "null",
+    "proposed": "550 N Larch St, Sisters, OR 97759",
+    "confidence": "high",
+    "sources": ["https://www.ci.sisters.or.us/publicworks/page/city-parks"],
+    "note": "City parks page address (via search snippet; page blocks direct fetch)."
+  },
+  {
+    "slug": "village-green-park-sisters",
+    "field": "notes",
+    "current": "...The city won a 2019 state grant to replace the play structure.",
+    "proposed": "...A new play structure (climbing rocks, multiple slides, traverse equipment, swing) was installed in spring 2020.",
+    "confidence": "high",
+    "sources": [
+      "https://redmondspokesman.com/2020/03/18/sisters-to-install-new-playground-at-village-green-park/"
+    ],
+    "note": "Replacement is done; update note so it does not read as pending."
+  },
+  {
+    "slug": "village-green-park-sisters",
+    "field": "features",
+    "current": "shade,restrooms,picnic",
+    "proposed": "add swings,slides,climbing",
+    "confidence": "high",
+    "sources": [
+      "https://redmondspokesman.com/2020/03/18/sisters-to-install-new-playground-at-village-green-park/"
+    ],
+    "note": "2020 structure: climbing rocks, multiple slides, swing."
+  },
+  {
+    "slug": "village-green-park-sisters",
+    "field": "address",
+    "current": "null",
+    "proposed": "305 S Fir St, Sisters, OR 97759",
+    "confidence": "high",
+    "sources": ["https://www.ci.sisters.or.us/publicworks/page/city-parks"],
+    "note": ""
+  },
+  {
+    "slug": "coffield-community-center-playground-sisters",
+    "field": "status",
+    "current": "active",
+    "proposed": "active (check in person)",
+    "confidence": "low",
+    "sources": [
+      "https://www.nuggetnews.com/story/2019/12/10/news/sprd-has-served-sisters-for-two-decades/30195.html",
+      "https://sistersrecreation.com/parks",
+      "https://sistersrecreation.com/wp-content/uploads/2025/06/2025.06.24_BoardPacket-1.pdf",
+      "https://www.openstreetmap.org/way/568035957"
+    ],
+    "note": "Playground is mapped in OSM and described by the Nugget (2019) on the 15 acres around the Coffield Center (1750 W McKinney Butte Rd), leased from the school district. SPRD moved its hub to the Sisters Community Recreation Center (611 E Cascade) in 2025 and re-signed a Coffield lease in June 2025; SPRD's parks page no longer mentions a Coffield playground. Confirm it is still there and public."
+  },
+  {
+    "slug": "coffield-community-center-playground-sisters",
+    "field": "address",
+    "current": "null",
+    "proposed": "1750 W McKinney Butte Rd, Sisters, OR 97759",
+    "confidence": "high",
+    "sources": ["https://sistersrecreation.com/parks"],
+    "note": ""
+  },
+  {
+    "slug": "fort-rock-park-sunriver",
+    "field": "notes",
+    "current": "Nature-themed treehouse playground in the pines, with swings and a spinning net climber.",
+    "proposed": "Big playground in the pines next to a large field, tennis/pickleball, basketball and volleyball courts. Open to owners and visitors.",
+    "confidence": "low",
+    "sources": [
+      "https://sunriverchamber.com/parks/",
+      "https://www.sunriverowners.org/Home/Components/FacilityDirectory/FacilityDirectory/28/1173",
+      "https://sunriverowners.org/home/showpublisheddocument/2456/638151654373730000"
+    ],
+    "note": "No source found for a treehouse theme or a spinning net climber (an SROA plan lists a nature play area only as a proposed project). Keep the specific equipment claims and swings/spinny out unless confirmed in person."
+  },
+  {
+    "slug": "fort-rock-park-sunriver",
+    "field": "features",
+    "current": "swings,climbing,spinny,restrooms,picnic,sports_courts",
+    "proposed": "keep restrooms,picnic,sports_courts; swings/climbing/spinny check in person",
+    "confidence": "low",
+    "sources": [
+      "https://www.sunriverowners.org/Home/Components/FacilityDirectory/FacilityDirectory/28/1173"
+    ],
+    "note": "SROA amenities: Ballfield, Barbecues, Basketball, Horseshoes, Pavilion, Pickleball, Picnic Tables, Playground, Restroom, Tennis, Volleyball. Specific equipment not listed."
+  },
+  {
+    "slug": "paulina-park-sunriver",
+    "field": "features",
+    "current": "climbing,shade,restrooms,picnic",
+    "proposed": "keep; add sports_courts (bocce)",
+    "confidence": "medium",
+    "sources": ["https://sunriverchamber.com/parks/"],
+    "note": "Playground, rock climbing wall, bocce, restrooms, picnic tables, pavilion; behind the SHARC amphitheater. Open to owners and visitors (SROA). Shade unconfirmed."
+  },
+  {
+    "slug": "finley-butte-park-la-pine",
+    "field": "name",
+    "current": "Finley Butte Park",
+    "proposed": "Finley Butte Sports Complex & Park",
+    "confidence": "medium",
+    "sources": ["https://lapineparks.org/finley-butte-sports-complex-park/"],
+    "note": "Official LPPRD name. Playgrounds, three ball fields, outdoor pickleball, picnic area, restroom facilities confirmed. OSM has no park or playground mapped here."
+  },
+  {
+    "slug": "frontier-heritage-park-la-pine",
+    "field": "features",
+    "current": "restrooms,picnic",
+    "proposed": "keep (verified)",
+    "confidence": "high",
+    "sources": [
+      "https://lapineparks.org/frontier-heritage-park/",
+      "https://lapineparks.org/wp-content/uploads/2026/07/%5E2026-27-ADOPTED-BUDGET-DOCUMENT-La-Pine-Park-Rec.pdf"
+    ],
+    "note": "Playground, fountain, public restrooms, picnic tables. The 2026-27 budget lists a splash pad installation at Heritage Park: planned, not built. Do NOT add splash_pad yet."
+  },
+  {
+    "slug": "juniper-hill-park-madras",
+    "field": "name",
+    "current": "Juniper Hill Park",
+    "proposed": "Juniper Hills Park",
+    "confidence": "medium",
+    "sources": [
+      "https://www.ci.madras.or.us/publicworks/park/juniper-hills-park",
+      "https://www.openstreetmap.org/way/353942624"
+    ],
+    "note": "City page spells it Juniper Hills Park; GNIS/OSM say Juniper Hill Park. Either is recognizable; city spelling preferred."
+  },
+  {
+    "slug": "juniper-hill-park-madras",
+    "field": "features",
+    "current": "restrooms,sports_courts",
+    "proposed": "keep; add slides (spiral slide)",
+    "confidence": "medium",
+    "sources": [
+      "https://www.ci.madras.or.us/publicworks/park/juniper-hills-park",
+      "https://madraspioneer.com/2013/06/26/just-kidding-summer-fun-with-your-kids/"
+    ],
+    "note": "City: basketball court, children's play structure, disc golf, restrooms, soccer fields. Two playgrounds mapped in OSM (ways 438313014, 926835144)."
+  },
+  {
+    "slug": "sahalee-park-madras",
+    "field": "features",
+    "current": "sports_courts",
+    "proposed": "add toddler_area,restrooms,picnic,shade",
+    "confidence": "high",
+    "sources": ["https://www.madras.gov/publicworks/park/sahalee-park"],
+    "note": "City: children's play structure, toddler play area, covered eating area, covered pavilion, picnic tables, restrooms. A splash pad appears only on an aggregator; a 2019 KBND story says one was being fundraised. Not confirmed: do not add splash_pad without an in-person check."
+  },
+  {
+    "slug": "sahalee-park-madras",
+    "field": "address",
+    "current": "null",
+    "proposed": "1 SE 7th St, Madras, OR 97741 (approx.)",
+    "confidence": "medium",
+    "sources": ["https://www.mapquest.com/us/oregon/sahalee-park-435160394"],
+    "note": ""
+  },
+  {
+    "slug": "culver-city-park-culver",
+    "field": "features",
+    "current": "splash_pad,sports_courts",
+    "proposed": "add restrooms,picnic",
+    "confidence": "high",
+    "sources": [
+      "https://madraspioneer.com/2025/10/30/culver-skate-park-opens-with-celebration-after-six-years-of-community-effort/",
+      "https://www.dreamlandskateparks.com/culver-oregon"
+    ],
+    "note": "Madras Pioneer (October 30, 2025): existing picnic areas, restrooms and splash pad; skatepark, pump track and pickleball opened October 26, 2025."
+  },
+  {
+    "slug": "culver-city-park-culver",
+    "field": "play",
+    "current": "playground",
+    "proposed": "playground - check in person",
+    "confidence": "low",
+    "sources": [
+      "https://www.yelp.com/biz/culver-city-park-culver",
+      "https://www.openstreetmap.org/way/321354709"
+    ],
+    "note": "Only a Yelp review mentions playgrounds. No official source; OSM maps no playground in the park (nearest is the school playground about 450 m away). The current note already flags this. Visit before featuring."
+  },
+  {
+    "slug": "panorama-park-crooked-river-ranch",
+    "field": "features",
+    "current": "restrooms",
+    "proposed": "add trail,parking",
+    "confidence": "medium",
+    "sources": [
+      "https://www.geocaching.com/geocache/GC7R841_panorama-park",
+      "https://crookedriverrealty.com/play/"
+    ],
+    "note": "Five-acre park at Panorama Cir and Peninsula Dr with paved walking paths, playground and public restrooms (secondary sources). Playground mapped in OSM (way 1052532548). Ownership/access (CRR Club & Maintenance Association vs. county) not confirmed by an official source."
+  },
+  {
+    "slug": "smith-rock-state-park-terrebonne",
+    "field": "features",
+    "current": "shade,restrooms,picnic,trail,sports_courts",
+    "proposed": "remove sports_courts; add parking,water_view",
+    "confidence": "medium",
+    "sources": [
+      "https://stateparks.oregon.gov/index.cfm?do=park.profile&parkId=36"
+    ],
+    "note": "No sports courts at Smith Rock (OPRD lists none). Day-use parking permit required; Crooked River runs through the park. Leash law enforced, so dog_friendly (leashed) is reasonable. OSM maps a \"playground\" (node 5501870691) at the Welcome Center bouldering practice rock; that is not a playground, so play=none is right."
+  },
+  {
+    "slug": "smith-rock-state-park-terrebonne",
+    "field": "features",
+    "current": "shade",
+    "proposed": "remove shade - check in person",
+    "confidence": "low",
+    "sources": [
+      "https://stateparks.oregon.gov/index.cfm?do=park.profile&parkId=36"
+    ],
+    "note": "The park is mostly open rock and juniper with little shade; OPRD does not mention shade. Low confidence."
+  },
+  {
+    "slug": "smith-rock-state-park-terrebonne",
+    "field": "notes",
+    "current": "No playground, but the most spectacular park near Bend...",
+    "proposed": "append: Construction advisory December 1, 2026 to May 31, 2027: overflow lot, parts of the Rim Rock and North Point Loop trails and an adjacent lot have periodic closures. Day-use parking permit required.",
+    "confidence": "high",
+    "sources": [
+      "https://stateparks.oregon.gov/index.cfm?do=park.profile&parkId=36"
+    ],
+    "note": "Status stays active; partial closures only."
+  },
+  {
+    "slug": "NEW:Sisters Community Park",
+    "field": "new_park",
+    "current": null,
+    "proposed": {
+      "name": "Sisters Community Park",
+      "city": "Sisters",
+      "lat": 44.2903,
+      "lng": -121.5415,
+      "address": "611 E Cascade Ave, Sisters, OR 97759",
+      "play": "playground",
+      "status": "active",
+      "features": ["restrooms", "picnic", "sports_courts", "parking"]
+    },
+    "confidence": "high",
+    "sources": [
+      "https://sistersrecreation.com/parks/sisters-community-park",
+      "https://www.openstreetmap.org/way/418654051"
+    ],
+    "note": "SPRD park on the former Sisters Elementary site; opened late fall 2025; playground, restrooms, picnic shelter, basketball and pickleball. Coordinates are the 611 E Cascade site (former school building); playground not yet in OSM, so fine-tune the pin on a visit. A pre-K play area at the rec center is public outside childcare hours."
+  },
+  {
+    "slug": "NEW:Crescent Park",
+    "field": "new_park",
+    "current": null,
+    "proposed": {
+      "name": "Crescent Park",
+      "city": "Madras",
+      "lat": 44.63015,
+      "lng": -121.10369,
+      "address": "SE Honeysuckle Loop, Madras, OR 97741",
+      "play": "playground",
+      "status": "active",
+      "features": ["picnic"]
+    },
+    "confidence": "high",
+    "sources": [
+      "https://www.madras.gov/Facilities/Facility/Details/Crescent-Park-7",
+      "https://www.openstreetmap.org/way/781471211"
+    ],
+    "note": "City: children's play structure, picnic tables, benches. OSM playground on Honeysuckle Loop."
+  },
+  {
+    "slug": "NEW:Bean Park",
+    "field": "new_park",
+    "current": null,
+    "proposed": {
+      "name": "Bean Park",
+      "city": "Madras",
+      "lat": 44.63632,
+      "lng": -121.1151,
+      "address": "NE B St, Madras, OR 97741",
+      "play": "playground",
+      "status": "active",
+      "features": ["restrooms", "picnic", "sports_courts"]
+    },
+    "confidence": "medium",
+    "sources": [
+      "https://www.madras.gov/Facilities/Facility/Details/Bean-Park-6",
+      "https://www.openstreetmap.org/"
+    ],
+    "note": "City: basketball court, BBQs, children's play structure, picnic tables, restrooms. Coordinates from the OSM leisure=park \"Bean Park\" polygon center; no playground mapped there, and the street address varies by source. Confirm pin."
+  },
+  {
+    "slug": "NEW:Ochoco Pointe playground",
+    "field": "new_park",
+    "current": null,
+    "proposed": {
+      "name": "Ochoco Pointe Playground",
+      "city": "Prineville",
+      "lat": 44.3125,
+      "lng": -120.83365,
+      "address": "1131 NE Sunrise St, Prineville, OR 97754",
+      "play": "playground",
+      "status": "active?",
+      "features": ["sports_courts"]
+    },
+    "confidence": "low",
+    "sources": [
+      "https://www.openstreetmap.org/way/601936983",
+      "https://worldofplaygrounds.com/playgrounds/united-states/oregon-1/prineville/pahlisch-playground/"
+    ],
+    "note": "Subdivision playground with a basketball court (OSM). Not on CCPRD or city lists; may be HOA-owned. Add only if public access is confirmed."
+  },
+  {
+    "slug": "NEW:McKenzie Meadow Village park",
+    "field": "new_park",
+    "current": null,
+    "proposed": {
+      "name": "McKenzie Meadow Village Park",
+      "city": "Sisters",
+      "play": "playground",
+      "status": "active?"
+    },
+    "confidence": "low",
+    "sources": [
+      "https://nuggetnews.com/story/2021/12/08/news/park-opens-at-mckenzie-meadows/32672.html"
+    ],
+    "note": "HOA-owned 1.96-acre park in a Hayden Homes subdivision, open to the public under a public access agreement; play structure with slides. Coordinates not pinned (likely one of the OSM playgrounds near N Trinity Way / W McKinney Butte, e.g. 44.29743,-121.56723). Check before adding."
+  }
+]

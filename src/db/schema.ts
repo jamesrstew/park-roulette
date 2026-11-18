@@ -53,6 +53,16 @@ export const explorers = pgTable(
      * and tap tags; only grown-ups write words or add photos.
      */
     isKid: boolean("is_kid").notNull().default(false),
+    /**
+     * Park news by email (optional, never at sign-up). Grown-ups in a
+     * trusted session only. Not used for sign-in or recovery (yet).
+     */
+    email: text("email"),
+    emailOptIn: boolean("email_opt_in").notNull().default(false),
+    /** For a confirmation email later; nothing confirms yet. */
+    emailConfirmedAt: timestamp("email_confirmed_at", { withTimezone: true }),
+    /** Answered the one-time park news card (yes or no thanks). */
+    parkNewsAskedAt: timestamp("park_news_asked_at", { withTimezone: true }),
     /** Can moderate: hide reviews, settle park fixes. Set by hand. */
     isAdmin: boolean("is_admin").notNull().default(false),
     /** When this grown-up agreed to the Terms and Privacy Policy. */
@@ -306,6 +316,33 @@ export const alertLog = pgTable("alert_log", {
   /** How many times it happened since the last email. */
   suppressed: integer("suppressed").notNull().default(0),
 });
+
+/**
+ * Every park news yes/no, append-only: when, where in the app, and which
+ * version of the words people saw (CONSENT_TEXT in lib/park-news.ts).
+ * Deleted with the explorer (email needs no long-term proof).
+ */
+export const contactConsents = pgTable(
+  "contact_consents",
+  {
+    id: serial("id").primaryKey(),
+    explorerId: integer("explorer_id")
+      .notNull()
+      .references(() => explorers.id, { onDelete: "cascade" }),
+    /** email (sms comes later, after carrier registration) */
+    channel: text("channel").notNull(),
+    /** opt_in | opt_out | change */
+    action: text("action").notNull(),
+    address: text("address").notNull(),
+    consentVersion: text("consent_version").notNull(),
+    /** stamp_card | passport_card | settings */
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("contact_consents_explorer").on(t.explorerId)],
+);
 
 export type Crew = typeof crews.$inferSelect;
 export type Explorer = typeof explorers.$inferSelect;

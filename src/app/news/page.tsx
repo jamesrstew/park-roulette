@@ -5,7 +5,7 @@ import { Feed } from "@/components/news/Feed";
 import { getMe } from "@/lib/data";
 import { getFeed } from "@/lib/data-feed";
 
-export const metadata: Metadata = { title: "What's new" };
+export const metadata: Metadata = { title: "The scoop" };
 
 async function News() {
   const me = await getMe();

@@ -24,7 +24,14 @@ async function Spin() {
   return (
     <>
       <AppMoments signedIn={!!me} />
-      <SpinScreen parks={parks} signedIn={!!me} />
+      <SpinScreen
+        parks={parks}
+        signedIn={!!me}
+        meId={me?.id ?? 0}
+        askParkNews={
+          !!me && !me.isKid && me.trusted && !me.emailOptIn && !me.parkNewsAsked
+        }
+      />
       {me && !me.phone && me.trusted ? <PhoneNudge /> : null}
       {me ? (
         <WelcomeSheet
