@@ -31,10 +31,7 @@ export type Me = {
   isAdmin: boolean;
   /** Has agreed to the Terms and Privacy Policy. */
   termsAccepted: boolean;
-  /** Park news email (only shown to me). */
-  email: string | null;
-  emailOptIn: boolean;
-  /** Answered the one-time park news card. */
+  /** Answered the one-time park picks ask (the welcome sheet). */
   parkNewsAsked: boolean;
   crew: {
     id: number;
@@ -63,8 +60,6 @@ export async function getMe(): Promise<Me | null> {
       isKid: explorers.isKid,
       isAdmin: explorers.isAdmin,
       termsAcceptedAt: explorers.termsAcceptedAt,
-      email: explorers.email,
-      emailOptIn: explorers.emailOptIn,
       parkNewsAskedAt: explorers.parkNewsAskedAt,
       crew: {
         id: crews.id,
@@ -89,8 +84,6 @@ export async function getMe(): Promise<Me | null> {
     isKid: row.isKid,
     isAdmin: row.isAdmin,
     termsAccepted: row.termsAcceptedAt != null,
-    email: row.email,
-    emailOptIn: row.emailOptIn,
     parkNewsAsked: row.parkNewsAskedAt != null,
     crew: row.crew,
   };

@@ -3,7 +3,7 @@ import { alertLater } from "./alerts";
 import { and, eq, gt, inArray, lt, sql } from "drizzle-orm";
 import { headers } from "next/headers";
 import { db } from "@/db";
-import { smsEvents } from "@/db/schema";
+import { explorers, smsEvents } from "@/db/schema";
 import { ipKey } from "./ip";
 
 /**
@@ -470,6 +470,13 @@ export async function checkCode(
       ip,
       known: false,
     });
+  // "When this number last passed a code": park texts only take a yes
+  // from a number that did in the last 30 days.
+  if (result === "approved")
+    await db
+      .update(explorers)
+      .set({ phoneVerifiedAt: sql`now()` })
+      .where(eq(explorers.phone, phone));
   await sweep();
   return result;
 }

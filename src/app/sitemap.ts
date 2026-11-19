@@ -9,6 +9,7 @@ import {
   townsOf,
 } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
+import { sentIssues } from "@/lib/news/data";
 
 /**
  * Every public page. lastmod is when its data really changed (a park added,
@@ -16,7 +17,7 @@ import { SITE_URL } from "@/lib/site";
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection(); // fresh data, not a build-time snapshot
-  const parks = await publicParks();
+  const [parks, issues] = await Promise.all([publicParks(), sentIssues()]);
   const towns = townsOf(parks);
   const at = (iso: string) => (iso ? new Date(iso) : undefined);
   return [
@@ -36,7 +37,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       url: `${SITE_URL}/parks/${p.slug}`,
       lastModified: at(p.updated),
     })),
-    { url: `${SITE_URL}/list` },
+    { url: `${SITE_URL}/list`, lastModified: at(newest(parks)) },
+    // The weekly email: its page changes when an issue goes out.
+    {
+      url: `${SITE_URL}/newsletter`,
+      lastModified: issues[0]?.sentAt,
+    },
+    ...issues.map((i) => ({
+      url: `${SITE_URL}/newsletter/${i.issueDate}`,
+      lastModified: i.sentAt,
+    })),
+    { url: `${SITE_URL}/texts` },
     { url: `${SITE_URL}/map` },
     { url: `${SITE_URL}/start` },
     { url: `${SITE_URL}/privacy` },

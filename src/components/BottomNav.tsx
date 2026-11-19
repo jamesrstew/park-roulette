@@ -58,6 +58,36 @@ const TABS = [
 
 const noSubscribe = () => () => {};
 
+/**
+ * Is the on-screen keyboard open? The visual viewport shrinks under it
+ * (the layout viewport doesn't, on iOS), so: open when it's under 75% of
+ * the window. Focus is the wrong signal: it fires with hardware keyboards
+ * too, and tapping a submit button blurs mid-tap.
+ */
+export function keyboardOpen(visual: number, inner: number): boolean {
+  return visual < inner * 0.75;
+}
+
+function subscribeViewport(onChange: () => void) {
+  const vv = window.visualViewport;
+  vv?.addEventListener("resize", onChange);
+  window.addEventListener("resize", onChange);
+  return () => {
+    vv?.removeEventListener("resize", onChange);
+    window.removeEventListener("resize", onChange);
+  };
+}
+
+function useKeyboardOpen(): boolean {
+  return useSyncExternalStore(
+    subscribeViewport,
+    () =>
+      !!window.visualViewport &&
+      keyboardOpen(window.visualViewport.height, window.innerHeight),
+    () => false,
+  );
+}
+
 export function BottomNav() {
   const path = usePathname();
   // Count in-app page views so Back buttons know if there's somewhere to go.
@@ -80,20 +110,26 @@ export function BottomNav() {
     : stored === "/list"
       ? "/list"
       : "/map";
-  return <NavBar path={path} parksHref={parks} />;
+  const keyboard = useKeyboardOpen();
+  return <NavBar path={path} parksHref={parks} hidden={keyboard} />;
 }
 
 /** Hook-free nav, also used as the static Suspense fallback. */
 export function NavBar({
   path,
   parksHref = "/map",
+  hidden = false,
 }: {
   path: string;
   parksHref?: string;
+  /** The keyboard is open: out of sight, the tab order and screen readers. */
+  hidden?: boolean;
 }) {
   return (
     <nav
       aria-label="Main"
+      inert={hidden}
+      style={hidden ? { visibility: "hidden" } : undefined}
       className="fixed inset-x-0 bottom-0 z-[1000] px-3 pb-[max(env(safe-area-inset-bottom),0.6rem)]"
     >
       <ul className="doodle-box mx-auto flex max-w-md items-stretch justify-around bg-[#fffdf7]/95 px-1 py-1 shadow-[3px_4px_0_#2b2a33] backdrop-blur">

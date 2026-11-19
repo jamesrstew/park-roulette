@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AvatarBlob } from "@/components/me/NameTag";
-import { ParkNewsAsk } from "@/components/ParkNews";
 import { NOINDEX } from "@/lib/site";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
@@ -120,13 +119,6 @@ async function Passport() {
         every={every}
         townsTotal={towns.size}
       />
-      {data.visits.length > 0 && (
-        <ParkNewsAsk
-          source="passport_card"
-          explorerId={me.id}
-          show={!me.isKid && me.trusted && !me.emailOptIn && !me.parkNewsAsked}
-        />
-      )}
       <Stamps stamps={[...stampMap.values()]} />
       <section aria-labelledby="stickers-h">
         <SectionTitle

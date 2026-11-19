@@ -4,6 +4,7 @@ import { SiteAnalytics } from "@/components/SiteAnalytics";
 import { SITE_URL } from "@/lib/site";
 import { Gochi_Hand, Shantell_Sans } from "next/font/google";
 import { Suspense } from "react";
+import { SiteFooter } from "@/components/SiteFooter";
 import { BottomNav, NavBar } from "@/components/BottomNav";
 import { CrayonDefs } from "@/components/CrayonDefs";
 import { HelloToast } from "@/components/HelloToast";
@@ -72,6 +73,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </Suspense>
         <main className="mx-auto w-full max-w-xl flex-1 px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-32">
           {children}
+          <Suspense fallback={null}>
+            <SiteFooter />
+          </Suspense>
         </main>
         <Suspense fallback={<NavBar path="" />}>
           <BottomNav />

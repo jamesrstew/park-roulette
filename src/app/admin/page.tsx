@@ -7,6 +7,8 @@ import { getMe } from "@/lib/data";
 import { AdminStats } from "@/components/admin/AdminStats";
 import { getAdminQueue, getAdminStats } from "@/lib/data-admin";
 import { LIMITS } from "@/lib/sms";
+import { AdminNews } from "@/components/admin/AdminNews";
+import { newsAdmin } from "@/lib/news/data";
 
 export const metadata: Metadata = {
   title: "Admin",
@@ -17,7 +19,7 @@ async function Admin() {
   const me = await getMe();
   const queue = me ? await getAdminQueue(me) : null;
   if (!queue) notFound();
-  const stats = await getAdminStats();
+  const [stats, news] = await Promise.all([getAdminStats(), newsAdmin()]);
   return (
     <div className="flex flex-col gap-8">
       <AdminQueue queue={queue} />
@@ -25,6 +27,7 @@ async function Admin() {
         stats={stats}
         budgets={{ known: LIMITS.knownPerDay, unknown: LIMITS.unknownPerDay }}
       />
+      <AdminNews {...news} />
     </div>
   );
 }

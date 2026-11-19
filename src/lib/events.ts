@@ -23,7 +23,10 @@ export const EVENTS = {
   parkFix: "Park fix",
   reportSent: "Report sent",
   installed: "Installed",
-  parkNews: "Park news signup",
+  /** Bend Playground Passport, with a `source` (footer, newsletter, ...). */
+  emailSignup: "Email signup",
+  /** Weekend texts, with a `source`. */
+  textSignup: "Text signup",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

@@ -4,14 +4,17 @@ import { CrayonLoading } from "@/components/Loading";
 import { Feed } from "@/components/news/Feed";
 import { getMe } from "@/lib/data";
 import { getFeed } from "@/lib/data-feed";
+import { sentIssues } from "@/lib/news/data";
 
 export const metadata: Metadata = { title: "The scoop" };
 
 async function News() {
   const me = await getMe();
-  const items = await getFeed(me);
+  const [items, issues] = await Promise.all([getFeed(me), sentIssues(1)]);
   const now = new Date();
-  return <Feed items={items} signedIn={!!me} now={now.getTime()} />;
+  return (
+    <Feed items={items} issues={issues} signedIn={!!me} now={now.getTime()} />
+  );
 }
 
 export default function NewsPage() {

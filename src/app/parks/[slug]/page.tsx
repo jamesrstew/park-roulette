@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { featuredIn } from "@/lib/news/data";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { ParkView } from "@/components/park/ParkView";
@@ -52,9 +54,10 @@ async function ParkLoader({ params, searchParams }: Props) {
   const me = await getMe();
   const detail = await getParkDetail(slug, me);
   if (!detail) notFound();
-  const [fixes, all] = await Promise.all([
+  const [fixes, all, featured] = await Promise.all([
     pendingFixes(detail.park.id, me?.crew.id ?? null),
     publicParks(),
+    featuredIn(slug),
   ]);
   const town = townsOf(all).find((t) => t.slug === townSlug(detail.park.city));
   const townLink = town ? townPageHref(town) : "/towns";
@@ -79,6 +82,20 @@ async function ParkLoader({ params, searchParams }: Props) {
         townLink={townLink}
         justAdded={sp.added === "1"}
       />
+      {featured ? (
+        <p className="mt-4 text-sm text-ink-soft">
+          Featured in{" "}
+          <Link href={`/newsletter/${featured}`} className="underline">
+            Bend Playground Passport,{" "}
+            {new Date(`${featured}T12:00:00Z`).toLocaleDateString("en-US", {
+              timeZone: "UTC",
+              month: "short",
+              day: "numeric",
+            })}
+          </Link>
+          .
+        </p>
+      ) : null}
     </>
   );
 }

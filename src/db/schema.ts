@@ -1,12 +1,15 @@
 import { sql } from "drizzle-orm";
 import {
+  type AnyPgColumn,
   boolean,
   check,
   date,
   doublePrecision,
   index,
   integer,
+  jsonb,
   pgTable,
+  primaryKey,
   serial,
   text,
   timestamp,
@@ -59,8 +62,16 @@ export const explorers = pgTable(
      */
     email: text("email"),
     emailOptIn: boolean("email_opt_in").notNull().default(false),
-    /** For a confirmation email later; nothing confirms yet. */
+    /**
+     * Set when they tap the link in our confirmation email (double opt-in).
+     * Only confirmed addresses get Bend Playground Passport.
+     */
     emailConfirmedAt: timestamp("email_confirmed_at", { withTimezone: true }),
+    /**
+     * Random, per subscriber: the unsubscribe link in every email. Made at
+     * confirmation, cleared when they stop (so an old link does nothing).
+     */
+    emailToken: text("email_token").unique(),
     /** Answered the one-time park news card (yes or no thanks). */
     parkNewsAskedAt: timestamp("park_news_asked_at", { withTimezone: true }),
     /** Can moderate: hide reviews, settle park fixes. Set by hand. */
@@ -73,6 +84,8 @@ export const explorers = pgTable(
   },
   (t) => [
     uniqueIndex("explorers_crew_name").on(t.crewId, sql`lower(${t.name})`),
+    // Bounces and complaints are matched by address.
+    index("explorers_email").on(t.email),
   ],
 );
 
@@ -326,23 +339,394 @@ export const contactConsents = pgTable(
   "contact_consents",
   {
     id: serial("id").primaryKey(),
-    explorerId: integer("explorer_id")
-      .notNull()
-      .references(() => explorers.id, { onDelete: "cascade" }),
-    /** email (sms comes later, after carrier registration) */
+    /**
+     * The account that said it, when signed in. Null for an email signup
+     * with no account, and always null for texts (those are keyed by the
+     * phone number and outlive the account; see Privacy).
+     */
+    explorerId: integer("explorer_id").references(() => explorers.id, {
+      onDelete: "cascade",
+    }),
+    /** The email subscriber row this is about (email only). */
+    subscriberId: integer("subscriber_id").references(
+      (): AnyPgColumn => emailSubscribers.id,
+      { onDelete: "cascade" },
+    ),
+    /** email | sms */
     channel: text("channel").notNull(),
-    /** opt_in | opt_out | change */
+    /** opt_in | opt_out | change | confirm (tapped the confirmation link) */
     action: text("action").notNull(),
     address: text("address").notNull(),
     consentVersion: text("consent_version").notNull(),
-    /** stamp_card | passport_card | settings */
+    /**
+     * stamp_card | passport_card | settings, or for stops and confirms:
+     * email_link (the confirmation or unsubscribe page), one_click (the
+     * mail app's unsubscribe button), bounce, complaint (Resend webhook)
+     */
     source: text("source").notNull(),
+    /**
+     * Texts only: the proof a carrier or court asks for. The page path, IP,
+     * browser, when the number last passed a code and that code's Verify
+     * SID, Twilio message SIDs. The words shown are frozen per
+     * consent_version (lib/texts.ts).
+     */
+    details: jsonb("details"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
-  (t) => [index("contact_consents_explorer").on(t.explorerId)],
+  (t) => [
+    index("contact_consents_explorer").on(t.explorerId),
+    index("contact_consents_address").on(t.channel, t.address),
+  ],
 );
+
+/**
+ * Who gets Bend Playground Passport: one row per address, with or without
+ * an account (the footer and /newsletter sign people up signed out).
+ * pending until the confirmation link is tapped; confirmed gets the email;
+ * stopped keeps only a fingerprint of the address (email is null). Pending
+ * rows nobody confirms are deleted after 7 days.
+ */
+export const emailSubscribers = pgTable(
+  "email_subscribers",
+  {
+    id: serial("id").primaryKey(),
+    /** Lowercased and trimmed. Null once stopped. */
+    email: text("email"),
+    /** "sha256:<hex>" of the address: kept after a stop, to prove it. */
+    emailHash: text("email_hash").notNull(),
+    /** pending | confirmed | stopped */
+    status: text("status").notNull().default("pending"),
+    /** The account it belongs to, once a confirmation tap joined them. */
+    explorerId: integer("explorer_id").references(() => explorers.id, {
+      onDelete: "set null",
+    }),
+    /** The unsubscribe link in every email (cleared when stopped). */
+    token: text("token").unique(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    stoppedAt: timestamp("stopped_at", { withTimezone: true }),
+    /** footer | newsletter | issue_page | welcome_sheet | settings | ... */
+    source: text("source").notNull(),
+    consentVersion: text("consent_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // One live row per address; stopped rows don't count.
+    uniqueIndex("email_subscribers_live")
+      .on(t.email)
+      .where(sql`${t.status} in ('pending', 'confirmed')`),
+    index("email_subscribers_explorer").on(t.explorerId),
+    index("email_subscribers_status").on(t.status, t.createdAt),
+    check(
+      "email_subscribers_status",
+      sql`${t.status} in ('pending', 'confirmed', 'stopped')`,
+    ),
+    check(
+      "email_subscribers_stopped_no_email",
+      sql`${t.status} <> 'stopped' or ${t.email} is null`,
+    ),
+  ],
+);
+
+/**
+ * The salt for IP fingerprints in signup rate limits, one per 30-day
+ * period. Old salts are deleted, so an old fingerprint can't be reversed.
+ */
+export const newsSalts = pgTable("news_salts", {
+  period: integer("period").primaryKey(),
+  salt: text("salt").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * Numbers that texted STOP (or stopped in the app): STOP belongs to the
+ * phone, not the account. Kept for as long as we text anyone. START
+ * deletes the row.
+ */
+export const smsOptOuts = pgTable("sms_opt_outs", {
+  phone: text("phone").primaryKey(),
+  /** stop (a reply) | settings | texts_page | number_changed | account_deleted */
+  source: text("source").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * The last text we sent each number (any text: confirmation, HELP, STOP,
+ * a weekend pick). Text consent records are kept 4 years from this.
+ */
+export const smsLastTexts = pgTable("sms_last_texts", {
+  phone: text("phone").primaryKey(),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+});
+
+/**
+ * Confirmation links for park news (double opt-in). Only a sha256 of the
+ * token and of the address are kept: enough to check a link and to rate
+ * limit per address, never the address itself. Deleted after 30 days.
+ */
+export const emailConfirmations = pgTable(
+  "email_confirmations",
+  {
+    id: serial("id").primaryKey(),
+    /** Who asked, when signed in (the account a "link" attaches to). */
+    explorerId: integer("explorer_id").references(() => explorers.id, {
+      onDelete: "cascade",
+    }),
+    /** The subscriber row the link confirms. */
+    subscriberId: integer("subscriber_id").references(
+      (): AnyPgColumn => emailSubscribers.id,
+      { onDelete: "cascade" },
+    ),
+    /** subscribe (a new address) | link (attach an existing one to an account) */
+    purpose: text("purpose").notNull().default("subscribe"),
+    /** sha256 of the IP with this month's salt (rate limits only). */
+    ipHash: text("ip_hash"),
+    tokenHash: text("token_hash").notNull().unique(),
+    addressHash: text("address_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("email_confirmations_explorer").on(t.explorerId, t.createdAt),
+    index("email_confirmations_address").on(t.addressHash, t.createdAt),
+    index("email_confirmations_ip").on(t.ipHash, t.createdAt),
+  ],
+);
+
+/**
+ * One row per Thursday issue of Bend Playground Passport. The writer posts
+ * a draft; the sender re-validates it and sends it, or skips the week.
+ * Only `sent` issues are public (/newsletter/<date>) and only they count
+ * as history for cooldowns and repeats.
+ */
+export const newsIssues = pgTable(
+  "news_issues",
+  {
+    id: serial("id").primaryKey(),
+    /** The Thursday it goes out (Pacific). */
+    issueDate: date("issue_date").notNull().unique(),
+    /**
+     * draft | sent (at least one email went out) | skipped (nothing was
+     * sent: no valid draft, the kill switch, a holiday, nobody to send to)
+     * | failed (a send started but not one email went out)
+     */
+    status: text("status").notNull().default("draft"),
+    /** The issue JSON as the writer submitted it. */
+    body: jsonb("body"),
+    /** The latest validation report (errors, warnings, cut items). */
+    report: jsonb("report"),
+    /** The code-made plan the draft was written from (pick, venues, deltas). */
+    plan: jsonb("plan"),
+    /** What actually went out: the body with any cut items removed. */
+    sentBody: jsonb("sent_body"),
+    /**
+     * The email as rendered at snapshot time ({subject, html, text}, with a
+     * placeholder for each reader's unsubscribe token), so every retry of a
+     * chunk sends exactly the same bytes.
+     */
+    rendered: jsonb("rendered"),
+    /** Why a week was skipped (no valid draft, kill switch, holiday). */
+    skipReason: text("skip_reason"),
+    /** The dry-run copy went to ALERT_EMAIL (never marks it sent). */
+    dryRunAt: timestamp("dry_run_at", { withTimezone: true }),
+    /** The audience was snapshotted; later runs resume, never restart. */
+    sendStartedAt: timestamp("send_started_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "news_issues_status",
+      sql`${t.status} in ('draft', 'sent', 'skipped', 'failed')`,
+    ),
+  ],
+);
+
+/**
+ * Who an issue went to: the audience snapshot, sent in chunks of 100.
+ * No addresses here (the address is read at send time, so a stop between
+ * chunks is honored). Deleted with the explorer, and after 12 months.
+ */
+export const newsSends = pgTable(
+  "news_sends",
+  {
+    id: serial("id").primaryKey(),
+    issueId: integer("issue_id")
+      .notNull()
+      .references(() => newsIssues.id, { onDelete: "cascade" }),
+    /** Kept for sends from before email_subscribers; null on new ones. */
+    explorerId: integer("explorer_id").references(() => explorers.id, {
+      onDelete: "cascade",
+    }),
+    subscriberId: integer("subscriber_id").references(
+      (): AnyPgColumn => emailSubscribers.id,
+      { onDelete: "cascade" },
+    ),
+    chunk: integer("chunk").notNull(),
+    /** queued | sending | sent | skipped (stopped before their chunk) | failed */
+    status: text("status").notNull().default("queued"),
+    attempts: integer("attempts").notNull().default(0),
+    /**
+     * Which Idempotency-Key this chunk is on (news-<issue>-<chunk>-a<n>).
+     * Bumped only when Resend clearly didn't take the last one (a 5xx).
+     */
+    keyAttempt: integer("key_attempt").notNull().default(0),
+    /** Resend's id for this email, for matching bounces in its dashboard. */
+    resendId: text("resend_id"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("news_sends_once").on(t.issueId, t.explorerId),
+    uniqueIndex("news_sends_once_subscriber").on(t.issueId, t.subscriberId),
+    check(
+      "news_sends_status",
+      sql`${t.status} in ('queued', 'sending', 'sent', 'skipped', 'failed')`,
+    ),
+    index("news_sends_chunk").on(t.issueId, t.chunk),
+    index("news_sends_created").on(t.createdAt),
+  ],
+);
+
+/**
+ * Per chunk of a send: which readers each Idempotency-Key attempt went to
+ * (so a "Resend already took this key" answer only counts for exactly
+ * those readers), and whether the chunk switched to one email at a time
+ * (kept, so a resumed run never goes back to a batch).
+ */
+export const newsChunkState = pgTable(
+  "news_chunk_state",
+  {
+    issueId: integer("issue_id")
+      .notNull()
+      .references(() => newsIssues.id, { onDelete: "cascade" }),
+    chunk: integer("chunk").notNull(),
+    /** { "<keyAttempt>": [news_sends ids, sorted] } */
+    attempts: jsonb("attempts")
+      .$type<Record<string, number[]>>()
+      .notNull()
+      .default({}),
+    oneByOne: boolean("one_by_one").notNull().default(false),
+  },
+  (t) => [primaryKey({ columns: [t.issueId, t.chunk] })],
+);
+
+/**
+ * The one settings row (id = 1): the kill switch, the dry-run flag, and
+ * the sender's heartbeat (checked by the daily cleanup cron).
+ */
+export const newsSettings = pgTable(
+  "news_settings",
+  {
+    id: integer("id").primaryKey().default(1),
+    /** On: the sender sends nothing (it still records its heartbeat). */
+    paused: boolean("paused").notNull().default(false),
+    /** On: each issue goes only to ALERT_EMAIL, subject "[Dry run] ...". */
+    dryRun: boolean("dry_run").notNull().default(true),
+    heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }),
+    /**
+     * The sender's lease: one run at a time. Taken by compare-and-set for
+     * 10 minutes and renewed between chunks, so a crashed run frees it.
+     */
+    lockUntil: timestamp("lock_until", { withTimezone: true }),
+    lockOwner: text("lock_owner"),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [check("news_settings_one", sql`${t.id} = 1`)],
+);
+
+/** Code-made plans, one per issue date, so a re-check sees the same pick. */
+export const newsPlans = pgTable("news_plans", {
+  issueDate: date("issue_date").primaryKey(),
+  plan: jsonb("plan").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * Clicks on /n/<issue>/<slug>: the same link for everyone, counted in
+ * total. No person, cookie or IP is recorded.
+ */
+export const newsClicks = pgTable(
+  "news_clicks",
+  {
+    issueDate: date("issue_date").notNull(),
+    slug: text("slug").notNull(),
+    clicks: integer("clicks").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.issueDate, t.slug] })],
+);
+
+/** Webhook deliveries already handled (Svix retries), kept 30 days. */
+export const webhookEvents = pgTable("webhook_events", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
+/**
+ * Parents' corner v4: one row per X account in the universe we've seen or
+ * added. The seed list is data/x-universe.json; rows added from roundups
+ * carry added_from = 'roundup'. `samples` holds recent posts' engagement
+ * (likes + 2 x reposts + quotes), newest first, so a post is scored
+ * against its author's trailing median. An account that looks taken over
+ * (a reused handle, a follower crash) is flagged and stays out until a
+ * person clears flagged_reason.
+ */
+export const xAuthorStats = pgTable("x_author_stats", {
+  /** X's permanent user id. */
+  authorId: text("author_id").primaryKey(),
+  username: text("username").notNull(),
+  name: text("name"),
+  followers: integer("followers"),
+  followersPeak: integer("followers_peak"),
+  /** [{id, e, at}], newest first, at most 40. */
+  samples: jsonb("samples")
+    .$type<{ id: string; e: number; at: string }[]>()
+    .notNull()
+    .default([]),
+  /** The newest post at or over the likes floor (inactivity drop: 3 months). */
+  lastFloorAt: timestamp("last_floor_at", { withTimezone: true }),
+  addedFrom: text("added_from").notNull().default("seed"),
+  /** Roundup links that named the account (two or more to add it). */
+  roundups: jsonb("roundups").$type<string[]>().notNull().default([]),
+  flaggedReason: text("flagged_reason"),
+  flaggedAt: timestamp("flagged_at", { withTimezone: true }),
+  /** political, commercial, adult, inactive: out for good. */
+  droppedReason: text("dropped_reason"),
+  droppedAt: timestamp("dropped_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 export type Crew = typeof crews.$inferSelect;
 export type Explorer = typeof explorers.$inferSelect;

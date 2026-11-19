@@ -1,0 +1,59 @@
+name: IndexNow ping
+
+# Once a day, tell Bing (and every IndexNow engine) which pages changed:
+# sitemap pages with a lastmod in the window, plus events that passed,
+# couldn't be confirmed, or were canceled or rescheduled. Ported from
+# Belief Systems. About a minute of runner time. A failed ping breaks
+# nothing, but the run fails loudly (GitHub emails the owner) so a broken
+# ping never goes unnoticed.
+#
+# The Thursday writer routine can run it by hand right after it hands in
+# the draft and this week's events (workflow_dispatch), so new event pages
+# reach Bing the same morning.
+# Script and rationale: scripts/indexnow-ping.mjs.
+
+on:
+  schedule:
+    - cron: "10 14 * * *" # 6:10 am Pacific standard time (7:10 in daylight time)
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Send pages that changed in this many hours"
+        required: false
+        default: "48"
+      all:
+        description: "Send every public URL in the sitemap once (one-time moves only)"
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: indexnow
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts/indexnow-ping.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Ping IndexNow
+        env:
+          HOURS: ${{ inputs.hours || '48' }}
+          ALL: ${{ inputs.all && 'true' || 'false' }}
+        run: |
+          set -o pipefail
+          ARGS=(--hours "$HOURS")
+          if [ "$ALL" = "true" ]; then ARGS+=(--all); fi
+          node scripts/indexnow-ping.mjs "${ARGS[@]}" | tee ping.log
+          # An empty or cut-off run must fail, never pass quietly.
+          tail -n 1 ping.log | grep -qx 'INDEXNOW_OK'

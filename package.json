@@ -33,6 +33,7 @@
     "react-leaflet": "^5.0.0",
     "roughjs": "^4.6.6",
     "server-only": "^0.0.1",
+    "undici": "^7.30.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {

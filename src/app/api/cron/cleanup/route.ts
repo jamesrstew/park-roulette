@@ -4,6 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 import { db } from "@/db";
 import { media } from "@/db/schema";
 import { alertLater } from "@/lib/alerts";
+import { newsDailyChecks } from "@/lib/news/sender";
 import { sweep } from "@/lib/sms";
 
 /**
@@ -11,6 +12,8 @@ import { sweep } from "@/lib/sms";
  * (they hold phone numbers and IPs), and photo files nobody saved. A photo uploads the
  * moment it's picked, so a closed tab or a removed thumbnail leaves a file
  * with no review. Anything over a day old with no `media` row goes.
+ * Also Bend Playground Passport's part: alert if Thursday's sender never
+ * ran, and delete old send logs, webhook ids and confirmation records.
  */
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -43,6 +46,10 @@ export async function GET(req: Request) {
 
 async function cleanup() {
   await sweep();
+  // Never let the newsletter's checks stop the privacy cleanup below.
+  await newsDailyChecks().catch((e) =>
+    console.error("[cleanup] news checks failed", (e as Error)?.name),
+  );
   let cursor: string | undefined;
   let checked = 0;
   let deleted = 0;

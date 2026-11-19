@@ -29,13 +29,14 @@ playful first experience.
 
 ## Next
 
-4. **Before the first park news email** (Claude, once Resend is set up):
-   a confirmation email (single opt-in today, so anyone could add someone
-   else's address), a one-click unsubscribe link that works signed out,
-   List-Unsubscribe headers, open/click tracking off at the provider, the
-   provider named in Privacy, and a postal address in every email
-   (CAN-SPAM: a PO box or virtual address for True Craft Ventures LLC,
-   James).
+4. **Bend Playground Passport, the weekly email** (built on branch
+   feat/playground-passport, 2026-11-19):
+   double opt-in, one-click unsubscribe, Resend webhook, the plan, check and
+   draft endpoints, the validator, the Thursday sender, the archive and
+   /admin switches. Left before issue 1: /scrutinize, Resend domain
+   news.parkroulette.quest with open and click tracking off, the env vars,
+   a postal address (NEWS_POSTAL_ADDRESS), the writer routine, two dry-run
+   shadow weeks and the failure drills.
 5. **Park news by text** (after James registers A2P 10DLC in Twilio): a
    separate Messaging Service and number with Advanced Opt-Out, a texts row
    in settings with its own consent, a confirmation text at opt-in, and the

@@ -1,0 +1,1685 @@
+{
+  "version": 1,
+  "link_domains": [
+    "bendoregon.gov",
+    "bendparksandrec.org",
+    "bendrockgym.com",
+    "bowmanmuseum.org",
+    "cascadeindoorsports.com",
+    "ccprd.org",
+    "ci.sisters.or.us",
+    "crookcountyhistorycenter.org",
+    "crooklibraryor.gov",
+    "deschuteshistory.org",
+    "deschuteslibrary.org",
+    "freespirityoganinjaplay.com",
+    "fs.usda.gov",
+    "highdesertmuseum.org",
+    "jcld.org",
+    "littlebugplayhub.com",
+    "macrecdistrict.com",
+    "parkroulette.quest",
+    "raprd.org",
+    "redmondoregon.gov",
+    "snco.org",
+    "stateparks.oregon.gov",
+    "sunmountainfun.com",
+    "sunriverowners.org",
+    "sunriversharc.com",
+    "thecircuitgym.com",
+    "tripcheck.com",
+    "tzbend.com",
+    "visitbend.com",
+    "visitcentraloregon.com",
+    "weather.gov"
+  ],
+  "skip_dates": [
+    {
+      "date": "2026-11-26",
+      "reason": "Thanksgiving"
+    },
+    {
+      "date": "2026-12-24",
+      "reason": "Christmas Eve"
+    },
+    {
+      "date": "2026-12-31",
+      "reason": "New Year's Eve"
+    },
+    {
+      "date": "2027-11-25",
+      "reason": "Thanksgiving"
+    }
+  ],
+  "breaks": [
+    {
+      "id": "break-bls-fall",
+      "label": "Bend-La Pine fall break",
+      "district": "Bend-La Pine Schools",
+      "from": "2026-11-23",
+      "to": "2026-11-27",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-bls-winter",
+      "label": "Bend-La Pine winter break",
+      "district": "Bend-La Pine Schools",
+      "from": "2026-12-21",
+      "to": "2027-01-01",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-bls-mlk",
+      "label": "Bend-La Pine no school (Martin Luther King Jr. Day)",
+      "district": "Bend-La Pine Schools",
+      "from": "2027-01-18",
+      "to": "2027-01-18",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-bls-feb5",
+      "label": "Bend-La Pine no school, all schools",
+      "district": "Bend-La Pine Schools",
+      "from": "2027-02-05",
+      "to": "2027-02-05",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-bls-presidents",
+      "label": "Bend-La Pine no school (Presidents Day)",
+      "district": "Bend-La Pine Schools",
+      "from": "2027-02-15",
+      "to": "2027-02-15",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-bls-spring-conf",
+      "label": "Bend-La Pine spring conferences, no school for elementary and middle",
+      "district": "Bend-La Pine Schools",
+      "from": "2027-03-17",
+      "to": "2027-03-18",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-bls-mar19",
+      "label": "Bend-La Pine no school, all schools",
+      "district": "Bend-La Pine Schools",
+      "from": "2027-03-19",
+      "to": "2027-03-19",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-bls-spring",
+      "label": "Bend-La Pine spring break",
+      "district": "Bend-La Pine Schools",
+      "from": "2027-03-22",
+      "to": "2027-03-26",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-bls-memorial",
+      "label": "Bend-La Pine no school (Memorial Day)",
+      "district": "Bend-La Pine Schools",
+      "from": "2027-05-31",
+      "to": "2027-05-31",
+      "source": "https://www.blschools.org/parent-resources/calendar",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-thanksgiving",
+      "label": "Redmond Thanksgiving break",
+      "district": "Redmond School District",
+      "from": "2026-11-23",
+      "to": "2026-11-27",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-dec4",
+      "label": "Redmond no school, middle and high school (teacher prep)",
+      "district": "Redmond School District",
+      "from": "2026-12-04",
+      "to": "2026-12-04",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-winter",
+      "label": "Redmond winter break",
+      "district": "Redmond School District",
+      "from": "2026-12-21",
+      "to": "2027-01-01",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true,
+      "note": "Calendar lists Dec 21-31 plus New Year's Day Jan 1; students return Jan 4."
+    },
+    {
+      "id": "break-rsd-mlk",
+      "label": "Redmond no school (MLK Day)",
+      "district": "Redmond School District",
+      "from": "2027-01-18",
+      "to": "2027-01-18",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-jan29",
+      "label": "Redmond no school, elementary (teacher prep)",
+      "district": "Redmond School District",
+      "from": "2027-01-29",
+      "to": "2027-01-29",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-feb8",
+      "label": "Redmond no school, all levels (district curriculum day)",
+      "district": "Redmond School District",
+      "from": "2027-02-08",
+      "to": "2027-02-08",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-presidents",
+      "label": "Redmond no school (Presidents Day)",
+      "district": "Redmond School District",
+      "from": "2027-02-15",
+      "to": "2027-02-15",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-mar12",
+      "label": "Redmond no school, elementary (teacher prep)",
+      "district": "Redmond School District",
+      "from": "2027-03-12",
+      "to": "2027-03-12",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-spring-conf",
+      "label": "Redmond parent conferences, no school for elementary",
+      "district": "Redmond School District",
+      "from": "2027-03-18",
+      "to": "2027-03-19",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-mar19",
+      "label": "Redmond no school, middle and high school (teacher prep)",
+      "district": "Redmond School District",
+      "from": "2027-03-19",
+      "to": "2027-03-19",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-spring",
+      "label": "Redmond spring break",
+      "district": "Redmond School District",
+      "from": "2027-03-22",
+      "to": "2027-03-26",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-apr16",
+      "label": "Redmond parent conferences, no school for middle school only",
+      "district": "Redmond School District",
+      "from": "2027-04-16",
+      "to": "2027-04-16",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-rsd-memorial",
+      "label": "Redmond no school (Memorial Day)",
+      "district": "Redmond School District",
+      "from": "2027-05-31",
+      "to": "2027-05-31",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ssd-thanksgiving",
+      "label": "Sisters Thanksgiving break",
+      "district": "Sisters School District",
+      "from": "2026-11-23",
+      "to": "2026-11-27",
+      "source": "https://district.ssd6.org/event/thanksgiving-break-schools-closed/",
+      "verified": true
+    },
+    {
+      "id": "break-ssd-dec7",
+      "label": "Sisters no school (grading day)",
+      "district": "Sisters School District",
+      "from": "2026-12-07",
+      "to": "2026-12-07",
+      "source": "https://district.ssd6.org/events/month/2026-12/",
+      "verified": true
+    },
+    {
+      "id": "break-ssd-winter",
+      "label": "Sisters winter break",
+      "district": "Sisters School District",
+      "from": "2026-12-21",
+      "to": "2027-01-01",
+      "source": "https://district.ssd6.org/events/month/2026-12/",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-thanksgiving",
+      "label": "Crook County Thanksgiving break",
+      "district": "Crook County School District",
+      "from": "2026-11-23",
+      "to": "2026-11-27",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true,
+      "note": "Nov 23-25 no school for students and staff; Nov 26-27 Thanksgiving break."
+    },
+    {
+      "id": "break-ccsd-dec11",
+      "label": "Crook County no school (grading day)",
+      "district": "Crook County School District",
+      "from": "2026-12-11",
+      "to": "2026-12-11",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-winter",
+      "label": "Crook County winter break",
+      "district": "Crook County School District",
+      "from": "2026-12-21",
+      "to": "2027-01-01",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-mlk",
+      "label": "Crook County no school (MLK Day)",
+      "district": "Crook County School District",
+      "from": "2027-01-18",
+      "to": "2027-01-18",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-feb12",
+      "label": "Crook County no school (staff development)",
+      "district": "Crook County School District",
+      "from": "2027-02-12",
+      "to": "2027-02-12",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-presidents",
+      "label": "Crook County no school (Presidents Day)",
+      "district": "Crook County School District",
+      "from": "2027-02-15",
+      "to": "2027-02-15",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-mar19",
+      "label": "Crook County no school (grading day)",
+      "district": "Crook County School District",
+      "from": "2027-03-19",
+      "to": "2027-03-19",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-spring",
+      "label": "Crook County spring break",
+      "district": "Crook County School District",
+      "from": "2027-03-22",
+      "to": "2027-03-26",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-apr22",
+      "label": "Crook County no school (teacher day and conferences)",
+      "district": "Crook County School District",
+      "from": "2027-04-22",
+      "to": "2027-04-23",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-apr30",
+      "label": "Crook County no school (staff development)",
+      "district": "Crook County School District",
+      "from": "2027-04-30",
+      "to": "2027-04-30",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-ccsd-memorial",
+      "label": "Crook County no school (Memorial Day)",
+      "district": "Crook County School District",
+      "from": "2027-05-31",
+      "to": "2027-05-31",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "break-jcsd-thanksgiving",
+      "label": "Jefferson County 509J November break",
+      "district": "Jefferson County School District 509J",
+      "from": "2026-11-23",
+      "to": "2026-11-27",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true
+    },
+    {
+      "id": "break-jcsd-winter",
+      "label": "Jefferson County 509J winter break",
+      "district": "Jefferson County School District 509J",
+      "from": "2026-12-21",
+      "to": "2027-01-01",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true,
+      "note": "Calendar lists Dec 21-31 plus New Year's Day Jan 1."
+    },
+    {
+      "id": "break-jcsd-mlk",
+      "label": "Jefferson County 509J no school (MLK Day)",
+      "district": "Jefferson County School District 509J",
+      "from": "2027-01-18",
+      "to": "2027-01-18",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true
+    },
+    {
+      "id": "break-jcsd-feb5",
+      "label": "Jefferson County 509J no school (grading day)",
+      "district": "Jefferson County School District 509J",
+      "from": "2027-02-05",
+      "to": "2027-02-05",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true
+    },
+    {
+      "id": "break-jcsd-presidents",
+      "label": "Jefferson County 509J no school (Presidents Day)",
+      "district": "Jefferson County School District 509J",
+      "from": "2027-02-15",
+      "to": "2027-02-15",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true
+    },
+    {
+      "id": "break-jcsd-spring",
+      "label": "Jefferson County 509J spring break",
+      "district": "Jefferson County School District 509J",
+      "from": "2027-03-22",
+      "to": "2027-03-26",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true
+    },
+    {
+      "id": "break-jcsd-apr16",
+      "label": "Jefferson County 509J no school (grading day)",
+      "district": "Jefferson County School District 509J",
+      "from": "2027-04-16",
+      "to": "2027-04-16",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true
+    },
+    {
+      "id": "break-jcsd-memorial",
+      "label": "Jefferson County 509J no school (Memorial Day)",
+      "district": "Jefferson County School District 509J",
+      "from": "2027-05-31",
+      "to": "2027-05-31",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true
+    }
+  ],
+  "parks": [
+    {
+      "slug": "alpenglow-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2022/06/3-2.jpg",
+        "width": 1920,
+        "height": 1080,
+        "alt": "Alpenglow Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/alpenglow-park/"
+      }
+    },
+    {
+      "slug": "awbrey-village-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Awbrey_Village_park-5-e1650929239677.jpg",
+        "width": 3872,
+        "height": 2119,
+        "alt": "Awbrey Village Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/awbrey-village-park/"
+      }
+    },
+    {
+      "slug": "blakely-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Blakely-Park-091814-00106-1-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Blakely Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/blakely-park/"
+      }
+    },
+    {
+      "slug": "boyd-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Boyd-Acres-Park-091814-12-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Boyd Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/boyd-park/"
+      }
+    },
+    {
+      "slug": "canal-row-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Canal-Row-Park-in-Bend-Oregon-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Canal Row Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/canal-row-park/"
+      }
+    },
+    {
+      "slug": "columbia-park-bend",
+      "no_pick": true,
+      "note": "Closed for bridge work until early summer 2027 (Bend Park and Rec).",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Columbia-Park-Ship-051211-10-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Columbia Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/columbia-park/"
+      }
+    },
+    {
+      "slug": "compass-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Compass-Park-42.jpg",
+        "width": 3872,
+        "height": 2592,
+        "alt": "Compass Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/compass-park/"
+      }
+    },
+    {
+      "slug": "drake-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2022/11/Drake-Park-052521-06.jpg",
+        "width": 3968,
+        "height": 2976,
+        "alt": "Drake Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/drake-park-and-mirror-pond/"
+      }
+    },
+    {
+      "slug": "empire-crossing-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2020/11/Empire-Crossing-Park-090220-63-1024x683.jpg",
+        "width": 1024,
+        "height": 683,
+        "alt": "Empire Crossing Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/empire-crossing-park/"
+      }
+    },
+    {
+      "slug": "farewell-bend-park-bend",
+      "snow_ok": true,
+      "note": "Paths get cleared after big snows.",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Farewell-Bend-Park-in-Bend-Oregon.jpg",
+        "width": 1278,
+        "height": 855,
+        "alt": "Farewell Bend Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/farewell-bend-park/"
+      }
+    },
+    {
+      "slug": "first-street-rapids-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/First-Street-Rapids-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "First Street Rapids Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/first-street-rapids-park/"
+      }
+    },
+    {
+      "slug": "foxborough-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Foxborough-park-3-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Foxborough Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/foxborough-park/"
+      }
+    },
+    {
+      "slug": "gardenside-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Gardenside-Park-Fall-101223-26.jpg",
+        "width": 5184,
+        "height": 3456,
+        "alt": "Gardenside Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/gardenside-park/"
+      }
+    },
+    {
+      "slug": "goodrich-pasture-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2021/06/Goodrich-Park-062521-63-scaled-e1625069303229.jpg",
+        "width": 450,
+        "height": 300,
+        "alt": "Goodrich Pasture Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/goodrich-pasture-park/"
+      }
+    },
+    {
+      "slug": "harmon-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Harmon-Park-101623-2.jpg",
+        "width": 5184,
+        "height": 3456,
+        "alt": "Harmon Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/harmon-park/"
+      }
+    },
+    {
+      "slug": "harvest-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Harvest-Park-11-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Harvest Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/harvest-park/"
+      }
+    },
+    {
+      "slug": "hollygrape-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Hollygrape-Park-091814-00132-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Hollygrape Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/hollygrape-park/"
+      }
+    },
+    {
+      "slug": "jaycee-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Jaycee-Park-091814-11.jpg",
+        "width": 5184,
+        "height": 3456,
+        "alt": "Jaycee Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/jaycee-park/"
+      }
+    },
+    {
+      "slug": "juniper-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Juniper-Park-062222-04-e1657563618265.jpg",
+        "width": 4032,
+        "height": 2691,
+        "alt": "Juniper Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/juniper-park/"
+      }
+    },
+    {
+      "slug": "kiwanis-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Kiwanis-Park-_-92314-14.jpg",
+        "width": 3872,
+        "height": 2592,
+        "alt": "Kiwanis Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/kiwanis-park/"
+      }
+    },
+    {
+      "slug": "larkspur-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Larkspur-2-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Larkspur Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/larkspur-park/"
+      }
+    },
+    {
+      "slug": "little-fawn-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2024/09/little-fawn-park-02.jpg",
+        "width": 1920,
+        "height": 900,
+        "alt": "Little Fawn Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/little-fawn-park/"
+      }
+    },
+    {
+      "slug": "manzanita-ridge-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2025/10/manzanita-park-beaver.jpg",
+        "width": 1920,
+        "height": 900,
+        "alt": "Manzanita Ridge Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/manzanita-ridge-park/"
+      }
+    },
+    {
+      "slug": "mountain-view-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Mountain-View-Park-_-92314-27-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Mountain View Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/mountain-view-park/"
+      }
+    },
+    {
+      "slug": "northpointe-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2019/04/Northpointe-Park-063022-24.jpg",
+        "width": 5472,
+        "height": 3648,
+        "alt": "Northpointe Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/northpointe-park/"
+      }
+    },
+    {
+      "slug": "orchard-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/IMG_4970.jpg",
+        "width": 5184,
+        "height": 3456,
+        "alt": "Orchard Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/orchard-park/"
+      }
+    },
+    {
+      "slug": "overturf-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Overturf-Park-92-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Overturf Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/overturf-park/"
+      }
+    },
+    {
+      "slug": "pilot-butte-neighborhood-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Pilot-Butte-Community-Park_92314-5-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Pilot Butte Neighborhood Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/pilot-butte-neighborhood-park/"
+      }
+    },
+    {
+      "slug": "pine-nursery-park-bend",
+      "snow_ok": true,
+      "note": "Bend Park and Rec clears the paved loop after 2 inches or more of snow.",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/PN2-e1710191877764.jpg",
+        "width": 2560,
+        "height": 1659,
+        "alt": "Pine Nursery Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/pine-nursery-park/"
+      }
+    },
+    {
+      "slug": "pine-ridge-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Pine-Ridge-_-92314-3.jpg",
+        "width": 3872,
+        "height": 2592,
+        "alt": "Pine Ridge Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/pine-ridge-park/"
+      }
+    },
+    {
+      "slug": "ponderosa-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Ponderosa-Picnic-Shelter-Reservation-100921-11-e1710196282625.jpg",
+        "width": 640,
+        "height": 429,
+        "alt": "Ponderosa Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/ponderosa-park/"
+      }
+    },
+    {
+      "slug": "providence-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Providence-Park-_-92314-1-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Providence Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/providence-park/"
+      }
+    },
+    {
+      "slug": "quail-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Quail-Park-40-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Quail Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/quail-park/"
+      }
+    },
+    {
+      "slug": "rockridge-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Rockridge-Community-Park-1-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Rockridge Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/rockridge-park/"
+      }
+    },
+    {
+      "slug": "sawyer-uplands-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Sawyer-Upland.jpg",
+        "width": 3072,
+        "height": 2048,
+        "alt": "Sawyer Uplands Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/sawyer-uplands-park/"
+      }
+    },
+    {
+      "slug": "skyline-sports-complex-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2017/06/Skyline-Sport-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Skyline Sports Complex in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/skyline-sports-complex/"
+      }
+    },
+    {
+      "slug": "stover-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Stover-Park-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Stover Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/stover-park/"
+      }
+    },
+    {
+      "slug": "sun-meadow-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Sun-Meadow-Park-091814-12-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Sun Meadow Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/sun-meadow-park/"
+      }
+    },
+    {
+      "slug": "sylvan-park-bend",
+      "no_pick": true,
+      "note": "Playground closed for renovation until late spring 2027 (Bend Park and Rec).",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Sylvan-Park-1-e1712683247297.jpg",
+        "width": 3872,
+        "height": 2560,
+        "alt": "Sylvan Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/sylvan-park/"
+      }
+    },
+    {
+      "slug": "three-pines-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Three-Pines-Park-in-Bend-Oregon-1024x685.jpg",
+        "width": 1024,
+        "height": 685,
+        "alt": "Three Pines Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/three-pines-park/"
+      }
+    },
+    {
+      "slug": "wildflower-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Wildflower-Park-090623-06-e1713894529268.jpg",
+        "width": 4032,
+        "height": 2688,
+        "alt": "Wildflower Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/wildflower-park/"
+      }
+    },
+    {
+      "slug": "woodriver-park-bend",
+      "photo": {
+        "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Woodriver-Park-091323-13.jpg",
+        "width": 5184,
+        "height": 3456,
+        "alt": "Woodriver Park in Bend",
+        "sourceUrl": "https://www.bendparksandrec.org/park/woodriver-park/"
+      }
+    }
+  ],
+  "venues": [
+    {
+      "id": "venue-high-desert-museum",
+      "name": "High Desert Museum",
+      "town": "Bend",
+      "address": "59800 South Highway 97, Bend, OR 97702",
+      "kind": "museum",
+      "covered": true,
+      "fit": "both",
+      "what": "Kids explore indoor exhibits on wildlife, history and science, including a porcupine exhibit and a hands-on volcano exhibition this season.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.highdesertmuseum.org/",
+      "source": "https://www.highdesertmuseum.org/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-juniper-swim-fitness",
+      "name": "Juniper Swim & Fitness Center",
+      "town": "Bend",
+      "address": "800 NE 6th St, Bend, OR 97701",
+      "kind": "pool",
+      "covered": true,
+      "fit": "both",
+      "what": "Indoor recreation swim with low diving boards, a rope swing, slides, water basketball and a small pool for kids 6 and under.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.bendparksandrec.org/facility/juniper-swim-and-fitness-center/",
+      "source": "https://www.bendparksandrec.org/facility/juniper-swim-and-fitness-center/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-the-pavilion",
+      "name": "The Pavilion",
+      "town": "Bend",
+      "address": "1001 SW Bradbury Way, Bend, OR",
+      "kind": "skating",
+      "covered": true,
+      "fit": "both",
+      "what": "A covered rink with public ice skating and Family Skate sessions in winter, and roller skating in spring and summer.",
+      "weather": ["rain", "snow", "hot"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.bendparksandrec.org/facility/the-pavilion/",
+      "source": "https://www.bendparksandrec.org/facility/the-pavilion/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-central-library",
+      "name": "Central Library (Deschutes Public Library)",
+      "town": "Bend",
+      "address": "61956 SE Santorini St, Bend, OR 97702",
+      "kind": "library",
+      "covered": true,
+      "fit": "both",
+      "what": "A big new library with a second-floor children's discovery space, a MakerSpace, and regular baby, toddler, preschool and family story times.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": true,
+      "url": "https://www.deschuteslibrary.org/about/libraries/central",
+      "source": "https://www.deschuteslibrary.org/about/libraries/central",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-deschutes-historical-museum",
+      "name": "Deschutes Historical Museum",
+      "town": "Bend",
+      "address": "129 NW Idaho Ave, Bend, OR 97703",
+      "kind": "museum",
+      "covered": true,
+      "fit": "big_kid",
+      "what": "Kids see local history exhibits at this museum a few blocks from downtown Bend.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.deschuteshistory.org/",
+      "source": "https://www.deschuteshistory.org/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-bend-rock-gym",
+      "name": "Bend Rock Gym",
+      "town": "Bend",
+      "address": "1182 SE Centennial Ct, Bend, OR 97702",
+      "kind": "climbing",
+      "covered": true,
+      "fit": "big_kid",
+      "what": "An indoor climbing gym with bouldering, roped climbing and youth programs, with youth rates for ages 4 to 15.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.bendrockgym.com/",
+      "source": "https://www.bendrockgym.com/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-circuit-bouldering-bend",
+      "name": "The Circuit Bouldering Gym (Bend)",
+      "town": "Bend",
+      "address": "63051 NE Corporate Pl, Bend, OR",
+      "kind": "climbing",
+      "covered": true,
+      "fit": "big_kid",
+      "what": "A large bouldering gym with a kids area; youth reservations are required on weekends and school break days.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.thecircuitgym.com/bend",
+      "source": "https://www.thecircuitgym.com/bend",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-trampoline-zone",
+      "name": "Trampoline Zone & Adventure Park",
+      "town": "Bend",
+      "address": "63040 NE 18th St, Bend, OR 97701",
+      "kind": "trampoline",
+      "covered": true,
+      "fit": "both",
+      "what": "Kids bounce on trampolines and run a ninja course, with set times for ages 6 and under.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://tzbend.com/",
+      "source": "https://tzbend.com/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-cascade-indoor-sports",
+      "name": "Cascade Indoor Sports",
+      "town": "Bend",
+      "address": "20775 High Desert Lane, Bend, OR 97701",
+      "kind": "indoor_play",
+      "covered": true,
+      "fit": "both",
+      "what": "An indoor sports center with the Big Play Thing climbing structure plus toddler and youth programs on turf.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://cascadeindoorsports.com/",
+      "source": "https://cascadeindoorsports.com/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-free-spirit-bend",
+      "name": "Free Spirit",
+      "town": "Bend",
+      "address": "320 SW Powerhouse Dr, Suite 150, Bend, OR 97702",
+      "kind": "indoor_play",
+      "covered": true,
+      "fit": "both",
+      "what": "A ninja gym with ropes, nets, rock walls and obstacles, with open play for ages 10 months to 13 years.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://freespirityoganinjaplay.com/",
+      "source": "https://freespirityoganinjaplay.com/locations/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-sun-mountain-fun-center",
+      "name": "Sun Mountain Fun Center",
+      "town": "Bend",
+      "address": "300 NE Bend River Mall Dr, Bend, OR 97703",
+      "kind": "other",
+      "covered": true,
+      "fit": "big_kid",
+      "what": "Bowling, laser tag, an arcade, mini golf, bumper cars and go-karts at one family fun center.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://sunmountainfun.com/",
+      "source": "https://sunmountainfun.com/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-the-hub-redmond",
+      "name": "The Hub Aquatic and Recreation Center",
+      "town": "Redmond",
+      "address": "3515 SW Lava Ave, Redmond, OR 97756",
+      "kind": "pool",
+      "covered": true,
+      "fit": "both",
+      "what": "Redmond's indoor rec center with a leisure pool, lazy river, water slide and a gym.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.raprd.org/the-hub",
+      "source": "https://www.raprd.org/the-hub",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-redmond-library",
+      "name": "Redmond Library (Deschutes Public Library)",
+      "town": "Redmond",
+      "address": "827 SW Deschutes Ave, Redmond, OR 97756",
+      "kind": "library",
+      "covered": true,
+      "fit": "toddler",
+      "what": "A library branch with baby, toddler and family story times.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": true,
+      "url": "https://www.deschuteslibrary.org/about/libraries/redmond",
+      "source": "https://www.deschuteslibrary.org/kids/programs",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-little-bug-play-hub",
+      "name": "Little Bug Play Hub",
+      "town": "Redmond",
+      "address": null,
+      "kind": "indoor_play",
+      "covered": true,
+      "fit": "toddler",
+      "what": "An indoor play space with a coffee cafe for parents and open play for little kids.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://littlebugplayhub.com/",
+      "source": "https://littlebugplayhub.com/",
+      "verified": false,
+      "verified_on": "2026-11-19",
+      "why_unverified": "Official site names Redmond but its contact page shows a Texas template address, so the street address could not be confirmed."
+    },
+    {
+      "id": "venue-sisters-library",
+      "name": "Sisters Library (Deschutes Public Library)",
+      "town": "Sisters",
+      "address": "110 N Cedar St, Sisters, OR 97759",
+      "kind": "library",
+      "covered": true,
+      "fit": "toddler",
+      "what": "A small-town library branch with a family story time.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": true,
+      "url": "https://www.deschuteslibrary.org/about/libraries/sisters",
+      "source": "https://www.deschuteslibrary.org/kids/programs",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-sharc",
+      "name": "SHARC (Sunriver Homeowners Aquatic and Recreation Center)",
+      "town": "Sunriver",
+      "address": "57250 Overlook Road, Sunriver, OR",
+      "kind": "pool",
+      "covered": true,
+      "fit": "both",
+      "what": "Year-round indoor pool with a zero-entry shallow area, tot bubblers and spinners, and water basketball.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.sunriversharc.com/facility-activities/indoor-aquatics",
+      "source": "https://www.sunriversharc.com/facility-activities/indoor-aquatics",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-sunriver-nature-center",
+      "name": "Sunriver Nature Center & Observatory",
+      "town": "Sunriver",
+      "address": "57245 River Rd, Sunriver, OR 97707",
+      "kind": "nature_center",
+      "covered": true,
+      "fit": "both",
+      "what": "A nature center and observatory where kids explore nature and can look at the sun through telescopes during solar viewing.",
+      "weather": ["rain", "cold", "wind"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.snco.org/",
+      "source": "https://www.snco.org/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-sunriver-library",
+      "name": "Sunriver Library (Deschutes Public Library)",
+      "town": "Sunriver",
+      "address": "56855 Venture Lane, Sunriver, OR 97707",
+      "kind": "library",
+      "covered": true,
+      "fit": "toddler",
+      "what": "A library branch with a family story time.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": true,
+      "url": "https://www.deschuteslibrary.org/about/libraries/sunriver",
+      "source": "https://www.deschuteslibrary.org/kids/programs",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-la-pine-library",
+      "name": "La Pine Library (Deschutes Public Library)",
+      "town": "La Pine",
+      "address": "16425 1st St, La Pine, OR 97739",
+      "kind": "library",
+      "covered": true,
+      "fit": "toddler",
+      "what": "A library branch with a family story time.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": true,
+      "url": "https://www.deschuteslibrary.org/about/libraries/lapine",
+      "source": "https://www.deschuteslibrary.org/kids/programs",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-bowman-museum",
+      "name": "Bowman Museum",
+      "town": "Prineville",
+      "address": "246 North Main Street, Prineville, OR 97754",
+      "kind": "museum",
+      "covered": true,
+      "fit": "big_kid",
+      "what": "Crook County's history museum, with local history exhibits and a history center downtown.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://crookcountyhistorycenter.org/",
+      "source": "https://crookcountyhistorycenter.org/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-crook-county-library",
+      "name": "Crook County Library",
+      "town": "Prineville",
+      "address": "175 NW Meadow Lakes Dr, Prineville, OR 97754",
+      "kind": "library",
+      "covered": true,
+      "fit": "toddler",
+      "what": "The county library, with a weekly children's story time.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": true,
+      "url": "https://crooklibraryor.gov/",
+      "source": "https://crooklibraryor.gov/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-mac-madras",
+      "name": "MAC Recreation District (Madras Aquatic Center)",
+      "town": "Madras",
+      "address": "1195 SE Kemper Way, Madras, OR 97741",
+      "kind": "pool",
+      "covered": true,
+      "fit": "both",
+      "what": "Madras's indoor aquatic center, with open rec swims, including some on no-school days.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": false,
+      "url": "https://www.macrecdistrict.com/",
+      "source": "https://www.macrecdistrict.com/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "venue-jefferson-county-library",
+      "name": "Jefferson County Library",
+      "town": "Madras",
+      "address": "241 SE 7th Street, Madras, OR 97741",
+      "kind": "library",
+      "covered": true,
+      "fit": "toddler",
+      "what": "The county library in Madras, with story time and kids programs.",
+      "weather": ["rain", "snow", "cold", "wind", "hot", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "story_time": true,
+      "url": "https://www.jcld.org/",
+      "source": "https://www.jcld.org/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    }
+  ],
+  "event_series": [
+    {
+      "id": "series-pavilion-family-skate",
+      "name": "Family Skate at The Pavilion",
+      "town": "Bend",
+      "what": "Open ice skate sessions for families at the covered rink; kids must skate with a parent or guardian.",
+      "months": [10, 11, 12, 1, 2, 3, 4],
+      "url": "https://www.bendparksandrec.org/facility/the-pavilion/",
+      "source": "https://www.bendparksandrec.org/facility/the-pavilion/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-bprd-winter-solstice",
+      "name": "Winter Solstice Celebration",
+      "town": "Bend",
+      "what": "The Pavilion celebrates the shortest day with twinkling lights, treats and a figure skating show; bring a food donation for NeighborImpact.",
+      "months": [12],
+      "url": "https://www.bendparksandrec.org/activities/community-events/",
+      "source": "https://www.bendparksandrec.org/activities/community-events/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-bprd-movies-in-the-park",
+      "name": "Movies in the Park",
+      "town": "Bend",
+      "what": "Free summer movies in Bend parks with games and crafts before the show.",
+      "months": [8],
+      "url": "https://www.bendparksandrec.org/activities/community-events/",
+      "source": "https://www.bendparksandrec.org/activities/community-events/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-bprd-pavilion-palooza",
+      "name": "Pavilion-Palooza",
+      "town": "Bend",
+      "what": "A free family afternoon at The Pavilion with roller skating, skatepark features, music and art activities.",
+      "months": [9],
+      "url": "https://www.bendparksandrec.org/activities/community-events/",
+      "source": "https://www.bendparksandrec.org/activities/community-events/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-bend-july-4th-pet-parade",
+      "name": "July 4th Pet Parade",
+      "town": "Bend",
+      "what": "A Bend tradition since 1924: kids parade with pets or stuffed animals on wagons, bikes and trikes from Harmon Park to Drake Park.",
+      "months": [7],
+      "url": "https://www.bendparksandrec.org/activities/community-events/",
+      "source": "https://www.bendparksandrec.org/activities/community-events/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-bprd-kids-triathlon",
+      "name": "Kids Triathlon",
+      "town": "Bend",
+      "what": "A swim, bike and run event for ages 4 to 14 based at Juniper Swim & Fitness Center.",
+      "months": [6, 7, 8],
+      "url": "https://www.bendparksandrec.org/activities/community-events/",
+      "source": "https://www.bendparksandrec.org/activities/community-events/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-dpl-family-story-time",
+      "name": "Deschutes Public Library story times",
+      "town": "Bend",
+      "what": "Free baby, toddler, preschool and family story times with books, songs and rhymes at the Central, Redmond, Sisters, Sunriver and La Pine libraries.",
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "url": "https://www.deschuteslibrary.org/kids/programs",
+      "source": "https://www.deschuteslibrary.org/kids/programs",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-crook-library-storytime",
+      "name": "Children's Storytime at Crook County Library",
+      "town": "Prineville",
+      "what": "A regular children's story time at the county library in Prineville.",
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "url": "https://crooklibraryor.gov/",
+      "source": "https://crooklibraryor.gov/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-ccprd-santas-workshop",
+      "name": "Santa's Workshop & Craft Bazaar",
+      "town": "Prineville",
+      "what": "Free holiday crafts and activities for kids, train rides and selfies with Santa at Grizzly Pavilion.",
+      "months": [11, 12],
+      "url": "https://www.ccprd.org/santas-workshop",
+      "source": "https://www.ccprd.org/santas-workshop",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-ccprd-fishing-derby",
+      "name": "Annual Fishing Derby",
+      "town": "Prineville",
+      "what": "Crook County Parks and Recreation's yearly kids fishing derby; 2027 dates are not yet posted.",
+      "months": [5, 6],
+      "url": "https://www.ccprd.org/fishing-derby",
+      "source": "https://www.ccprd.org/fishing-derby",
+      "verified": false,
+      "verified_on": "2026-11-19",
+      "why_unverified": "Official page confirms the annual derby but gives no month; months are a guess."
+    },
+    {
+      "id": "series-ccprd-independence-day",
+      "name": "Fourth of July Celebration at Pioneer Park",
+      "town": "Prineville",
+      "what": "Prineville's Independence Day celebration with a parade at Pioneer Park.",
+      "months": [7],
+      "url": "https://www.ccprd.org/independence-day-celebration",
+      "source": "https://www.ccprd.org/independence-day-celebration",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-mac-no-school-rec-swim",
+      "name": "No School Open Rec Swim at the MAC",
+      "town": "Madras",
+      "what": "The MAC in Madras runs open rec swims on some no-school days; check its page for the next one.",
+      "months": [11, 12, 1, 2, 3, 4, 5, 6],
+      "url": "https://www.macrecdistrict.com/",
+      "source": "https://www.macrecdistrict.com/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    },
+    {
+      "id": "series-snco-solar-viewing",
+      "name": "Solar Viewing at Sunriver Observatory",
+      "town": "Sunriver",
+      "what": "Kids look at the sun safely through filtered telescopes at the Sunriver Nature Center & Observatory.",
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "url": "https://www.snco.org/",
+      "source": "https://www.snco.org/",
+      "verified": true,
+      "verified_on": "2026-11-19"
+    }
+  ],
+  "tips": [
+    {
+      "id": "tip-bprd-snow-removal",
+      "text": "After a snow of 2 inches or more, Bend Park and Rec clears its rec centers and parking lots first, then works through trails like the Pine Nursery Park loop and the Drake Park paths.",
+      "weather": ["snow"],
+      "months": [11, 12, 1, 2, 3],
+      "source": "https://www.bendparksandrec.org/parks-trails/winter/",
+      "verified": true
+    },
+    {
+      "id": "tip-pine-nursery-less-snow",
+      "text": "The Pine Nursery Trail is a good winter stroller loop: it is fairly level, east Bend tends to get less snow, and park crews regularly clear it.",
+      "weather": ["snow", "cold"],
+      "months": [11, 12, 1, 2, 3],
+      "source": "https://www.bendparksandrec.org/parks-trails/winter/",
+      "verified": true
+    },
+    {
+      "id": "tip-skyline-groomed",
+      "text": "Skyline Sports Complex is the one Bend park groomed for cross-country skiing, by XC Oregon volunteers. Keep boots, sleds and dogs off the groomed tracks.",
+      "weather": ["snow"],
+      "months": [12, 1, 2, 3],
+      "source": "https://www.bendparksandrec.org/parks-trails/winter/",
+      "verified": true
+    },
+    {
+      "id": "tip-ski-snowshoe-any-park",
+      "text": "Cross-country skiing and snowshoeing are allowed in every Bend park, so a snowy neighborhood park can be a first snowshoe outing.",
+      "weather": ["snow"],
+      "months": [11, 12, 1, 2, 3],
+      "source": "https://www.bendparksandrec.org/parks-trails/winter/",
+      "verified": true
+    },
+    {
+      "id": "tip-shevlin-riley-dusk",
+      "text": "Shevlin Park and Riley Ranch close at dusk, and in heavy snow the Riley Ranch lot may not be cleared, so plan winter visits early in the day.",
+      "weather": ["snow", "cold"],
+      "months": [11, 12, 1, 2, 3],
+      "source": "https://www.bendparksandrec.org/parks-trails/winter/",
+      "verified": true
+    },
+    {
+      "id": "tip-juniper-little-pool",
+      "text": "At Juniper rec swim, kids under 10 need a supervising person 16 or older, and the small pool is saved for kids 6 and under or non-swimmers.",
+      "weather": ["rain", "snow", "cold", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "source": "https://www.bendparksandrec.org/facility/juniper-swim-and-fitness-center/",
+      "verified": true
+    },
+    {
+      "id": "tip-pavilion-seasons",
+      "text": "The Pavilion switches surfaces with the seasons: ice from late October to early April, roller skating from mid-April through September.",
+      "weather": ["rain", "snow"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "source": "https://www.bendparksandrec.org/facility/the-pavilion/",
+      "verified": true
+    },
+    {
+      "id": "tip-sharc-indoor-year-round",
+      "text": "SHARC's indoor pool in Sunriver is open year-round and kept warm, with tot bubblers and a zero-entry shallow end for little ones.",
+      "weather": ["snow", "cold", "rain"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "source": "https://www.sunriversharc.com/facility-activities/indoor-aquatics",
+      "verified": true
+    },
+    {
+      "id": "tip-prineville-splash-park",
+      "text": "Prineville's Kiwanis Splash Park in Stryker Park runs June through September, a good cool-off on hot afternoons.",
+      "weather": ["hot"],
+      "months": [6, 7, 8, 9],
+      "source": "https://www.ccprd.org/facilities-directory",
+      "verified": true
+    },
+    {
+      "id": "tip-raprd-smoke",
+      "text": "On smoky days, Redmond's park district tones down outdoor programs once the air quality index passes 100, since kids are more sensitive to smoke. It is a good cue to move play indoors.",
+      "weather": ["smoke"],
+      "months": [6, 7, 8, 9, 10],
+      "source": "https://www.raprd.org/air-quality-information",
+      "verified": true
+    },
+    {
+      "id": "tip-circuit-break-days",
+      "text": "The Circuit in Bend asks for youth reservations on weekends and school break days, so book ahead before a no-school day.",
+      "weather": ["rain", "snow", "cold", "smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "source": "https://www.thecircuitgym.com/bend",
+      "verified": true
+    },
+    {
+      "id": "tip-towel-for-slides",
+      "text": "Bring a small towel after rain or frost to dry off slides and swing seats before the kids climb on.",
+      "weather": ["rain", "cold"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "tip-metal-slide-check",
+      "text": "On hot afternoons, touch metal slides and dark surfaces first; shaded play structures and morning visits stay cooler.",
+      "weather": ["hot"],
+      "months": [6, 7, 8, 9],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "tip-dry-socks",
+      "text": "For snow play, pack a spare pair of dry socks and mittens for the car ride home.",
+      "weather": ["snow", "cold"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    }
+  ],
+  "challenges": [
+    {
+      "id": "challenge-snow-stamp",
+      "title": "The snow stamp",
+      "text": "Visit any playground with snow on the ground and stamp it in your family passport.",
+      "months": [12, 1, 2],
+      "verified": true
+    },
+    {
+      "id": "challenge-three-towns",
+      "title": "Three towns",
+      "text": "Stamp playgrounds in three different towns before the month is out. Redmond, Sisters and La Pine all count.",
+      "months": [1, 2, 3, 4, 9, 10],
+      "verified": true
+    },
+    {
+      "id": "challenge-first-critic",
+      "title": "Be the first critic",
+      "text": "Find a park with no stars yet, play there, and leave the very first review.",
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "verified": true
+    },
+    {
+      "id": "challenge-new-to-you",
+      "title": "New to you",
+      "text": "Spin the wheel and go somewhere your family has never stamped.",
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "verified": true
+    },
+    {
+      "id": "challenge-splash-pads",
+      "title": "Every splash pad",
+      "text": "Stamp every splash pad on the map this summer. Towels in the car.",
+      "months": [6, 7, 8],
+      "verified": true
+    },
+    {
+      "id": "challenge-shade-hunt",
+      "title": "Shade hunt",
+      "text": "Find the shadiest playground in your town and tag it Nice and shady.",
+      "months": [7, 8],
+      "verified": true
+    },
+    {
+      "id": "challenge-leaf-pile",
+      "title": "Leaf day",
+      "text": "Stamp a playground while the leaves are still coming down, and rate it while the colors last.",
+      "months": [10, 11],
+      "verified": true
+    },
+    {
+      "id": "challenge-spring-swings",
+      "title": "Spring swings",
+      "text": "Stamp three playgrounds with swings before school lets out.",
+      "months": [4, 5],
+      "verified": true
+    },
+    {
+      "id": "challenge-nature-play",
+      "title": "Nature play",
+      "text": "Try a nature play spot with logs and boulders instead of a play structure, and stamp it.",
+      "months": [5, 6, 7, 8, 9, 10],
+      "verified": true
+    },
+    {
+      "id": "challenge-pocket-park",
+      "title": "Pocket park",
+      "text": "Find the smallest playground near you and give it an honest star rating.",
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "verified": true
+    },
+    {
+      "id": "challenge-sticker-spotter",
+      "title": "Sticker spotter",
+      "text": "Add the stickers that fit at your next park, like Fenced in or Baby swings, so the next family knows.",
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "verified": true
+    }
+  ],
+  "seasonal_defaults": [
+    {
+      "id": "splash-pads-off",
+      "label": "Splash pads are off from October to May",
+      "match": ["splash pad", "splash pads", "spray park", "spray ground"],
+      "with": [
+        "closed",
+        "off",
+        "shut",
+        "reopen",
+        "open in",
+        "opens in",
+        "season",
+        "winterized"
+      ],
+      "months": [10, 11, 12, 1, 2, 3, 4, 5]
+    },
+    {
+      "id": "sno-park-permits",
+      "label": "Sno-Park permits are needed from November to April",
+      "match": ["sno-park", "sno park", "snopark"],
+      "with": ["permit"],
+      "months": [11, 12, 1, 2, 3, 4]
+    },
+    {
+      "id": "winter-restrooms",
+      "label": "Many park restrooms close for winter",
+      "match": ["restroom", "bathroom"],
+      "with": ["closed", "winterized", "locked", "porta", "portable"],
+      "months": [11, 12, 1, 2, 3]
+    },
+    {
+      "id": "winter-fountains",
+      "label": "Drinking fountains are off for winter",
+      "match": ["fountain", "drinking water", "water fill"],
+      "with": ["off", "winterized", "shut", "closed"],
+      "months": [10, 11, 12, 1, 2, 3, 4]
+    },
+    {
+      "id": "winter-ice",
+      "label": "Snow and ice on play equipment in winter",
+      "match": ["icy", "ice on", "snow on", "frost", "slippery"],
+      "with": [],
+      "months": [11, 12, 1, 2, 3]
+    },
+    {
+      "id": "rink-season",
+      "label": "The ice rink is open in winter",
+      "match": ["ice rink", "pavilion", "skating"],
+      "with": ["open", "season", "back"],
+      "months": [11, 12, 1, 2]
+    },
+    {
+      "id": "outdoor-pools-off",
+      "label": "Outdoor pools close after summer",
+      "match": ["outdoor pool"],
+      "with": ["closed", "season", "reopen"],
+      "months": [9, 10, 11, 12, 1, 2, 3, 4, 5]
+    },
+    {
+      "id": "smoke-season",
+      "label": "Wildfire smoke is possible in late summer",
+      "match": ["smoke", "wildfire"],
+      "with": ["possible", "season", "may", "could"],
+      "months": [7, 8, 9]
+    }
+  ]
+}

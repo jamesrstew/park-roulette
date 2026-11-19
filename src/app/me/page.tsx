@@ -14,7 +14,24 @@ import { PageTitle } from "@/components/PageTitle";
 import { CRAYON_NAMES, type CrayonName } from "@/lib/crayons";
 
 import { AccountCard } from "@/components/me/AccountCard";
-import { ParkNewsSettings } from "@/components/ParkNews";
+import { ParkPicksSettings } from "@/components/ParkNews";
+import { subscriptionFor } from "@/lib/news/subscribers";
+import { TextsRow } from "@/components/ParkTexts";
+import { TEXTS_FROM } from "@/lib/texts";
+import { offByNumberChange, sendingEnabled, textsOn } from "@/lib/texts-store";
+
+/** The Weekend texts row's state for this grown-up. */
+async function textsState(me: {
+  id: number;
+  phone: string | null;
+  trusted: boolean;
+}): Promise<"on" | "off" | "no_number" | "changed" | "borrowed"> {
+  const on = me.phone ? await textsOn(me.phone) : false;
+  if (on) return "on";
+  if (!me.trusted) return "borrowed";
+  if (!me.phone) return "no_number";
+  return (await offByNumberChange(me.id)) ? "changed" : "off";
+}
 import { TermsCard } from "@/components/me/TermsCard";
 import { getMe } from "@/lib/data";
 import { adminQueueSize } from "@/lib/data-admin";
@@ -48,12 +65,16 @@ async function MeScreen({
       />
     );
   }
-  const [members, stamps, queue, back] = await Promise.all([
+  const [members, stamps, queue, back, news] = await Promise.all([
     getCrewMembers(me.crew.id),
     getCrewStampCount(me.crew.id),
     me.isAdmin && me.trusted ? adminQueueSize() : Promise.resolve(0),
     grownUpOnThisPhone(),
+    me.isKid
+      ? Promise.resolve({ status: "off" as const, email: null })
+      : subscriptionFor(me.id),
   ]);
+  const texts = await textsState(me);
   const kids = members.filter((m) => m.isKid);
   const grownUps = members.filter((m) => !m.isKid);
 
@@ -116,10 +137,23 @@ async function MeScreen({
             name={me.name}
           />
 
-          <ParkNewsSettings
-            on={me.emailOptIn}
-            email={me.trusted && me.emailOptIn ? me.email : null}
+          <ParkPicksSettings
+            email={{
+              status: news.status,
+              // Only for a trusted session (never a borrowed-link one).
+              address: me.trusted ? news.email : null,
+            }}
             trusted={me.trusted}
+            texts={
+              me.isKid ? null : (
+                <TextsRow
+                  state={texts}
+                  number={me.phone}
+                  sendingOn={sendingEnabled()}
+                  textsFrom={TEXTS_FROM}
+                />
+              )
+            }
           />
         </>
       )}

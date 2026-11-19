@@ -27,10 +27,13 @@ export function dayLabel(iso: string, now: number): string {
 /** The town's news: new reviews and park fixes, newest first. */
 export function Feed({
   items,
+  issues = [],
   signedIn,
   now,
 }: {
   items: FeedItem[];
+  /** Sent issues of Bend Playground Passport, newest first. */
+  issues?: { issueDate: string; subject: string }[];
   signedIn: boolean;
   now: number;
 }) {
@@ -49,6 +52,7 @@ export function Feed({
           </p>
         }
       />
+      {issues.length > 0 && <PastIssues issues={issues} />}
       {!signedIn && (
         <JoinNudge
           icon="eyes"
@@ -184,5 +188,34 @@ function ParkItem({ p, now }: { p: FeedPark; now: number }) {
         </p>
       </div>
     </Link>
+  );
+}
+
+/** One slim row: Bend Playground Passport · This week: {subject} · All issues. */
+function PastIssues({
+  issues,
+}: {
+  issues: { issueDate: string; subject: string }[];
+}) {
+  const latest = issues[0];
+  return (
+    <p className="doodle-box-alt flex flex-wrap items-center gap-x-2 gap-y-1 px-4 py-2 leading-snug">
+      <Icon name="mail" size={26} />
+      <b className="font-hand text-xl font-normal">Bend Playground Passport</b>
+      <span aria-hidden>·</span>
+      <Link
+        href={`/newsletter/${latest.issueDate}`}
+        className="flex min-h-11 items-center underline underline-offset-2"
+      >
+        Latest: {latest.subject}
+      </Link>
+      <span aria-hidden>·</span>
+      <Link
+        href="/newsletter"
+        className="flex min-h-11 items-center underline underline-offset-2"
+      >
+        All issues
+      </Link>
+    </p>
   );
 }

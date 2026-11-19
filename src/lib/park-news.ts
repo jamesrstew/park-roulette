@@ -4,18 +4,37 @@
  */
 
 /** Bump the version whenever the words people see change. */
-export const CONSENT_VERSION = "email-2026-11-18";
+export const CONSENT_VERSION = "email-2026-11-20";
+
+/**
+ * The glossary (one set of names everywhere): the umbrella is "the weekly
+ * park picks" ("Park picks" as a card title); the email is "Bend
+ * Playground Passport" ("the weekly email" only where a short label is
+ * needed, never just "Passport", which is the stamps tab); the text is
+ * "Weekend texts" as a label and "a weekend park pick" in sentences.
+ */
+export const NEWS_NAME = "Bend Playground Passport";
+export const TEXTS_NAME = "Weekend texts";
 
 export const PARK_NEWS = {
-  headline: "Want park news?",
-  body: "New playgrounds, closures and splash pad openings. About once a month.",
-  fine: "Unsubscribe anytime. We never sell your email.",
+  title: "Park picks",
+  tagline: "Central Oregon playgrounds, rain or shine.",
+  cadence: "A free email every Thursday morning.",
+  pitch:
+    "The weekend forecast, one park to try, and a warm backup if it pours.",
   button: "Count us in!",
-  decline: "No thanks",
-  success: "You're on the list!",
+  pending: "One sec…",
+  /** Signed-out fine print (anyone could be typing). */
+  fine: "For grown-ups. We'll email you a link to confirm. Unsubscribe anytime.",
+  fineFull:
+    "For grown-ups. We'll email you a link to confirm. Unsubscribe anytime. We never sell your email.",
+  success: "Almost there! Check your email and tap the link to confirm.",
+  failure: "That didn't go through. Try again?",
+  on: "Every Thursday morning.",
+  waiting:
+    "Waiting to confirm. Tap the link in our email, or send it again (each link works for 7 days).",
+  off: "Bend Playground Passport: the weekend forecast, a park to try and a warm backup, Thursday mornings.",
 } as const;
-
-export type ParkNewsSource = "stamp_card" | "passport_card" | "settings";
 
 /** Lowercased and trimmed, or null if it doesn't look like an email. */
 export function cleanEmail(raw: string): string | null {

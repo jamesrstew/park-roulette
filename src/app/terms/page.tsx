@@ -1,4 +1,10 @@
 import type { Metadata } from "next";
+import {
+  prettyPhone,
+  TEXTS_CONSENT_TEXT,
+  TEXTS_CONSENT_VERSION,
+  TEXTS_FROM,
+} from "@/lib/texts";
 import Link from "next/link";
 import { LegalPage, Mail, OPERATOR, Section } from "@/components/legal/Legal";
 
@@ -64,7 +70,7 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section title="3. Signing in by text">
+      <Section title="3. Texts from us">
         <p>
           When you add your number or sign in, we text you a one-time code
           through our texting provider, Twilio. By entering your number, you
@@ -72,7 +78,8 @@ export default function TermsPage() {
         </p>
         <ul>
           <li>
-            <b>What we send:</b> sign-in codes only. Never marketing, never ads.
+            <b>What we send:</b> sign-in codes, and park texts only if you turn
+            them on (see 3b). Never ads.
           </li>
           <li>
             <b>How often:</b> one text each time you ask for a code.
@@ -95,20 +102,52 @@ export default function TermsPage() {
             Carriers aren&apos;t liable for delayed or undelivered messages.
           </li>
           <li>
-            We don&apos;t share your mobile number or your agreement to get
-            texts with anyone for their marketing.
+            We never sell or share your number or your text consent with any
+            other company, including affiliates, for marketing.
           </li>
         </ul>
       </Section>
 
-      <Section title="3a. Park news by email" id="park-news">
+      <Section
+        title="3a. Bend Playground Passport (the weekly email)"
+        id="park-news"
+      >
         <p>
-          If you give us your email for park news, we&apos;ll send occasional
-          emails about new playgrounds, closures and splash pad openings, about
-          once a month. It&apos;s optional and never needed to play. Stop any
-          time with &ldquo;Stop emails&rdquo; in Family &amp; settings or the
-          unsubscribe link in any email we send.
+          If you give us your email, in the app or on our website, we&apos;ll
+          send Bend Playground Passport: weekly park picks for the forecast,
+          closures and indoor backups, every Thursday morning, once you confirm
+          with the link we email you. No account needed. It&apos;s for
+          grown-ups, optional and never needed to play. Stop any time with the
+          unsubscribe link in any email, your mail app&apos;s unsubscribe
+          button, or &ldquo;Stop emails&rdquo; in Family &amp; settings. Event
+          times and prices in it come from the organizers; check with them
+          before you go.
         </p>
+      </Section>
+
+      <Section title="3b. Park texts" id="park-texts">
+        <p>
+          If you check the box to get a weekend park pick by text, on our
+          website or in the app, here&apos;s what you agree to, word for word:
+        </p>
+        <p>{TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION].disclosure}</p>
+        <ul>
+          <li>
+            Or tap &ldquo;Stop texts&rdquo; in Family &amp; settings. Stopping
+            these never stops sign-in codes.
+          </li>
+          <li>
+            Park texts come{" "}
+            {TEXTS_FROM
+              ? `from ${prettyPhone(TEXTS_FROM)} `
+              : "from their own Park Roulette number "}
+            and are sent by {OPERATOR}.
+          </li>
+          <li>US mobile numbers only.</li>
+          <li>
+            Carriers aren&apos;t liable for delayed or undelivered messages.
+          </li>
+        </ul>
       </Section>
 
       <Section title="4. What you post">

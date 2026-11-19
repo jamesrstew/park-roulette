@@ -41,7 +41,10 @@ export function PhoneCard({
 
   if (!phone && !trusted)
     return (
-      <section className="doodle-box-alt flex items-start gap-3 px-4 py-3">
+      <section
+        id="phone"
+        className="doodle-box-alt flex scroll-mt-6 items-start gap-3 px-4 py-3"
+      >
         <Icon name="phone" size={34} />
         <p className="leading-snug">
           <b className="font-hand text-xl font-normal">No number for {name}.</b>{" "}
@@ -54,8 +57,9 @@ export function PhoneCard({
   if (!phone)
     return (
       <section
+        id="phone"
         aria-labelledby="phone-h"
-        className="doodle-box wax relative bg-crayon-green/15 px-5 pt-5 pb-4 shadow-[3px_4px_0_#2b2a33]"
+        className="doodle-box wax relative scroll-mt-6 bg-crayon-green/15 px-5 pt-5 pb-4 shadow-[3px_4px_0_#2b2a33]"
       >
         <span className="tape -top-3 right-8 rotate-3" aria-hidden />
         <div className="flex items-start gap-3">

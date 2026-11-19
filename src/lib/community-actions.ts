@@ -5,6 +5,8 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { db } from "@/db";
+import { stopForExplorers } from "@/lib/news/subscribers";
+import { stopTextsFor } from "@/lib/texts-store";
 import {
   crews,
   explorers,
@@ -299,10 +301,17 @@ async function dropReviewsOf(tx: Tx, ids: number[]): Promise<string[]> {
 async function deleteWholeFamily(crewId: number): Promise<string[]> {
   return db.transaction(async (tx) => {
     const members = await tx
-      .select({ id: explorers.id })
+      .select({ id: explorers.id, phone: explorers.phone })
       .from(explorers)
       .where(eq(explorers.crewId, crewId));
     const ids = members.map((m) => m.id);
+    await stopTextsFor(
+      members.map((m) => ({ phone: m.phone, explorerId: m.id })),
+      "account_deleted",
+    );
+    // Stop their emails first (the FK's set null is only a backstop: an
+    // orphaned confirmed row would keep getting mail).
+    await stopForExplorers(ids, "account_deleted", tx);
     const files = await dropReviewsOf(tx, ids);
     await tx.delete(visits).where(eq(visits.crewId, crewId));
     // Parks they added stay on the map (parks.added_by becomes null).
@@ -348,6 +357,11 @@ export async function deleteMe(): Promise<ActionResult> {
           .update(visits)
           .set({ loggedBy: others[0].id })
           .where(eq(visits.loggedBy, me.id));
+        await stopForExplorers([me.id], "account_deleted", tx);
+        await stopTextsFor(
+          [{ phone: me.phone, explorerId: me.id }],
+          "account_deleted",
+        );
         const f = await dropReviewsOf(tx, [me.id]);
         await tx.delete(explorers).where(eq(explorers.id, me.id));
         return f;

@@ -1,3 +1,4 @@
+import { subscriptionFor } from "@/lib/news/subscribers";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { AppMoments } from "@/components/AppMoments";
@@ -10,6 +11,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { getBucketList, getMe } from "@/lib/data";
 import { publicParks } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
+import { sendingEnabled } from "@/lib/texts-store";
 
 export const metadata: Metadata = {
   title: { absolute: "Park Roulette: find a playground in Central Oregon" },
@@ -20,18 +22,16 @@ export const metadata: Metadata = {
 
 async function Spin() {
   const me = await getMe();
-  const [parks, all] = await Promise.all([getBucketList(me), publicParks()]);
+  const offerPicks = !!me && !me.isKid && me.trusted && !me.parkNewsAsked;
+  const [parks, all, sub] = await Promise.all([
+    getBucketList(me),
+    publicParks(),
+    me && offerPicks ? subscriptionFor(me.id) : null,
+  ]);
   return (
     <>
       <AppMoments signedIn={!!me} />
-      <SpinScreen
-        parks={parks}
-        signedIn={!!me}
-        meId={me?.id ?? 0}
-        askParkNews={
-          !!me && !me.isKid && me.trusted && !me.emailOptIn && !me.parkNewsAsked
-        }
-      />
+      <SpinScreen parks={parks} signedIn={!!me} />
       {me && !me.phone && me.trusted ? <PhoneNudge /> : null}
       {me ? (
         <WelcomeSheet
@@ -41,6 +41,10 @@ async function Spin() {
           crewName={me.crew.name}
           crewLink={`${process.env.NEXT_PUBLIC_SITE_URL ?? ""}/join/${me.crew.joinCode}`}
           hasPhone={!!me.phone}
+          phone={me.phone}
+          offerPicks={offerPicks}
+          emailWaiting={sub?.status === "pending" ? sub.email : null}
+          textsSendingOn={sendingEnabled()}
         />
       ) : null}
       <GuideLinks parks={all} />

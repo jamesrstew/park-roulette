@@ -48,6 +48,9 @@ export function DesktopAside() {
           <Link href="/list" className="underline underline-offset-2">
             The whole bucket list
           </Link>
+          <Link href="/newsletter" className="underline underline-offset-2">
+            Bend Playground Passport, the weekly email
+          </Link>
           <Link
             href="/privacy"
             className="text-ink-soft underline underline-offset-2"

@@ -11,6 +11,9 @@ import { CRAYONS, crayon } from "@/lib/crayons";
 import { sfx } from "@/lib/sound";
 import { storage } from "@/lib/storage";
 import { PHONE_NUDGE_KEY } from "./PhoneNudge";
+import { PicksSheetPage } from "./PicksSheetPage";
+import { dismissParkNews } from "@/lib/client-actions";
+import { normalizeUSPhone } from "@/lib/phone-format";
 
 /**
  * Shown once on /?welcome=1 right after joining. Page 1 greets the new
@@ -25,6 +28,10 @@ export function WelcomeSheet({
   crewName,
   crewLink,
   hasPhone,
+  phone = null,
+  offerPicks = false,
+  emailWaiting = null,
+  textsSendingOn = false,
 }: {
   name: string;
   avatar: string;
@@ -33,8 +40,19 @@ export function WelcomeSheet({
   /** This crew's join link: the way back in for explorers with no phone. */
   crewLink: string;
   hasPhone: boolean;
+  /** This grown-up's number (E.164), if they have one. */
+  phone?: string | null;
+  /**
+   * Ask about the weekly park picks once (trusted grown-ups who haven't
+   * answered). Needs a number: kids, borrowed links and no-number skip it.
+   */
+  offerPicks?: boolean;
+  /** An unconfirmed address on file: the picks page offers the link again. */
+  emailWaiting?: string | null;
+  textsSendingOn?: boolean;
 }) {
-  const [page, setPage] = useState<"hello" | "phone">("hello");
+  const [page, setPage] = useState<"hello" | "phone" | "picks">("hello");
+  const [number, setNumber] = useState<string | null>(phone);
   const [phoneAdded, setPhoneAdded] = useState(false);
   const [phoneSkipped, setPhoneSkipped] = useState(false);
   const params = useSearchParams();
@@ -53,6 +71,8 @@ export function WelcomeSheet({
     // Leaving the phone page without a number (backdrop, Escape, Skip) is a
     // skip: don't ask again in the install sheet a second later.
     if (page === "phone" && !phoneAdded) setPhoneSkipped(true);
+    // Leaving the picks page any way at all counts as "Not now".
+    if (page === "picks") void dismissParkNews();
     setClosed(true);
     if (offerInstall) setInstallOpen(true);
   };
@@ -107,7 +127,7 @@ export function WelcomeSheet({
 
   return (
     <div
-      className={`fixed inset-0 z-[1200] flex justify-center ${page === "phone" ? "items-start" : "items-end"}`}
+      className={`fixed inset-0 z-[1200] flex justify-center ${page === "hello" ? "items-end" : "items-start"}`}
     >
       <button
         type="button"
@@ -122,12 +142,24 @@ export function WelcomeSheet({
         aria-labelledby="welcome-h"
         key={page}
         className={`doodle-box relative mx-3 w-full max-w-md animate-pop-in px-5 pb-5 shadow-[4px_6px_0_#2b2a33] ${
-          page === "phone"
-            ? "mt-[max(env(safe-area-inset-top),1rem)] pt-5"
+          page !== "hello"
+            ? "mt-[max(env(safe-area-inset-top),1rem)] max-h-[calc(100dvh-2rem)] overflow-y-auto pt-5"
             : "mb-[max(env(safe-area-inset-bottom),0.75rem)] pt-14"
         }`}
       >
-        {page === "phone" ? (
+        {page === "picks" && number ? (
+          <PicksSheetPage
+            phone={number}
+            emailWaiting={emailWaiting}
+            textsSendingOn={textsSendingOn}
+            headingId="welcome-h"
+            onFinish={() => {
+              setPage("hello");
+              setClosed(true);
+              if (offerInstall) setInstallOpen(true);
+            }}
+          />
+        ) : page === "phone" ? (
           <>
             <h2 id="welcome-h" className="font-hand text-4xl leading-tight">
               One more thing!
@@ -139,9 +171,13 @@ export function WelcomeSheet({
             <PhoneCode
               mode="add"
               autoFocus
-              onDone={() => {
+              onDone={(shown) => {
                 setPhoneAdded(true);
-                setTimeout(() => finishRef.current(), 900);
+                const e164 = normalizeUSPhone(shown);
+                if (offerPicks && e164) {
+                  setNumber(e164);
+                  setTimeout(() => setPage("picks"), 900);
+                } else setTimeout(() => finishRef.current(), 900);
               }}
               onSkip={finish}
               skipLabel="Skip for now"
@@ -200,7 +236,8 @@ export function WelcomeSheet({
             <button
               type="button"
               onClick={() => {
-                if (hasPhone) return finish();
+                if (hasPhone)
+                  return offerPicks && number ? setPage("picks") : finish();
                 confetti.reset(); // don't rain on the number field
                 setPage("phone");
               }}

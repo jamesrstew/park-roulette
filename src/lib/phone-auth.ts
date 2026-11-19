@@ -1,6 +1,7 @@
 import "server-only";
 import { and, eq, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { stopTextsFor } from "@/lib/texts-store";
 import { crews, explorers } from "@/db/schema";
 import { isUniqueViolation, UserError } from "./action-utils";
 import { setExplorer, type SignedInBy } from "./session";
@@ -67,6 +68,10 @@ export async function attachPhone(
   by: Exclude<SignedInBy, "legacy">,
 ) {
   try {
+    const [before] = await db
+      .select({ phone: explorers.phone })
+      .from(explorers)
+      .where(eq(explorers.id, explorerId));
     const epoch = await db.transaction(async (tx) => {
       if (phone)
         await tx
@@ -90,6 +95,12 @@ export async function attachPhone(
       return row.epoch;
     });
     await setExplorer(explorerId, epoch, by);
+    // A changed (or removed) number: texts to the old one stop.
+    if (before?.phone && before.phone !== phone)
+      await stopTextsFor(
+        [{ phone: before.phone, explorerId }],
+        "number_changed",
+      );
     console.info(
       `[auth] explorer ${explorerId} ${phone ? `now signs in with …${phone.slice(-4)}` : "removed their number"}; other sessions signed out`,
     );

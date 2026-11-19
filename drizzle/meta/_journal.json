@@ -50,6 +50,48 @@
       "when": 1795043619213,
       "tag": "0006_park_news",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795100101591,
+      "tag": "0007_playground_passport",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795102721959,
+      "tag": "0008_passport_fixes",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795104849037,
+      "tag": "0009_email_subscribers",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795105710058,
+      "tag": "0010_sms_last_texts",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795121789240,
+      "tag": "0011_x_author_stats",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795123036273,
+      "tag": "0012_release1_fixes",
+      "breakpoints": true
     }
   ]
 }

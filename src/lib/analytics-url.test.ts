@@ -28,4 +28,18 @@ describe("what analytics sees", () => {
       analyticsUrl("https://parkroulette.quest/parks/drake-park-bend"),
     ).toBe("https://parkroulette.quest/parks/drake-park-bend");
   });
+  it("never sees a newsletter token (confirm and unsubscribe links)", () => {
+    const t = "4I9Irlu-KS_8HO97W87ktI7c4Yl0lFmASeWnY9avQ4I";
+    for (const page of [
+      "news/confirm",
+      "news/unsubscribe",
+      "api/news/unsubscribe",
+    ])
+      expect(analyticsUrl(`https://parkroulette.quest/${page}?t=${t}`)).toBe(
+        `https://parkroulette.quest/${page}`,
+      );
+    expect(
+      analyticsUrl(`https://parkroulette.quest/news/confirm?r=confirmed`),
+    ).not.toContain("?");
+  });
 });

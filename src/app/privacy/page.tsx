@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <LegalPage
-      updated="November 18, 2026"
+      updated="November 19, 2026"
       lead="Privacy"
       accent="Policy"
       intro={
@@ -25,10 +25,10 @@ export default function PrivacyPage() {
             doesn&apos;t identify you.
           </p>
           <p>
-            Your phone number is only used to text you sign-in codes. Photos are
-            stored privately and never shown to people who aren&apos;t signed
-            in. You choose who sees each review, and you can delete everything
-            any time.
+            Your phone number is used to text you sign-in codes and, if you turn
+            on park texts, a park pick on Fridays. Photos are stored privately
+            and never shown to people who aren&apos;t signed in. You choose who
+            sees each review, and you can delete everything any time.
           </p>
         </>
       }
@@ -78,11 +78,11 @@ export default function PrivacyPage() {
             family (more below).
           </li>
           <li>
-            <b>Your email</b>, only if you sign up for park news (see{" "}
+            <b>Your email</b>, only if you sign up for the weekly email (see{" "}
             <a href="#park-news" className="underline">
-              Park news by email
+              Bend Playground Passport and weekend texts
             </a>
-            ).
+            ). No account needed.
           </li>
           <li>
             <b>Your mobile number</b>, if you add one, so we can text you
@@ -280,18 +280,21 @@ export default function PrivacyPage() {
             are removed from page addresses before a visit is counted.
           </li>
           <li>
-            <b>Resend</b> sends emails to our team about things that need a
-            person (a reported review, a new park to confirm, something broken).
-            Those emails don&apos;t include your name, number, or what you
-            wrote.
+            <b>Resend</b> sends our emails. If you sign up for Bend Playground
+            Passport, it gets your email address to send it and the confirmation
+            email, and tells us if an email bounces or is marked as spam. Open
+            and click tracking are off. Resend also sends our team alerts about
+            things that need a person (a reported review, a new park to confirm,
+            something broken); those don&apos;t include your name, number, or
+            what you wrote.
           </li>
           <li>
             <b>Railway</b> hosts our database, where accounts, reviews, stamps
             and phone numbers live.
           </li>
           <li>
-            <b>Twilio</b> texts and checks sign-in codes, so it gets your phone
-            number.
+            <b>Twilio</b> texts and checks sign-in codes, and sends park texts
+            if you turn them on, so it gets your phone number.
           </li>
           <li>
             <b>OpenStreetMap</b> serves the map pictures. Your phone asks its
@@ -306,37 +309,96 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section title="Park news by email" id="park-news">
+      <Section
+        title="Bend Playground Passport and weekend texts"
+        id="park-news"
+      >
         <p>
-          If you choose to, you can give us your email for park news: new
-          playgrounds, closures and splash pad openings, about once a month.
-          It&apos;s never required, and kids are never asked.
+          If you choose to, you can give us your email for Bend Playground
+          Passport: weekly park picks for the forecast, closures and indoor
+          backups, every Thursday morning. You can sign up in the app or on our
+          website, with or without an account. It&apos;s never required, our
+          email signup is for grown-ups, and kids are never asked. We email you
+          a link first, and nothing else is sent until you tap it.
         </p>
         <ul>
           <li>
             <b>What we keep</b>: your email, that you said yes, when, and where
-            in the app you said it, plus which version of the words you saw.
+            (in the app or on our website) you said it, which version of the
+            words you saw, and when you tapped the confirmation link.
           </li>
           <li>
-            <b>Who sees it</b>: only you (in Family &amp; settings) and us.
-            Other families never do.
+            <b>Signing up without an account</b>: if you don&apos;t confirm
+            within 7 days, we delete your address.
           </li>
           <li>
-            <b>Stopping</b>: tap &ldquo;Stop emails&rdquo; in Family &amp;
-            settings, or (once we start sending) use the unsubscribe link in any
-            email. Stopping removes your email right away; our record of your
-            choice keeps only a scrambled fingerprint of it, so we can show you
-            said stop. If you change your email, we keep only a fingerprint of
-            the old one.
+            <b>If you said yes before November 2026</b>: your yes moved to the
+            new list, waiting for you to confirm. We don&apos;t email you about
+            it. Family &amp; settings shows a button to send the link. If you
+            don&apos;t confirm within 30 days, we delete your address.
           </li>
           <li>
-            <b>No tracking</b>: our emails will have no tracking pixels and no
-            tracked links.
+            <b>Stopping abuse</b>: to stop someone signing up lots of addresses,
+            we keep a scrambled fingerprint of the IP address a sign-up came
+            from for 30 days. The key that scrambles it is replaced every 30
+            days and the old one destroyed, so the fingerprint can&apos;t be
+            turned back into an IP address.
+          </li>
+          <li>
+            <b>Send logs</b>: which issue went to which subscriber, when, and
+            the email service&apos;s message number (never your address). We
+            keep them for 12 months, then delete them.
+          </li>
+          <li>
+            <b>Who sees it</b>: only you (in Family &amp; settings, if you have
+            an account) and us. Other families never do. Signing up never tells
+            anyone whether an address is already on the list.
+          </li>
+          <li>
+            <b>Stopping</b>: tap the unsubscribe link in any email (no sign-in
+            needed), use your mail app&apos;s unsubscribe button, or tap
+            &ldquo;Stop emails&rdquo; in Family &amp; settings. If an email to
+            you bounces for good or is marked as spam, we stop too. Stopping
+            removes your email right away; our record of your choice keeps only
+            a scrambled fingerprint of it, so we can show you said stop. If you
+            change your email, we keep only a fingerprint of the old one. We
+            delete that fingerprint and the record of your choice 4 years after
+            you stop.
+          </li>
+          <li>
+            <b>No tracking pixels</b>: our emails have no tracking pixels, and
+            open tracking is off. Links in an email count how many times each
+            one is tapped in total, never who tapped it.
           </li>
           <li>
             We never sell your email or share it for anyone else&apos;s
-            marketing. An email service will send our emails for us and see your
-            address to do it.
+            marketing. Resend sends our emails for us and sees your address to
+            do it.
+          </li>
+        </ul>
+      </Section>
+
+      <Section title="Park texts" id="park-texts">
+        <p>
+          If you turn on Weekend texts (a weekend park pick, on Fridays), on our
+          website or in the app, we keep: your number, that you said yes, when,
+          where, the exact words you saw, your IP address and browser, and when
+          your number last passed a code. No account needed: a yes belongs to
+          the number.
+        </p>
+        <ul>
+          <li>
+            <b>How long</b>: 4 years after the last text we send you, even if
+            you delete your account, so we can show you said yes (and when you
+            said stop). If you text STOP, we keep your number on our stop list
+            for as long as we send texts, so we never text you again by mistake.
+          </li>
+          <li>
+            <b>Who sends them</b>: Twilio, which gets your number to do it.
+          </li>
+          <li>
+            We never sell or share your number or your text consent with any
+            other company, including affiliates, for marketing.
           </li>
         </ul>
       </Section>
@@ -345,11 +407,13 @@ export default function PrivacyPage() {
         <p>
           We don&apos;t sell or rent personal information, including your email,
           precise location or information about children or teens. We don&apos;t
-          share it for targeted advertising, and we don&apos;t share your mobile
-          number or your agreement to get texts with anyone for their marketing.
-          Because we don&apos;t track you across websites, there&apos;s nothing
-          for a browser&apos;s &ldquo;Do Not Track&rdquo; or Global Privacy
-          Control setting to switch off.
+          share it for targeted advertising. We never sell or share your number
+          or your text consent with any other company, including affiliates, for
+          marketing, and we don&apos;t share your mobile number or your
+          agreement to get texts with anyone for their marketing. Because we
+          don&apos;t track you across websites, there&apos;s nothing for a
+          browser&apos;s &ldquo;Do Not Track&rdquo; or Global Privacy Control
+          setting to switch off.
         </p>
       </Section>
 
@@ -377,9 +441,13 @@ export default function PrivacyPage() {
             <b>Your phone number</b>: until you remove it or delete yourself.
           </li>
           <li>
-            <b>Your park news email</b>: until you stop park news or delete
-            yourself. The record that you said yes or stopped goes when you
-            delete yourself.
+            <b>Your email for the weekly email</b>: until you stop it or delete
+            yourself. Unconfirmed sign-ups: 7 days (30 for a yes from before
+            November 2026). The record that you said yes goes when you delete
+            yourself; the record that you stopped (a fingerprint only) goes 4
+            years after the stop. Send logs: 12 months. Confirmation links
+            expire after 7 days, and we delete them after 30. Sign-up IP
+            fingerprints: 30 days.
           </li>
           <li>
             <b>Names, kid profiles, reviews, photos and videos</b>: until you

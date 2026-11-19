@@ -2,6 +2,15 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // Card renderers read fonts from public/fonts with readFile, which the
+  // bundler can't see: ship them with every function that may draw a card
+  // (the writer's endpoints, the sender, the issue pages and images).
+  // src/app/font-tracing.test.ts checks the traces after a build.
+  outputFileTracingIncludes: {
+    "/api/news/**": ["./public/fonts/**"],
+    "/api/cron/news-send": ["./public/fonts/**"],
+    "/newsletter/**": ["./public/fonts/**"],
+  },
   partialPrefetching: true,
   turbopack: {
     rules: {
@@ -10,6 +19,16 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  async redirects() {
+    return [
+      // Issues moved to /newsletter before issue 1; a 308 keeps old links.
+      {
+        source: "/news/issues/:path*",
+        destination: "/newsletter/:path*",
+        permanent: true,
+      },
+    ];
   },
   async headers() {
     return [
