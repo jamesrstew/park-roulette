@@ -4,16 +4,18 @@ import { PageTitle } from "@/components/PageTitle";
 
 export const OPERATOR = "True Craft Ventures LLC";
 export const CONTACT = "hello@parkroulette.quest";
-export const UPDATED = "November 18, 2026";
 
 /** A plain, readable legal page in the crayon frame. */
 export function LegalPage({
   accent,
   lead,
   intro,
+  updated,
   children,
 }: {
   accent: string;
+  /** "Last updated" date for this page, e.g. "November 19, 2026". */
+  updated: string;
   lead: string;
   intro: ReactNode;
   children: ReactNode;
@@ -27,7 +29,7 @@ export function LegalPage({
         underline="yellow"
         underlineWidth="w-40"
         size="text-4xl"
-        subtitle={<p className="text-sm">Last updated {UPDATED}</p>}
+        subtitle={<p className="text-sm">Last updated {updated}</p>}
       />
       <div className="doodle-box flex flex-col gap-3 bg-[color-mix(in_srgb,var(--color-crayon-yellow)_14%,#fffdf7)] p-4 leading-relaxed">
         {intro}

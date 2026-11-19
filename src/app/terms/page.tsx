@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 export default function TermsPage() {
   return (
     <LegalPage
+      updated="November 19, 2026"
       lead="Terms of"
       accent="Service"
       intro={
@@ -208,9 +209,21 @@ export default function TermsPage() {
       <Section title="9. Copyright complaints">
         <p>
           We respect copyright and follow the Digital Millennium Copyright Act.
-          If you think something on Park Roulette infringes your copyright,
-          email <Mail /> with:
+          If you think something on Park Roulette infringes your copyright, send
+          a notice to our designated agent:
         </p>
+        <p>
+          James Stewart, Copyright Agent
+          <br />
+          {OPERATOR}
+          <br />
+          3400 NE John Olsen Avenue, Suite 200, Hillsboro, OR 97124
+          <br />
+          Phone: (541) 241-6749
+          <br />
+          Email: <Mail />
+        </p>
+        <p>Your notice must include:</p>
         <ul>
           <li>the work you think was copied;</li>
           <li>
@@ -229,10 +242,34 @@ export default function TermsPage() {
           <li>your physical or electronic signature.</li>
         </ul>
         <p>
-          We&apos;ll remove or disable material that appears to infringe. If we
-          remove something you posted and you think it was a mistake, you can
-          send a counter-notice to the same address. In appropriate cases, we
-          close the accounts of people who repeatedly infringe.
+          We&apos;ll remove or disable material that appears to infringe. In
+          appropriate cases, we close the accounts of people who repeatedly
+          infringe.
+        </p>
+        <p>
+          If we remove something you posted and you believe it was removed by
+          mistake or misidentification, you can send a counter-notice to the
+          same agent. It must include:
+        </p>
+        <ul>
+          <li>your physical or electronic signature;</li>
+          <li>what was removed and where it appeared before;</li>
+          <li>
+            a statement, under penalty of perjury, that you believe in good
+            faith it was removed by mistake or misidentification;
+          </li>
+          <li>your name, address and phone number;</li>
+          <li>
+            your consent to the jurisdiction of the federal district court for
+            your address (or, if you&apos;re outside the US, any district where
+            we can be found), and that you&apos;ll accept service of process
+            from the person who sent the original notice.
+          </li>
+        </ul>
+        <p>
+          We&apos;ll send your counter-notice to that person. Unless they tell
+          us within 10 business days that they&apos;ve filed a lawsuit, we may
+          put the material back in 10 to 14 business days.
         </p>
       </Section>
 

@@ -11,6 +11,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <LegalPage
+      updated="November 18, 2026"
       lead="Privacy"
       accent="Policy"
       intro={

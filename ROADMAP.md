@@ -20,12 +20,7 @@ playful first experience.
 
 ## Now (before the Bulletin story)
 
-1. **Twilio money: balance, auto-recharge, spend alerts** (James, Twilio
-   console). The CLI key can't read billing.
-2. **Turn alerts on: Resend account, DNS at Porkbun, `RESEND_API_KEY` in
-   Vercel** (James). Alerts are built and live; until the key exists they
-   only go to the server logs.
-3. **Check six parks in person** (James): Skyline Sports Complex (small
+1. **Check six parks in person** (James): Skyline Sports Complex (small
    playground?), Stone Creek (structure or nature play only?), Culver City
    Park (playground?), Coffield Community Center (playground still there?),
    Fort Rock in Sunriver (what equipment?), Bean Park in Madras (add it?
@@ -45,8 +40,9 @@ playful first experience.
    separate Messaging Service and number with Advanced Opt-Out, a texts row
    in settings with its own consent, a confirmation text at opt-in, and the
    Terms §3 and phone-field wording changes.
-6. **Register a DMCA agent** (James, $6 at dmca.copyright.gov; Claude adds
-   the agent to Terms §9).
+6. **Renew the DMCA agent by November 2029** (James, at dmca.copyright.gov).
+   Registered November 19, 2026; it lapses after 3 years, and the safe
+   harbor lapses with it. Terms §9 lists the agent.
 7. **Temporarily closed parks** (Claude): a real "closed until …" state
    that keeps a park off the wheel without crossing it off. Today the
    closures (Columbia until summer 2027, Sylvan's playground until spring
@@ -73,6 +69,9 @@ playful first experience.
 
 ## Done or dropped
 
+- Done 2026-11-19: Twilio auto-recharge and spend alerts (James); Resend
+  sending domain verified (DKIM, SPF, DMARC) and `RESEND_API_KEY` live, so
+  alerts email hello@; DMCA agent registered and listed in Terms §9.
 - Done 2026-11-18: launch readiness (sign-up caps for a news-story day,
   "texts are backed up" note, email alerts, funnel events, admin stats);
   park news by email (optional, inline), "The scoop" tab, "Name from

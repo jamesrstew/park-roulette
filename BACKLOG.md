@@ -8,7 +8,6 @@ Known follow-ups, newest first. Each has a reason it isn't done yet.
 - **Refuse VoIP numbers when a family starts** (Twilio Lookup line type, about $0.008 each). Today one person with two numbers can be two "families" for park-fix votes and reports.
 - **Strip video location server-side**, then let videos follow the review's visibility like photos (today they stay in the family).
 - **Lawyer review** of /terms and /privacy, especially the assumption-of-risk section and whether the crayon look makes the app "directed to children" under COPPA.
-- **Register a DMCA agent** at dmca.copyright.gov ($6, renews every 3 years) and add the agent's name to /terms section 7.
 - **Stalled park fixes.** With few families, suggestions wait for an admin. Idea: auto-apply a sticker fix nobody disputed after 7 days.
 - **Home base.** Ask "Where's home?" before the first spin and default the wheel to nearby parks (first spin in Bend sent a tester to Prineville).
 - **Install prompt timing.** Offer "Put it on your Home Screen" after the first stamp, not in the welcome.
