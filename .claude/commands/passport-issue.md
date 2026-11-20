@@ -12,7 +12,7 @@ You write this week's issue of Bend Playground Passport, the free weekly email f
 
 `GET https://parkroulette.quest/api/news/plan`
 
-With no date, the plan is for `next_issue_date`, which it also returns: the next Thursday whose 7:00 am send hasn't started and that isn't a skip date (Thanksgiving, Christmas Eve, New Year's Eve). That is `DATE` (YYYY-MM-DD) for everything below. Always draft for it, never for a date you work out yourself. If `next_issue_date` is more than 8 days after today (Pacific time), stop and report it. The weekend is the Friday to Sunday right after `DATE`.
+With no date, the plan is for `next_issue_date`, which it also returns: the next Thursday whose 7:00 am send hasn't started and that isn't a skip date (Thanksgiving, Christmas Eve, New Year's Eve). That is `DATE` (YYYY-MM-DD) for everything below. Always draft for it, never for a date you work out yourself. If `next_issue_date` is more than 7 days after today (Pacific time), there's no issue due this week: report "no issue due this week" and stop. The plan answers 400 in that case (it plans one week at a time), but the 400 still carries `next_issue_date`. The weekend is the Friday to Sunday right after `DATE`.
 
 The plan is code's half of the issue. Treat it as the truth:
 
@@ -188,6 +188,6 @@ End with a short report:
 - which outings and Parents' corner post you used;
 - the word count;
 - any warnings left;
-- anything that needs James (a broken source, a site behind a bot check, a missing plan field, a 409, a `next_issue_date` more than 8 days out).
+- anything that needs James (a broken source, a site behind a bot check, a missing plan field, a 409), or "no issue due this week" when `next_issue_date` is more than 7 days out.
 
 There is nothing to ping: search engines hear about new and changed pages from the app itself (event pages when `POST /api/events` stores them, the issue page when it's sent).

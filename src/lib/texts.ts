@@ -185,13 +185,22 @@ export function classifyReply(body: string): Keyword {
   const t = toGsmAscii(body)
     .trim()
     .toUpperCase()
-    .replace(/[.!]+$/, "")
+    .replace(/^[^A-Z0-9]+|[^A-Z0-9]+$/g, "")
     .replace(/\s+/g, " ");
   if (STOP_WORDS.has(t)) return "stop";
   if (START_WORDS.has(t)) return "start";
   if (HELP_WORDS.has(t)) return "help";
+  // END, short of a sentence like "the end of the trail": at the start or
+  // end of a short reply ("Please end", "End it"), or ending texts.
   if (
-    /\b(STOP|END|UNSUB(SCRIBE)?|CANCEL|QUIT|REVOKE|OPT ?OUT|NO MORE|WRONG NUMBER|REMOVE ME|TAKE ME OFF|NOT INTERESTED|DON'?T TEXT|DO NOT TEXT|LEAVE ME ALONE|BASTA|PARAR)\b/.test(
+    /^(PLEASE )?END\b|\bEND( IT| THIS| THEM)?( PLEASE)?$|\bEND (\w+ ){0,2}(TEXTS?|TEXTING|MESSAGES?|SUBSCRIPTION|PICKS?)\b/.test(
+      t,
+    ) &&
+    !/\bTHE END\b|\bEND OF\b/.test(t)
+  )
+    return "stop_like";
+  if (
+    /\b(STOP|UNSUB(SCRIBE)?|CANCEL|QUIT|REVOKE|OPT ?OUT|NO MORE|WRONG NUMBER|REMOVE ME|TAKE ME OFF|NOT INTERESTED|DON'?T TEXT|DO NOT TEXT|LEAVE ME ALONE|BASTA|PARAR)\b/.test(
       t,
     )
   )

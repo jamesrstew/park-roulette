@@ -66,6 +66,46 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
     expect(await q("select id from sms_program_sends")).toEqual([]);
   });
 
+  it("dry run tests on a validated draft when nothing went out; a real run never does", async () => {
+    // A validated draft for a later week, and a failed one for this week.
+    const later = ISSUE.replace("2026-12-03", "2026-12-10");
+    await q(`insert into news_issues (issue_date, status, body, report)
+      values ('2026-12-10', 'draft', '${later}'::jsonb, '{"ok":true}'::jsonb),
+             ('2026-12-03', 'draft', '{"issue_date":"2026-12-03"}'::jsonb, '{"ok":false}'::jsonb)`);
+    // Real run: no sent issue, no text.
+    expect((await pick.runWeekendPick(FRI)).action).toBe("skipped");
+    expect(texted).toEqual([]);
+    await q(`update news_settings set texts_dry_run = true`);
+    await q(
+      `insert into explorers (crew_id, name, color, avatar, is_admin, phone) values (1, 'James', 'blue', 'fox', true, '${B}')`,
+    );
+    const r = await pick.runWeekendPick(FRI);
+    expect(r.action).toBe("dry_run");
+    expect(texted).toEqual([B]);
+    // Keyed to this week, never the draft's own week.
+    const [row] = await q(
+      "select issue_date::text as d, body from sms_program_sends",
+    );
+    expect(row.d).toBe("2026-12-03");
+    expect(String(row.body)).toContain("Wildflower Park");
+  });
+
+  it("dry run prefers this week's validated draft", async () => {
+    const later = ISSUE.replace("2026-12-03", "2026-12-10").replace(
+      "wildflower-park-bend",
+      "nowhere-park",
+    );
+    await q(`insert into news_issues (issue_date, status, body, report)
+      values ('2026-12-10', 'draft', '${later}'::jsonb, '{"ok":true}'::jsonb),
+             ('2026-12-03', 'draft', '${ISSUE}'::jsonb, '{"ok":true}'::jsonb)`);
+    await q(`update news_settings set texts_dry_run = true`);
+    await q(
+      `insert into explorers (crew_id, name, color, avatar, is_admin, phone) values (1, 'James', 'blue', 'fox', true, '${B}')`,
+    );
+    expect((await pick.runWeekendPick(FRI)).action).toBe("dry_run");
+    expect(texted).toEqual([B]);
+  });
+
   it("texts each confirmed number once, never twice on a retry", async () => {
     // The issue body only needs the featured park for the text.
     await q(`insert into news_issues (issue_date, status, body, sent_body, sent_at, send_started_at)

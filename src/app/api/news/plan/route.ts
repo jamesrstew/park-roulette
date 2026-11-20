@@ -22,7 +22,9 @@ export async function GET(req: Request) {
   const nextIssue = await nextDraftDate();
   const date = url.searchParams.get("date") ?? nextIssue;
   const problem = issueDateProblem(date);
-  if (problem) return json({ error: problem }, 400);
+  // Even a refusal (say, the next issue is past a skip date and more
+  // than 7 days out) tells the writer which Thursday is next.
+  if (problem) return json({ error: problem, next_issue_date: nextIssue }, 400);
   const fresh = url.searchParams.get("fresh") === "1";
   if (fresh) {
     const [row] = await db

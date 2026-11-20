@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   contactConsents,
@@ -101,6 +101,34 @@ async function sentIssueFor(friday: string) {
 }
 
 /**
+ * Dry run only, before any issue has gone out: the latest validated draft
+ * for this week, else the latest validated draft of any date. Its text is
+ * keyed to this week's Thursday, so a dry run never claims another week.
+ */
+async function draftIssueFor(friday: string) {
+  const thursday = addDays(friday, -1);
+  const rows = await db
+    .select({ date: newsIssues.issueDate, body: newsIssues.body })
+    .from(newsIssues)
+    .where(
+      and(
+        eq(newsIssues.status, "draft"),
+        sql`${newsIssues.report}->>'ok' = 'true'`,
+      ),
+    )
+    .orderBy(
+      sql`(${newsIssues.issueDate} = ${thursday}) desc`,
+      desc(newsIssues.issueDate),
+      desc(newsIssues.updatedAt),
+    );
+  for (const r of rows) {
+    const body = IssueSchema.safeParse(r.body);
+    if (body.success) return { date: thursday, issue: body.data };
+  }
+  return null;
+}
+
+/**
  * Saturday's fresh forecast for the park's town (Bend when NWS has none
  * for it), or null.
  */
@@ -134,9 +162,18 @@ async function linkOk(url: string): Promise<boolean> {
 /** The week's text, or null with why (closed park, nothing fits...). */
 export async function weekText(
   friday: string,
+  { dryRun = false }: { dryRun?: boolean } = {},
 ): Promise<{ issueDate: string; text: string } | { why: string }> {
-  const sent = await sentIssueFor(friday);
-  if (!sent) return { why: "No issue went out this week, so no text." };
+  // A real run needs the sent issue; a dry run may test on a draft.
+  const sent =
+    (await sentIssueFor(friday)) ??
+    (dryRun ? await draftIssueFor(friday) : null);
+  if (!sent)
+    return {
+      why: dryRun
+        ? "No issue went out this week and there's no validated draft, so no dry-run text."
+        : "No issue went out this week, so no text.",
+    };
   const slug = sent.issue.wheel_pick.park;
   const [park] = await db
     .select({
@@ -325,7 +362,7 @@ async function run(
     });
     return { action: "paused", why: "STOP-rate guardrail tripped." };
   }
-  const week = await weekText(friday);
+  const week = await weekText(friday, { dryRun });
   if ("why" in week) {
     alertLater({
       key: `texts:skip:${friday}`,

@@ -90,6 +90,17 @@ describe("text replies", () => {
     ])
       expect(classifyReply(w), w).toBe("stop_like");
     expect(classifyReply("Have a good weekend")).toBe("other");
+    // END alone, or about the texts; never "the end of the trail".
+    expect(classifyReply("  End. ")).toBe("stop");
+    expect(classifyReply("...END!!")).toBe("stop");
+    for (const w of ["end texts", "End messages", "please end these texts"])
+      expect(classifyReply(w), w).toBe("stop_like");
+    for (const w of [
+      "see you at the end of the trail",
+      "By the end of the day we were all tired",
+      "Weekend plans: done",
+    ])
+      expect(classifyReply(w), w).toBe("other");
     expect(classifyReply("para mi hija")).toBe("other");
   });
 });
@@ -157,5 +168,23 @@ describe("the yes the browser sends (L7)", () => {
   it("never treats YES as START", () => {
     expect(classifyReply("YES")).toBe("other");
     expect(classifyReply("start")).toBe("start");
+  });
+});
+
+describe("END as a stop", () => {
+  it.each([
+    ["end texting", "stop_like"],
+    ["end my subscription", "stop_like"],
+    ["Please end", "stop_like"],
+    ["End please", "stop_like"],
+    ["End it", "stop_like"],
+    ["End this", "stop_like"],
+    ["end weekend texts", "stop_like"],
+    ["END", "stop"],
+    ["see you at the end of the trail", "other"],
+    ["by the end of the day", "other"],
+    ["the end", "other"],
+  ])("%s → %s", (msg, want) => {
+    expect(classifyReply(msg)).toBe(want);
   });
 });

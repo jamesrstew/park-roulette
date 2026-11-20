@@ -228,6 +228,28 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
     expect(await store.textedStop(B)).toBe(false);
   });
 
+  it("moves delivery status forward only: queued, sent, delivered (late reports ignored)", async () => {
+    await q(
+      `insert into sms_program_sends (issue_date, phone, status, twilio_sid, sent_at) values ('2026-12-03', '${A}', 'sent', 'SMo1', now())`,
+    );
+    const at = async () =>
+      (
+        (await q("select delivery_status as s from sms_program_sends")) as {
+          s: string | null;
+        }[]
+      )[0].s;
+    for (const [status, want] of [
+      ["sent", "sent"],
+      ["queued", "sent"],
+      ["delivered", "delivered"],
+      ["sent", "delivered"],
+      ["queued", "delivered"],
+    ])
+      await store
+        .recordDelivery({ sid: "SMo1", status, to: A, errorCode: null })
+        .then(async () => expect(await at(), status).toBe(want));
+  });
+
   it("records delivery reports, signed, and turns off numbers that can't get texts (H1)", async () => {
     await store.optIn(A, "texts_page", details);
     await store.optIn(B, "texts_page", details);
@@ -271,6 +293,13 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
     });
     expect(await store.textsOn(A)).toBe(false);
     expect(await store.textedStop(A)).toBe(false);
+    // A late "sent" never moves it back.
+    await post({ MessageSid: "SMd1", MessageStatus: "sent", To: A });
+    await post({ MessageSid: "SMd1", MessageStatus: "queued", To: A });
+    const [still] = (await q(
+      "select delivery_status from sms_program_sends",
+    )) as Record<string, unknown>[];
+    expect(still.delivery_status).toBe("undelivered");
     // Carrier filtering: James hears about it; the number stays on.
     await post({
       MessageSid: "SMd2",

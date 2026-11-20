@@ -495,6 +495,34 @@ export async function sendText(
   }
 }
 
+/** How far along a Twilio delivery status is (later states rank higher). */
+const DELIVERY_RANK: Record<string, number> = {
+  accepted: 0,
+  scheduled: 0,
+  queued: 1,
+  sending: 2,
+  sent: 3,
+  delivered: 4,
+  undelivered: 4,
+  failed: 4,
+  canceled: 4,
+  read: 5,
+};
+
+export function deliveryRank(status: string): number {
+  return DELIVERY_RANK[status] ?? 0;
+}
+
+function rankSql(col: ReturnType<typeof sql>) {
+  // No status yet ranks below every status.
+  return sql`case when ${col} is null then -1 else (case ${col} ${sql.join(
+    Object.entries(DELIVERY_RANK).map(
+      ([k, v]) => sql`when ${k} then ${v}::int`,
+    ),
+    sql` `,
+  )} else 0 end) end`;
+}
+
 /**
  * Twilio has a STOP from this number we never heard (21610): off and on
  * our STOP list, so a yes in the app asks for START from the phone.
@@ -516,10 +544,18 @@ export async function recordDelivery(p: {
   to: string;
   errorCode: number | null;
 }): Promise<void> {
+  // Reports can arrive out of order: a status only ever moves forward
+  // (queued, sent, then delivered, undelivered or failed).
+  const rank = deliveryRank(p.status);
   await db
     .update(smsProgramSends)
     .set({ deliveryStatus: p.status, errorCode: p.errorCode })
-    .where(eq(smsProgramSends.twilioSid, p.sid));
+    .where(
+      and(
+        eq(smsProgramSends.twilioSid, p.sid),
+        sql`${rankSql(sql`${smsProgramSends.deliveryStatus}`)} < ${rank}`,
+      ),
+    );
   const code = p.errorCode;
   if (!code) return;
   if (code === TWILIO_STOPPED) return twilioHasStop(p.to);

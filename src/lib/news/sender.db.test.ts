@@ -235,6 +235,19 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
     expect(n).toBe(0);
   });
 
+  it("a plan refused as too far ahead still names next_issue_date", async () => {
+    process.env.NEWS_INGEST_TOKEN = "t".repeat(32);
+    const { GET } = await import("@/app/api/news/plan/route");
+    const res = await GET(
+      new Request("http://localhost/api/news/plan?date=2099-01-01", {
+        headers: { authorization: `Bearer ${"t".repeat(32)}` },
+      }),
+    );
+    expect(res.status).toBe(400);
+    const body = (await res.json()) as { next_issue_date?: string };
+    expect(body.next_issue_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it("tells the writer the next Thursday to draft for (next_issue_date)", async () => {
     const { nextDraftDate } = await import("./data");
     // Thursday, December 3, 2026 (DATE's week): 4:30 am Pacific is this
