@@ -4,7 +4,7 @@
  * x-bot's user tokens, which this would rotate out from under it).
  *
  * Discovery is a known universe of parent-humor accounts (by permanent
- * user id), not a keyword search: 3 to 4 recent-search calls a week, each
+ * user id), not a keyword search: 6 to 8 recent-search calls a week, each
  * `(from:a OR from:b ...) -is:retweet -is:reply lang:en` over the last 7
  * days. A post is scored by how far it beats its author's usual numbers.
  * Pure: the token and fetch are passed in, so tests mock X.
@@ -248,43 +248,162 @@ export function universeQueries(
   return out;
 }
 
-/** What one week's fetch saw: every post (for the stats) and their authors. */
-export type UniverseFetch = { posts: XPost[]; users: ApiUser[] };
+/** Most search calls a week (pages included): the revised v4 budget. */
+export const MAX_CALLS = 8;
+/** Results per page (recent search's max_results). */
+export const PAGE_SIZE = 100;
 
-/** The last 7 days from every universe account, 3 to 4 calls. */
+/** One account as the batch planner sees it. */
+export type BatchAccount = {
+  username: string;
+  /** Original posts a week (data/x-universe.json; 1 when unknown). */
+  postsPerWeek: number;
+  /** Typical likes (higher goes first when the budget runs out). */
+  medianLikes: number;
+  appearances: number;
+};
+
+/** One planned query: its handles and how many pages its week fills. */
+export type Batch = { query: string; handles: string[]; pages: number };
+
+const queryFor = (hs: string[]) =>
+  `(${hs.map((h) => `from:${h}`).join(" OR ")}) ${QUERY_SUFFIX}`;
+
+/**
+ * Plan a week's search within the call budget (6 to 8 calls). A query
+ * returns the newest posts first, 100 a page, so a group of accounts
+ * needs a page per 100 posts it writes in a week, or its oldest posts
+ * fall off. Accounts go in by value (median likes per page they'd fill,
+ * then roundup appearances): each joins a query with room (512 characters, and posts
+ * a week within the pages it already uses), or starts a new one, while
+ * the total stays within MAX_CALLS. Accounts that don't fit (very busy
+ * posters with small numbers) wait, and are reported.
+ */
+export function planBatches(
+  accounts: readonly BatchAccount[],
+  opts: { maxCalls?: number; maxChars?: number } = {},
+): { batches: Batch[]; skipped: string[]; calls: number } {
+  const maxCalls = opts.maxCalls ?? MAX_CALLS;
+  const maxChars = opts.maxChars ?? QUERY_MAX;
+  const groups: { handles: string[]; ppw: number }[] = [];
+  const pagesOf = (ppw: number) => Math.max(1, Math.ceil(ppw / PAGE_SIZE));
+  const calls = () => groups.reduce((n, g) => n + pagesOf(g.ppw), 0);
+  const skipped: string[] = [];
+  // Value for the calls spent: typical likes, divided by the pages a
+  // very busy poster would fill on their own.
+  const value = (a: BatchAccount) =>
+    a.medianLikes / pagesOf(Math.max(0.1, a.postsPerWeek));
+  const order = [...accounts].sort(
+    (a, b) =>
+      value(b) - value(a) ||
+      b.appearances - a.appearances ||
+      a.username.localeCompare(b.username),
+  );
+  for (const a of order) {
+    const ppw = Math.max(0.1, a.postsPerWeek);
+    if (queryFor([a.username]).length > maxChars) {
+      skipped.push(a.username);
+      continue;
+    }
+    // Room without a new page: fewest posts first, so busy groups stay small.
+    const fit = groups
+      .filter(
+        (g) =>
+          queryFor([...g.handles, a.username]).length <= maxChars &&
+          pagesOf(g.ppw + ppw) === pagesOf(g.ppw),
+      )
+      .sort((x, y) => x.ppw - y.ppw)[0];
+    if (fit) {
+      fit.handles.push(a.username);
+      fit.ppw += ppw;
+      continue;
+    }
+    if (calls() + pagesOf(ppw) <= maxCalls) {
+      groups.push({ handles: [a.username], ppw });
+      continue;
+    }
+    // A group with character room that can take one more page.
+    const grow = groups
+      .filter(
+        (g) =>
+          queryFor([...g.handles, a.username]).length <= maxChars &&
+          calls() - pagesOf(g.ppw) + pagesOf(g.ppw + ppw) <= maxCalls,
+      )
+      .sort((x, y) => x.ppw - y.ppw)[0];
+    if (grow) {
+      grow.handles.push(a.username);
+      grow.ppw += ppw;
+    } else skipped.push(a.username);
+  }
+  const batches = groups.map((g) => ({
+    query: queryFor(g.handles),
+    handles: g.handles,
+    pages: pagesOf(g.ppw),
+  }));
+  return { batches, skipped, calls: calls() };
+}
+
+/** What one week's fetch saw: every post (for the stats) and their authors. */
+export type UniverseFetch = {
+  posts: XPost[];
+  users: ApiUser[];
+  /** Search calls made (pages included). */
+  calls: number;
+};
+
+/**
+ * The last 7 days from the planned batches: each query's first page, then
+ * its next pages (next_token) up to its planned count, never more than
+ * MAX_CALLS in all.
+ */
 export async function fetchUniverse(
   token: string | undefined,
-  handles: readonly string[],
+  batches: readonly Batch[],
   now: Date,
   fetchImpl: typeof fetch = fetch,
 ): Promise<UniverseFetch> {
-  if (!token || !handles.length) return { posts: [], users: [] };
+  if (!token || !batches.length) return { posts: [], users: [], calls: 0 };
   const start = new Date(
     now.getTime() - MAX_AGE_DAYS * 86_400_000 + 60_000,
   ).toISOString();
-  const results = await Promise.all(
-    universeQueries(handles).map((query) => {
-      const q = new URLSearchParams(FIELDS);
-      q.set("query", query);
-      q.set("max_results", "100");
-      q.set("start_time", start);
-      return get(`/tweets/search/recent?${q}`, token, fetchImpl).catch(
-        () => null,
-      );
+  let calls = 0;
+  const pages = await Promise.all(
+    batches.map(async (b) => {
+      const out: ApiResponse[] = [];
+      let next: string | undefined;
+      for (let page = 0; page < b.pages; page++) {
+        if (calls >= MAX_CALLS) break;
+        calls++;
+        const q = new URLSearchParams(FIELDS);
+        q.set("query", b.query);
+        q.set("max_results", String(PAGE_SIZE));
+        q.set("start_time", start);
+        if (next) q.set("next_token", next);
+        const r = await get(
+          `/tweets/search/recent?${q}`,
+          token,
+          fetchImpl,
+        ).catch(() => null);
+        if (!r) break;
+        out.push(r);
+        next = (r as { meta?: { next_token?: string } }).meta?.next_token;
+        if (!next) break;
+      }
+      return out;
     }),
   );
   const posts: XPost[] = [];
   const users = new Map<string, ApiUser>();
-  for (const r of results) {
-    for (const u of r?.includes?.users ?? []) users.set(u.id, u);
-    const tweets = (Array.isArray(r?.data) ? r.data : []) as ApiTweet[];
+  for (const r of pages.flat()) {
+    for (const u of r.includes?.users ?? []) users.set(u.id, u);
+    const tweets = (Array.isArray(r.data) ? r.data : []) as ApiTweet[];
     for (const t of tweets) {
       if ((t.lang ?? "en") !== "en") continue;
-      const p = toPost(t, r?.includes);
+      const p = toPost(t, r.includes);
       if (p) posts.push(p);
     }
   }
-  return { posts, users: [...users.values()] };
+  return { posts, users: [...users.values()], calls };
 }
 
 /** Median of some numbers, or null for none. */
@@ -345,6 +464,11 @@ export function rankCandidates(
     history: ReadonlyMap<string, readonly number[]>;
     /** Author ids (or "@handle", lowercase) that are out: flagged, dropped, cooling down. */
     excluded: ReadonlySet<string>;
+    /**
+     * Typical likes per author id from the seed (x-universe medianLikes):
+     * the baseline until we have 3 samples of our own.
+     */
+    seedMedian?: ReadonlyMap<string, number>;
     via?: Candidate["via"];
   },
 ): Candidate[] {
@@ -372,12 +496,21 @@ export function rankCandidates(
     })
     .map((p) => {
       const past = opts.history.get(p.authorId) ?? [];
-      const base =
-        past.length >= 3
+      const seed = opts.seedMedian?.get(p.authorId);
+      // Until we have 3 engagement samples, a seed account is scored on
+      // likes against its seed median likes (like for like); after that,
+      // engagement against its own engagement median.
+      const likesOnly = past.length < 3 && !!seed && seed > 0;
+      const base = likesOnly
+        ? seed!
+        : past.length >= 3
           ? median(past)
           : median([...past, ...(thisWeek.get(p.authorId) ?? [])]);
       const score =
-        Math.round((engagement(p) / Math.max(base ?? 1, 1)) * 100) / 100;
+        Math.round(
+          ((likesOnly ? p.likes : engagement(p)) / Math.max(base ?? 1, 1)) *
+            100,
+        ) / 100;
       return {
         ...p,
         score,

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
+import { ComingUpInTown } from "@/components/events/Modules";
 import { CrayonLoading } from "@/components/Loading";
 import { PageTitle } from "@/components/PageTitle";
 import {
@@ -192,6 +193,8 @@ async function Town({ params }: Props) {
           <TopRated parks={top} />
         </Section>
       )}
+
+      <ComingUpInTown town={town} />
 
       <Section title={`Every park in ${town.name}`}>
         <CompareTable parks={parks} caption={`Every park in ${town.name}`} />

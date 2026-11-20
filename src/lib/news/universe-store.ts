@@ -15,8 +15,9 @@ import {
   lookupPost,
   lookupUsers,
   rankCandidates,
+  median,
+  planBatches,
   takeoverReason,
-  universeQueries,
   type XPost,
 } from "./xapi";
 
@@ -30,7 +31,10 @@ type Row = typeof xAuthorStats.$inferSelect;
 /** What the plan says about the universe this week. */
 export type UniverseReport = {
   searched: number;
+  /** Search calls made this week (pages included; 8 at most). */
   queries: number;
+  /** Accounts left out this week to stay within the call budget. */
+  skipped?: string[];
   posts: number;
   out: { username: string; reason: string }[];
   flagged: { username: string; reason: string }[];
@@ -85,22 +89,44 @@ export async function discoverCandidates(opts: {
   const excluded = coolingAuthors(opts.history, opts.issueDate);
   const live: Row[] = [];
   for (const r of rows) {
-    const why = accountOut(r, opts.now);
+    const why =
+      r.addedFrom === "seed" && !seedOrder.has(r.authorId)
+        ? "left the seed list (November 19 revamp)"
+        : accountOut(r, opts.now);
     if (why) {
       excluded.add(r.authorId);
       report.out.push({ username: r.username, reason: why });
     } else live.push(r);
   }
-  live.sort(
-    (a, b) =>
-      (seedOrder.get(a.authorId) ?? 1e6) - (seedOrder.get(b.authorId) ?? 1e6),
+  // A week's batches within the call budget: seed numbers for seed
+  // accounts, our own samples for accounts added from roundups.
+  const seedBy = new Map(SEED.map((a) => [a.id, a]));
+  const plan = planBatches(
+    live.map((r) => {
+      const seed = seedBy.get(r.authorId);
+      const recent = (r.samples ?? []).filter(
+        (x) => opts.now.getTime() - Date.parse(x.at) < 28 * 86_400_000,
+      );
+      return {
+        username: r.username,
+        postsPerWeek: seed?.postsPerWeek ?? Math.max(1, recent.length / 4),
+        medianLikes:
+          seed?.medianLikes ?? median((r.samples ?? []).map((x) => x.e)) ?? 0,
+        appearances: seed?.appearances ?? (r.roundups ?? []).length,
+      };
+    }),
   );
-  const handles = live.map((r) => r.username);
-  report.searched = handles.length;
+  report.searched = live.length - plan.skipped.length;
+  report.skipped = plan.skipped;
 
-  const got = await fetchUniverse(token, handles, opts.now, opts.fetchImpl);
+  const got = await fetchUniverse(
+    token,
+    plan.batches,
+    opts.now,
+    opts.fetchImpl,
+  );
   report.posts = got.posts.length;
-  report.queries = universeQueries(handles).length;
+  report.queries = got.calls;
 
   // Takeovers: compare who answered with who we vetted.
   const byHandle = new Map(rows.map((r) => [r.username.toLowerCase(), r]));
@@ -137,10 +163,12 @@ export async function discoverCandidates(opts: {
   const history = new Map(
     rows.map((r) => [r.authorId, (r.samples ?? []).map((s) => s.e)]),
   );
+  const seedMedian = new Map(SEED.map((a) => [a.id, a.medianLikes]));
   const ranked = rankCandidates(vetted, {
     now: opts.now,
     history,
     excluded,
+    seedMedian,
   });
 
   // Roundup picks: one lookup each, the same rules, never a duplicate.

@@ -1,0 +1,1 @@
+ALTER TABLE "kid_events" ADD COLUMN "seen_streak" integer DEFAULT 0 NOT NULL;

@@ -1,6 +1,5 @@
 "use client";
 
-import { ResendLink } from "./ParkNews";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { ErrorLine } from "@/components/ErrorLine";
@@ -28,15 +27,12 @@ import {
  */
 export function PicksSheetPage({
   phone,
-  emailWaiting = null,
   textsSendingOn,
   headingId,
   onFinish,
 }: {
   /** This grown-up's number (E.164), just proven by a code. */
   phone: string;
-  /** An address on file that hasn't been confirmed yet (from before, or a lost link). */
-  emailWaiting?: string | null;
   textsSendingOn: boolean;
   headingId: string;
   onFinish: () => void;
@@ -45,7 +41,6 @@ export function PicksSheetPage({
   const words = TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION];
   const [open, setOpen] = useState({ email: false, text: false });
   const [email, setEmail] = useState("");
-  const [sent, setSent] = useState(false);
   const [checked, setChecked] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<{
@@ -69,13 +64,10 @@ export function PicksSheetPage({
   const submit = () =>
     start(async () => {
       setError(null);
-      const wantsEmail = open.email && !emailWaiting && email.trim() !== "";
+      const wantsEmail = open.email && email.trim() !== "";
       const wantsText = open.text && checked;
-      if (!wantsEmail && !wantsText) {
-        // Waiting on a confirmation already: nothing more to do here.
-        if (emailWaiting && open.email && !open.text) return onFinish();
+      if (!wantsEmail && !wantsText)
         return setError("Add your email or check the box first.");
-      }
       if (wantsEmail && !cleanEmail(email))
         return setError("That email looks off. Try again?");
       let mailed: string | null = null;
@@ -114,14 +106,17 @@ export function PicksSheetPage({
           tabIndex={-1}
           className="font-hand text-4xl leading-tight outline-none"
         >
-          {done.email ? "Almost there!" : "You're all set!"}
+          {done.email ? "You're in!" : "You're all set!"}
         </h2>
         {done.email ? (
           <p className="flex items-start gap-2 leading-snug">
             <Icon name="mail" size={26} className="shrink-0" />
             <span>
-              <b>Email:</b> check <b>{done.email}</b> and tap the link to
-              confirm.
+              <b>Email:</b> look for us Thursday morning at{" "}
+              <b className="break-all">{done.email}</b>.{" "}
+              <Link href="/me#park-picks-h" className="underline">
+                Wrong address? Fix it
+              </Link>
             </span>
           </p>
         ) : null}
@@ -182,19 +177,7 @@ export function PicksSheetPage({
         "Thursday mornings",
         "text-crayon-blue",
       )}
-      {open.email && emailWaiting ? (
-        <div id={`${id}-email`} className="flex flex-col gap-2 pb-2">
-          <p className="leading-snug">
-            {NEWS_NAME} to <b className="break-all">{emailWaiting}</b>
-          </p>
-          <ResendLink onSent={() => setSent(true)} />
-          {sent ? (
-            <p role="status" className="font-hand text-xl">
-              Sent! Check your email.
-            </p>
-          ) : null}
-        </div>
-      ) : open.email ? (
+      {open.email ? (
         <div id={`${id}-email`} className="flex flex-col gap-2 pb-2">
           <p className="leading-snug">
             {NEWS_NAME}: the forecast, a park to try and a warm backup.
@@ -216,7 +199,7 @@ export function PicksSheetPage({
             onChange={(e) => (setEmail(e.target.value), setError(null))}
           />
           <p className="text-sm text-ink-soft">
-            We&apos;ll email you a link to confirm.
+            Thursday mornings. Unsubscribe anytime.
           </p>
         </div>
       ) : null}

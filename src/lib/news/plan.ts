@@ -15,6 +15,11 @@ import { addDays, calendarFlags, weekendOf } from "./time";
 import { LIMITS } from "./validate";
 import { daysFrom, fetchForecast, weekendForecast } from "./weather";
 import { discoverCandidates } from "./universe-store";
+import { igCandidates } from "./igapi";
+import { blockedAccounts, blockedIds, takenDown } from "./takedowns";
+import { igCooling } from "./universe";
+import { allEvents, listed } from "@/lib/events/store";
+import { eventDomains } from "@/lib/events/validate";
 
 /**
  * GET /api/news/plan: everything code decides, so the writer only writes.
@@ -50,6 +55,39 @@ async function buildPlan(
     fetchForecast(),
   ]);
   const corner = await discoverCandidates({ issueDate, now, history, picks });
+  const xBlocked = blockedAccounts("x");
+  const xIds = blockedIds("x");
+  const xCandidates = corner.candidates.filter(
+    (c) =>
+      !xBlocked.has(c.username.toLowerCase()) &&
+      !xIds.has(c.authorId) &&
+      !takenDown("x", c.id),
+  );
+  const instagram = await igCandidates({
+    now,
+    token: process.env.IG_ACCESS_TOKEN,
+    igUserId: process.env.IG_USER_ID,
+    appSecret: process.env.IG_APP_SECRET || undefined,
+    blocked: blockedAccounts("instagram"),
+    cooling: igCooling(history, issueDate),
+  }).catch(() => []);
+  const wkEnd = weekendOf(issueDate);
+  const weekendEvents = (await allEvents())
+    .filter((e) => listed(e, now))
+    .map((e) => ({
+      e,
+      days: e.data.dates
+        .map((d) => d.day)
+        .filter((d) => d >= wkEnd.from && d <= wkEnd.to),
+    }))
+    .filter((x) => x.days.length)
+    .map(({ e, days }) => ({
+      slug: e.slug,
+      title: e.data.title,
+      days,
+      url: e.data.url,
+      ages_text: e.data.ages_text ?? null,
+    }));
   const deltas = await loadDeltas(
     since ?? new Date(now.getTime() - 14 * 86_400_000),
   );
@@ -145,11 +183,13 @@ async function buildPlan(
       "series",
     ).map(({ id, name, town, what, url }) => ({ id, name, town, what, url })),
     seasonal_defaults: CATALOG.seasonal_defaults,
+    events: weekendEvents,
     parents_corner: {
-      candidates: corner.candidates,
+      candidates: xCandidates,
+      instagram,
       universe: corner.report,
       rules:
-        'Candidates come from our universe of parent-humor accounts, best first by how far each post beats its author\'s usual numbers (score), plus any roundup picks you passed as ?picks=. Pick at most one, or none: kind, no identifiable child in a humiliating spot, nothing political, sexual, medical-scare, brand-run or cruel. Look at the media too. Send {platform: "x", url, postId}; code fetches and draws it. A TikTok video may be sent as {platform: "tiktok", url, postId}. Nothing clears the bar: leave the section out. Report accounts that turned political, commercial or adult to POST /api/news/universe.',
+        'Candidates come from our universe of parent-humor accounts, best first by how far each post beats its author\'s usual numbers (score), plus any roundup picks you passed as ?picks=. Pick at most one, or none: kind, no identifiable child in a humiliating spot, nothing political, sexual, medical-scare, brand-run or cruel. Look at the media too. Send {platform: "x", url, postId}; code fetches and draws it. A TikTok video may be sent as {platform: "tiktok", url, postId}. Nothing clears the bar: leave the section out. Report accounts that turned political, commercial or adult to POST /api/news/universe. Instagram candidates (instagram[]) are scored the same way against each page\'s median likes, and only original posts are offered: when an Instagram and an X post are about as good, pick Instagram; with no Instagram candidates, use X. Send an Instagram pick as {platform: "instagram", url: permalink, postId: id, account: username}.',
     },
     rules: {
       subject_max_chars: LIMITS.subjectMax,
@@ -158,6 +198,8 @@ async function buildPlan(
       exclamation_points_max: LIMITS.exclamations,
       weekend_dates: wk,
       link_domains: CATALOG.link_domains,
+      // Kids' events: never our own site, TripCheck or the weather service.
+      event_domains: eventDomains(CATALOG.link_domains),
       evidence:
         "Every event, closure or price carries {url, quote}; the quote holds the date, time or price exactly as printed on the page.",
       next_issue: addDays(issueDate, 7),

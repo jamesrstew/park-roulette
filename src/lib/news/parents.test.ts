@@ -22,7 +22,8 @@ import {
   QUERY_MAX,
   rankCandidates,
   takeoverReason,
-  universeQueries,
+  MAX_CALLS,
+  planBatches,
   type XPost,
 } from "./xapi";
 
@@ -94,47 +95,68 @@ function post(id: string, over: Partial<XPost> = {}): XPost {
 }
 
 describe("the X universe (Parents' corner v4)", () => {
-  it("seeds from data/x-universe.json by permanent id, most featured first", () => {
-    expect(SEED.length).toBeGreaterThanOrEqual(40);
+  it("seeds from data/x-universe.json by permanent id: the 68-account revamp", () => {
+    expect(SEED).toHaveLength(68);
     expect(SEED.every((a) => /^\d+$/.test(a.id))).toBe(true);
     expect(SEED[0].appearances).toBeGreaterThanOrEqual(SEED[1].appearances);
+    expect(SEED.every((a) => a.kind && a.postsPerWeek >= 0)).toBe(true);
+    expect(SEED.some((a) => a.medianLikes > 0)).toBe(true);
   });
 
-  it("packs handles into queries of 512 characters or less, in order", () => {
-    const qs = universeQueries(SEED.map((a) => a.username));
-    expect(qs.length).toBeGreaterThanOrEqual(3);
-    expect(qs.length).toBeLessThanOrEqual(5);
-    for (const q of qs) {
-      expect(q.length).toBeLessThanOrEqual(QUERY_MAX);
-      expect(q).toMatch(
+  it("plans the week in 6 to 8 calls, each query 512 characters or less", () => {
+    const plan = planBatches(SEED);
+    expect(plan.calls).toBeGreaterThanOrEqual(6);
+    expect(plan.calls).toBeLessThanOrEqual(MAX_CALLS);
+    expect(plan.batches.reduce((n, b) => n + b.pages, 0)).toBe(plan.calls);
+    for (const b of plan.batches) {
+      expect(b.query.length).toBeLessThanOrEqual(QUERY_MAX);
+      expect(b.query).toMatch(
         /^\(from:\w+( OR from:\w+)*\) -is:retweet -is:reply lang:en$/,
       );
+      // A batch's week of posts fits in its pages.
+      const ppw = b.handles.reduce(
+        (n, h) => n + (SEED.find((a) => a.username === h)?.postsPerWeek ?? 0),
+        0,
+      );
+      expect(ppw).toBeLessThanOrEqual(b.pages * 100 + 0.001);
     }
-    expect(qs[0]).toContain(`from:${SEED[0].username} `);
-    const all = qs.join(" ");
-    for (const a of SEED)
-      expect(all).toContain(`from:${a.username})`.slice(0, -1));
+    // Every account is searched or reported, never lost.
+    const searched = plan.batches.flatMap((b) => b.handles);
+    expect(searched.length + plan.skipped.length).toBe(SEED.length);
+    // The best performers always make it in.
+    const best = [...SEED].sort((a, b) => b.medianLikes - a.medianLikes)[0];
+    expect(searched).toContain(best.username);
+    // A tighter budget is respected too.
+    expect(planBatches(SEED, { maxCalls: 3 }).calls).toBeLessThanOrEqual(3);
   });
 
-  it("searches the last 7 days with the app-only bearer, and nothing without a token", async () => {
-    const { f, calls } = mockX({
+  it("searches the last 7 days with the app-only bearer, pages within the plan, and nothing without a token", async () => {
+    const batch = {
+      query: "(from:someparent OR from:other) -is:retweet -is:reply lang:en",
+      handles: ["someparent", "other"],
+      pages: 2,
+    };
+    const first = mockX({
       data: [tweet("1", 9_000), tweet("2", 100, { lang: "es" })],
       includes: { users },
+      meta: { next_token: "abc" },
     });
-    expect(await fetchUniverse(undefined, ["a"], NOW, f)).toEqual({
+    expect(await fetchUniverse(undefined, [batch], NOW, first.f)).toEqual({
       posts: [],
       users: [],
+      calls: 0,
     });
-    const got = await fetchUniverse("token", ["someparent", "other"], NOW, f);
-    expect(calls).toHaveLength(1);
+    const got = await fetchUniverse("token", [batch], NOW, first.f);
+    const { calls } = first;
+    expect(calls).toHaveLength(2);
+    expect(got.calls).toBe(2);
+    expect(new URL(calls[1].url).searchParams.get("next_token")).toBe("abc");
     expect(calls[0].auth).toBe("Bearer token");
     const u = new URL(calls[0].url);
     expect(u.pathname).toBe("/2/tweets/search/recent");
-    expect(u.searchParams.get("query")).toBe(
-      "(from:someparent OR from:other) -is:retweet -is:reply lang:en",
-    );
+    expect(u.searchParams.get("query")).toBe(batch.query);
     expect(u.searchParams.get("start_time")! > "2026-11-12T12:00").toBe(true);
-    expect(got.posts.map((p) => p.id)).toEqual(["1"]);
+    expect(got.posts.map((p) => p.id)).toEqual(["1", "1"]);
     expect(got.posts[0]).toMatchObject({ replies: 3, reposts: 10, quotes: 2 });
   });
 
@@ -155,6 +177,23 @@ describe("the X universe (Parents' corner v4)", () => {
     expect(got.map((p) => p.id)).toEqual(["small-but-wild", "big-but-usual"]);
     expect(got[0].score).toBeCloseTo(9000 / 1100, 2);
     expect(got[0].baseline).toBe(1100);
+  });
+
+  it("scores a seed account on likes against its seed median until 3 samples (M11)", () => {
+    const [p] = rankCandidates([post("a", { likes: 4000, reposts: 500 })], {
+      now: NOW,
+      history: new Map([["u1", [100, 200]]]),
+      excluded: new Set(),
+      seedMedian: new Map([["u1", 400]]),
+    });
+    expect(p.score).toBe(10);
+    const [q] = rankCandidates([post("b", { likes: 4000, reposts: 500 })], {
+      now: NOW,
+      history: new Map([["u1", [1000, 1000, 1000]]]),
+      excluded: new Set(),
+      seedMedian: new Map([["u1", 400]]),
+    });
+    expect(q.score).toBe(5);
   });
 
   it("only offers standalone, fresh, unflagged posts off cooldown, top 10", () => {

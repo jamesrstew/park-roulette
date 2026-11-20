@@ -1,7 +1,7 @@
 import { connection } from "next/server";
 import Link from "next/link";
 import { EmailSignup } from "@/components/ParkNews";
-import { FooterGate } from "@/components/FooterGate";
+import { FooterGate, FooterNavLink } from "@/components/FooterGate";
 import { TextsLink } from "@/components/news/TextsLink";
 import { CONTACT } from "@/components/legal/Legal";
 import { getMe } from "@/lib/data";
@@ -67,6 +67,9 @@ export async function SiteFooter() {
           <ul>
             <FooterLink href="/list">Every playground</FooterLink>
             <FooterLink href="/towns">Playgrounds by town</FooterLink>
+            <li>
+              <FooterNavLink href="/events">Kids&apos; events</FooterNavLink>
+            </li>
             {signedOut ? (
               <FooterLink href="/start">Start your family</FooterLink>
             ) : null}

@@ -266,7 +266,7 @@ const good = (): Issue => ({
       series_id: "series-parade",
       day: "2026-12-06",
       time: "Noon",
-      ages: "All ages",
+      ages_text: "All ages",
       cost: "Free",
       place: "Harmon Blvd to Drake Park",
       town: "Bend",
@@ -275,7 +275,8 @@ const good = (): Issue => ({
       evidence: [
         {
           url: PARADE,
-          quote: "Sunday, Dec. 6 at noon on Harmon Blvd. Free for everyone.",
+          quote:
+            "Sunday, Dec. 6 at noon on Harmon Blvd. Free for everyone. All ages.",
         },
       ],
     },
@@ -283,7 +284,6 @@ const good = (): Issue => ({
       name: "Family skate",
       day: "2026-12-05",
       time: "1 to 3 pm",
-      ages: "All ages",
       cost: "$8 with skates",
       place: "The Pavilion",
       town: "Bend",
@@ -307,7 +307,7 @@ const pages: Record<string, FetchResult> = {
   [PARADE]: {
     status: 200,
     finalUrl: PARADE,
-    text: "Bend Christmas Parade. Sunday, Dec. 6 at noon on Harmon Blvd. Free for everyone.",
+    text: "Bend Christmas Parade. Sunday, Dec. 6 at noon on Harmon Blvd. Free for everyone. All ages.",
   },
   [SKATE]: {
     status: 200,
@@ -336,6 +336,29 @@ const rules = (r: { rule: string; path: string }[]) =>
 // --- Tests ---------------------------------------------------------------
 
 describe("validateIssue", () => {
+  it("ages: only printed words (ages_text), mapped by code; never free text", async () => {
+    const g = good();
+    const w0 = g.weekend![0];
+    const freeText = await validateIssue(
+      {
+        ...g,
+        weekend: [{ ...w0, ages_text: undefined, ages: "Both" }, g.weekend![1]],
+      },
+      ctx(),
+    );
+    expect(rules(freeText.dropped)).toContain("weekend.0:schema");
+    const notPrinted = await validateIssue(
+      { ...g, weekend: [{ ...w0, ages_text: "Ages 4 to 7" }, g.weekend![1]] },
+      ctx(),
+    );
+    expect(rules(notPrinted.dropped)).toContain("weekend.0:evidence");
+    const unknownEvent = await validateIssue(
+      { ...g, weekend: [{ ...w0, event: "no-such-event" }, g.weekend![1]] },
+      ctx({ events: new Set(["fall-family-day-high-desert-museum"]) }),
+    );
+    expect(rules(unknownEvent.dropped)).toContain("weekend.0:catalog");
+  });
+
   it("passes the good issue, with nothing cut", async () => {
     const r = await validateIssue(good(), ctx());
     expect(r.errors).toEqual([]);
@@ -662,6 +685,119 @@ describe("validateIssue", () => {
     ).toContain("photo:catalog");
   });
 
+  it("parents' corner: Instagram posts from the plan only, with their account, linked to the permalink", async () => {
+    const permalink = "https://www.instagram.com/p/AbC123/";
+    const snap = {
+      kind: "instagram" as const,
+      id: "17900000000000001",
+      username: "thedumbdads",
+      permalink,
+      mediaType: "IMAGE" as const,
+      productType: "FEED" as const,
+      likes: 9000,
+      timestamp: "2026-12-01T18:00:00+0000",
+      carouselCount: null,
+      avatar: null,
+      image: {
+        path: "news/ig/abc.jpg",
+        width: 1080,
+        height: 1080,
+        type: "image/jpeg",
+      },
+    };
+    const withIg = {
+      ...plan,
+      parents_corner: {
+        candidates: [],
+        instagram: [
+          {
+            kind: "instagram" as const,
+            id: snap.id,
+            username: "thedumbdads",
+            avatar: null,
+            permalink,
+            mediaType: "IMAGE" as const,
+            productType: "FEED" as const,
+            imageUrl: "https://scontent.cdninstagram.com/x.jpg",
+            carouselCount: null,
+            likes: 9000,
+            timestamp: snap.timestamp,
+            caption: "",
+            score: 4,
+            baseline: 2000,
+          },
+        ],
+        rules: "",
+      },
+    };
+    const meme = {
+      platform: "instagram" as const,
+      url: permalink,
+      postId: snap.id,
+      account: "thedumbdads",
+    };
+    const wrongAccount = await validateIssue(
+      { ...good(), meme: { ...meme, account: "kidsaretheworst" } },
+      ctx({ plan: withIg, memeSource: async () => snap }),
+    );
+    expect(rules(wrongAccount.dropped)).toContain("meme:plan");
+    const ok = await validateIssue(
+      { ...good(), meme },
+      ctx({ plan: withIg, memeSource: async () => snap }),
+    );
+    expect(ok.dropped).toEqual([]);
+    expect(ok.issue?.meme?.url).toBe(permalink);
+    // Gone by send time: the X stand-in drawn at draft time goes instead.
+    const xStandIn = {
+      kind: "x" as const,
+      id: "1859000000000000009",
+      authorId: "u1",
+      text: "Bedtime went to a third round.",
+      links: [],
+      name: "Some Parent",
+      username: "someparent",
+      avatar: null,
+      verified: false,
+      verifiedType: null,
+      createdAt: "2026-12-01T18:00:00Z",
+      likes: 9000,
+      replies: 0,
+      reposts: 0,
+      quotes: 0,
+      media: [],
+      possiblySensitive: false,
+      standalone: true,
+      card: { path: "news/cards/x.png", width: 1200, height: 900, alt: "a" },
+    };
+    const fellBack = await validateIssue(
+      { ...good(), meme },
+      ctx({
+        plan: withIg,
+        memeSource: async () => null,
+        memeFallback: async () => xStandIn,
+      }),
+    );
+    expect(fellBack.issue?.meme?.platform).toBe("x");
+    expect(fellBack.issue?.meme?.url).toBe(
+      "https://x.com/someparent/status/1859000000000000009",
+    );
+    const noStandIn = await validateIssue(
+      { ...good(), meme },
+      ctx({ plan: withIg, memeSource: async () => null }),
+    );
+    expect(rules(noStandIn.dropped)).toContain("meme:links");
+    // Drafted with a stand-in kept for later.
+    const drafted = await validateIssue(
+      { ...good(), meme },
+      ctx({
+        plan: withIg,
+        memeSource: async () => snap,
+        memeFallback: async () => xStandIn,
+      }),
+    );
+    expect(drafted.issue?.meme?.fallback?.id).toBe(xStandIn.id);
+  });
+
   it("parents' corner: X posts from the plan only, fetched by code, snapshot never the writer's", async () => {
     const post = {
       kind: "x" as const,
@@ -729,15 +865,17 @@ describe("validateIssue", () => {
       ctx(),
     );
     expect(old.errors[0].rule).toBe("schema");
-    // Instagram stays out.
+    // Instagram is in (v5), but only as one of the plan's candidates.
     expect(
-      (
-        await validateIssue(
-          { ...good(), meme: { ...meme, platform: "instagram" } },
-          ctx(),
-        )
-      ).errors[0].rule,
-    ).toBe("schema");
+      rules(
+        (
+          await validateIssue(
+            { ...good(), meme: { ...meme, platform: "instagram" } },
+            ctx(),
+          )
+        ).dropped,
+      ),
+    ).toContain("meme:plan");
   });
 
   it("never links or quotes another newsletter", async () => {

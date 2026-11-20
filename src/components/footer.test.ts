@@ -14,6 +14,8 @@ describe("the site footer", () => {
       "/newsletter",
       "/newsletter/2026-12-03",
       "/texts",
+      "/events",
+      "/events/fall-family-day-high-desert-museum",
       "/terms",
       "/privacy",
     ])

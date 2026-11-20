@@ -1,0 +1,21 @@
+CREATE TABLE "kid_events" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"slug" text NOT NULL,
+	"kind" text NOT NULL,
+	"series_key" text NOT NULL,
+	"data" jsonb NOT NULL,
+	"status" text DEFAULT 'scheduled' NOT NULL,
+	"confirm" text DEFAULT 'ok' NOT NULL,
+	"misses" integer DEFAULT 0 NOT NULL,
+	"last_seen_at" timestamp with time zone,
+	"last_check_at" timestamp with time zone,
+	"facts_changed_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"state_changed_at" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "kid_events_slug_unique" UNIQUE("slug"),
+	CONSTRAINT "kid_events_series_key_unique" UNIQUE("series_key"),
+	CONSTRAINT "kid_events_kind" CHECK ("kid_events"."kind" in ('one_off', 'series', 'annual')),
+	CONSTRAINT "kid_events_status" CHECK ("kid_events"."status" in ('scheduled', 'canceled', 'postponed', 'rescheduled')),
+	CONSTRAINT "kid_events_confirm" CHECK ("kid_events"."confirm" in ('ok', 'unconfirmed'))
+);

@@ -384,9 +384,9 @@ export const contactConsents = pgTable(
 /**
  * Who gets Bend Playground Passport: one row per address, with or without
  * an account (the footer and /newsletter sign people up signed out).
- * pending until the confirmation link is tapped; confirmed gets the email;
- * stopped keeps only a fingerprint of the address (email is null). Pending
- * rows nobody confirms are deleted after 7 days.
+ * Single opt-in: a sign-up is confirmed at once and gets the email
+ * (pending rows are only from before, and were carried over by migration
+ * 0015); stopped keeps only a fingerprint of the address (email is null).
  */
 export const emailSubscribers = pgTable(
   "email_subscribers",
@@ -470,9 +470,11 @@ export const smsLastTexts = pgTable("sms_last_texts", {
 });
 
 /**
- * Confirmation links for park news (double opt-in). Only a sha256 of the
- * token and of the address are kept: enough to check a link and to rate
- * limit per address, never the address itself. Deleted after 30 days.
+ * Links and sign-up emails for park news: connect-to-family links, old
+ * confirmation links, and a "welcome" row per welcome email (never a
+ * usable link; it's what the daily caps count). Only a sha256 of the token
+ * and of the address are kept. Stopping expires rows; only the 30-day
+ * purge deletes them.
  */
 export const emailConfirmations = pgTable(
   "email_confirmations",
@@ -727,6 +729,58 @@ export const xAuthorStats = pgTable("x_author_stats", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * Kids' events (/events): one row per event page. A one-off has one date;
+ * a series (a catalog event series, or the same venue and title stem) and
+ * an annual event share one page with many dates. The writer hands them in
+ * with evidence (POST /api/events); code checks them, keys the series,
+ * maps printed ages to age tags, and re-checks the official page nightly.
+ */
+export const kidEvents = pgTable(
+  "kid_events",
+  {
+    id: serial("id").primaryKey(),
+    slug: text("slug").notNull().unique(),
+    /** one_off | series | annual */
+    kind: text("kind").notNull(),
+    /** Code's series key: catalog series id, or venue + title stem. */
+    seriesKey: text("series_key").notNull().unique(),
+    /** The validated event (lib/events/model.ts StoredEvent). */
+    data: jsonb("data").notNull(),
+    /** scheduled | canceled | postponed | rescheduled (from evidence). */
+    status: text("status").notNull().default("scheduled"),
+    /** ok | unconfirmed (two real misses in a row on the official page). */
+    confirm: text("confirm").notNull().default("ok"),
+    /** Consecutive nights the page loaded and the quote was gone (or 404). */
+    misses: integer("misses").notNull().default(0),
+    /** Consecutive nights the quote was seen (2 re-confirm an unconfirmed event). */
+    seenStreak: integer("seen_streak").notNull().default(0),
+    /** The last night the quote was still on the official page. */
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    lastCheckAt: timestamp("last_check_at", { withTimezone: true }),
+    /** When the facts last changed (the sitemap's lastmod). */
+    factsChangedAt: timestamp("facts_changed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** When it was canceled, rescheduled, unconfirmed or confirmed again. */
+    stateChangedAt: timestamp("state_changed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check("kid_events_kind", sql`${t.kind} in ('one_off', 'series', 'annual')`),
+    check(
+      "kid_events_status",
+      sql`${t.status} in ('scheduled', 'canceled', 'postponed', 'rescheduled')`,
+    ),
+    check("kid_events_confirm", sql`${t.confirm} in ('ok', 'unconfirmed')`),
+  ],
+);
 
 export type Crew = typeof crews.$inferSelect;
 export type Explorer = typeof explorers.$inferSelect;

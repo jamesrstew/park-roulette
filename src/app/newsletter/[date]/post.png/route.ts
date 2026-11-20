@@ -1,6 +1,7 @@
 import { get } from "@vercel/blob";
 import { weatherIssue } from "@/lib/news/data";
 import { draftImageKeyOk } from "@/lib/news/image-key";
+import { snapshotTakenDown } from "@/lib/news/takedowns";
 import { isIsoDate } from "@/lib/news/time";
 
 /**
@@ -26,14 +27,17 @@ export async function GET(
       status: 404,
       headers: { "cache-control": "public, max-age=60" },
     });
-  if (!found || !keyed || !card) return notFound();
+  const snap = found?.issue.meme?.snapshot;
+  if (!found || !keyed || !card || (snap && snapshotTakenDown(snap)))
+    return notFound();
   const blob = await get(card.path, { access: "private" }).catch(() => null);
   if (!blob?.stream) return notFound();
   return new Response(blob.stream, {
     headers: {
       "content-type": "image/png",
+      // A day at most: a takedown has to stop showing within a day.
       "cache-control": found.frozen
-        ? "public, max-age=31536000, immutable"
+        ? "public, max-age=86400"
         : "public, max-age=300",
     },
   });

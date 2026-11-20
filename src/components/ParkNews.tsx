@@ -4,11 +4,7 @@ import Link from "next/link";
 import { useId, useState, useTransition } from "react";
 import { ErrorLine } from "@/components/ErrorLine";
 import { Icon } from "@/components/icons";
-import {
-  resendParkNewsConfirmation,
-  signUpForEmail,
-  stopParkNews,
-} from "@/lib/client-actions";
+import { signUpForEmail, stopParkNews } from "@/lib/client-actions";
 import type { SignupSource } from "@/lib/news/subscribers";
 import { cleanEmail, PARK_NEWS, suggestEmail } from "@/lib/park-news";
 import { sfx } from "@/lib/sound";
@@ -17,7 +13,7 @@ import { sfx } from "@/lib/sound";
  * The email signup, the same everywhere (footer, /newsletter, issue pages,
  * onboarding, settings): a labeled field, "Count us in!", the fine print,
  * and a honeypot. The reply is the same whether or not the address is
- * already on the list ("Almost there!"); only a bad address differs.
+ * already on the list ("You're in!"); only a bad address differs.
  */
 export function EmailSignup({
   source,
@@ -186,10 +182,13 @@ export function ParkPicksSettings({
 function EmailRow({ email, trusted }: { email: EmailState; trusted: boolean }) {
   const [mode, setMode] = useState<"view" | "edit">("view");
   const [saved, setSaved] = useState<string | null>(null);
-  const [waitingFor, setWaitingFor] = useState<string | null>(null);
+  const [changedTo, setChangedTo] = useState<string | null>(null);
   const [stopped, setStopped] = useState(false);
-  const status = stopped ? "off" : waitingFor ? "pending" : email.status;
-  const address = waitingFor ?? email.address;
+  // Single opt-in: a sign-up is on at once. "pending" is an address this
+  // account asked to connect: it isn't this account's until the link is
+  // tapped, so it never reads as on.
+  const status = stopped ? "off" : changedTo ? "on" : email.status;
+  const address = changedTo ?? email.address;
   return (
     <div className="flex flex-col gap-2">
       <h3 className="font-hand text-xl leading-tight">
@@ -206,7 +205,7 @@ function EmailRow({ email, trusted }: { email: EmailState; trusted: boolean }) {
         ) : (
           <>
             <p className="leading-snug">
-              {status === "on" ? PARK_NEWS.on : PARK_NEWS.waiting}
+              {status === "pending" ? PARK_NEWS.connecting : PARK_NEWS.on}
             </p>
             <StopButton
               onStopped={() => (setStopped(true), setSaved("Emails off."))}
@@ -218,13 +217,13 @@ function EmailRow({ email, trusted }: { email: EmailState; trusted: boolean }) {
           <EmailSignup
             source="settings"
             initial={address ?? ""}
-            fine="We'll email you a link to confirm."
+            fine="Unsubscribe anytime."
             autoFocus
             onDone={(a) => {
               setMode("view");
               setStopped(false);
-              setWaitingFor(a);
-              setSaved("Almost there! Check your email.");
+              setChangedTo(a);
+              setSaved(PARK_NEWS.success);
             }}
           />
           <button
@@ -258,11 +257,9 @@ function EmailRow({ email, trusted }: { email: EmailState; trusted: boolean }) {
               Change
             </button>
           </div>
-          {status === "on" ? (
-            <p className="text-sm text-ink-soft">{PARK_NEWS.on}</p>
-          ) : (
-            <ResendLink onSent={() => setSaved("Sent! Check your email.")} />
-          )}
+          <p className="text-sm text-ink-soft">
+            {status === "pending" ? PARK_NEWS.connecting : PARK_NEWS.on}
+          </p>
           <StopButton
             onStopped={() => (setStopped(true), setSaved("Emails off."))}
           />
@@ -277,33 +274,6 @@ function EmailRow({ email, trusted }: { email: EmailState; trusted: boolean }) {
         </p>
       ) : null}
     </div>
-  );
-}
-
-/** Waiting to confirm: the reminder, and another link if the first got lost. */
-export function ResendLink({ onSent }: { onSent: () => void }) {
-  const [error, setError] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-  return (
-    <>
-      <p className="text-sm leading-snug text-ink-soft">{PARK_NEWS.waiting}</p>
-      <button
-        type="button"
-        disabled={pending}
-        onClick={() =>
-          start(async () => {
-            setError(null);
-            const r = await resendParkNewsConfirmation();
-            if (!r.ok) return setError(r.error);
-            onSent();
-          })
-        }
-        className="chip min-h-11 self-start"
-      >
-        {pending ? PARK_NEWS.pending : "Send the link again"}
-      </button>
-      {error ? <ErrorLine>{error}</ErrorLine> : null}
-    </>
   );
 }
 

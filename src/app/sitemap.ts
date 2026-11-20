@@ -10,6 +10,14 @@ import {
 } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
 import { sentIssues } from "@/lib/news/data";
+import {
+  allEvents,
+  eventLastmod,
+  listed,
+  listingChangedAt,
+  townEventsChangedAt,
+} from "@/lib/events/store";
+import { townSlug } from "@/lib/towns";
 
 /**
  * Every public page. lastmod is when its data really changed (a park added,
@@ -17,7 +25,29 @@ import { sentIssues } from "@/lib/news/data";
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection(); // fresh data, not a build-time snapshot
-  const [parks, issues] = await Promise.all([publicParks(), sentIssues()]);
+  const [parks, issues, events] = await Promise.all([
+    publicParks(),
+    sentIssues(),
+    allEvents(),
+  ]);
+  const now = new Date();
+  // Upcoming event pages only: lastmod is when their facts last changed
+  // (a status change counts), never the nightly check.
+  const liveEvents = events.filter((e) => listed(e, now));
+  const eventsChanged = listingChangedAt(events, now);
+  /** A town page: the later of its parks' and its events' changes. */
+  const townChanged = (slug: string, parkDay: string) => {
+    // Listed events, plus ones in the town that passed or dropped off.
+    const t = townEventsChangedAt(
+      events,
+      (e) => townSlug(e.data.venue.town),
+      slug,
+      now,
+    );
+    const park = parkDay ? new Date(parkDay).getTime() : 0;
+    const latest = Math.max(park, ...t);
+    return latest ? new Date(latest) : undefined;
+  };
   const towns = townsOf(parks);
   const at = (iso: string) => (iso ? new Date(iso) : undefined);
   return [
@@ -25,7 +55,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${SITE_URL}/towns`, lastModified: at(newest(parks)) },
     ...towns.filter(hasOwnPage).map((t) => ({
       url: `${SITE_URL}/towns/${t.slug}`,
-      lastModified: at(newest(t.parks)),
+      lastModified: townChanged(t.slug, newest(t.parks)),
     })),
     ...FEATURE_PAGES.map((f) => ({ f, ps: parks.filter(f.matches) }))
       .filter((x) => x.ps.length >= FEATURE_PAGE_MIN)
@@ -48,6 +78,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: i.sentAt,
     })),
     { url: `${SITE_URL}/texts` },
+    // Kids' events: the listing changes when the listed set does.
+    { url: `${SITE_URL}/events`, lastModified: eventsChanged ?? undefined },
+    ...liveEvents.map((e) => ({
+      url: `${SITE_URL}/events/${e.slug}`,
+      // Facts, or the day it entered the 60-day listing.
+      lastModified: eventLastmod(e, now),
+    })),
     { url: `${SITE_URL}/map` },
     { url: `${SITE_URL}/start` },
     { url: `${SITE_URL}/privacy` },

@@ -18,12 +18,13 @@ import {
   emailConfirmations,
   emailSubscribers,
   explorers,
+  newsIssues,
   newsSalts,
 } from "@/db/schema";
 import { CONSENT_VERSION } from "@/lib/park-news";
 import { SITE_URL } from "@/lib/site";
 import { NEWS_FROM, NEWS_REPLY_TO, sendOne } from "./resend";
-import { renderAlreadySubscribed, renderConfirmation } from "./template";
+import { renderConfirmation, renderWelcome } from "./template";
 import {
   addressHash,
   isToken,
@@ -34,12 +35,12 @@ import {
 import { alertLater } from "@/lib/alerts";
 
 /**
- * Who gets Bend Playground Passport (email_subscribers): double opt-in,
- * with or without an account, and every way of stopping. One live row per
+ * Who gets Bend Playground Passport (email_subscribers): single opt-in
+ * with a welcome email, with or without an account, and every way of stopping. One live row per
  * address. Signing up never reveals whether an address is already on the
  * list: the reply, and its timing, are the same (the email goes out after
- * the response). An account and an address are joined only by a tap on a
- * confirmation link, never by matching addresses.
+ * the response). An existing address joins an account only by a tap on a
+ * connect link, never by matching addresses.
  */
 
 export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -160,8 +161,14 @@ export async function stopSubscriber(
         updatedAt: sql`now()`,
       })
       .where(eq(emailSubscribers.id, id));
+    // Its links stop working, but the rows stay until the 30-day purge:
+    // they're what the daily caps count.
     await t
-      .delete(emailConfirmations)
+      .update(emailConfirmations)
+      .set({
+        usedAt: sql`coalesce(${emailConfirmations.usedAt}, now())`,
+        expiresAt: sql`now()`,
+      })
       .where(eq(emailConfirmations.subscriberId, id));
     // The old per-account columns (read-only since email_subscribers):
     // cleared so nothing on the account still holds the address.
@@ -197,9 +204,15 @@ export async function stopForExplorers(
           inArray(emailSubscribers.status, ["pending", "confirmed"]),
         ),
       );
+    // Only rows this account is linked to. An address it merely asked to
+    // connect (an unused link) isn't its own: that link just expires below.
     for (const r of rows) await stopSubscriber(r.id, source, t);
     await t
-      .delete(emailConfirmations)
+      .update(emailConfirmations)
+      .set({
+        usedAt: sql`coalesce(${emailConfirmations.usedAt}, now())`,
+        expiresAt: sql`now()`,
+      })
       .where(inArray(emailConfirmations.explorerId, ids));
     // The old per-account columns, whether or not a row exists: record
     // the stop (a fingerprint only), scrub, and clear them.
@@ -283,15 +296,44 @@ export type Outbox = (() => Promise<void>)[];
 async function mail(
   to: string,
   m: { subject: string; html: string; text: string },
+  headers?: Record<string, string>,
 ) {
   const r = await sendOne({
     from: NEWS_FROM(),
     to: [to],
     reply_to: NEWS_REPLY_TO(),
     ...m,
+    ...(headers ? { headers } : {}),
   });
   if (!r.ok)
     console.error(`[news] signup email: Resend said ${r.status} ${r.error}`);
+}
+
+/** The newest issue that went out, as a link (null before issue 1). */
+async function latestIssueUrl(t: Db): Promise<string | null> {
+  const [r] = await t
+    .select({ d: sql<string | null>`max(${newsIssues.issueDate})::text` })
+    .from(newsIssues)
+    .where(sql`${newsIssues.status} = 'sent'`);
+  return r?.d ? `${SITE_URL}/newsletter/${r.d}` : null;
+}
+
+/** The welcome email, with RFC 8058 one-click unsubscribe headers. */
+function welcomeMail(to: string, token: string, latest: string | null) {
+  const unsubscribeUrl = `${SITE_URL}/news/unsubscribe?t=${token}`;
+  return mail(
+    to,
+    renderWelcome({
+      site: SITE_URL,
+      unsubscribeUrl,
+      latestIssueUrl: latest,
+      postalAddress: process.env.NEWS_POSTAL_ADDRESS || null,
+    }),
+    {
+      "List-Unsubscribe": `<${SITE_URL}/api/news/unsubscribe?t=${token}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
+  );
 }
 
 function confirmMail(token: string, purpose: "subscribe" | "link") {
@@ -323,12 +365,13 @@ export async function subscribe(input: {
   source: SignupSource;
   explorerId?: number | null;
   ip?: string | null;
-}): Promise<Outbox> {
+}): Promise<Outbox & { busy?: boolean }> {
   const email = normalizeEmail(input.email);
   const hash = addressHash(email);
   const ipH = await ipHash(input.ip ?? null);
   const me = input.explorerId ?? null;
   const out: Outbox = [];
+  const state = { busy: false };
   await db.transaction(async (tx) => {
     // One sign-up per address (and per account) at a time.
     await tx.execute(
@@ -344,6 +387,10 @@ export async function subscribe(input: {
       await tx.execute(
         sql`select pg_advisory_xact_lock(hashtext(${`subscribe:ip:${ipH}`}))`,
       );
+    // The daily total counts across everyone: one sign-up at a time reads it.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext('subscribe:total'))`,
+    );
     const [counts] = await tx
       .select({
         address: sql<number>`count(*) filter (where ${emailConfirmations.addressHash} = ${hash})::int`,
@@ -352,8 +399,10 @@ export async function subscribe(input: {
       })
       .from(emailConfirmations)
       .where(gt(emailConfirmations.createdAt, sql`now() - interval '1 day'`));
-    // Over a limit: quietly nothing (the reply stays the same).
+    // Over a limit: nothing is sent. The per-address cap is silent; the
+    // per-IP and total caps tell the form (busy, try tomorrow).
     if (counts.total >= CONFIRM_LIMITS.total) {
+      state.busy = true;
       alertLater({
         key: "news:signup-cap",
         subject: "Email sign-ups hit the daily cap",
@@ -362,11 +411,11 @@ export async function subscribe(input: {
       });
       return;
     }
-    if (
-      counts.address >= CONFIRM_LIMITS.perAddress ||
-      counts.ip >= CONFIRM_LIMITS.perIp
-    )
+    if (counts.ip >= CONFIRM_LIMITS.perIp) {
+      state.busy = true;
       return;
+    }
+    if (counts.address >= CONFIRM_LIMITS.perAddress) return;
 
     const [row] = await tx
       .select({
@@ -396,8 +445,14 @@ export async function subscribe(input: {
           ),
         );
       for (const o of old) await stopSubscriber(o.id, "changed", tx);
+      // Expire this account's open links; the rows keep counting toward
+      // the caps until the 30-day purge (never deleted here).
       await tx
-        .delete(emailConfirmations)
+        .update(emailConfirmations)
+        .set({
+          usedAt: sql`coalesce(${emailConfirmations.usedAt}, now())`,
+          expiresAt: sql`now()`,
+        })
         .where(
           and(
             eq(emailConfirmations.explorerId, me),
@@ -408,7 +463,7 @@ export async function subscribe(input: {
 
     const link = async (
       subscriberId: number,
-      purpose: "subscribe" | "link" | "notice",
+      purpose: "subscribe" | "link" | "notice" | "welcome",
     ) => {
       const token = newToken();
       await tx.insert(emailConfirmations).values({
@@ -433,6 +488,29 @@ export async function subscribe(input: {
         source: input.source,
       });
 
+    // Single opt-in (James, November 2026): a new address is on the list
+    // at once, with a welcome email that carries the one-tap way out.
+    const welcome = async (id: number) => {
+      const token = newToken();
+      await tx
+        .update(emailSubscribers)
+        .set({
+          status: "confirmed",
+          confirmedAt: sql`coalesce(${emailSubscribers.confirmedAt}, now())`,
+          token: sql`coalesce(${emailSubscribers.token}, ${token})`,
+          explorerId: me ?? sql`${emailSubscribers.explorerId}`,
+          updatedAt: sql`now()`,
+        })
+        .where(eq(emailSubscribers.id, id));
+      const [r] = await tx
+        .select({ token: emailSubscribers.token })
+        .from(emailSubscribers)
+        .where(eq(emailSubscribers.id, id));
+      // Counted like a confirmation email (the caps), never usable as a link.
+      await link(id, "welcome");
+      const latest = await latestIssueUrl(tx);
+      out.push(() => welcomeMail(email, r.token!, latest));
+    };
     if (!row) {
       const [made] = await tx
         .insert(emailSubscribers)
@@ -446,44 +524,43 @@ export async function subscribe(input: {
         })
         .returning({ id: emailSubscribers.id });
       await consent(made.id);
-      const token = await link(made.id, "subscribe");
-      out.push(() => mail(email, confirmMail(token, "subscribe")));
+      await welcome(made.id);
     } else if (row.status === "pending") {
-      // The link again. Signed in, someone else's (or nobody's) row joins
-      // the account on the tap; their own row just confirms.
-      if (me) await consent(row.id);
-      const purpose = me && row.explorerId !== me ? "link" : "subscribe";
-      const token = await link(row.id, purpose);
-      out.push(() => mail(email, confirmMail(token, purpose)));
+      // An old pending row (before single opt-in): on the list now.
+      await consent(row.id);
+      if (me && row.explorerId && row.explorerId !== me) return;
+      await welcome(row.id);
     } else if (me && row.explorerId === me) {
       // Already theirs and on: nothing to do.
     } else if (me && row.explorerId == null) {
-      // Confirmed with no account: a link that connects it to this one.
+      // On the list with no account: a link that connects it to this one
+      // (joining an address to an account still needs its owner's tap).
       await consent(row.id);
       const token = await link(row.id, "link");
       out.push(() => mail(email, confirmMail(token, "link")));
-    } else if (me) {
-      // Confirmed by another family's account: never moved to this one
-      // (the reply stays the same).
-    } else {
-      // Confirmed, signed out: say so, with the way out (never a new link).
-      await link(row.id, "notice");
-      const unsub = row.token
-        ? `${SITE_URL}/news/unsubscribe?t=${row.token}`
-        : null;
-      out.push(() =>
-        mail(
-          email,
-          renderAlreadySubscribed({
-            site: SITE_URL,
-            unsubscribeUrl: unsub,
-            postalAddress: process.env.NEWS_POSTAL_ADDRESS || null,
-          }),
-        ),
-      );
     }
+    // Otherwise (on the list already, signed out or another family's):
+    // nothing is sent, and the answer on screen is the same.
   });
-  return out;
+  return Object.assign(out, { busy: state.busy });
+}
+
+/**
+ * Is the sign-up form over its per-IP or daily total cap right now? It
+ * reads counts only (nothing about any address), so the form can say
+ * "busy" before any address work happens; subscribe() still enforces
+ * the caps under its locks.
+ */
+export async function signupsBusy(ip: string | null): Promise<boolean> {
+  const ipH = await ipHash(ip);
+  const [c] = await db
+    .select({
+      ip: sql<number>`count(*) filter (where ${ipH ? sql`${emailConfirmations.ipHash} = ${ipH}` : sql`false`})::int`,
+      total: sql<number>`count(*)::int`,
+    })
+    .from(emailConfirmations)
+    .where(gt(emailConfirmations.createdAt, sql`now() - interval '1 day'`));
+  return c.ip >= CONFIRM_LIMITS.perIp || c.total >= CONFIRM_LIMITS.total;
 }
 
 /** Send the queued emails (call from after(), or await in scripts). */
@@ -525,7 +602,13 @@ export async function confirmEmail(token: unknown): Promise<ConfirmResult> {
       .from(emailConfirmations)
       .where(eq(emailConfirmations.tokenHash, sha256(token)))
       .for("update");
-    if (!c || !c.subscriberId || c.purpose === "notice") return no("invalid");
+    if (
+      !c ||
+      !c.subscriberId ||
+      c.purpose === "notice" ||
+      c.purpose === "welcome"
+    )
+      return no("invalid");
     const [row] = await tx
       .select({
         id: emailSubscribers.id,
@@ -538,6 +621,13 @@ export async function confirmEmail(token: unknown): Promise<ConfirmResult> {
       .for("update");
     if (!row || row.status === "stopped" || !row.email) return no("invalid");
     if (c.usedAt) return no("already");
+    // Already on the list (and not joining an account): say so, even if
+    // the link is old.
+    if (
+      row.status === "confirmed" &&
+      (c.explorerId == null || row.explorerId === c.explorerId)
+    )
+      return no("already");
     if (c.expired) return no("expired");
     // A row that belongs to another family's account is never moved.
     if (
@@ -610,15 +700,15 @@ export async function confirmationPurpose(
 // --- An account's view ---------------------------------------------------
 
 export type Subscription = {
-  /** off, pending (waiting for the tap), or on */
+  /** off, on, or pending (an address it asked to connect, link not tapped) */
   status: "off" | "pending" | "on";
   email: string | null;
 };
 
 /**
- * What Family & settings shows. "Waiting to confirm" both for a brand-new
- * address and for one that already has a row (never "already subscribed",
- * which is exactly what the public form hides).
+ * What Family & settings shows: on (its own row, or an address it asked to
+ * connect, while that link is open) or off. Never "already subscribed",
+ * which is exactly what the public form hides.
  */
 export const subscriptionFor = cache(loadSubscription);
 
@@ -656,16 +746,6 @@ async function loadSubscription(explorerId: number): Promise<Subscription> {
   if (waiting?.email) return { status: "pending", email: waiting.email };
   if (mine[0]) return { status: "pending", email: mine[0].email };
   return { status: "off", email: null };
-}
-
-/** "Send the link again" for whatever this account is waiting on. */
-export async function resendFor(
-  explorerId: number,
-  ip: string | null,
-): Promise<Outbox> {
-  const s = await subscriptionFor(explorerId);
-  if (s.status !== "pending" || !s.email) return [];
-  return subscribe({ email: s.email, source: "settings", explorerId, ip });
 }
 
 // --- Daily cleanup -------------------------------------------------------

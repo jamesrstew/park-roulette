@@ -28,7 +28,7 @@ const RESULTS = {
   },
   expired: {
     icon: "calendar",
-    line: "That link ran out. Sign up again for a fresh one: it only takes a second.",
+    line: "That link ran out. Sign up again on parkroulette.quest/newsletter.",
   },
   invalid: {
     icon: "warning",
@@ -118,7 +118,7 @@ async function Confirm({ searchParams }: Props) {
         type="submit"
         className="crayon-btn wax min-h-12 bg-crayon-blue px-5 text-xl text-white [text-shadow:1px_1px_0_#2b2a33]"
       >
-        {linking ? "Connect it to my family" : "Yes, send me park picks"}
+        {linking ? "Connect it to my family" : "Confirm"}
       </button>
     </form>
   );

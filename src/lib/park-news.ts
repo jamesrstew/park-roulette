@@ -4,7 +4,7 @@
  */
 
 /** Bump the version whenever the words people see change. */
-export const CONSENT_VERSION = "email-2026-11-20";
+export const CONSENT_VERSION = "email-2026-11-21";
 
 /**
  * The glossary (one set of names everywhere): the umbrella is "the weekly
@@ -25,14 +25,15 @@ export const PARK_NEWS = {
   button: "Count us in!",
   pending: "One sec…",
   /** Signed-out fine print (anyone could be typing). */
-  fine: "For grown-ups. We'll email you a link to confirm. Unsubscribe anytime.",
-  fineFull:
-    "For grown-ups. We'll email you a link to confirm. Unsubscribe anytime. We never sell your email.",
-  success: "Almost there! Check your email and tap the link to confirm.",
+  fine: "For grown-ups. Unsubscribe anytime.",
+  fineFull: "For grown-ups. Unsubscribe anytime. We never sell your email.",
+  success: "You're in! Look for us Thursday morning.",
+  /** The per-IP and daily caps (neutral: about us, never the address). */
+  busy: "Lots of sign-ups right now. Try again tomorrow?",
   failure: "That didn't go through. Try again?",
   on: "Every Thursday morning.",
-  waiting:
-    "Waiting to confirm. Tap the link in our email, or send it again (each link works for 7 days).",
+  /** An address this account asked to connect, link not tapped yet. */
+  connecting: "Waiting for you to connect this email (check your inbox).",
   off: "Bend Playground Passport: the weekend forecast, a park to try and a warm backup, Thursday mornings.",
 } as const;
 

@@ -25,6 +25,7 @@ import {
 import type { Plan } from "./plan-types";
 import { weekdayOf, weekendOf } from "./time";
 import { LIKES_FLOOR, postUrl } from "./xapi";
+import { ageTags } from "@/lib/events/ages";
 
 /**
  * The one validator. The writer's self-check (POST /api/news/check), the
@@ -39,9 +40,9 @@ import { LIKES_FLOOR, postUrl } from "./xapi";
 
 /** The canonical link to a post, from its snapshot. */
 export function memeLink(s: MemeSnapshot): string {
-  return s.kind === "x"
-    ? postUrl(s)
-    : `https://www.tiktok.com/@${s.handle}/video/${s.id}`;
+  if (s.kind === "x") return postUrl(s);
+  if (s.kind === "instagram") return s.permalink;
+  return `https://www.tiktok.com/@${s.handle}/video/${s.id}`;
 }
 
 export type Rule =
@@ -118,6 +119,14 @@ export type ValidateContext = {
    * TikTok oEmbed plus a copy of its cover). Null: it's gone or ineligible.
    * Omitted with no network.
    */
+  /**
+   * Instagram picks only: an X stand-in with its card (drawn at draft
+   * time from the plan's best X candidate; at send, the drafted one if
+   * its post still exists). Null: none.
+   */
+  memeFallback?: () => Promise<MemeSnapshot | null>;
+  /** Event pages on /events, by slug (an outing may name its own). */
+  events?: ReadonlySet<string>;
   memeSource?: (
     meme: NonNullable<Issue["meme"]>,
   ) => Promise<MemeSnapshot | null>;
@@ -292,7 +301,7 @@ function shouting(s: string): boolean {
   return (s.match(/\b[A-Z]{4,}\b/g) ?? []).some((w) => !ok.has(w));
 }
 
-function styleProblems(text: string): string[] {
+export function styleProblems(text: string): string[] {
   const out: string[] = [];
   if (MENTIONS.test(text))
     out.push("Names another newsletter. Credit the primary source instead.");
@@ -385,23 +394,43 @@ export function pageText(html: string): string {
 }
 
 /** "$8", "$8.50": whole prices only, never "$8" inside "$80". */
-const PRICE = /\$\s?\d+(?:\.\d{2})?(?![\d.])/g;
-const FREE = /\bfree\b/i;
+const PRICE = /\$\s?\d+(?:\.\d{2})?(?!\d|\.\d)/g;
 
-/** Does a quote print this price ("$8" matches "$8/person", not "$80")? */
+/**
+ * Does a quote print this price? Compared as amounts, so "$13" matches
+ * "$13.00" but never "$13.50" or "$130", and "$13.50" needs its cents.
+ */
 export function quoteHasPrice(quote: string, price: string): boolean {
-  const amount = price.replace(/[$\s]/g, "").replace(".", "\\.");
-  return new RegExp(`\\$\\s?${amount}(?![\\d.])`).test(quote);
+  const want = Number(price.replace(/[$\s,]/g, ""));
+  if (!Number.isFinite(want)) return false;
+  return [...quote.matchAll(/\$\s?(\d+(?:,\d{3})*(?:\.\d{1,2})?)/g)].some(
+    (m) => Number(m[1].replace(/,/g, "")) === want,
+  );
 }
 
-/** Every price claim in some text: dollar amounts, and "free". */
-function priceClaims(text: string): string[] {
-  return [...(text.match(PRICE) ?? []), ...(FREE.test(text) ? ["free"] : [])];
+/**
+ * "Free" only in an admission sense: free admission, a free event, free
+ * for all, free and open to the public, no cost. ("Free parking" or
+ * "under 3 free" don't make an event free.)
+ */
+export const FREE_ADMISSION =
+  /\bfree (admission|entry|event|of charge|to attend|to the public|for (all|everyone|everybody|families|kids)|and open to (the public|all|everyone))\b|\b(admission|entry|it|this event|the event)( is)? free\b|\bno (cost|charge|admission fee)\b|^\s*free\.?\s*$/i;
+
+/**
+ * Every price claim in some texts: dollar amounts, and "free" when a text
+ * says admission is free (a bare "Free" cost, or "free admission"...).
+ */
+function priceClaims(texts: string | string[]): string[] {
+  const list = Array.isArray(texts) ? texts : [texts];
+  return [
+    ...list.flatMap((t) => t.match(PRICE) ?? []),
+    ...(list.some((t) => FREE_ADMISSION.test(t)) ? ["free"] : []),
+  ];
 }
 
 function quotesPrice(quotes: string[], claim: string): boolean {
   return claim === "free"
-    ? quotes.some((q) => FREE.test(q))
+    ? quotes.some((q) => FREE_ADMISSION.test(q))
     : quotes.some((q) => quoteHasPrice(q, claim));
 }
 
@@ -735,7 +764,34 @@ export async function validateIssue(
     // Evidence: one quote must print the day (or date) and the start time;
     // every price claim, "free" included, must be printed in a quote.
     const quotes = w.evidence.map((e) => e.quote);
-    for (const claim of priceClaims([w.cost, w.what].join(" ")))
+    // Ages: only the words printed on the page; code makes the tags.
+    if (w.ages)
+      flag(
+        key,
+        "schema",
+        'Use ages_text: the age words as printed on the page ("Ages 5 and under"). Code makes the age tags.',
+      );
+    if (w.ages_text) {
+      const norm = (x: string) => normalizeText(x).toLowerCase();
+      const a = ageTags(w.ages_text);
+      if (!quotes.some((q) => norm(q).includes(norm(w.ages_text!))))
+        flag(
+          key,
+          "evidence",
+          `The ages "${w.ages_text}" must appear word for word in an evidence quote.`,
+        );
+      else if (!a)
+        flag(
+          key,
+          "evidence",
+          `"${w.ages_text}" doesn't say an age we can read.`,
+        );
+      else if (!a.kids)
+        flag(key, "evidence", `Not a kids' outing ("${w.ages_text}").`);
+    }
+    if (w.event && ctx.events && !ctx.events.has(w.event))
+      flag(key, "catalog", `No event page "${w.event}" on /events.`);
+    for (const claim of priceClaims([w.cost, w.what]))
       if (!quotesPrice(quotes, claim))
         flag(
           key,
@@ -857,7 +913,11 @@ export async function validateIssue(
   // the writer's.
   const meme = issue.meme;
   let memeSnap: MemeSnapshot | null = null;
+  let memeFallback: MemeSnapshot | null = null;
   if (meme) {
+    const igPick = (plan?.parents_corner?.instagram ?? []).find(
+      (c) => c.id === meme.postId,
+    );
     if (
       meme.platform === "x" &&
       !(plan?.parents_corner?.candidates ?? []).some(
@@ -865,8 +925,31 @@ export async function validateIssue(
       )
     )
       flag("meme", "plan", "An X post must be one of the plan's candidates.");
+    else if (
+      meme.platform === "instagram" &&
+      (!igPick || igPick.username !== meme.account)
+    )
+      flag(
+        "meme",
+        "plan",
+        "An Instagram post must be one of the plan's candidates, with its account.",
+      );
     else if (ctx.memeSource) {
       memeSnap = await ctx.memeSource(meme).catch(() => null);
+      if (meme.platform === "instagram") {
+        const fb = await ctx.memeFallback?.().catch(() => null);
+        if (memeSnap) memeFallback = fb ?? null;
+        else if (fb) {
+          // The Instagram post is gone: the X stand-in goes instead.
+          memeSnap = fb;
+          warnings.push({
+            rule: "links",
+            path: "meme",
+            message:
+              "The Instagram post is gone, so the X post drafted with it goes instead.",
+          });
+        }
+      }
       if (!memeSnap)
         flag(
           "meme",
@@ -1065,10 +1148,14 @@ export async function validateIssue(
     meme:
       trimmed.meme && memeSnap
         ? {
-            platform: trimmed.meme.platform,
-            postId: trimmed.meme.postId,
+            platform: memeSnap.kind,
+            postId: memeSnap.id,
             url: memeLink(memeSnap),
+            ...(memeSnap.kind === "instagram"
+              ? { account: memeSnap.username }
+              : {}),
             snapshot: memeSnap,
+            ...(memeFallback ? { fallback: memeFallback } : {}),
           }
         : // Without the network the writer's snapshot never survives.
           trimmed.meme && { ...trimmed.meme, snapshot: undefined },

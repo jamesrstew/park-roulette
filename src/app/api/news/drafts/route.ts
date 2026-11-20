@@ -31,6 +31,8 @@ export async function POST(req: Request) {
   const ctx = await validateContext(date as string, {
     network: true,
     cards: { mode: "store" },
+    // An Instagram pick also draws its X stand-in now (used if it dies).
+    fallback: { mode: "store" },
   });
   const report = await validateIssue(body, ctx);
   if (!report.ok) return json({ stored: false, report }, 422);

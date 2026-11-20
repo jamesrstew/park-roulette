@@ -1,4 +1,6 @@
 import "server-only";
+import { del } from "@vercel/blob";
+import { snapshotTakenDown } from "./takedowns";
 import { pingIndexNow } from "@/lib/indexnow";
 import { draftImageKey } from "./image-key";
 import { randomUUID } from "node:crypto";
@@ -146,21 +148,21 @@ async function step(
   let report: ValidationReport;
   try {
     // Reuse the card the draft stored: what was checked is what goes out.
-    const drafted = (issue.report as ValidationReport | null)?.issue?.meme
-      ?.snapshot;
+    const draftedMeme = (issue.report as ValidationReport | null)?.issue?.meme;
+    const drafted = draftedMeme?.snapshot;
     report = await validateIssue(
       issue.body,
       await validateContext(gate.date, {
         network: true,
         now,
         cards: drafted?.card
-          ? {
-              mode: "reuse",
-              card: drafted.card,
-              kind: drafted.kind,
-              id: drafted.id,
-            }
+          ? { mode: "reuse", snapshot: drafted }
           : { mode: "store" },
+        // An Instagram pick that died since the draft falls back to the
+        // X post drafted with it (its card already stored), or drops.
+        fallback: draftedMeme?.fallback?.card
+          ? { mode: "reuse", snapshot: draftedMeme.fallback }
+          : undefined,
       }),
     );
   } catch (e) {
@@ -634,6 +636,38 @@ async function closeStaleSends(today: string) {
 // --- Daily cleanup's part ------------------------------------------------
 
 /**
+ * Delete the Blob files (card, Instagram image, TikTok cover) of every
+ * issue's Parents' corner post that's taken down (data/takedowns.json).
+ */
+export async function deleteTakenDownFiles(): Promise<number> {
+  const rows = await db
+    .select({ body: newsIssues.sentBody, report: newsIssues.report })
+    .from(newsIssues);
+  const paths = new Set<string>();
+  for (const r of rows) {
+    const bodies = [
+      r.body as Issue | null,
+      (r.report as ValidationReport | null)?.issue ?? null,
+    ];
+    for (const b of bodies) {
+      const s = b?.meme?.snapshot;
+      if (!s || !snapshotTakenDown(s)) continue;
+      if (s.card) paths.add(s.card.path);
+      if (s.kind === "instagram") paths.add(s.image.path);
+      if (s.kind === "tiktok") paths.add(s.thumb);
+    }
+  }
+  if (!paths.size) return 0;
+  try {
+    await del([...paths]);
+  } catch (e) {
+    console.warn("[news] takedown delete failed", (e as Error)?.message);
+    return 0;
+  }
+  return paths.size;
+}
+
+/**
  * Called by the daily cleanup cron: alert if the last Thursday's sender
  * never ran (Vercel cron off, a deploy broke the route), and delete old
  * send logs, webhook ids and confirmation records (as Privacy promises).
@@ -666,6 +700,9 @@ export async function newsDailyChecks(now = new Date()) {
   if (purged) console.info(`[news] deleted ${purged} unconfirmed sign-ups`);
   const stopped = await purgeStopped();
   if (stopped) console.info(`[news] deleted ${stopped} stops over 4 years old`);
+  // Same-day takedowns: the stored files of a taken-down post go too.
+  const gone = await deleteTakenDownFiles();
+  if (gone) console.info(`[news] deleted ${gone} taken-down card files`);
   // Yeses taken while texting was off get their confirmation first.
   const confirmed = await sendPendingConfirmations();
   if (confirmed) console.info(`[texts] sent ${confirmed} held confirmations`);

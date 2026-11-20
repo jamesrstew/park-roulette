@@ -26,8 +26,18 @@ const Outing = z.strictObject({
   park: Slug.optional(),
   day: Day,
   time: Text(60),
-  /** Who it's for, in plain words: "Ages 5 and under", "All ages". */
-  ages: Text(40),
+  /**
+   * The age words exactly as printed on the official page ("Ages 5 and
+   * under"); code turns them into age tags. Omit when the page prints none.
+   */
+  ages_text: Text(80).optional(),
+  /** Old issues only (free text, before age tags). New drafts can't use it. */
+  ages: Text(40).optional(),
+  /** Its page on /events, when it has one (issue pages link there). */
+  event: z
+    .string()
+    .regex(/^[a-z0-9-]+$/)
+    .optional(),
   cost: Text(40),
   place: Text(120),
   town: Text(40),
@@ -118,9 +128,36 @@ const TikTokSnapshot = z.object({
   card: CardFile.optional(),
 });
 
+/**
+ * An Instagram post (Parents' corner v5), as Business Discovery returned
+ * it. Its image is copied to our private Blob store (content-addressed)
+ * with its pixel size; readers never load Instagram's CDN in email.
+ */
+const IgSnapshot = z.object({
+  kind: z.literal("instagram"),
+  id: z.string(),
+  username: z.string(),
+  permalink: z.string(),
+  mediaType: z.enum(["IMAGE", "VIDEO", "CAROUSEL_ALBUM"]),
+  productType: z.enum(["FEED", "REELS", "STORY", "AD"]).nullable(),
+  likes: z.number(),
+  timestamp: z.string(),
+  carouselCount: z.number().nullable(),
+  /** The profile picture URL (fetched by our server for the card only). */
+  avatar: z.string().nullable(),
+  image: z.object({
+    path: z.string(),
+    width: z.number().int().positive(),
+    height: z.number().int().positive(),
+    type: z.string(),
+  }),
+  card: CardFile.optional(),
+});
+
 export const MemeSnapshot = z.discriminatedUnion("kind", [
   XSnapshot,
   TikTokSnapshot,
+  IgSnapshot,
 ]);
 export type MemeSnapshot = z.infer<typeof MemeSnapshot>;
 
@@ -132,11 +169,21 @@ export type MemeSnapshot = z.infer<typeof MemeSnapshot>;
  * from the plan's candidates. Instagram stays out until we have oEmbed.
  */
 const Meme = z.strictObject({
-  platform: z.enum(["x", "tiktok"]),
+  platform: z.enum(["x", "tiktok", "instagram"]),
   url: Https,
   postId: z.string().regex(/^\d{1,25}$/, "The post's numeric id"),
+  /** Instagram: the page's username (from the plan's candidate). */
+  account: z
+    .string()
+    .regex(/^[a-z0-9._]{1,30}$/)
+    .optional(),
   /** Filled in by code; anything the writer sends here is replaced. */
   snapshot: MemeSnapshot.optional(),
+  /**
+   * Code only: for an Instagram pick, the plan's best X post with its card
+   * drawn at draft time, used if the Instagram post is gone at send.
+   */
+  fallback: MemeSnapshot.optional(),
 });
 
 /**

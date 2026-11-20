@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { featuredIn } from "@/lib/news/data";
 import { Suspense } from "react";
+import { HappeningNearby } from "@/components/events/Modules";
 import { CrayonLoading } from "@/components/Loading";
 import { ParkView } from "@/components/park/ParkView";
 import { getMe, getParkDetail } from "@/lib/data";
@@ -82,6 +83,7 @@ async function ParkLoader({ params, searchParams }: Props) {
         townLink={townLink}
         justAdded={sp.added === "1"}
       />
+      <HappeningNearby park={detail.park} />
       {featured ? (
         <p className="mt-4 text-sm text-ink-soft">
           Featured in{" "}

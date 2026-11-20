@@ -82,7 +82,6 @@ export const turnOnTexts = wrap(T.turnOnTexts);
 export const sendTextsCode = wrap(T.sendTextsCode);
 export const confirmTextsCode = wrap(T.confirmTextsCode);
 export const stopTexts = wrap(T.stopTexts);
-export const resendParkNewsConfirmation = wrap(N.resendParkNewsConfirmation);
 export const sendSignInCode = wrap(P.sendSignInCode);
 export const checkSignInCode = wrap(P.checkSignInCode);
 export const sendAddPhoneCode = wrap(P.sendAddPhoneCode);

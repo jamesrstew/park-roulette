@@ -1,4 +1,3 @@
-import { subscriptionFor } from "@/lib/news/subscribers";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { AppMoments } from "@/components/AppMoments";
@@ -23,11 +22,7 @@ export const metadata: Metadata = {
 async function Spin() {
   const me = await getMe();
   const offerPicks = !!me && !me.isKid && me.trusted && !me.parkNewsAsked;
-  const [parks, all, sub] = await Promise.all([
-    getBucketList(me),
-    publicParks(),
-    me && offerPicks ? subscriptionFor(me.id) : null,
-  ]);
+  const [parks, all] = await Promise.all([getBucketList(me), publicParks()]);
   return (
     <>
       <AppMoments signedIn={!!me} />
@@ -43,7 +38,6 @@ async function Spin() {
           hasPhone={!!me.phone}
           phone={me.phone}
           offerPicks={offerPicks}
-          emailWaiting={sub?.status === "pending" ? sub.email : null}
           textsSendingOn={sendingEnabled()}
         />
       ) : null}

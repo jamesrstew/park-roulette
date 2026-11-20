@@ -40,7 +40,8 @@ const TABS = [
     href: "/news",
     label: "Scoop",
     icon: "sparkles",
-    match: (p: string) => p.startsWith("/news"),
+    // Kids' events are news-like, and the scoop links them.
+    match: (p: string) => p.startsWith("/news") || p.startsWith("/events"),
   },
   {
     id: "passport",

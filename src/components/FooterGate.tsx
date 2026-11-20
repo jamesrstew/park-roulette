@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -20,6 +21,8 @@ export function footerFor(path: string): { show: boolean; signup: boolean } {
     path.startsWith("/towns/") ||
     path.startsWith("/playgrounds") ||
     path === "/newsletter" ||
+    path === "/events" ||
+    path.startsWith("/events/") ||
     path.startsWith("/newsletter/") ||
     (/^\/parks\/[^/]+$/.test(path) && path !== "/parks/new");
   // /newsletter and /texts carry their own signup.
@@ -37,4 +40,24 @@ export function FooterGate({
 }) {
   const f = footerFor(usePathname());
   return f.show ? (f.signup ? full : bare) : null;
+}
+
+/** A footer link that says when it's the page you're on (bold, aria-current). */
+export function FooterNavLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  const here = usePathname() === href;
+  return (
+    <Link
+      href={href}
+      className={`flex min-h-11 items-center ${here ? "font-bold" : ""}`}
+      aria-current={here ? "page" : undefined}
+    >
+      {children}
+    </Link>
+  );
 }

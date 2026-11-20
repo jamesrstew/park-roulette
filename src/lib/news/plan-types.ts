@@ -2,6 +2,7 @@ import type { SeasonalDefault, WeatherLabel } from "./catalog";
 import type { CooldownKind } from "./cooldowns";
 import type { CalendarFlags } from "./time";
 import type { UniverseReport } from "./universe-store";
+import type { IgCandidate } from "./igapi";
 import type { Candidate } from "./xapi";
 import type { ForecastDay, Issue } from "./issue";
 
@@ -111,8 +112,21 @@ export type Plan = {
    * liked first (top 20). Empty without X_BEARER_TOKEN: the section drops.
    * The writer may also name a TikTok video; code fetches it.
    */
+  /**
+   * Kids' events on /events with a date this weekend: an outing that is one
+   * of them names it in weekend[].event (issue pages link its page).
+   */
+  events?: {
+    slug: string;
+    title: string;
+    days: string[];
+    url: string;
+    ages_text: string | null;
+  }[];
   parents_corner?: {
     candidates: Candidate[];
+    /** Instagram candidates (Parents' corner v5); empty when Meta access fails. */
+    instagram?: IgCandidate[];
     universe?: UniverseReport;
     rules: string;
   };

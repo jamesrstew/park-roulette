@@ -115,13 +115,13 @@ export default function TermsPage() {
         <p>
           If you give us your email, in the app or on our website, we&apos;ll
           send Bend Playground Passport: weekly park picks for the forecast,
-          closures and indoor backups, every Thursday morning, once you confirm
-          with the link we email you. No account needed. It&apos;s for
-          grown-ups, optional and never needed to play. Stop any time with the
-          unsubscribe link in any email, your mail app&apos;s unsubscribe
-          button, or &ldquo;Stop emails&rdquo; in Family &amp; settings. Event
-          times and prices in it come from the organizers; check with them
-          before you go.
+          closures and indoor backups, every Thursday morning, starting right
+          away: we send a short welcome email when you sign up, and you can
+          unsubscribe anytime. No account needed. It&apos;s for grown-ups,
+          optional and never needed to play. Stop any time with the unsubscribe
+          link in any email, your mail app&apos;s unsubscribe button, or
+          &ldquo;Stop emails&rdquo; in Family &amp; settings. Event times and
+          prices in it come from the organizers; check with them before you go.
         </p>
       </Section>
 

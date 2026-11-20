@@ -281,7 +281,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             <b>Resend</b> sends our emails. If you sign up for Bend Playground
-            Passport, it gets your email address to send it and the confirmation
+            Passport, it gets your email address to send it and the welcome
             email, and tells us if an email bounces or is marked as spam. Open
             and click tracking are off. Resend also sends our team alerts about
             things that need a person (a reported review, a new park to confirm,
@@ -302,10 +302,19 @@ export default function PrivacyPage() {
             part of the map you&apos;re looking at. OpenStreetMap&apos;s own
             privacy policy covers that.
           </li>
+          <li>
+            <b>Instagram</b>: when a newsletter issue page features an Instagram
+            post, it shows our own picture of it. Only if you tap &ldquo;Load
+            from Instagram&rdquo; does your browser load Instagram&apos;s embed,
+            and then Instagram sees your IP address and its own cookies
+            (Instagram&apos;s privacy policy covers that). Our emails never load
+            anything from Instagram.
+          </li>
         </ul>
         <p>
           Our fonts and pictures come from our own site. There are no
-          third-party ads, tracking pixels or social media widgets.
+          third-party ads or tracking pixels, and no social media widgets except
+          an Instagram embed on an issue page that features one.
         </p>
       </Section>
 
@@ -318,24 +327,24 @@ export default function PrivacyPage() {
           Passport: weekly park picks for the forecast, closures and indoor
           backups, every Thursday morning. You can sign up in the app or on our
           website, with or without an account. It&apos;s never required, our
-          email signup is for grown-ups, and kids are never asked. We email you
-          a link first, and nothing else is sent until you tap it.
+          email signup is for grown-ups, and kids are never asked. When you sign
+          up, we send one short welcome email with an unsubscribe link, in case
+          it wasn&apos;t you. Unsubscribe anytime. If you&apos;re signed in and
+          type an address that&apos;s already on our list, we email that address
+          a link to connect it to your family instead; the link works for 7
+          days, and nothing connects unless it&apos;s tapped.
         </p>
         <ul>
           <li>
             <b>What we keep</b>: your email, that you said yes, when, and where
-            (in the app or on our website) you said it, which version of the
-            words you saw, and when you tapped the confirmation link.
+            (in the app or on our website) you said it, and which version of the
+            words you saw. If you confirmed an older sign-up by link, when you
+            tapped it.
           </li>
           <li>
-            <b>Signing up without an account</b>: if you don&apos;t confirm
-            within 7 days, we delete your address.
-          </li>
-          <li>
-            <b>If you said yes before November 2026</b>: your yes moved to the
-            new list, waiting for you to confirm. We don&apos;t email you about
-            it. Family &amp; settings shows a button to send the link. If you
-            don&apos;t confirm within 30 days, we delete your address.
+            <b>If you said yes before November 2026</b>: your yes carried over
+            to the list. We didn&apos;t email you about it, and you can stop it
+            anytime in Family &amp; settings or from any email.
           </li>
           <li>
             <b>Stopping abuse</b>: to stop someone signing up lots of addresses,
@@ -442,10 +451,9 @@ export default function PrivacyPage() {
           </li>
           <li>
             <b>Your email for the weekly email</b>: until you stop it or delete
-            yourself. Unconfirmed sign-ups: 7 days (30 for a yes from before
-            November 2026). The record that you said yes goes when you delete
+            yourself. The record that you said yes goes when you delete
             yourself; the record that you stopped (a fingerprint only) goes 4
-            years after the stop. Send logs: 12 months. Confirmation links
+            years after the stop. Send logs: 12 months. Old confirmation links
             expire after 7 days, and we delete them after 30. Sign-up IP
             fingerprints: 30 days.
           </li>

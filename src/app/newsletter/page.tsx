@@ -17,7 +17,8 @@ import {
   sentIssues,
 } from "@/lib/news/data";
 import { subscriptionFor } from "@/lib/news/subscribers";
-import { renderArchiveCard } from "@/lib/news/template";
+import type { RenderOptions } from "@/lib/news/template";
+import { IssueCard } from "@/components/news/IssueCard";
 import { longDate } from "@/lib/news/time";
 import { NEWS_NAME, PARK_NEWS } from "@/lib/park-news";
 import { SITE_URL } from "@/lib/site";
@@ -99,18 +100,19 @@ async function Latest() {
       )
     : null;
   // Built by our template from validated JSON: every string is escaped.
-  const html =
+  const options =
     latest && parks
-      ? renderArchiveCard(latest.issue, {
+      ? ({
           catalog: CATALOG,
           site: SITE_URL,
           number: latest.number,
           park: (slug) => parks.get(slug),
           links: "direct",
+          eventPages: true,
           unsubscribeUrl: null,
           postalAddress: null,
           ...latest.images,
-        })
+        } satisfies RenderOptions)
       : null;
   return (
     <>
@@ -118,15 +120,16 @@ async function Latest() {
         <h2 id="latest-h" className="font-hand text-3xl">
           The latest issue
         </h2>
-        {latest && html ? (
+        {latest && options ? (
           <>
             <p className="text-sm text-ink-soft">
               Sent {sentLine(latest.sentAt)} · {latest.issue.preview}
             </p>
             <div className="relative max-h-[34rem] overflow-hidden rounded-xl border-[3px] border-ink bg-[#fffaf0]">
-              <div
+              <IssueCard
+                issue={latest.issue}
+                options={options}
                 className="[&_ul]:list-disc"
-                dangerouslySetInnerHTML={{ __html: html }}
               />
               <div
                 aria-hidden
@@ -276,6 +279,13 @@ export default function NewsletterPage() {
         <Latest />
       </Suspense>
       <TextsLink />
+      <p className="leading-snug">
+        Every upcoming kids&apos; event we&apos;ve found:{" "}
+        <Link href="/events" className="underline">
+          Kids&apos; events
+        </Link>
+        .
+      </p>
       <p className="text-sm text-ink-soft">
         Written by James, a Bend dad who made Park Roulette.{" "}
         <a href="/newsletter/rss.xml" className="underline">

@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { IssueCard } from "@/components/news/IssueCard";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
@@ -11,7 +12,7 @@ import { getMe } from "@/lib/data";
 import { CATALOG } from "@/lib/news/catalog";
 import { loadParks, sentIssue } from "@/lib/news/data";
 import { subscriptionFor } from "@/lib/news/subscribers";
-import { NEWS_NAME, renderArchiveCard } from "@/lib/news/template";
+import { NEWS_NAME, type RenderOptions } from "@/lib/news/template";
 import { daysBetween, isIsoDate, pacific, weekendOf } from "@/lib/news/time";
 import { PARK_NEWS } from "@/lib/park-news";
 import { SITE_URL } from "@/lib/site";
@@ -85,16 +86,17 @@ async function Issue({ params }: Props) {
     all.map((p) => [p.slug, { name: p.name, city: p.city }]),
   );
   // Built by our template from validated JSON: every string is escaped.
-  const html = renderArchiveCard(sent.issue, {
+  const options = {
     catalog: CATALOG,
     site: SITE_URL,
     number: sent.number,
-    park: (slug) => parks.get(slug),
+    park: (slug: string) => parks.get(slug),
     links: "direct",
+    eventPages: true,
     unsubscribeUrl: null,
     postalAddress: null,
     ...sent.images,
-  });
+  } satisfies RenderOptions;
   const pick = parks.get(sent.issue.wheel_pick.park);
   const stale = daysBetween(date, pacific(new Date()).date) > 7;
   const sentOn = sent.sentAt.toLocaleDateString("en-US", {
@@ -129,9 +131,10 @@ async function Issue({ params }: Props) {
           </p>
         ) : null}
       </div>
-      <div
+      <IssueCard
+        issue={sent.issue}
+        options={options}
         className="overflow-hidden rounded-xl border-[3px] border-ink bg-[#fffaf0] [&_ul]:list-disc"
-        dangerouslySetInnerHTML={{ __html: html }}
       />
       {pick ? (
         <p className="text-sm">

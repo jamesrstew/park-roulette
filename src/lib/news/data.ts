@@ -1,4 +1,5 @@
 import "server-only";
+import { cacheLife } from "next/cache";
 import { and, desc, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -18,7 +19,11 @@ import { SITE_URL } from "@/lib/site";
 import type { ParkInfo, ValidateContext } from "./validate";
 import { fetchPage } from "./fetcher";
 import { addDays, issueDateFor, pacific } from "./time";
+import { snapshotTakenDown } from "./takedowns";
+import { eventSlugs } from "@/lib/events/store";
 import { type CardMode, memeSnapshot } from "./parents";
+import type { MemeSnapshot } from "./issue";
+import { postUrl } from "./xapi";
 import { audienceCount } from "./audience";
 
 /** Every park, for the Wheel Pick and the validator. */
@@ -167,22 +172,47 @@ export async function validateContext(
     now?: Date;
     /** Parents' corner card: render only (default), store, or reuse. */
     cards?: CardMode;
+    /** An Instagram pick's X stand-in: draw the plan's best (store), or reuse. */
+    fallback?: { mode: "store" } | { mode: "reuse"; snapshot: MemeSnapshot };
   },
 ): Promise<ValidateContext> {
-  const [list, history, plan] = await Promise.all([
+  const [list, history, plan, events] = await Promise.all([
     loadParks(),
     loadHistory(issueDate),
     getStoredPlan(issueDate),
+    eventSlugs(),
   ]);
   return {
     catalog: CATALOG,
     parks: parkMap(list),
+    events,
     history,
     plan,
     fetcher: opts.network ? fetchPage : undefined,
     memeSource: opts.network
       ? (meme) => memeSnapshot(meme, opts.cards ?? { mode: "memory" })
       : undefined,
+    memeFallback:
+      opts.network && opts.fallback
+        ? async () => {
+            const f = opts.fallback!;
+            if (f.mode === "reuse") {
+              const s = f.snapshot;
+              if (s.kind !== "x") return null;
+              return memeSnapshot(
+                { platform: "x", postId: s.id, url: postUrl(s) },
+                { mode: "reuse", snapshot: s },
+              );
+            }
+            const best = plan?.parents_corner?.candidates?.[0];
+            return best
+              ? memeSnapshot(
+                  { platform: "x", postId: best.id, url: postUrl(best) },
+                  { mode: "store" },
+                )
+              : null;
+          }
+        : undefined,
     site: SITE_URL,
     now: opts.now ?? new Date(),
   };
@@ -335,9 +365,12 @@ export async function sentIssue(issueDate: string) {
     .where(and(eq(newsIssues.issueDate, issueDate), wentOut));
   if (!r) return null;
   const body = IssueSchema.safeParse(r.body);
+  const snap = body.success ? body.data.meme?.snapshot : undefined;
+  // A post taken down (data/takedowns.json) stops showing the same day.
+  const removed = !!snap && snapshotTakenDown(snap);
   return body.success
     ? {
-        issue: body.data,
+        issue: removed ? { ...body.data, meme: undefined } : body.data,
         number: r.number,
         sentAt: r.sentAt,
         /** Which images the email showed (older sends: both). */
@@ -350,6 +383,24 @@ export async function sentIssue(issueDate: string) {
         next: r.next,
       }
     : null;
+}
+
+/** The latest sent issue that listed this event in This weekend. */
+export async function featuredEvent(slug: string): Promise<string | null> {
+  "use cache";
+  cacheLife("days");
+  const [r] = await db
+    .select({ issueDate: newsIssues.issueDate })
+    .from(newsIssues)
+    .where(
+      and(
+        wentOut,
+        sql`${newsIssues.sentBody}->'weekend' @> ${JSON.stringify([{ event: slug }])}::jsonb`,
+      ),
+    )
+    .orderBy(desc(newsIssues.issueDate))
+    .limit(1);
+  return r?.issueDate ?? null;
 }
 
 /** The latest issue that featured this park (for "Featured in" on its page). */

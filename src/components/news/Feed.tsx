@@ -53,6 +53,15 @@ export function Feed({
         }
       />
       {issues.length > 0 && <PastIssues issues={issues} />}
+      <p className="doodle-box-alt flex items-center gap-2 px-4 py-2 leading-snug">
+        <Icon name="calendar" size={26} />
+        <Link
+          href="/events"
+          className="flex min-h-11 items-center underline underline-offset-2"
+        >
+          Kids&apos; events coming up in Central Oregon
+        </Link>
+      </p>
       {!signedIn && (
         <JoinNudge
           icon="eyes"

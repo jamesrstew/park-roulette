@@ -30,6 +30,13 @@ const DATE = "2026-12-03";
 const NOW = new Date("2026-12-03T15:30:00Z");
 
 type Batch = (emails: { to: string[] }[], key: string) => Response;
+/** One-off emails (welcome, link) the app sent through Resend. */
+const singles: {
+  to: string[];
+  subject: string;
+  text: string;
+  headers?: Record<string, string>;
+}[] = [];
 
 describe.skipIf(!local)("the sender, against Postgres", () => {
   let mods: {
@@ -64,8 +71,12 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
           if (res.ok) delivered.push(...emails.map((e) => e.to[0]));
           return res;
         }
-        if (url === "https://api.resend.com/emails")
+        if (url === "https://api.resend.com/emails") {
+          singles.push(
+            JSON.parse(String(init?.body)) as (typeof singles)[number],
+          );
           return Response.json({ id: "one" });
+        }
         return new Response("nope", { status: 404 });
       },
     );
@@ -270,41 +281,44 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
     return tokens.at(-1)!;
   }
 
-  it("signs up signed out: pending, then confirmed by the tap, never revealing who's on the list", async () => {
-    const key = process.env.RESEND_API_KEY;
-    delete process.env.RESEND_API_KEY;
-    try {
-      const first = await mods.subs.subscribe({
-        email: "New@Example.com",
-        source: "footer",
-        ip: "1.2.3.4",
-      });
-      expect(first).toHaveLength(1);
-      await mods.subs.flush(first);
-      expect(await rowsFor("new@example.com")).toMatchObject([
-        { status: "pending", explorer_id: null },
-      ]);
-      expect(await mods.subs.confirmEmail(await lastLink())).toEqual({
-        result: "confirmed",
-        linked: false,
-      });
-      expect(await rowsFor("new@example.com")).toMatchObject([
-        { status: "confirmed", token: true },
-      ]);
-      // Signing up a confirmed address again: no new link, a notice email.
-      const again = await mods.subs.subscribe({
-        email: "new@example.com",
-        source: "footer",
-        ip: "1.2.3.4",
-      });
-      expect(again).toHaveLength(1);
-      expect(await rowsFor("new@example.com")).toHaveLength(1);
-    } finally {
-      process.env.RESEND_API_KEY = key;
-    }
+  it("signs up signed out at once, with a welcome email, never revealing who's on the list", async () => {
+    singles.length = 0;
+    const first = await mods.subs.subscribe({
+      email: " New@Example.com ",
+      source: "footer",
+      ip: "1.2.3.4",
+    });
+    expect(first).toHaveLength(1);
+    await mods.subs.flush(first);
+    expect(await rowsFor("new@example.com")).toMatchObject([
+      { status: "confirmed", explorer_id: null, token: true },
+    ]);
+    // The welcome email: what arrives, and the way out.
+    expect(singles).toHaveLength(1);
+    expect(singles[0].subject).toBe("You're in: Bend Playground Passport");
+    expect(singles[0].text).toContain("Didn't sign up? Unsubscribe anytime");
+    expect(singles[0].text).toMatch(/news\/unsubscribe\?t=[A-Za-z0-9_-]{43}/);
+    expect(singles[0].headers?.["List-Unsubscribe"]).toMatch(
+      /^<.*\/api\/news\/unsubscribe\?t=[A-Za-z0-9_-]{43}>$/,
+    );
+    expect(singles[0].headers?.["List-Unsubscribe-Post"]).toBe(
+      "List-Unsubscribe=One-Click",
+    );
+    // Signing up again: no second welcome, the same answer, one row.
+    const again = await mods.subs.subscribe({
+      email: "new@example.com",
+      source: "footer",
+      ip: "1.2.3.4",
+    });
+    expect(again).toHaveLength(0);
+    expect(await rowsFor("new@example.com")).toHaveLength(1);
+    const [c] = (await q(
+      `select count(*)::int as n from contact_consents where address = 'new@example.com' and action = 'opt_in'`,
+    )) as unknown as { n: number }[];
+    expect(c.n).toBe(1);
   });
 
-  it("joins an address to an account only on the tap, and changing addresses stops the old one", async () => {
+  it("joins an existing address to an account only on the tap; a new one is on at once", async () => {
     const key = process.env.RESEND_API_KEY;
     delete process.env.RESEND_API_KEY;
     try {
@@ -315,7 +329,6 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
           source: "footer",
         }),
       );
-      await mods.subs.confirmEmail(await lastLink());
       // Sam types the same address in settings: nothing joins yet.
       await mods.subs.flush(
         await mods.subs.subscribe({
@@ -325,24 +338,17 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
         }),
       );
       expect(await rowsFor("fam@example.com")).toMatchObject([
-        { explorer_id: null },
+        { explorer_id: null, status: "confirmed" },
       ]);
-      expect(await mods.subs.subscriptionFor(sam)).toEqual({
-        status: "pending",
-        email: "fam@example.com",
-      });
       expect(await mods.subs.confirmEmail(await lastLink())).toEqual({
         result: "confirmed",
         linked: true,
       });
-      expect(await rowsFor("fam@example.com")).toMatchObject([
-        { explorer_id: sam, status: "confirmed" },
-      ]);
       expect(await mods.subs.subscriptionFor(sam)).toEqual({
         status: "on",
         email: "fam@example.com",
       });
-      // A new address: the old one stops right away; the new one waits.
+      // A new address: the old one stops right away; the new one is on.
       await mods.subs.flush(
         await mods.subs.subscribe({
           email: "sam2@example.com",
@@ -355,7 +361,7 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
       )) as unknown as { n: number }[];
       expect(n).toBe(1);
       expect(await mods.subs.subscriptionFor(sam)).toEqual({
-        status: "pending",
+        status: "on",
         email: "sam2@example.com",
       });
       // Deleting the account stops it.
@@ -369,14 +375,14 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
     }
   });
 
-  it("rate limits per address and per IP fingerprint, atomically and silently", async () => {
+  it("rate limits per IP fingerprint, and a double tap welcomes once", async () => {
     const outs = await Promise.all(
       [1, 2, 3, 4, 5].map(() =>
         mods.subs.subscribe({ email: "same@example.com", source: "footer" }),
       ),
     );
-    expect(outs.filter((o) => o.length === 1)).toHaveLength(3);
-    expect(outs.filter((o) => o.length === 0)).toHaveLength(2);
+    expect(outs.filter((o) => o.length === 1)).toHaveLength(1);
+    expect(await rowsFor("same@example.com")).toHaveLength(1);
     const byIp = [];
     for (let i = 0; i < 12; i++)
       byIp.push(
@@ -394,12 +400,97 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
     expect(c.n).toBe(10);
   });
 
-  it("deletes pending sign-ups nobody confirmed within 7 days", async () => {
-    await mods.subs.subscribe({ email: "stale@example.com", source: "footer" });
+  it("keeps counting toward the caps when a signed-in grown-up keeps switching addresses (H-1, M2)", async () => {
+    const pat = await explorer("Pat");
+    let welcomes = 0;
+    let busy = 0;
+    for (let i = 0; i < 12; i++) {
+      const out = await mods.subs.subscribe({
+        email: `switch${i}@example.com`,
+        source: "settings",
+        explorerId: pat,
+        ip: "203.0.113.9",
+      });
+      welcomes += out.length;
+      if (out.busy) busy++;
+    }
+    expect(welcomes).toBe(10);
+    expect(busy).toBe(2);
+    // The rows behind the caps stay (expired), never deleted.
+    const [c] = (await q(
+      `select count(*)::int as n from email_confirmations where created_at > now() - interval '1 day'`,
+    )) as unknown as { n: number }[];
+    expect(c.n).toBe(10);
+    expect(await mods.subs.signupsBusy("203.0.113.9")).toBe(true);
+    expect(await mods.subs.signupsBusy("198.51.100.1")).toBe(false);
+  });
+
+  it("deleting an account never stops an address it only asked to connect: the link just expires", async () => {
+    const key = process.env.RESEND_API_KEY;
+    delete process.env.RESEND_API_KEY;
+    try {
+      await mods.subs.subscribe({ email: "lee@example.com", source: "footer" });
+      const lee = await explorer("Lee");
+      await mods.subs.subscribe({
+        email: "lee@example.com",
+        source: "settings",
+        explorerId: lee,
+      });
+      expect(await mods.subs.subscriptionFor(lee)).toEqual({
+        status: "pending",
+        email: "lee@example.com",
+      });
+      await mods.subs.stopForExplorers([lee], "account_deleted");
+      // The other person's subscription stays; the account's link expires.
+      expect(await rowsFor("lee@example.com")).toMatchObject([
+        { status: "confirmed", explorer_id: null },
+      ]);
+      const [l] = (await q(
+        `select count(*)::int as n from email_confirmations where purpose = 'link' and (used_at is null or expires_at > now())`,
+      )) as unknown as { n: number }[];
+      expect(l.n).toBe(0);
+    } finally {
+      process.env.RESEND_API_KEY = key;
+    }
+  });
+
+  it("turns old pending sign-ups into subscribers, with no email (migration 0015)", async () => {
+    await q(
+      `insert into email_subscribers (email, email_hash, status, source, consent_version) values ('old@example.com', 'sha256:x', 'pending', 'migrated', 'email-2026-11-20')`,
+    );
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    await q(
+      readFileSync(
+        join(process.cwd(), "drizzle/0015_single_opt_in.sql"),
+        "utf8",
+      ),
+    );
+    expect(await rowsFor("old@example.com")).toMatchObject([
+      { status: "confirmed", token: true },
+    ]);
+    const [t] = (await q(
+      `select token from email_subscribers where email = 'old@example.com'`,
+    )) as unknown as { token: string }[];
+    expect(t.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const [c] = (await q(
+      `select count(*)::int as n from contact_consents where address = 'old@example.com' and source = 'single_opt_in_migration'`,
+    )) as unknown as { n: number }[];
+    expect(c.n).toBe(1);
+  });
+
+  it("deletes old pending sign-ups nobody confirmed within 7 days", async () => {
+    // Pending rows only come from before single opt-in now.
+    for (const e of ["stale@example.com", "fresh@example.com"])
+      await q(
+        `insert into email_subscribers (email, email_hash, status, source, consent_version) values ('${e}', 'sha256:${e}', 'pending', 'footer', 'email-2026-11-20')`,
+      );
+    await q(
+      `insert into email_confirmations (subscriber_id, purpose, token_hash, address_hash, expires_at) select id, 'subscribe', 'h-' || id, email_hash, now() + interval '7 days' from email_subscribers where email = 'stale@example.com'`,
+    );
     await q(
       `update email_subscribers set created_at = now() - interval '8 days' where email = 'stale@example.com'`,
     );
-    await mods.subs.subscribe({ email: "fresh@example.com", source: "footer" });
     // Its link still works (a resend renewed it): kept until the latest
     // link expires.
     expect(await mods.subs.purgePending()).toBe(0);

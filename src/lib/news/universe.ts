@@ -6,8 +6,9 @@ import { ACCOUNT_COOLDOWN_WEEKS } from "./xapi";
 
 /**
  * Parents' corner v4: the X account universe. The seed list
- * (data/x-universe.json, 76 accounts from 12 months of human-curated
- * roundups) is stored by permanent user id. Pure helpers live here; the
+ * (data/x-universe.json, 68 accounts from 12 months of human-curated
+ * roundups, revamped November 19, 2026 with kind, postsPerWeek and
+ * medianLikes) is stored by permanent user id. Pure helpers live here; the
  * database side is universe-store.ts.
  */
 
@@ -19,6 +20,20 @@ const SeedAccount = z.object({
   appearances: z.number().int().nonnegative(),
   sources: z.array(z.string()),
   notes: z.string().optional(),
+  /** person (a parent diarist), or brand / meme page. */
+  kind: z.string().default("person"),
+  /** Original posts a week, measured November 19, 2026 (sizes the batches). */
+  postsPerWeek: z
+    .number()
+    .nonnegative()
+    .nullable()
+    .transform((n) => n ?? 1),
+  /** Typical likes then: the scoring baseline until our own stats build up. */
+  medianLikes: z
+    .number()
+    .nonnegative()
+    .nullable()
+    .transform((n) => n ?? 0),
 });
 export type SeedAccount = z.infer<typeof SeedAccount>;
 
@@ -64,6 +79,22 @@ export function coolingAuthors(
     const days = daysBetween(h.issueDate, issueDate);
     if (days >= 0 && days < ACCOUNT_COOLDOWN_WEEKS * 7)
       out.add(s.authorId ?? `@${s.username.toLowerCase()}`);
+  }
+  return out;
+}
+
+/** Instagram pages featured in the last 8 weeks (lowercase handles). */
+export function igCooling(
+  history: readonly SentIssue[],
+  issueDate: string,
+): Set<string> {
+  const out = new Set<string>();
+  for (const h of history) {
+    const s = h.body.meme?.snapshot;
+    if (s?.kind !== "instagram") continue;
+    const days = daysBetween(h.issueDate, issueDate);
+    if (days >= 0 && days < ACCOUNT_COOLDOWN_WEEKS * 7)
+      out.add(s.username.toLowerCase());
   }
   return out;
 }

@@ -8,7 +8,7 @@ import { db } from "@/db";
 import { explorers } from "@/db/schema";
 import {
   flush,
-  resendFor,
+  signupsBusy,
   type SignupSource,
   stopForExplorers,
   subscribe,
@@ -21,15 +21,16 @@ import {
 } from "./action-utils";
 import { getMe } from "./data";
 import { ev, EVENTS } from "./events";
-import { cleanEmail } from "./park-news";
+import { cleanEmail, PARK_NEWS } from "./park-news";
 import { clientIp } from "./sms";
 
 /**
- * Bend Playground Passport sign-ups and stops. Every sign-up gets the same
- * answer ("check your email"), whether the address is new, waiting,
- * already on the list, stopped or over a limit, and the email itself goes
- * out after the response, so nothing here reveals who subscribes. Only an
- * invalid address gets a different reply.
+ * Bend Playground Passport sign-ups and stops (single opt-in). Every
+ * sign-up gets the same answer ("You're in!") whether the address is new,
+ * already on the list or over its own cap, and all the work on the address
+ * happens after the response, so nothing here reveals who subscribes. Only
+ * an invalid address, or the per-IP and daily caps ("busy"), get a
+ * different reply.
  */
 
 const SOURCES = [
@@ -55,9 +56,10 @@ async function requireTrustedGrownUp() {
 
 /**
  * "Count us in!" from anywhere: the footer, /newsletter, an issue page,
- * onboarding or settings. Signed in as a trusted grown-up, the address
- * joins the account when its link is tapped; otherwise it's a sign-up with
- * no account. `website` is the honeypot: people never fill it in.
+ * onboarding or settings. A new address is on the list at once (signed in
+ * as a trusted grown-up, on that account) and gets a welcome email; an
+ * address already on the list with no account gets a link to connect it.
+ * `website` is the honeypot: people never fill it in.
  */
 export async function signUpForEmail(
   rawEmail: string,
@@ -75,13 +77,19 @@ export async function signUpForEmail(
     // Kids don't sign up for email: the same answer, and nothing happens.
     if (me?.isKid) return { ok: true, track };
     const explorerId = me && me.trusted ? me.id : null;
-    const out = await subscribe({
-      email,
-      source: where,
-      explorerId,
-      ip: await clientIp(),
+    const ip = await clientIp();
+    // Over the per-IP or daily cap: a neutral "busy" (it says nothing
+    // about the address). The per-address cap stays silent.
+    if (await signupsBusy(ip)) throw new UserError(PARK_NEWS.busy);
+    // Everything about the address happens after the response, so its
+    // timing is the same whether or not it's already on the list.
+    after(async () => {
+      try {
+        await flush(await subscribe({ email, source: where, explorerId, ip }));
+      } catch (e) {
+        console.error("[news] signup failed", (e as Error)?.message);
+      }
     });
-    after(() => flush(out));
     if (explorerId) {
       await db
         .update(explorers)
@@ -110,18 +118,6 @@ export async function dismissParkNews(): Promise<ActionResult> {
     return { ok: true };
   } catch (e) {
     return fail("dismissParkNews", e);
-  }
-}
-
-/** "Send the link again", for whatever this account is waiting on. */
-export async function resendParkNewsConfirmation(): Promise<ActionResult> {
-  try {
-    const me = await requireTrustedGrownUp();
-    const out = await resendFor(me.id, await clientIp());
-    after(() => flush(out));
-    return { ok: true };
-  } catch (e) {
-    return fail("resendParkNewsConfirmation", e);
   }
 }
 

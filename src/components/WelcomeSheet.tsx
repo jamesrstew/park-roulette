@@ -30,7 +30,6 @@ export function WelcomeSheet({
   hasPhone,
   phone = null,
   offerPicks = false,
-  emailWaiting = null,
   textsSendingOn = false,
 }: {
   name: string;
@@ -47,8 +46,6 @@ export function WelcomeSheet({
    * answered). Needs a number: kids, borrowed links and no-number skip it.
    */
   offerPicks?: boolean;
-  /** An unconfirmed address on file: the picks page offers the link again. */
-  emailWaiting?: string | null;
   textsSendingOn?: boolean;
 }) {
   const [page, setPage] = useState<"hello" | "phone" | "picks">("hello");
@@ -150,7 +147,6 @@ export function WelcomeSheet({
         {page === "picks" && number ? (
           <PicksSheetPage
             phone={number}
-            emailWaiting={emailWaiting}
             textsSendingOn={textsSendingOn}
             headingId="welcome-h"
             onFinish={() => {

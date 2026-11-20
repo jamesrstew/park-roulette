@@ -1,3 +1,4 @@
+import { ageTags } from "@/lib/events/ages";
 import type { Catalog } from "./catalog";
 import {
   type WeatherDay,
@@ -191,7 +192,34 @@ export type RenderOptions = {
   memeImage?: boolean;
   /** The draft-image key (dry runs only: the images aren't public yet). */
   imageKey?: string;
+  /** The web archive: outings with an event page link there. */
+  eventPages?: boolean;
+  /**
+   * The web archive: leave Parents' corner as an empty slot (the page
+   * renders the Instagram card and its click-to-load embed there).
+   */
+  memeSlot?: boolean;
 };
+
+/** Where renderArchiveSplit cuts the card for the page's own slot. */
+const SLOT = "<!--parents-corner-slot-->";
+const TABLE_OPEN =
+  '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">';
+
+/**
+ * An outing's ages: the age tags code maps from the printed words
+ * ("Ages 0-3, Ages 4-7"), never free text. Old issues kept their words.
+ */
+export function outingAges(w: {
+  ages_text?: string;
+  ages?: string;
+}): string | null {
+  if (w.ages_text) {
+    const a = ageTags(w.ages_text);
+    return a?.kids && a.tags.length ? a.tags.join(", ") : null;
+  }
+  return w.ages ?? null;
+}
 
 type View = ReturnType<typeof view>;
 
@@ -264,8 +292,15 @@ function view(issue: Issue, o: RenderOptions) {
     }),
     weekend: (issue.weekend ?? []).map((w, i) => ({
       name: w.name,
-      href: link(`weekend-${i + 1}`, w.url),
-      line: [shortDay(w.day), w.time, w.ages, w.cost].join(" · "),
+      // The web archive links an outing to its event page (official link,
+      // directions, weather there); the email goes to the official page.
+      href:
+        o.eventPages && w.event
+          ? `${o.site}/events/${w.event}`
+          : link(`weekend-${i + 1}`, w.url),
+      line: [shortDay(w.day), w.time, outingAges(w), w.cost]
+        .filter(Boolean)
+        .join(" · "),
       place: `${w.place}, ${w.town}`,
       what: w.what,
     })),
@@ -290,6 +325,7 @@ function view(issue: Issue, o: RenderOptions) {
             ),
           }
         : null,
+    memeSlot: !!o.memeSlot && !!issue.meme?.snapshot,
     signoff: issue.signoff.text,
     site: o.site,
     unsubscribeUrl: o.unsubscribeUrl,
@@ -474,7 +510,8 @@ ${label(SECTIONS.passport, C.pink)}
     ),
   );
   // Parents' corner: the post as one image, linked to it. No caption.
-  if (v.meme)
+  if (v.memeSlot) parts.push(SLOT);
+  else if (v.meme)
     parts.push(
       row(label(SECTIONS.meme, C.purple), "32px 32px 10px 32px") +
         row(
@@ -654,6 +691,26 @@ export function renderArchiveCard(issue: Issue, o: RenderOptions): string {
   return renderCard(view(issue, o));
 }
 
+/**
+ * The archive card in two halves around Parents' corner, so the page can
+ * render its own slot there (the Instagram click-to-load embed).
+ */
+export function renderArchiveSplit(
+  issue: Issue,
+  o: RenderOptions,
+): { before: string; after: string | null } {
+  const html = renderCard(view(issue, { ...o, memeSlot: true }));
+  const i = html.indexOf(SLOT);
+  if (i < 0) return { before: html, after: null };
+  return {
+    before: `${html.slice(0, i)}</table>`,
+    after: `${TABLE_OPEN}${html.slice(i + SLOT.length)}`,
+  };
+}
+
+/** Parents' corner's section name (for a page's own slot). */
+export const MEME_SECTION = SECTIONS.meme;
+
 // --- The confirmation email ----------------------------------------------
 
 /** A short, plain email in the crayon frame (confirmations and notices). */
@@ -663,6 +720,8 @@ function shortMail(o: {
   lines: string[];
   button?: { href: string; text: string };
   small?: string;
+  /** A small line ending in a link ("Didn't sign up? Unsubscribe anytime"). */
+  smallLink?: { lead: string; href: string; text: string };
   site: string;
   postalAddress: string | null;
 }): { subject: string; html: string; text: string } {
@@ -672,6 +731,9 @@ function shortMail(o: {
     ...o.lines.flatMap((l) => [l, ""]),
     ...(o.button ? [`${o.button.text}: ${o.button.href}`, ""] : []),
     ...(o.small ? [o.small, ""] : []),
+    ...(o.smallLink
+      ? [`${o.smallLink.lead} ${o.smallLink.text}: ${o.smallLink.href}`, ""]
+      : []),
     "James, Park Roulette",
     `True Craft Ventures LLC${o.postalAddress ? `, ${o.postalAddress}` : ""}`,
   ].join("\n");
@@ -685,11 +747,41 @@ function shortMail(o: {
 ${o.lines.map((l) => para(esc(l))).join("")}
 ${o.button ? `<div style="margin:16px 0;">${button(o.button.href, o.button.text, C.buttonBlue)}</div>` : ""}
 ${o.small ? para(esc(o.small), ` color:${C.soft}; font-size:14px;`) : ""}
+${o.smallLink ? para(`${esc(o.smallLink.lead)} ${a(o.smallLink.href, o.smallLink.text)}`, ` color:${C.soft}; font-size:14px;`) : ""}
 ${para(`James, ${a(o.site, "Park Roulette")}`)}
 </td></tr>
 <tr><td style="padding:14px 8px; font-family:${BODY}; font-size:12px; line-height:18px; color:${C.soft}; text-align:center;">True Craft Ventures LLC${o.postalAddress ? ` &middot; ${esc(o.postalAddress)}` : ""}</td></tr>
 </table></td></tr></table></body></html>`;
   return { subject: o.subject, html, text };
+}
+
+/**
+ * The welcome email (single opt-in, James, November 2026): what arrives
+ * and when, the latest issue if there is one, and the way out.
+ */
+export function renderWelcome(o: {
+  site: string;
+  unsubscribeUrl: string;
+  latestIssueUrl: string | null;
+  postalAddress: string | null;
+}): { subject: string; html: string; text: string } {
+  return shortMail({
+    subject: `You're in: ${NEWS_NAME}`,
+    heading: "You're in!",
+    lines: [
+      `${NEWS_NAME} lands Thursday mornings: the weekend forecast, one Central Oregon playground to try, and an indoor backup if it pours.`,
+    ],
+    button: o.latestIssueUrl
+      ? { href: o.latestIssueUrl, text: "Read the latest issue" }
+      : undefined,
+    smallLink: {
+      lead: "Didn't sign up?",
+      href: o.unsubscribeUrl,
+      text: "Unsubscribe anytime",
+    },
+    site: o.site,
+    postalAddress: o.postalAddress,
+  });
 }
 
 export function renderConfirmation(o: {
@@ -718,32 +810,9 @@ export function renderConfirmation(o: {
     lines: [
       `Tap the button to start getting ${NEWS_NAME}: weekly park picks for the forecast, closures and indoor backups, every Thursday morning.`,
     ],
-    button: { href: o.url, text: "Yes, send me park picks" },
+    button: { href: o.url, text: "Confirm" },
     small:
       "The link works for 7 days. Didn't ask for this? Ignore this email and you won't hear from us.",
-    site: o.site,
-    postalAddress: o.postalAddress,
-  });
-}
-
-/**
- * Someone signed up an address that's already on the list. It says so
- * (no new link) and offers the way out, in case it wasn't them.
- */
-export function renderAlreadySubscribed(o: {
-  site: string;
-  unsubscribeUrl: string | null;
-  postalAddress: string | null;
-}): { subject: string; html: string; text: string } {
-  return shortMail({
-    subject: `You're already on the ${NEWS_NAME} list`,
-    heading: "You're already on the list",
-    lines: [
-      `Someone (probably you) just signed this address up for ${NEWS_NAME}. It already gets it every Thursday morning, so there's nothing to do.`,
-    ],
-    small: o.unsubscribeUrl
-      ? `Rather not get it? Unsubscribe: ${o.unsubscribeUrl}`
-      : undefined,
     site: o.site,
     postalAddress: o.postalAddress,
   });

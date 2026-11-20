@@ -15,6 +15,12 @@ import {
   tiktokSize,
   TikTokTile,
 } from "@/components/news/TikTokTile";
+import {
+  igAlt,
+  igCardSize,
+  InstagramCard,
+  type IgPost,
+} from "@/components/news/InstagramCard";
 import type { CardFile, MemeSnapshot } from "./issue";
 
 /**
@@ -67,6 +73,25 @@ export function cardPost(
   };
 }
 
+/** The Instagram card's post: the copied image with its pixel size. */
+export function igPost(
+  s: Extract<MemeSnapshot, { kind: "instagram" }>,
+  images: { avatar: string | null; media: string | null },
+): IgPost {
+  return {
+    username: s.username,
+    avatar: images.avatar,
+    mediaType: s.mediaType,
+    productType: s.productType,
+    image: images.media ?? "",
+    imageWidth: s.image.width,
+    imageHeight: s.image.height,
+    carouselCount: s.carouselCount,
+    likes: s.likes,
+    timestamp: s.timestamp,
+  };
+}
+
 /** Draw the card: PNG bytes, its exact size and its alt text. */
 export async function renderCard(
   s: MemeSnapshot,
@@ -85,6 +110,20 @@ export async function renderCard(
       bytes: new Uint8Array(await res.arrayBuffer()),
       ...size,
       alt: postAlt(post, f),
+    };
+  }
+  if (s.kind === "instagram") {
+    const post = igPost(s, images);
+    const size = igCardSize(post);
+    const res = new ImageResponse(<InstagramCard post={post} />, {
+      ...size,
+      fonts: f,
+      emoji: "twemoji",
+    });
+    return {
+      bytes: new Uint8Array(await res.arrayBuffer()),
+      ...size,
+      alt: igAlt(post),
     };
   }
   const size = tiktokSize("4:5");
@@ -108,7 +147,7 @@ export async function storeCard(
   s: MemeSnapshot,
   images: { avatar: string | null; media: string | null },
 ): Promise<CardFile | null> {
-  if (s.kind === "tiktok" && !images.media) return null;
+  if (s.kind !== "x" && !images.media) return null;
   const card = await renderCard(s, images);
   const hash = createHash("sha256").update(card.bytes).digest("hex");
   const path = `news/cards/${hash}.png`;
@@ -131,7 +170,7 @@ export async function checkCard(
   s: MemeSnapshot,
   images: { avatar: string | null; media: string | null },
 ): Promise<boolean> {
-  if (s.kind === "tiktok" && !images.media) return false;
+  if (s.kind !== "x" && !images.media) return false;
   await renderCard(s, images);
   return true;
 }
