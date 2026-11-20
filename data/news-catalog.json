@@ -37,10 +37,6 @@
   ],
   "skip_dates": [
     {
-      "date": "2026-11-26",
-      "reason": "Thanksgiving"
-    },
-    {
       "date": "2026-12-24",
       "reason": "Christmas Eve"
     },
