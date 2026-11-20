@@ -1027,3 +1027,32 @@ describe("the weekend forecast from NWS", () => {
     expect(weekendForecast("2026-12-03", [])).toBeNull();
   });
 });
+
+describe("bot checks (we report them, never get past them)", () => {
+  it("names a Sucuri or Cloudflare challenge, and a redirect with nowhere to go", async () => {
+    const { botWall } = await import("./fetcher");
+    expect(
+      botWall(
+        307,
+        "Sucuri/Cloudproxy",
+        "<script>var sucuri_cloudproxy_js=''</script>",
+      ),
+    ).toMatch(/Sucuri/);
+    expect(botWall(403, "cloudflare", "<div id=cf-chl-widget>")).toMatch(
+      /Cloudflare/,
+    );
+    expect(botWall(307, "nginx", "")).toMatch(/nowhere to go/);
+    expect(botWall(404, "nginx", "Not found")).toBeNull();
+  });
+});
+
+describe("quotes match pages whatever their entities", () => {
+  it("decodes entities before it straightens dashes and quotes", async () => {
+    const { normalizeText } = await import("./validate");
+    expect(normalizeText("10 am &#8211; 2 pm")).toBe("10 am - 2 pm");
+    expect(normalizeText("10 am &ndash; 2 pm")).toBe("10 am - 2 pm");
+    expect(normalizeText("10 am – 2 pm")).toBe("10 am - 2 pm");
+    expect(normalizeText("Kids&#x2019; day&nbsp;out")).toBe("Kids' day out");
+    expect(normalizeText("R&amp;D &amp;ndash; text")).toBe("R&D &ndash; text");
+  });
+});

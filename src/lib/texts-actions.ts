@@ -21,6 +21,7 @@ import {
   type Agreement,
   checkboxLine,
   TEXTS_CONSENT_VERSION,
+  TEXTS_COPY,
 } from "./texts";
 import { type OptInResult, optIn, optOut, textsOn } from "./texts-store";
 
@@ -48,8 +49,13 @@ export type TextsResult =
 
 /** The box must be checked, and the words the ones we show now. */
 function agreed(a: unknown, phone: string): Agreement {
-  if (!agreementOk(a, phone))
-    throw new UserError("Check the box first, so we know it's a yes.");
+  if (!agreementOk(a, phone)) {
+    // A tab opened before the words changed: checked, but the old words.
+    const x = a as Partial<Agreement> | null;
+    if (x?.agreed === true && x.version !== TEXTS_CONSENT_VERSION)
+      throw new UserError(TEXTS_COPY.stale);
+    throw new UserError(TEXTS_COPY.unchecked);
+  }
   return a as Agreement;
 }
 

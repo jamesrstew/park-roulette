@@ -11,10 +11,10 @@ export const CONSENT_VERSION = "email-2026-11-21";
  * park picks" ("Park picks" as a card title); the email is "Bend
  * Playground Passport" ("the weekly email" only where a short label is
  * needed, never just "Passport", which is the stamps tab); the text is
- * "Weekend texts" as a label and "a weekend park pick" in sentences.
+ * "Weekend Pick" (its carrier name is "Park Roulette Weekend Pick").
  */
 export const NEWS_NAME = "Bend Playground Passport";
-export const TEXTS_NAME = "Weekend texts";
+export const TEXTS_NAME = "Weekend Pick";
 
 export const PARK_NEWS = {
   title: "Park picks",

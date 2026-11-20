@@ -92,7 +92,6 @@ export type Plan = {
       line: string;
       at: string;
     }[];
-    new_parks: { slug: string; name: string; city: string; at: string }[];
   };
   cooldowns: Record<
     CooldownKind,

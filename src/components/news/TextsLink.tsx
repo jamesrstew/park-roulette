@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/icons";
 
-/** "Rather get a text? Weekend texts, on Fridays", the same words everywhere. */
+/** "Rather get a text? Weekend Pick, on Fridays", the same words everywhere. */
 export function TextsLink({ lead = "Rather get a text?" }: { lead?: string }) {
   return (
     <p className="flex min-h-11 items-center gap-2 leading-snug">
@@ -9,7 +9,7 @@ export function TextsLink({ lead = "Rather get a text?" }: { lead?: string }) {
       <span>
         {lead}{" "}
         <Link href="/texts" className="underline underline-offset-2">
-          Weekend texts, on Fridays
+          Weekend Pick, on Fridays
         </Link>
       </span>
     </p>

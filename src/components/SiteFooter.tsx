@@ -79,7 +79,7 @@ export async function SiteFooter() {
           <h3 className="font-hand text-xl text-ink-soft">Stay in touch</h3>
           <ul>
             <FooterLink href="/newsletter">Past issues</FooterLink>
-            <FooterLink href="/texts">Weekend texts</FooterLink>
+            <FooterLink href="/texts">Weekend Pick</FooterLink>
             <FooterLink href={`mailto:${CONTACT}`}>Email us</FooterLink>
           </ul>
         </div>

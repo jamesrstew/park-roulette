@@ -7,9 +7,9 @@ name: IndexNow ping
 # nothing, but the run fails loudly (GitHub emails the owner) so a broken
 # ping never goes unnoticed.
 #
-# The Thursday writer routine can run it by hand right after it hands in
-# the draft and this week's events (workflow_dispatch), so new event pages
-# reach Bing the same morning.
+# The app also pings the moment a page changes (POST /api/events for
+# event pages, the sender for each issue page), so the writer routine
+# doesn't run this. workflow_dispatch stays for a manual catch-up.
 # Script and rationale: scripts/indexnow-ping.mjs.
 
 on:

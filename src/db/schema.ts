@@ -652,6 +652,19 @@ export const newsSettings = pgTable(
      */
     lockUntil: timestamp("lock_until", { withTimezone: true }),
     lockOwner: text("lock_owner"),
+    /** Weekend Pick (Friday texts): its own kill switch and dry run. */
+    textsPaused: boolean("texts_paused").notNull().default(false),
+    /** On: texts go only to admins' numbers (or the log). Starts on. */
+    textsDryRun: boolean("texts_dry_run").notNull().default(true),
+    /** Why texts were paused automatically (the STOP-rate guardrail). */
+    textsPausedReason: text("texts_paused_reason"),
+    /** When an admin last turned texts back on: the guardrail looks after it. */
+    textsGuardrailClearedAt: timestamp("texts_guardrail_cleared_at", {
+      withTimezone: true,
+    }),
+    /** The Friday sender's own lease (one run at a time). */
+    textsLockUntil: timestamp("texts_lock_until", { withTimezone: true }),
+    textsLockOwner: text("texts_lock_owner"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -779,6 +792,42 @@ export const kidEvents = pgTable(
       sql`${t.status} in ('scheduled', 'canceled', 'postponed', 'rescheduled')`,
     ),
     check("kid_events_confirm", sql`${t.confirm} in ('ok', 'unconfirmed')`),
+  ],
+);
+
+/**
+ * Weekend Pick: one row per (issue, number), claimed before the text goes,
+ * so a number never gets the same week's text twice (the idempotency key).
+ * sent | failed | skipped (window missed, monthly cap) | dry_run | sending
+ */
+export const smsProgramSends = pgTable(
+  "sms_program_sends",
+  {
+    id: serial("id").primaryKey(),
+    issueDate: date("issue_date").notNull(),
+    /** Nulled 13 months after the send (with body); the row goes at 4 years. */
+    phone: text("phone"),
+    status: text("status").notNull(),
+    body: text("body"),
+    twilioSid: text("twilio_sid"),
+    reason: text("reason"),
+    /** Twilio's delivery report (StatusCallback): delivered, undelivered... */
+    deliveryStatus: text("delivery_status"),
+    errorCode: integer("error_code"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [
+    uniqueIndex("sms_program_sends_once").on(t.issueDate, t.phone),
+    index("sms_program_sends_phone").on(t.phone, t.sentAt),
+    index("sms_program_sends_sid").on(t.twilioSid),
+    // logged: sending was off, so nothing left (never counts as a send).
+    check(
+      "sms_program_sends_status",
+      sql`${t.status} in ('sending', 'sent', 'failed', 'skipped', 'dry_run', 'logged')`,
+    ),
   ],
 );
 

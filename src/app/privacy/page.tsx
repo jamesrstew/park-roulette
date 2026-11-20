@@ -80,7 +80,7 @@ export default function PrivacyPage() {
           <li>
             <b>Your email</b>, only if you sign up for the weekly email (see{" "}
             <a href="#park-news" className="underline">
-              Bend Playground Passport and weekend texts
+              Bend Playground Passport and Weekend Pick
             </a>
             ). No account needed.
           </li>
@@ -318,10 +318,7 @@ export default function PrivacyPage() {
         </p>
       </Section>
 
-      <Section
-        title="Bend Playground Passport and weekend texts"
-        id="park-news"
-      >
+      <Section title="Bend Playground Passport and Weekend Pick" id="park-news">
         <p>
           If you choose to, you can give us your email for Bend Playground
           Passport: weekly park picks for the forecast, closures and indoor
@@ -387,13 +384,13 @@ export default function PrivacyPage() {
         </ul>
       </Section>
 
-      <Section title="Park texts" id="park-texts">
+      <Section title="Weekend Pick (texts)" id="park-texts">
         <p>
-          If you turn on Weekend texts (a weekend park pick, on Fridays), on our
-          website or in the app, we keep: your number, that you said yes, when,
-          where, the exact words you saw, your IP address and browser, and when
-          your number last passed a code. No account needed: a yes belongs to
-          the number.
+          If you turn on Weekend Pick (a playground for the weekend, texted on
+          Fridays), on our website or in the app, we keep: your number, that you
+          said yes, when, where, the exact words you saw, your IP address and
+          browser, and when your number last passed a code. No account needed: a
+          yes belongs to the number.
         </p>
         <ul>
           <li>
@@ -401,6 +398,11 @@ export default function PrivacyPage() {
             you delete your account, so we can show you said yes (and when you
             said stop). If you text STOP, we keep your number on our stop list
             for as long as we send texts, so we never text you again by mistake.
+          </li>
+          <li>
+            <b>Each Friday text</b>: we log which number got which text, and
+            whether it was delivered. After 13 months the number and the text
+            come off that log; the rest goes after 4 years.
           </li>
           <li>
             <b>Who sends them</b>: Twilio, which gets your number to do it.

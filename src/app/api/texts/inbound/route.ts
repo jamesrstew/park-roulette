@@ -12,16 +12,20 @@ import {
 import { verifyTwilio } from "@/lib/twilio-signature";
 
 /**
- * Replies to the park texts number (Twilio's messaging webhook). Signed
- * with TWILIO_AUTH_TOKEN; each message is handled once (by MessageSid).
- *   STOP and friends, or anything that reads like stop: off now, and one
- *     reply (the STOP text).
- *   START, from a number on our STOP list: back on (after a STOP the yes
- *     has to come from the phone). From anyone else it's just a reply.
- *   HELP: the HELP text.
+ * Replies to the Weekend Pick number (Twilio's messaging webhook). Signed
+ * with TWILIO_AUTH_TOKEN; each message is handled once (by MessageSid,
+ * recorded in the same transaction as what it changes, so a failure rolls
+ * both back and Twilio's retry is handled afresh).
+ *
+ * Twilio's Advanced Opt-Out answers its own keywords and tells us so with
+ * OptOutType (STOP, START or HELP): then we only record, never reply. With
+ * no OptOutType, Twilio didn't treat it as a keyword ("Stop.", "STOP ALL",
+ * "Don't text me"), so the reply is ours:
+ *   stop or a stop in plain words: off now, and TEXTS.stop.
+ *   help: TEXTS.help.
+ *   start, from a number on our STOP list: back on, and TEXTS.start.
+ *     From anyone else it's just a reply (the yes is in the app).
  *   Anything else: James hears about it; no reply.
- * With Twilio's Advanced Opt-Out on, Twilio has already answered STOP,
- * START and HELP (it says so in OptOutType), so we only record.
  */
 const twiml = (message?: string) =>
   new Response(
@@ -64,45 +68,76 @@ export async function POST(req: Request) {
   const from = params.From ?? "";
   const sid = params.MessageSid ?? params.SmsSid ?? "";
   if (!/^\+1\d{10}$/.test(from) || !sid) return twiml();
-  const fresh = await db
-    .insert(webhookEvents)
-    .values({ id: `twilio:${sid}`, type: "sms.inbound" })
-    .onConflictDoNothing()
-    .returning({ id: webhookEvents.id });
-  if (!fresh.length) return twiml();
-
-  const handled = !!params.OptOutType; // Twilio already replied
-  const kind = classifyReply(params.Body ?? "");
-  if (kind === "stop" || kind === "stop_like") {
-    await optOut(from, kind === "stop" ? "stop" : "stop_reply");
-    if (kind === "stop_like")
-      alertLater({
-        key: `texts:stop-like:${from.slice(-4)}`,
-        subject: "A park texts reply read like stop",
-        text: `A reply to the park texts number from …${from.slice(-4)} read like a stop, so texts to it are off now. Read it in the Twilio console to be sure.`,
-      });
-    if (handled) return twiml();
-    await noteTextSent(from);
-    return twiml(TEXTS.stop);
+  const body = params.Body ?? "";
+  const optOutType = (params.OptOutType ?? "").toUpperCase();
+  const kind = classifyReply(body);
+  let out: { reply?: string; alert?: "stop_like" | "other" };
+  try {
+    out = await db.transaction(async (tx) => {
+      const fresh = await tx
+        .insert(webhookEvents)
+        .values({ id: `twilio:${sid}`, type: "sms.inbound" })
+        .onConflictDoNothing()
+        .returning({ id: webhookEvents.id });
+      if (!fresh.length) return {};
+      // Twilio handled a keyword (and replied): record only.
+      if (optOutType === "STOP") {
+        await optOut(from, "stop", null, {}, tx);
+        return {};
+      }
+      if (optOutType === "START") {
+        if (await textedStop(from, tx)) await startFromPhone(from, tx);
+        return {};
+      }
+      if (optOutType === "HELP") return {};
+      // Twilio didn't: the reply is ours.
+      if (kind === "stop" || kind === "stop_like") {
+        await optOut(
+          from,
+          kind === "stop" ? "stop" : "stop_reply",
+          null,
+          {},
+          tx,
+        );
+        return {
+          reply: TEXTS.stop,
+          alert: kind === "stop_like" ? ("stop_like" as const) : undefined,
+        };
+      }
+      if (kind === "help") return { reply: TEXTS.help };
+      // START only means something from a number on our STOP list: anyone
+      // else says yes in the app, with a code and the checked box.
+      if (kind === "start") {
+        if (!(await textedStop(from, tx))) return {};
+        await startFromPhone(from, tx);
+        return { reply: TEXTS.start };
+      }
+      return { alert: "other" as const };
+    });
+  } catch (e) {
+    // Nothing was recorded (one transaction): a 500 makes Twilio retry.
+    console.error("[texts] inbound failed", (e as Error)?.message);
+    alertLater({
+      key: "error:texts-inbound",
+      subject: "A reply to the Weekend Pick number failed",
+      text: `Handling a reply from …${from.slice(-4)} threw an error, so nothing was recorded. Twilio retries; if it was a stop, check the Twilio console and the STOP list (sms_opt_outs) today. Vercel logs: [texts].`,
+      everyMinutes: 30,
+    });
+    return new Response("Failed", { status: 500 });
   }
-  // START only means something from a number on our STOP list: anyone
-  // else says yes in the app, with a code and the checked box.
-  if (kind === "start" && (await textedStop(from))) {
-    await startFromPhone(from);
-    if (handled) return twiml();
-    await noteTextSent(from);
-    return twiml(TEXTS.start);
-  }
-  if (kind === "help") {
-    if (handled) return twiml();
-    await noteTextSent(from);
-    return twiml(TEXTS.help);
-  }
-  alertLater({
-    key: `texts:reply:${from.slice(-4)}`,
-    subject: "Someone replied to a park text",
-    text: `A reply came in from …${from.slice(-4)}. Read it in the Twilio console. If it asks to stop in words we did not catch, add the number to the STOP list (sms_opt_outs) the same day.`,
-    everyMinutes: 30,
-  });
-  return twiml();
+  if (out.alert === "stop_like")
+    alertLater({
+      key: `texts:stop-like:${from.slice(-4)}`,
+      subject: "A Weekend Pick reply read like stop",
+      text: `A reply to the Weekend Pick number from …${from.slice(-4)} read like a stop, so texts to it are off now. Read it in the Twilio console to be sure.`,
+    });
+  if (out.alert === "other")
+    alertLater({
+      key: `texts:reply:${from.slice(-4)}`,
+      subject: "Someone replied to a park text",
+      text: `A reply came in from …${from.slice(-4)}. Read it in the Twilio console. If it asks to stop in words we did not catch, add the number to the STOP list (sms_opt_outs) the same day.`,
+      everyMinutes: 30,
+    });
+  if (out.reply) await noteTextSent(from).catch(() => {});
+  return twiml(out.reply);
 }

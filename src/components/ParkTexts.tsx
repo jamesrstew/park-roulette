@@ -16,6 +16,7 @@ import {
   type Agreement,
   checkboxLine,
   prettyPhone,
+  SAMPLE_TEXT,
   TEXTS_CONSENT_TEXT,
   TEXTS_CONSENT_VERSION,
   TEXTS_COPY,
@@ -25,7 +26,7 @@ type Source = "texts_page" | "settings" | "welcome_sheet";
 type Done = "on" | "already" | "needs_start" | "failed";
 
 /**
- * The Weekend texts yes, one component everywhere. Order: headline, body,
+ * The Weekend Pick yes, one component everywhere. Order: headline, body,
  * the unchecked box, the disclosure (in ink, right under the box, above the
  * button), the button. Signed out (or a number without a recent code) it
  * texts a code first. The reply is the same whether or not the number
@@ -37,6 +38,8 @@ export function ParkTextsCard({
   sendingOn,
   textsFrom,
   bare = false,
+  labelledBy,
+  showSample = false,
   onDone,
 }: {
   /** The signed-in grown-up's number (E.164); null to type one in. */
@@ -48,6 +51,13 @@ export function ParkTextsCard({
   textsFrom: string | null;
   /** No card frame or headline (inside settings or onboarding). */
   bare?: boolean;
+  /**
+   * The page's own heading names the card (/texts): no card headline, and
+   * the section is labelled by that heading's id.
+   */
+  labelledBy?: string;
+  /** After a yes, show what a Weekend Pick looks like (/texts). */
+  showSample?: boolean;
   onDone?: (state: Done) => void;
 }) {
   const id = useId();
@@ -100,15 +110,22 @@ export function ParkTextsCard({
 
   if (done === "on" || done === "already")
     return (
-      <p
-        role="status"
-        className="flex animate-pop-in items-center gap-2 font-hand text-xl leading-snug"
-      >
-        <Icon name="check" size={28} />
-        {sendingOn
-          ? "You're in! Watch for a text."
-          : "You're in! Your first text comes when park texts start."}
-      </p>
+      <div role="status" className="flex flex-col gap-2">
+        <p className="flex animate-pop-in items-center gap-2 font-hand text-xl leading-snug">
+          <Icon name="check" size={28} />
+          {sendingOn
+            ? "You're in! Watch for a text."
+            : "You're in! Your first text comes when the Weekend Pick starts."}
+        </p>
+        {showSample ? (
+          <>
+            <p className="text-sm text-ink-soft">{TEXTS_COPY.firstLooksLike}</p>
+            <p className="rounded-3xl border-2 border-ink bg-[#fffdf7] px-5 py-4 leading-snug break-words">
+              {SAMPLE_TEXT}
+            </p>
+          </>
+        ) : null}
+      </div>
     );
   if (done === "needs_start")
     return (
@@ -150,8 +167,11 @@ export function ParkTextsCard({
     );
 
   return (
-    <section aria-labelledby={bare ? undefined : `${id}-h`} className={frame}>
-      {bare ? null : (
+    <section
+      aria-labelledby={labelledBy ?? (bare ? undefined : `${id}-h`)}
+      className={frame}
+    >
+      {bare || labelledBy ? null : (
         <>
           <h2
             id={`${id}-h`}
@@ -190,6 +210,7 @@ export function ParkTextsCard({
               type="checkbox"
               className="mt-1 size-7 shrink-0 accent-crayon-green"
               checked={checked}
+              aria-describedby={`${id}-terms`}
               onChange={(e) => (setChecked(e.target.checked), setError(null))}
             />
             <span className="leading-snug">
@@ -204,15 +225,20 @@ export function ParkTextsCard({
               )}
             </span>
           </label>
-          <p className="pl-10 text-[0.9rem] leading-snug text-ink">
+          <p
+            id={`${id}-terms`}
+            className="pl-10 text-[0.9rem] leading-snug text-ink sm:-mt-2"
+          >
             {words.disclosure}{" "}
-            <Link href="/terms#park-texts" className="underline">
-              Terms
-            </Link>{" "}
-            ·{" "}
-            <Link href="/privacy#park-texts" className="underline">
-              Privacy
-            </Link>
+            <span className="whitespace-nowrap">
+              <Link href="/terms#park-texts" className="underline">
+                Terms
+              </Link>{" "}
+              ·{" "}
+              <Link href="/privacy#park-texts" className="underline">
+                Privacy
+              </Link>
+            </span>
           </p>
           <div aria-live="polite">
             {error ? <ErrorLine>{error}</ErrorLine> : null}
@@ -274,7 +300,7 @@ export function ParkTextsCard({
   );
 }
 
-/** Family & settings: the Weekend texts row in the Park picks card. */
+/** Family & settings: the Weekend Pick row in the Park picks card. */
 export function TextsRow({
   state,
   number,
@@ -301,7 +327,7 @@ export function TextsRow({
     <div className="flex flex-col gap-2 border-t border-dashed border-ink/25 pt-3">
       <h3 className="flex items-center gap-2 font-hand text-xl leading-tight">
         <Icon name="phone" size={24} className="text-crayon-green" /> Weekend
-        texts{" "}
+        Pick{" "}
         <span className="font-body text-sm text-ink-soft">
           · Friday afternoons
         </span>
@@ -363,7 +389,7 @@ export function TextsRow({
             onClick={() => (setOpen(true), setSaved(null))}
             className="chip min-h-11 self-start"
           >
-            Get park texts
+            Get the Weekend Pick
           </button>
         </>
       )}

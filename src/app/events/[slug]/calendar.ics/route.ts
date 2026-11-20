@@ -9,8 +9,13 @@ export async function GET(
 ) {
   const { slug } = await params;
   const row = await eventBySlug(slug);
-  const want = new URL(req.url).searchParams.get("d");
-  const d = row?.data.dates.find((x) => x.day === want) ?? row?.data.dates[0];
+  const sp = new URL(req.url).searchParams;
+  const want = sp.get("d");
+  const at = sp.get("t");
+  // Two showtimes on one day: ?t=HH:MM picks the one.
+  const d =
+    row?.data.dates.find((x) => x.day === want && (!at || x.start === at)) ??
+    row?.data.dates[0];
   if (!row || !d) return new Response("Not found", { status: 404 });
   const body = icsFile(
     row.data,

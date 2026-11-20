@@ -203,14 +203,6 @@ const plan: Plan = {
         at: "2026-11-30T00:00:00Z",
       },
     ],
-    new_parks: [
-      {
-        slug: "drake-park-bend",
-        name: "Drake Park",
-        city: "Bend",
-        at: "2026-11-30T00:00:00Z",
-      },
-    ],
   },
   cooldowns: {
     wheel: [],
@@ -336,6 +328,23 @@ const rules = (r: { rule: string; path: string }[]) =>
 // --- Tests ---------------------------------------------------------------
 
 describe("validateIssue", () => {
+  it("cuts an outing whose cost names no price (writer run 1)", async () => {
+    const g = good();
+    const r = await validateIssue(
+      {
+        ...g,
+        weekend: [
+          g.weekend![0],
+          { ...g.weekend![1], cost: "Check the page for prices" },
+        ],
+      },
+      ctx(),
+    );
+    expect(rules(r.dropped)).toContain("weekend.1:evidence");
+    expect(r.dropped.some((d) => /names no price/.test(d.message ?? ""))).toBe(
+      true,
+    );
+  });
   it("ages: only printed words (ages_text), mapped by code; never free text", async () => {
     const g = good();
     const w0 = g.weekend![0];
@@ -1065,31 +1074,18 @@ describe("validateIssue", () => {
       ctx(),
     );
     expect(closure.errors[0].rule).toBe("schema");
-    const fresh = good();
-    fresh.heads_up = [
-      {
-        kind: "new_park",
-        park: "drake-park-bend",
-        text: "Drake Park just joined the map this week.",
-      },
-    ];
-    expect((await validateIssue(fresh, ctx())).dropped).toEqual([]);
-    const notNew = good();
-    notNew.heads_up = [
-      {
-        kind: "new_park",
-        park: "harmon-park-bend",
-        text: "Harmon Park just joined the map this week.",
-      },
-    ];
-    expect(rules((await validateIssue(notNew, ctx())).dropped)).toContain(
-      "heads_up.0:plan",
-    );
-    const wrongPark = good();
-    wrongPark.heads_up![0].park = "drake-park-bend";
-    expect(rules((await validateIssue(wrongPark, ctx())).dropped)).toContain(
-      "heads_up.0:plan",
-    );
+    // Parks new to the map are never news (James's rule).
+    for (const [kind, text] of [
+      ["new_park", "Drake Park is on the map now, with swings."],
+      ["park_change", "Harmon Park is a new park on the map."],
+      ["park_change", "Families added Harmon Park to the map this week."],
+    ] as const) {
+      const r = good();
+      r.heads_up = [{ kind, change_id: 7, park: "harmon-park-bend", text }];
+      expect(rules((await validateIssue(r, ctx())).dropped), text).toContain(
+        "heads_up.0:plan",
+      );
+    }
   });
 
   it("the weekend ahead comes from the plan and is frozen into the issue", async () => {

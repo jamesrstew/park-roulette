@@ -74,6 +74,18 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
     expect((rows[0].data as { dates: unknown[] }).dates).toHaveLength(2);
   });
 
+  it("keeps two showtimes on one day as two dates", async () => {
+    const a = verdict("Nutcracker for Kids", "2026-12-12");
+    const b = verdict("Nutcracker for Kids", "2026-12-12");
+    b.event!.dates = [{ day: "2026-12-12", start: "14:00" }];
+    await store.upsertEvents([a], { network: true });
+    await store.upsertEvents([b], { network: true });
+    const [row] = await q("select data from kid_events");
+    expect(
+      (row.data as { dates: { start: string }[] }).dates.map((d) => d.start),
+    ).toEqual(["10:30", "14:00"]);
+  });
+
   it("gives a clashing slug a stable hash of its series key (H3)", async () => {
     const a = verdict("Story Time", "2026-11-21");
     const b = verdict("Story Time", "2026-11-21", { key: "series:other-key" });

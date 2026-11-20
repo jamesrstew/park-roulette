@@ -13,9 +13,13 @@ const Time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use HH:MM (24h)");
 const Https = z.url({ protocol: /^https$/, error: "Use an https link" });
 const Text = (max: number, min = 1) => z.string().trim().min(min).max(max);
 
+/**
+ * A quote is 12 characters or more, or as short as 8 when it prints a
+ * price or "free" with a date or time ("Free · Dec 6", "$5 · 10 am").
+ */
 export const EventEvidence = z.strictObject({
   url: Https,
-  quote: Text(400, 12),
+  quote: Text(400, 8),
 });
 
 export const EventInput = z.strictObject({
@@ -92,7 +96,7 @@ export const EventInput = z.strictObject({
   /** The official page (organizer, venue, city, parks, library, USFS). */
   url: Https,
   organizer: z.strictObject({ name: Text(80), url: Https }).optional(),
-  evidence: z.array(EventEvidence).min(1).max(5),
+  evidence: z.array(EventEvidence).min(1).max(8),
   /** Where the writer found it (a roundup): never shown or linked. */
   discovery_url: Https.optional(),
   status: z
@@ -182,6 +186,11 @@ export function pacificOffset(day: string, time = "12:00"): string {
   );
   const h = Math.round((t.getTime() - local) / 3_600_000);
   return `-0${h}:00`;
+}
+
+/** One occurrence's id: its day, plus its start when there are showtimes ("2026-12-06-1400"). */
+export function occurrenceId(d: { day: string; start?: string }): string {
+  return d.start ? `${d.day}-${d.start.replace(":", "")}` : d.day;
 }
 
 /** When a date is over: its end time, or the end of its (last) day. */
@@ -538,7 +547,7 @@ export function eventJsonLd(
       image: ["1x1", "4x3", "16x9"].map(
         (r) => `${site}/events/${row.slug}/image/${r}`,
       ),
-      "@id": `${url}#${d.day}`,
+      "@id": `${url}#${occurrenceId(d)}`,
       ...(offers ? { offers } : {}),
       ...(e.organizer
         ? {
@@ -558,7 +567,7 @@ export function eventJsonLd(
                 : `${e.ages!.range![0]}-${e.ages!.range![1]}`,
           }
         : {}),
-      url: `${url}#${d.day}`,
+      url: `${url}#${occurrenceId(d)}`,
     };
   });
 }
@@ -616,7 +625,7 @@ export function icsFile(
     "PRODID:-//Park Roulette//Kids events//EN",
     "CALSCALE:GREGORIAN",
     "BEGIN:VEVENT",
-    `UID:${url.replace(/^https?:\/\//, "")}#${d.day}`,
+    `UID:${url.replace(/^https?:\/\//, "")}#${occurrenceId(d)}`,
     `DTSTAMP:${icsStamp(now)}`,
   ];
   const multiDay = !!d.end_day && d.end_day !== d.day;

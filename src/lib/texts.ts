@@ -1,10 +1,10 @@
 /**
- * Weekend texts: the words, frozen per consent version, and the reply
+ * Weekend Pick: the words, frozen per consent version, and the reply
  * keywords. Pure (no server imports), so the browser and tests use it too.
  *
- * Program name (carrier filings, Terms): "Park Roulette Weekend Pick". In
- * the app it's "Weekend texts" as a label and "a weekend park pick" in a
- * sentence (the glossary in lib/park-news.ts).
+ * Program name (carrier filing, Terms): "Park Roulette Weekend Pick". In
+ * the app it's "Weekend Pick" everywhere (the glossary in
+ * lib/park-news.ts); every text starts "Park Roulette: Weekend Pick:".
  */
 
 export const PROGRAM_NAME = "Park Roulette Weekend Pick";
@@ -22,7 +22,7 @@ export function prettyPhone(e164: string): string {
 }
 
 /** Bump with any change to the words below; old versions stay, frozen. */
-export const TEXTS_CONSENT_VERSION = "sms-2026-11-20";
+export const TEXTS_CONSENT_VERSION = "sms-2026-11-21";
 
 export type ConsentWords = {
   /** {number} is the number, or "this number" when typing one in. */
@@ -47,6 +47,13 @@ export const TEXTS_CONSENT_TEXT: Record<string, ConsentWords> = {
   "sms-2026-11-20": {
     checkbox:
       "Yes, text me a weekend park pick from Park Roulette at {number}.",
+    disclosure:
+      "Park Roulette Weekend Pick: about 1 automated text a week, on Fridays (up to 5 a month). Message and data rates may apply. Reply HELP for help, STOP to opt out. You don't have to agree to texts to use Park Roulette.",
+    button: "Text me Fridays",
+  },
+  // /texts v2: the program's own name in the checkbox.
+  "sms-2026-11-21": {
+    checkbox: "Yes, text me the Weekend Pick at {number}.",
     disclosure:
       "Park Roulette Weekend Pick: about 1 automated text a week, on Fridays (up to 5 a month). Message and data rates may apply. Reply HELP for help, STOP to opt out. You don't have to agree to texts to use Park Roulette.",
     button: "Text me Fridays",
@@ -83,8 +90,13 @@ export const TEXTS_COPY = {
   headline: "Want a weekend park pick?",
   body: "One playground to try, every Friday afternoon.",
   unchecked: "Check the box first, so we know it's a yes.",
+  stale: "This page changed since you opened it. Please reload the page.",
   failure: "That didn't go through. Try again?",
-  codeFirst: "First we'll text you a code to check it's your phone.",
+  codeFirst: "We'll text you a code first.",
+  title: "Weekend Pick",
+  subtitle: "One playground for the weekend, texted Friday afternoons.",
+  firstLooksLike:
+    "First we'll send a quick confirmation. Your Friday texts will look like this:",
   off: "One playground to try, every Friday, by text.",
   noNumber: "Add your number first, then you can turn on park texts.",
   borrowed: "Sign in with your own number to get park texts.",
@@ -108,17 +120,39 @@ export function checkboxLine(version: string, number: string | null): string {
 export const TEXTS = {
   confirmation:
     "Park Roulette: You're in! 1 weekend playground pick a week, Fridays (up to 5/mo). Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
-  help: "Park Roulette: About 1 weekend playground pick a week, Fridays. Help: hello@parkroulette.quest. Msg & data rates may apply. Reply STOP to opt out.",
+  help: "Park Roulette: Weekend Pick, about 1 text a week on Fridays. Help: hello@parkroulette.quest. Msg & data rates may apply. Reply STOP to opt out.",
   stop: "Park Roulette: You're unsubscribed and won't get more texts. Reply START to rejoin.",
   start:
     "Park Roulette: Welcome back! 1 weekend playground pick a week, Fridays (up to 5/mo). Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
 } as const;
+
+/** A real Weekend Pick, for the success state (its link answered 200). */
+export const SAMPLE_TEXT =
+  "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/parks/wildflower-park-bend Reply STOP to opt out";
 
 /** GSM-7 only (one bad character makes a text Unicode: 70 a segment). */
 export function isGsm7(s: string): boolean {
   return /^[A-Za-z0-9 @£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ!"#¤%&'()*+,\-./:;<=>?¡ÄÖÑÜ§¿äöñüà^{}\\[~\]|€]*$/.test(
     s,
   );
+}
+
+/** GSM-7's extended characters: each takes two of a segment's 160. */
+const GSM_EXTENDED = /[\^{}\\[~\]|€\f]/g;
+
+/** A GSM-7 text's length in septets (what the 160 limit counts). */
+export function septets(s: string): number {
+  return s.length + (s.match(GSM_EXTENDED)?.length ?? 0);
+}
+
+/** Curly quotes, dashes, ellipses and odd spaces, as plain ASCII. */
+export function toGsmAscii(s: string): string {
+  return s
+    .replace(/[\u2018\u2019\u201A\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u2033]/g, '"')
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/[\u00A0\u2000-\u200A\u202F]/g, " ");
 }
 
 // --- Replies ---------------------------------------------------------------
@@ -147,7 +181,8 @@ const HELP_WORDS = new Set(["HELP", "INFO"]);
  * number", "remove me"...
  */
 export function classifyReply(body: string): Keyword {
-  const t = body
+  // iPhones type curly apostrophes ("Don’t text me").
+  const t = toGsmAscii(body)
     .trim()
     .toUpperCase()
     .replace(/[.!]+$/, "")
@@ -156,7 +191,7 @@ export function classifyReply(body: string): Keyword {
   if (START_WORDS.has(t)) return "start";
   if (HELP_WORDS.has(t)) return "help";
   if (
-    /\b(STOP|UNSUBSCRIBE|CANCEL|QUIT|REVOKE|OPT ?OUT|NO MORE|WRONG NUMBER|REMOVE ME|DON'?T TEXT|DO NOT TEXT|LEAVE ME ALONE)\b/.test(
+    /\b(STOP|END|UNSUB(SCRIBE)?|CANCEL|QUIT|REVOKE|OPT ?OUT|NO MORE|WRONG NUMBER|REMOVE ME|TAKE ME OFF|NOT INTERESTED|DON'?T TEXT|DO NOT TEXT|LEAVE ME ALONE|BASTA|PARAR)\b/.test(
       t,
     )
   )

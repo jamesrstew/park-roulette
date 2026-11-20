@@ -235,6 +235,26 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
     expect(n).toBe(0);
   });
 
+  it("tells the writer the next Thursday to draft for (next_issue_date)", async () => {
+    const { nextDraftDate } = await import("./data");
+    // Thursday, December 3, 2026 (DATE's week): 4:30 am Pacific is this
+    // Thursday; 7:30 am, past the send window's start, is next week's.
+    expect(await nextDraftDate(new Date("2026-12-03T12:30:00Z"))).toBe(
+      "2026-12-03",
+    );
+    expect(await nextDraftDate(new Date("2026-12-03T15:30:00Z"))).toBe(
+      "2026-12-10",
+    );
+    // A Tuesday: that week's Thursday.
+    expect(await nextDraftDate(new Date("2026-12-08T18:00:00Z"))).toBe(
+      "2026-12-10",
+    );
+    // Christmas Eve and New Year's Eve are skip dates.
+    expect(await nextDraftDate(new Date("2026-12-22T18:00:00Z"))).toBe(
+      "2027-01-07",
+    );
+  });
+
   it("waits while another run holds the lease", async () => {
     await subscribers(5);
     await q(
@@ -557,7 +577,7 @@ const plan = {
     photo: null,
   },
   plan_b: { mode: "window", relaxed_to_weeks: 4, venues: [], tips: [] },
-  deltas: { since: null, changes: [], new_parks: [] },
+  deltas: { since: null, changes: [] },
   cooldowns: {
     wheel: [],
     featured: [],

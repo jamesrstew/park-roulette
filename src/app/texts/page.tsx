@@ -7,23 +7,22 @@ import { PageTitle } from "@/components/PageTitle";
 import { ParkTextsCard, TextsRow } from "@/components/ParkTexts";
 import { getMe } from "@/lib/data";
 import { NEWS_NAME } from "@/lib/park-news";
-import { prettyPhone, TEXTS_COPY, TEXTS_FROM } from "@/lib/texts";
-import { sendingEnabled, textsOn } from "@/lib/texts-store";
+import { TEXTS_COPY, TEXTS_FROM } from "@/lib/texts";
+import { confirmationsEnabled, textsOn } from "@/lib/texts-store";
 
 export const metadata: Metadata = {
-  title: "Weekend texts: one park pick on Fridays",
+  title: "Weekend Pick: a playground pick, texted Fridays",
   description:
     "Get one Central Oregon playground to try, by text, every Friday afternoon. Free. Reply STOP anytime.",
   alternates: { canonical: "/texts" },
 };
 
-/** A real sample (every link answered 200 when it was written). */
-const SAMPLE =
-  "Park Roulette: Weekend pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/parks/wildflower-park-bend Reply STOP to opt out";
+/** The card is named by the page's H1 (its own heading was cut). */
+const HEADING_ID = "weekend-pick-h";
 
 async function Optin() {
   const me = await getMe();
-  const sending = sendingEnabled();
+  const sending = confirmationsEnabled();
   if (me?.isKid)
     return (
       <p className="doodle-box-alt px-4 py-4 font-hand text-2xl leading-snug">
@@ -63,6 +62,8 @@ async function Optin() {
       source="texts_page"
       sendingOn={sending}
       textsFrom={TEXTS_FROM}
+      labelledBy={HEADING_ID}
+      showSample
     />
   );
 }
@@ -71,37 +72,24 @@ export default function TextsPage() {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle
-        lead="Park"
-        accent="texts"
+        id={HEADING_ID}
+        lead="Weekend"
+        accent="Pick"
         color="green"
         underline="orange"
-        underlineWidth="w-36"
-        align="left"
+        underlineWidth="w-40"
+        subtitle={<p>{TEXTS_COPY.subtitle}</p>}
       />
       <Suspense fallback={<CrayonLoading label="One sec…" />}>
         <Optin />
       </Suspense>
-      <section aria-labelledby="sample-h" className="flex flex-col gap-2">
-        <h2 id="sample-h" className="font-hand text-2xl">
-          What a text looks like
-        </h2>
-        <p className="text-sm text-ink-soft">
-          {TEXTS_FROM
-            ? `From ${prettyPhone(TEXTS_FROM)}`
-            : "From our park texts number"}
-        </p>
-        <p className="rounded-3xl border-2 border-ink bg-[#fffdf7] px-5 py-4 leading-snug break-words">
-          {SAMPLE}
-        </p>
-      </section>
       <p className="flex min-h-11 items-center gap-2 leading-snug">
         <Icon name="mail" size={26} />
         <span>
-          Rather get email?{" "}
+          Prefer email?{" "}
           <Link href="/newsletter" className="underline">
             {NEWS_NAME}
-          </Link>{" "}
-          comes Thursday mornings.
+          </Link>
         </span>
       </p>
     </div>

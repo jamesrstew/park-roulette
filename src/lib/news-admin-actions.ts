@@ -11,12 +11,14 @@ import { setNewsSettings } from "./news/data";
  * only to ALERT_EMAIL). Admins signed in with a code only.
  */
 export async function setNewsSwitch(
-  which: "paused" | "dryRun",
+  which: "paused" | "dryRun" | "textsPaused" | "textsDryRun",
   on: boolean,
 ): Promise<ActionResult> {
   try {
     await requireAdmin();
-    const key = z.enum(["paused", "dryRun"]).parse(which);
+    const key = z
+      .enum(["paused", "dryRun", "textsPaused", "textsDryRun"])
+      .parse(which);
     await setNewsSettings({ [key]: z.boolean().parse(on) });
     refresh();
     return { ok: true };

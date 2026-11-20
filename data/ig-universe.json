@@ -1,58 +1,202 @@
 [
   {
-    "username": "kidsaretheworst",
-    "followers": 838000,
-    "verified": "2026-11-19",
-    "notes": "",
-    "kind": "meme_page"
+    "username": "fitdadceo",
+    "name": "FitDad",
+    "kind": "person",
+    "followers": 2153356,
+    "postsLast14d": 9,
+    "medianLikes": 24546,
+    "creditShare": 0.07,
+    "notes": "Dad-joke and millennial-parent skits; one Election Day #vote post, otherwise clean."
   },
   {
-    "username": "thedumbdads",
-    "followers": 682000,
-    "verified": "2026-11-19",
-    "notes": "",
-    "kind": "brand"
+    "username": "emilyvondy",
+    "name": "Emily Vondy",
+    "kind": "person",
+    "followers": 1687357,
+    "postsLast14d": 5,
+    "medianLikes": 24363,
+    "creditShare": 0.0,
+    "notes": "Motherhood songs and skits; high likes."
   },
   {
-    "username": "averageparentproblems",
-    "followers": 402000,
-    "verified": "2026-11-19",
-    "notes": "",
-    "kind": "meme_page"
+    "username": "lindseygurk",
+    "name": "Lindsey Gurk",
+    "kind": "person",
+    "followers": 2634095,
+    "postsLast14d": 6,
+    "medianLikes": 20465.5,
+    "creditShare": 0.13,
+    "notes": "Skits and songs, more couples/style than kids; some music promo posts."
   },
   {
-    "username": "parentnormal",
-    "followers": 260000,
-    "verified": "2026-11-19",
-    "notes": "",
-    "kind": "brand"
+    "username": "yurilamasbella",
+    "name": "Yuri Lamasbella Godinez",
+    "kind": "person",
+    "followers": 3031707,
+    "postsLast14d": 8,
+    "medianLikes": 13450,
+    "creditShare": 0.0,
+    "notes": "Relatable mom-chaos POV skits; very high reach."
   },
   {
-    "username": "howtobeadad",
-    "followers": 253000,
-    "verified": "2026-11-19",
-    "notes": "",
-    "kind": "brand"
+    "username": "theholdernessfamily",
+    "name": "The Holderness Family",
+    "kind": "person",
+    "followers": 1902871,
+    "postsLast14d": 14,
+    "medianLikes": 6489,
+    "creditShare": 0.0,
+    "notes": "Family sketch and parody videos; very family-safe."
+  },
+  {
+    "username": "dudedad",
+    "name": "Taylor Calmus",
+    "kind": "person",
+    "followers": 1513415,
+    "postsLast14d": 10,
+    "medianLikes": 6358,
+    "creditShare": 0.0,
+    "notes": "Taylor Calmus dad sketches; some brand partnerships."
+  },
+  {
+    "username": "laurenagans",
+    "name": "Lauren Agans",
+    "kind": "person",
+    "followers": 602058,
+    "postsLast14d": 8,
+    "medianLikes": 6314,
+    "creditShare": 0.0,
+    "notes": "Motherhood skits, mom of 4; some #ad posts."
   },
   {
     "username": "scarymommy",
-    "followers": 3000000,
-    "verified": "2026-11-19",
-    "notes": "A publisher: many posts credit other creators, so the original-content filter matters most here.",
-    "kind": "meme_page"
+    "name": "Scary Mommy",
+    "kind": "meme_page",
+    "followers": 2773104,
+    "postsLast14d": 15,
+    "medianLikes": 5002,
+    "creditShare": 0.4,
+    "notes": "Current list. Media brand: mixes reposted creator clips (via ...) with celebrity/news posts; filter to parenting humor."
   },
   {
-    "username": "deathbydiapers",
-    "followers": 59000,
-    "verified": "2026-11-19",
-    "notes": "",
-    "kind": "brand"
+    "username": "father_of_daughters",
+    "name": "Simon",
+    "kind": "person",
+    "followers": 870289,
+    "postsLast14d": 8,
+    "medianLikes": 4309,
+    "creditShare": 0.0,
+    "notes": "Simon Hooper (UK), four daughters; occasional mild profanity and #ad posts."
   },
   {
-    "username": "stay.at.homies",
-    "followers": 69000,
-    "verified": "2026-11-19",
-    "notes": "The real Stay At Homies (not @stayathomies, an empty account).",
-    "kind": "brand"
+    "username": "oneawkwardmom",
+    "name": "One Awkward Mom",
+    "kind": "meme_page",
+    "followers": 184401,
+    "postsLast14d": 13,
+    "medianLikes": 3871,
+    "creditShare": 1.0,
+    "notes": "Carousels of parent tweets; every caption lists the original authors."
+  },
+  {
+    "username": "thedad",
+    "name": "The Dad",
+    "kind": "meme_page",
+    "followers": 2152330,
+    "postsLast14d": 12,
+    "medianLikes": 3737,
+    "creditShare": 1.0,
+    "notes": "Curated dad memes, credits originals in [brackets]; high reach."
+  },
+  {
+    "username": "thedad.father",
+    "name": "Aaron Thygesen [ Parenting Humor ]",
+    "kind": "person",
+    "followers": 909943,
+    "postsLast14d": 9,
+    "medianLikes": 2948,
+    "creditShare": 0.0,
+    "notes": "Aaron Thygesen dad memes/videos; occasional mild profanity (2 of 15 captions). Review picks."
+  },
+  {
+    "username": "raddad",
+    "name": "Rad Dad",
+    "kind": "person",
+    "followers": 2024704,
+    "postsLast14d": 15,
+    "medianLikes": 2846.0,
+    "creditShare": 0.0,
+    "notes": "Dad-lifestyle humor (grilling, chores) more than kids; likes hidden on some posts; occasional brand posts."
+  },
+  {
+    "username": "solianasapp",
+    "name": "Soliana Sapp",
+    "kind": "person",
+    "followers": 749354,
+    "postsLast14d": 15,
+    "medianLikes": 1197,
+    "creditShare": 0.2,
+    "notes": "Mom-of-3 comedy skits."
+  },
+  {
+    "username": "thedailytay",
+    "name": "Taylor Wolfe | Writer",
+    "kind": "person",
+    "followers": 848760,
+    "postsLast14d": 15,
+    "medianLikes": 983,
+    "creditShare": 0.0,
+    "notes": "Taylor Wolfe, mom humor writer; some shopping/lifestyle posts."
+  },
+  {
+    "username": "kristen.cook.kac",
+    "name": "Kristen Cook",
+    "kind": "person",
+    "followers": 357456,
+    "postsLast14d": 4,
+    "medianLikes": 974,
+    "creditShare": 0.0,
+    "notes": "Mom humor videos; lowest cadence in the set (4 in 14 days)."
+  },
+  {
+    "username": "thedumbdads",
+    "name": "Kevin Laferriere & Evan Berger",
+    "kind": "person",
+    "followers": 681711,
+    "postsLast14d": 12,
+    "medianLikes": 490,
+    "creditShare": 0.0,
+    "notes": "Current list. Two dads (Kevin Laferriere, Evan Berger) making original sketches; some brand-partner posts."
+  },
+  {
+    "username": "lifeofdad",
+    "name": "Life of Dad",
+    "kind": "meme_page",
+    "followers": 703895,
+    "postsLast14d": 15,
+    "medianLikes": 468,
+    "creditShare": 0.0,
+    "notes": "Dad-life meme images with empty captions, so credit share cannot be measured; check the image for watermarks."
+  },
+  {
+    "username": "parentnormal",
+    "name": "Chris Cate",
+    "kind": "meme_page",
+    "followers": 259688,
+    "postsLast14d": 15,
+    "medianLikes": 394,
+    "creditShare": 0.6,
+    "notes": "Current list. Chris Cate; mix of his own memes and reposts with \"Credit <handle>\"."
+  },
+  {
+    "username": "leeann.braun",
+    "name": "LeeAnn Braun",
+    "kind": "person",
+    "followers": 253525,
+    "postsLast14d": 12,
+    "medianLikes": 366,
+    "creditShare": 0.0,
+    "notes": "Millennial mom and marriage humor skits."
   }
 ]

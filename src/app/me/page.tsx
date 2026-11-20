@@ -18,9 +18,13 @@ import { ParkPicksSettings } from "@/components/ParkNews";
 import { subscriptionFor } from "@/lib/news/subscribers";
 import { TextsRow } from "@/components/ParkTexts";
 import { TEXTS_FROM } from "@/lib/texts";
-import { offByNumberChange, sendingEnabled, textsOn } from "@/lib/texts-store";
+import {
+  confirmationsEnabled,
+  offByNumberChange,
+  textsOn,
+} from "@/lib/texts-store";
 
-/** The Weekend texts row's state for this grown-up. */
+/** The Weekend Pick row's state for this grown-up. */
 async function textsState(me: {
   id: number;
   phone: string | null;
@@ -149,7 +153,7 @@ async function MeScreen({
                 <TextsRow
                   state={texts}
                   number={me.phone}
-                  sendingOn={sendingEnabled()}
+                  sendingOn={confirmationsEnabled()}
                   textsFrom={TEXTS_FROM}
                 />
               )

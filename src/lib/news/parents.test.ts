@@ -96,7 +96,11 @@ function post(id: string, over: Partial<XPost> = {}): XPost {
 
 describe("the X universe (Parents' corner v4)", () => {
   it("seeds from data/x-universe.json by permanent id: the 68-account revamp", () => {
-    expect(SEED).toHaveLength(68);
+    expect(SEED).toHaveLength(67);
+    // @Gabbrielxzn posts politics now (writer run 1).
+    expect(SEED.some((a) => a.username.toLowerCase() === "gabbrielxzn")).toBe(
+      false,
+    );
     expect(SEED.every((a) => /^\d+$/.test(a.id))).toBe(true);
     expect(SEED[0].appearances).toBeGreaterThanOrEqual(SEED[1].appearances);
     expect(SEED.every((a) => a.kind && a.postsPerWeek >= 0)).toBe(true);
@@ -196,10 +200,39 @@ describe("the X universe (Parents' corner v4)", () => {
     expect(q.score).toBe(5);
   });
 
+  it("keeps politics and profanity out and offers at most 2 posts from one account", () => {
+    const got = rankCandidates(
+      [
+        post("p1", { likes: 9000 }),
+        post("p2", { likes: 8000 }),
+        post("p3", { likes: 7000 }),
+        post("pol", {
+          likes: 50_000,
+          text: "The election is wild, but bedtime is wilder.",
+        }),
+        post("swear", {
+          authorId: "u3",
+          username: "third",
+          likes: 40_000,
+          text: "Bedtime is a sh*tshow and I'm tired af",
+        }),
+        post("vote", {
+          authorId: "u4",
+          username: "fourth",
+          likes: 40_000,
+          text: "Go vote, then go to the playground",
+        }),
+        post("o1", { authorId: "u2", username: "other", likes: 3000 }),
+      ],
+      { now: NOW, history: new Map(), excluded: new Set() },
+    );
+    expect(got.map((p) => p.id).sort()).toEqual(["o1", "p1", "p2"]);
+  });
+
   it("only offers standalone, fresh, unflagged posts off cooldown, top 10", () => {
     const history = new Map<string, number[]>();
     const many = Array.from({ length: 15 }, (_, i) =>
-      post(`p${i}`, { likes: 2_000 + i }),
+      post(`p${i}`, { likes: 2_000 + i, authorId: `a${i}` }),
     );
     expect(
       rankCandidates(many, { now: NOW, history, excluded: new Set() }),

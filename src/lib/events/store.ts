@@ -131,13 +131,17 @@ async function upsertOne(
       // Same key and not a declared one-off: one page, every date kept.
       if (!v.key!.startsWith("one:")) {
         // Keep earlier dates the new hand-in no longer lists.
-        const days = new Set(data.dates.map((d) => d.day));
+        // An occurrence is its day and start time: two showtimes on one
+        // day are two dates.
+        const key = (d: { day: string; start?: string }) =>
+          `${d.day} ${d.start ?? ""}`;
+        const have = new Set(data.dates.map(key));
         data = {
           ...data,
           dates: [
-            ...prev.dates.filter((d) => !days.has(d.day)),
+            ...prev.dates.filter((d) => !have.has(key(d))),
             ...data.dates,
-          ].sort((a, b) => a.day.localeCompare(b.day)),
+          ].sort((a, b) => key(a).localeCompare(key(b))),
           targets: { ...prev.targets, ...data.targets },
         };
         if (data.dates.length > 1 || kind === "series")

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import {
+  checkboxLine,
   prettyPhone,
   TEXTS_CONSENT_TEXT,
   TEXTS_CONSENT_VERSION,
@@ -125,13 +126,21 @@ export default function TermsPage() {
         </p>
       </Section>
 
-      <Section title="3b. Park texts" id="park-texts">
+      <Section title="3b. Weekend Pick (texts)" id="park-texts">
         <p>
           If you check the box to get a weekend park pick by text, on our
           website or in the app, here&apos;s what you agree to, word for word:
         </p>
+        <p>{checkboxLine(TEXTS_CONSENT_VERSION, null)}</p>
         <p>{TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION].disclosure}</p>
         <ul>
+          <li>
+            For help, reply HELP or email{" "}
+            <a href="mailto:hello@parkroulette.quest">
+              hello@parkroulette.quest
+            </a>
+            .
+          </li>
           <li>
             Or tap &ldquo;Stop texts&rdquo; in Family &amp; settings. Stopping
             these never stops sign-in codes.

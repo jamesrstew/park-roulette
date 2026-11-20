@@ -10,7 +10,7 @@ import { JsonLd } from "@/components/seo/JsonLd";
 import { getBucketList, getMe } from "@/lib/data";
 import { publicParks } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
-import { sendingEnabled } from "@/lib/texts-store";
+import { confirmationsEnabled } from "@/lib/texts-store";
 
 export const metadata: Metadata = {
   title: { absolute: "Park Roulette: find a playground in Central Oregon" },
@@ -38,7 +38,7 @@ async function Spin() {
           hasPhone={!!me.phone}
           phone={me.phone}
           offerPicks={offerPicks}
-          textsSendingOn={sendingEnabled()}
+          textsSendingOn={confirmationsEnabled()}
         />
       ) : null}
       <GuideLinks parks={all} />

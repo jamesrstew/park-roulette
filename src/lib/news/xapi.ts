@@ -11,6 +11,7 @@
  */
 
 import { xDisplayText, type XUrlEntity } from "@/components/news/PostCard";
+import { unsafeText } from "./safety";
 
 /** No post under this many likes, however well it beats its author. */
 export const LIKES_FLOOR = 1000;
@@ -139,6 +140,9 @@ function verifiedType(u: ApiUser): XPost["verifiedType"] {
   if (u.verified_type === "government") return "government";
   return u.verified || u.verified_type === "blue" ? "blue" : null;
 }
+
+/** At most this many candidates from one account in a plan. */
+export const PER_ACCOUNT_MAX = 2;
 
 /** Likes + 2 x reposts + quotes. */
 export function engagement(
@@ -479,47 +483,56 @@ export function rankCandidates(
       engagement(p),
     ]);
   const seen = new Set<string>();
-  return posts
-    .filter((p) => {
-      if (seen.has(p.id)) return false;
-      seen.add(p.id);
-      const age = opts.now.getTime() - new Date(p.createdAt).getTime();
-      return (
-        p.standalone &&
-        !p.possiblySensitive &&
-        p.likes >= LIKES_FLOOR &&
-        age >= 0 &&
-        age < MAX_AGE_DAYS * 86_400_000 &&
-        !opts.excluded.has(p.authorId) &&
-        !opts.excluded.has(`@${p.username.toLowerCase()}`)
-      );
-    })
-    .map((p) => {
-      const past = opts.history.get(p.authorId) ?? [];
-      const seed = opts.seedMedian?.get(p.authorId);
-      // Until we have 3 engagement samples, a seed account is scored on
-      // likes against its seed median likes (like for like); after that,
-      // engagement against its own engagement median.
-      const likesOnly = past.length < 3 && !!seed && seed > 0;
-      const base = likesOnly
-        ? seed!
-        : past.length >= 3
-          ? median(past)
-          : median([...past, ...(thisWeek.get(p.authorId) ?? [])]);
-      const score =
-        Math.round(
-          ((likesOnly ? p.likes : engagement(p)) / Math.max(base ?? 1, 1)) *
-            100,
-        ) / 100;
-      return {
-        ...p,
-        score,
-        baseline: past.length ? median(past) : null,
-        via: opts.via ?? ("universe" as const),
-      };
-    })
-    .sort((a, b) => b.score - a.score || b.likes - a.likes)
-    .slice(0, CANDIDATES_MAX);
+  return (
+    posts
+      .filter((p) => {
+        if (seen.has(p.id)) return false;
+        seen.add(p.id);
+        const age = opts.now.getTime() - new Date(p.createdAt).getTime();
+        return (
+          p.standalone &&
+          !p.possiblySensitive &&
+          p.likes >= LIKES_FLOOR &&
+          age >= 0 &&
+          age < MAX_AGE_DAYS * 86_400_000 &&
+          !unsafeText(p.text) &&
+          !opts.excluded.has(p.authorId) &&
+          !opts.excluded.has(`@${p.username.toLowerCase()}`)
+        );
+      })
+      .map((p) => {
+        const past = opts.history.get(p.authorId) ?? [];
+        const seed = opts.seedMedian?.get(p.authorId);
+        // Until we have 3 engagement samples, a seed account is scored on
+        // likes against its seed median likes (like for like); after that,
+        // engagement against its own engagement median.
+        const likesOnly = past.length < 3 && !!seed && seed > 0;
+        const base = likesOnly
+          ? seed!
+          : past.length >= 3
+            ? median(past)
+            : median([...past, ...(thisWeek.get(p.authorId) ?? [])]);
+        const score =
+          Math.round(
+            ((likesOnly ? p.likes : engagement(p)) / Math.max(base ?? 1, 1)) *
+              100,
+          ) / 100;
+        return {
+          ...p,
+          score,
+          baseline: past.length ? median(past) : null,
+          via: opts.via ?? ("universe" as const),
+        };
+      })
+      .sort((a, b) => b.score - a.score || b.likes - a.likes)
+      // Variety: at most 2 from one account.
+      .filter(
+        (p, i, all) =>
+          all.slice(0, i).filter((q) => q.authorId === p.authorId).length <
+          PER_ACCOUNT_MAX,
+      )
+      .slice(0, CANDIDATES_MAX)
+  );
 }
 
 /** One post by id, as it is now (null if deleted, private or unreachable). */

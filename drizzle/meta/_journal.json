@@ -113,6 +113,20 @@
       "when": 1795127196858,
       "tag": "0015_single_opt_in",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795142119966,
+      "tag": "0016_weekend_pick",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795143131290,
+      "tag": "0017_texts_review",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,7 @@ export function PageTitle({
   subtitle,
   size = "text-5xl",
   align = "center",
+  id,
 }: {
   lead?: ReactNode;
   accent: ReactNode;
@@ -28,11 +29,13 @@ export function PageTitle({
   subtitle?: ReactNode;
   size?: string;
   align?: "center" | "left";
+  /** The H1's id (a section elsewhere can be labelled by it). */
+  id?: string;
 }) {
   const center = align === "center";
   return (
     <header className={`pt-2 ${center ? "text-center" : ""}`}>
-      <h1 className={`${size} text-balance`}>
+      <h1 id={id} className={`${size} text-balance`}>
         {lead ? <>{lead} </> : null}
         <span style={{ color: CRAYONS[color] }}>{accent}</span>
         {trail}

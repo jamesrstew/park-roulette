@@ -18,6 +18,9 @@ export const maxDuration = 120;
  * then stored as this Thursday's draft, replacing an earlier draft. A
  * draft that fails comes back with the report (422) and isn't stored.
  * Once a send has started, or the week is decided, drafts are refused.
+ * No IndexNow ping here: a draft changes no public page (the issue page
+ * goes public, and is pinged, when the sender sends it; event pages are
+ * pinged by POST /api/events when they change).
  */
 export async function POST(req: Request) {
   if (!ingestOk(req)) return nope();

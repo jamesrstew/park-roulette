@@ -29,11 +29,19 @@ describe("Weekend texts words", () => {
       "You don't have to agree to texts to use Park Roulette.",
     );
     expect(checkboxLine(TEXTS_CONSENT_VERSION, "+15415550123")).toBe(
-      "Yes, text me a weekend park pick from Park Roulette at (541) 555-0123.",
+      "Yes, text me the Weekend Pick at (541) 555-0123.",
     );
     expect(checkboxLine(TEXTS_CONSENT_VERSION, null)).toBe(
+      "Yes, text me the Weekend Pick at this number.",
+    );
+    // Older versions stay frozen, word for word.
+    expect(checkboxLine("sms-2026-11-20", null)).toBe(
       "Yes, text me a weekend park pick from Park Roulette at this number.",
     );
+    expect(TEXTS.help).toBe(
+      "Park Roulette: Weekend Pick, about 1 text a week on Fridays. Help: hello@parkroulette.quest. Msg & data rates may apply. Reply STOP to opt out.",
+    );
+    expect(TEXTS.help.length).toBeLessThanOrEqual(160);
     expect(prettyPhone("+15415550199")).toBe("(541) 555-0199");
   });
 });
@@ -68,6 +76,21 @@ describe("text replies", () => {
     ])
       expect(classifyReply(w), w).toBe("stop_like");
     expect(classifyReply("Thanks, we loved Juniper Park")).toBe("other");
+  });
+  it("catches curly apostrophes, END, and more ways of saying no (M6)", () => {
+    for (const w of [
+      "Don’t text me",
+      "END these texts",
+      "take me off this list",
+      "unsub",
+      "Not interested",
+      "no more texts",
+      "BASTA",
+      "parar por favor",
+    ])
+      expect(classifyReply(w), w).toBe("stop_like");
+    expect(classifyReply("Have a good weekend")).toBe("other");
+    expect(classifyReply("para mi hija")).toBe("other");
   });
 });
 

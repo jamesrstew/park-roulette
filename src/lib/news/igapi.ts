@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { z } from "zod";
 import raw from "../../../data/ig-universe.json";
 import { igImageUrl, type IgMediaType } from "@/components/news/InstagramCard";
+import { unsafeText } from "./safety";
 import { median } from "./xapi";
 
 /**
@@ -19,13 +20,22 @@ export const IG_MEDIA_LIMIT = 25;
 export const IG_LIKES_FLOOR = 1000;
 export const IG_MAX_AGE_DAYS = 7;
 export const IG_CANDIDATES_MAX = 10;
+/** A meme page's posts score at this share (they mostly repost). */
+export const MEME_PAGE_FACTOR = 0.5;
 
 const IgAccount = z.object({
   username: z.string().regex(/^[a-z0-9._]{1,30}$/),
+  name: z.string().optional(),
   /** person, brand, or meme_page (reposts others: ranked lower). */
   kind: z.enum(["person", "brand", "meme_page"]).default("brand"),
   followers: z.number().int().nonnegative(),
-  verified: z.string(),
+  /** When it was last checked (older entries). */
+  verified: z.string().optional(),
+  /** From the universe check: posts in the 14 days before it. */
+  postsLast14d: z.number().int().nonnegative().optional(),
+  medianLikes: z.number().nonnegative().optional(),
+  /** Share of its last 15 captions that credit someone else (0 to 1). */
+  creditShare: z.number().min(0).max(1).optional(),
   notes: z.string().optional(),
 });
 export const IG_UNIVERSE = z.array(IgAccount).parse(raw);
@@ -126,6 +136,40 @@ export async function discoverPage(
   }
 }
 
+/**
+ * Common words that can follow "via", "inspo" or sit in brackets without
+ * being a handle ("inspo for", "[but]").
+ */
+const NOT_HANDLES = new Set(
+  "the and for from with this that our you your her his him their them they she was are but not all any one two out off its it's what when who how why here there just like love now new day".split(
+    " ",
+  ),
+);
+
+/**
+ * Credits Business Discovery leaves without their "@" (it strips them):
+ * "Credit scarymommy", "(via kimberlydinaro)", "Inspo: thattwinmama_",
+ * "IC: kimberlykarjadi.dance", "[indoor_mom]", and arrow lists
+ * ("—> oneawkwardmom user1 user2").
+ */
+const BARE_CREDIT =
+  /\b(?:(?:via|credits?|cred|inspo|repost(?:ed)?(?:\s+from)?)\s*[:\-–—/]?|ic\s*:)\s*\(?\s*@?([a-z0-9._]{3,30})/giu;
+const BRACKETED = /\[\s*@?([a-z0-9._]{3,30})\s*\]/giu;
+/** "—> handle" chains ("->" in plain text is a sequence, not a credit). */
+const ARROW_LIST = /(?:[—–]+>|→|➡️?)\s*@?[a-z0-9._]{3,30}/iu;
+
+function bareCredit(caption: string, owner: string): boolean {
+  if (ARROW_LIST.test(caption)) return true;
+  const own = owner.toLowerCase();
+  const handle = (h: string) => {
+    const x = h.toLowerCase().replace(/\.$/, "");
+    return x !== own && !NOT_HANDLES.has(x);
+  };
+  for (const m of caption.matchAll(BARE_CREDIT)) if (handle(m[1])) return true;
+  for (const m of caption.matchAll(BRACKETED)) if (handle(m[1])) return true;
+  return false;
+}
+
 /** Captions that disclaim ownership: the post isn't the page's own. */
 const DISCLAIMERS =
   /\b(re-?post(ed)?|regram|via|credit(s|ed)?|cr\b|dm (me )?for (credit|removal)|credit to (the )?(owner|creator)|all rights (belong|reserved|go)|no copyright|not mine|found (this|on)|tag the (creator|owner|og)|h\/t|source:)|©|🎥|📸|📷|🎬/iu;
@@ -142,6 +186,7 @@ export function creditsAnother(
   if (!caption) return false;
   const c = caption.toLowerCase();
   if (DISCLAIMERS.test(c)) return true;
+  if (bareCredit(c, owner)) return true;
   return mentionsOthers(c, owner);
 }
 
@@ -172,6 +217,8 @@ export function igIneligible(
     return "carousel that opens on a video";
   if (!igImageUrl(m)) return "no image";
   if (creditsAnother(m.caption, owner)) return "credits another creator";
+  const unsafe = unsafeText(m.caption);
+  if (unsafe) return unsafe;
   return null;
 }
 
@@ -201,11 +248,13 @@ export function scorePage(
       likes: m.like_count!,
       timestamp: m.timestamp,
       caption: (m.caption ?? "").slice(0, 300),
-      // Meme pages repost others: ranked lower unless the caption names no one.
+      // Meme pages mostly repost others: even a post that passes the
+      // credit filter ranks at half (Instagram strips the "@" a credit
+      // used to show, so the caption can't be trusted to say).
       score:
         Math.round(
           (m.like_count! / Math.max(base ?? 1, 1)) *
-            (kind === "meme_page" && /@/.test(m.caption ?? "") ? 0.5 : 1) *
+            (kind === "meme_page" ? MEME_PAGE_FACTOR : 1) *
             100,
         ) / 100,
       baseline: base,

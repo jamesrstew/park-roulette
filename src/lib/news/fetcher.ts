@@ -153,6 +153,41 @@ export function pinnedLookup(
 
 const agent = new Agent({ connect: { lookup: pinnedLookup } });
 
+/** The registrable part of a host ("www.visitbend.com" -> "visitbend.com"). */
+function registrable(host: string): string {
+  const labels = host.toLowerCase().split(".");
+  return labels.slice(/\.or\.us$/.test(host) ? -4 : -2).join(".");
+}
+
+/**
+ * A bot check instead of the page: a redirect with nowhere to go, or a
+ * known challenge page (Sucuri, Cloudflare). We report these; we never
+ * try to get past them.
+ */
+export function botWall(
+  status: number,
+  server: string,
+  html: string,
+): string | null {
+  const s = server.toLowerCase();
+  const h = html.slice(0, 4000).toLowerCase();
+  if (/sucuri/.test(s) || /sucuri_cloudproxy/.test(h))
+    return "a Sucuri bot check (it needs JavaScript)";
+  if (
+    /cloudflare/.test(s) &&
+    (status === 403 || status === 503 || /cf-chl|challenge-platform/.test(h))
+  )
+    return "a Cloudflare bot check";
+  if (status >= 300 && status < 400) return "a redirect with nowhere to go";
+  if (
+    /javascript is required|enable javascript (and cookies )?to continue/.test(
+      h,
+    )
+  )
+    return "a page that needs JavaScript";
+  return null;
+}
+
 /**
  * Follow redirects by hand (at most 3), checking every hop against the
  * allowlist and for a public address before connecting. `refused` when a
@@ -165,16 +200,36 @@ async function safeFetch(
   signal: AbortSignal,
 ): Promise<{ res: Response; url: string } | { refused: number; url: string }> {
   let url = start;
+  // Cookies a site sets on one hop go back to it on the next (a session
+  // or consent cookie), within this one fetch only, and only to the same
+  // site. Nothing is kept between fetches.
+  const jar = new Map<string, string>();
   for (let hop = 0; ; hop++) {
     const u = new URL(url);
     if (!allowedLink(url, domains) || !(await publicHost(u.hostname)))
       return { refused: 0, url };
+    const site = registrable(u.hostname);
+    const cookie = [...jar]
+      .filter(([k]) => k.startsWith(`${site}|`))
+      .map(([k, v]) => `${k.split("|")[1]}=${v}`)
+      .join("; ");
     const res = await undiciFetch(url, {
       dispatcher: agent,
       redirect: "manual",
-      headers: { "user-agent": UA, accept },
+      headers: {
+        "user-agent": UA,
+        accept,
+        "accept-language": "en-US,en;q=0.9",
+        ...(cookie ? { cookie } : {}),
+      },
       signal,
     });
+    for (const c of res.headers.getSetCookie?.() ?? []) {
+      const [pair] = c.split(";");
+      const i = pair.indexOf("=");
+      if (i > 0)
+        jar.set(`${site}|${pair.slice(0, i).trim()}`, pair.slice(i + 1).trim());
+    }
     const location = res.headers.get("location");
     if (res.status >= 300 && res.status < 400 && location) {
       await res.body?.cancel();
@@ -254,16 +309,21 @@ export const fetchPage: Fetcher = async (start, domains) => {
   const contentType = res.headers.get("content-type") ?? "";
   let html = "";
   // An image only needs its status and type; don't read it.
-  if (contentType.startsWith("image/") || !res.ok) await res.body?.cancel();
+  if (contentType.startsWith("image/")) await res.body?.cancel();
   else {
     const bytes = await readCapped(res, MAX_BYTES);
     // Over 2 MB: not a page we quote from (its text stays empty).
     html = bytes ? new TextDecoder().decode(bytes) : "";
   }
+  const wall =
+    res.status === 200 && !/sucuri_cloudproxy|cf-chl/i.test(html.slice(0, 4000))
+      ? null
+      : botWall(res.status, res.headers.get("server") ?? "", html);
   return {
     status: res.status,
     finalUrl: url,
-    text: pageText(html),
+    text: res.ok ? pageText(html) : "",
     contentType,
+    ...(wall ? { blocked: wall } : {}),
   };
 };

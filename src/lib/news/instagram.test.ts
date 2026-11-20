@@ -54,18 +54,16 @@ function mockMeta(pages: Record<string, IgMedia[] | null>) {
 }
 
 describe("the Instagram universe", () => {
-  it("holds the 8 verified pages, with the real Stay At Homies handle", () => {
-    expect(IG_UNIVERSE.map((a) => a.username).sort()).toEqual(
-      [
-        "averageparentproblems",
-        "deathbydiapers",
-        "howtobeadad",
-        "kidsaretheworst",
-        "parentnormal",
-        "scarymommy",
-        "stay.at.homies",
-        "thedumbdads",
-      ].sort(),
+  it("holds the 20 checked accounts (November 19), each with its numbers", () => {
+    expect(IG_UNIVERSE).toHaveLength(20);
+    for (const a of IG_UNIVERSE) {
+      expect(a.postsLast14d, a.username).toBeGreaterThanOrEqual(3);
+      expect(a.medianLikes, a.username).toBeGreaterThanOrEqual(200);
+      expect(a.creditShare, a.username).toBeDefined();
+    }
+    expect(IG_UNIVERSE.filter((a) => a.kind === "meme_page")).toHaveLength(5);
+    expect(IG_UNIVERSE.find((a) => a.username === "oneawkwardmom")?.kind).toBe(
+      "meme_page",
     );
   });
 });
@@ -100,7 +98,7 @@ describe("Business Discovery (mocked)", () => {
       }),
     );
     const { f, calls } = mockMeta({
-      kidsaretheworst: [media("big", { like_count: 9000 }), ...usual],
+      dudedad: [media("big", { like_count: 9000 }), ...usual],
       thedumbdads: [media("small", { like_count: 3000 }), ...usual],
       scarymommy: null,
     });
@@ -108,13 +106,13 @@ describe("Business Discovery (mocked)", () => {
       now: NOW,
       token: "t",
       igUserId: "17841400000000000",
-      blocked: new Set(["howtobeadad"]),
+      blocked: new Set(["fitdadceo"]),
       cooling: new Set(["parentnormal"]),
       fetchImpl: f,
     });
     expect(got.map((c) => c.id)).toEqual(["big", "small"]);
     expect(got[0].score).toBe(9);
-    expect(calls.some((c) => c.includes("howtobeadad"))).toBe(false);
+    expect(calls.some((c) => c.includes("fitdadceo"))).toBe(false);
     expect(calls.some((c) => c.includes("parentnormal"))).toBe(false);
   });
   it("finds one post again by id, or null when it's gone", async () => {
@@ -154,6 +152,84 @@ describe("original content only", () => {
       undefined,
     ])
       expect(creditsAnother(c, "thedumbdads"), String(c)).toBe(false);
+  });
+  it("catches credits Instagram stripped of their @ (captions from the Nov 19 check)", () => {
+    // Real captions from /tmp/pr-news/ig-raw (Business Discovery, Nov 19).
+    for (const [c, owner] of [
+      [
+        "A blessing and a curse. 😂  Credit scarymommy  . . . #parenting",
+        "parentnormal",
+      ],
+      ["I WANT TO GO TO BED!!!!!   (via kimberlydinaro)", "scarymommy"],
+      ["and I hit the ground runnin' [indoor_mom]", "thedad"],
+      [
+        "He couldn’t hear the tv.   —> oneawkwardmom   mike_bahati22  asuiterc",
+        "oneawkwardmom",
+      ],
+      ["Neigh 🐴   —> oneawkwardmom", "oneawkwardmom"],
+      ["moulded by it. Inspo: thattwinmama_", "fitdadceo"],
+      ["#challenge #marriedlife   IC: kimberlykarjadi.dance", "lindseygurk"],
+      ["Oh ShmooOoP! Ic: devynlundy #couple", "lindseygurk"],
+      ["Repost from checkyourkidsatthedoor • The Witch", "someone"],
+    ] as const)
+      expect(creditsAnother(c, owner), c).toBe(true);
+    // Words, not handles; a plain "->" sequence; and an audio credit
+    // (the sound is borrowed, the video is the page's own).
+    for (const c of [
+      "Halloween inspo for the kids",
+      "sees [my kids] for who they are, [but] be kind",
+      "Bedtime -> bath -> books",
+      "Motherhood.  Audio cred TT@ soundeffectsforyou",
+    ])
+      expect(creditsAnother(c, "fitdadceo"), c).toBe(false);
+  });
+  it("drops captions with politics or profanity, X and Instagram alike", () => {
+    expect(
+      igIneligible(
+        media("1", { caption: "Go vote today, parents!" }),
+        "p",
+        NOW,
+      ),
+    ).toBe("politics");
+    expect(
+      igIneligible(
+        media("1", { caption: "Tired af and out of coffee" }),
+        "p",
+        NOW,
+      ),
+    ).toBe("profanity");
+    expect(
+      igIneligible(
+        media("1", { caption: "What the f*ck is this toy" }),
+        "p",
+        NOW,
+      ),
+    ).toBe("profanity");
+    expect(
+      igIneligible(
+        media("1", { caption: "Well, crap. Snack time." }),
+        "p",
+        NOW,
+      ),
+    ).toBeNull();
+  });
+  it("ranks a meme page's original post at half (Instagram strips the @)", () => {
+    const page = {
+      username: "oneawkwardmom",
+      media: {
+        data: [
+          media("own", { like_count: 4000 }),
+          ...Array.from({ length: 4 }, (_, i) =>
+            media(`u${i}`, {
+              like_count: 1000,
+              timestamp: "2026-11-01T00:00:00+0000",
+            }),
+          ),
+        ],
+      },
+    };
+    expect(scorePage(page, NOW, "person")[0].score).toBe(4);
+    expect(scorePage(page, NOW, "meme_page")[0].score).toBe(2);
   });
   it("needs likes showing, a week's freshness, an image, and a reel's media", () => {
     expect(igIneligible(media("1"), "p", NOW)).toBeNull();

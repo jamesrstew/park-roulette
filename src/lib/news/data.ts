@@ -97,7 +97,13 @@ export async function lastSentAt(before: string): Promise<Date | null> {
   return r?.at ?? null;
 }
 
-/** Park changes families made (and new parks) since a moment. */
+/**
+ * Park changes families made since a moment, only the ones that change a
+ * visit: closed or reopened, play added or gone, a feature added or
+ * removed (a splash pad on or off, a cleared path). A park joining the map
+ * (a data cleanup, or another family confirming it) is never news, so
+ * "exists" changes and new parks are left out (James's rule).
+ */
 export async function loadDeltas(since: Date): Promise<Plan["deltas"]> {
   const changes = await db
     .select({
@@ -115,21 +121,11 @@ export async function loadDeltas(since: Date): Promise<Plan["deltas"]> {
       and(
         gt(parkChanges.createdAt, since),
         sql`${parks.approvedAt} is not null`,
+        sql`${parkChanges.topic} <> 'exists'`,
       ),
     )
     .orderBy(desc(parkChanges.createdAt))
     .limit(30);
-  const fresh = await db
-    .select({
-      slug: parks.slug,
-      name: parks.name,
-      city: parks.city,
-      at: parks.approvedAt,
-    })
-    .from(parks)
-    .where(gt(parks.approvedAt, since))
-    .orderBy(desc(parks.approvedAt))
-    .limit(20);
   return {
     since: since.toISOString(),
     changes: changes.map((c) => ({
@@ -142,7 +138,6 @@ export async function loadDeltas(since: Date): Promise<Plan["deltas"]> {
       line: fixLine(c.topic, c.value),
       at: c.at.toISOString(),
     })),
-    new_parks: fresh.map((p) => ({ ...p, at: p.at!.toISOString() })),
   };
 }
 
@@ -223,6 +218,9 @@ export async function validateContext(
 export type NewsSettings = {
   paused: boolean;
   dryRun: boolean;
+  textsPaused: boolean;
+  textsDryRun: boolean;
+  textsPausedReason: string | null;
   heartbeatAt: Date | null;
   updatedAt: Date;
 };
@@ -234,6 +232,9 @@ export async function getNewsSettings(): Promise<NewsSettings> {
     .select({
       paused: newsSettings.paused,
       dryRun: newsSettings.dryRun,
+      textsPaused: newsSettings.textsPaused,
+      textsDryRun: newsSettings.textsDryRun,
+      textsPausedReason: newsSettings.textsPausedReason,
       heartbeatAt: newsSettings.heartbeatAt,
       updatedAt: newsSettings.updatedAt,
     })
@@ -243,12 +244,25 @@ export async function getNewsSettings(): Promise<NewsSettings> {
 }
 
 export async function setNewsSettings(
-  patch: Partial<{ paused: boolean; dryRun: boolean }>,
+  patch: Partial<{
+    paused: boolean;
+    dryRun: boolean;
+    textsPaused: boolean;
+    textsDryRun: boolean;
+  }>,
 ): Promise<void> {
   await getNewsSettings();
   await db
     .update(newsSettings)
-    .set({ ...patch, updatedAt: sql`now()` })
+    .set({
+      ...patch,
+      // Turning texts back on clears the guardrail's reason
+      // and restarts its count: only sends after now are looked at.
+      ...(patch.textsPaused === false
+        ? { textsPausedReason: null, textsGuardrailClearedAt: sql`now()` }
+        : {}),
+      updatedAt: sql`now()`,
+    })
     .where(eq(newsSettings.id, 1));
 }
 
@@ -296,6 +310,9 @@ export async function newsAdmin() {
   return {
     paused: settings.paused,
     dryRun: settings.dryRun,
+    textsPaused: settings.textsPaused,
+    textsDryRun: settings.textsDryRun,
+    textsPausedReason: settings.textsPausedReason,
     heartbeat: settings.heartbeatAt
       ? settings.heartbeatAt.toLocaleString("en-US", {
           timeZone: "America/Los_Angeles",
@@ -424,7 +441,11 @@ export async function featuredIn(slug: string) {
  * is done (or it's past the 9:00 start), skipping the calendar's skip
  * dates (Thanksgiving, Christmas Eve, New Year's Eve).
  */
-export async function nextIssueDate(now = new Date()): Promise<string> {
+export async function nextIssueDate(
+  now = new Date(),
+  /** Past this Pacific time on a Thursday, that Thursday is taken. */
+  cutoffMinutes = 9 * 60,
+): Promise<string> {
   const p = pacific(now);
   let date = issueDateFor(now);
   if (date === p.date) {
@@ -433,7 +454,7 @@ export async function nextIssueDate(now = new Date()): Promise<string> {
       .from(newsIssues)
       .where(eq(newsIssues.issueDate, date));
     if (
-      p.minutes >= 9 * 60 ||
+      p.minutes >= cutoffMinutes ||
       today?.started ||
       (today && today.status !== "draft")
     )
@@ -442,6 +463,15 @@ export async function nextIssueDate(now = new Date()): Promise<string> {
   const skips = new Set(CATALOG.skip_dates.map((d) => d.date));
   while (skips.has(date)) date = addDays(date, 7);
   return date;
+}
+
+/**
+ * The Thursday the writer drafts for: the next one whose send window
+ * (7:00 Pacific) hasn't started, that isn't decided yet and isn't a skip
+ * date.
+ */
+export function nextDraftDate(now = new Date()): Promise<string> {
+  return nextIssueDate(now, 7 * 60);
 }
 
 /**

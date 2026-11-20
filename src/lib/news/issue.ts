@@ -189,8 +189,8 @@ const Meme = z.strictObject({
 /**
  * Heads up is built from changes on our own map since the last issue, and
  * nothing else (closure pages come back once we keep snapshots of them).
- * park_change: change_id from the plan's deltas. new_park: a park that
- * joined the map, from the plan's new_parks.
+ * park_change: change_id from the plan's deltas. new_park: old issues
+ * only; a park joining the map isn't news, and the checker refuses it.
  */
 const HeadsUp = z.strictObject({
   kind: z.enum(["park_change", "new_park"]),

@@ -55,7 +55,12 @@ export type EventVerdict = {
   key?: string;
   kind?: ReturnType<typeof kindOf>;
   event?: StoredEvent;
+  /** Handed in as part of the series at this index (merged into it). */
+  merged?: number;
 };
+
+/** Dates one series may carry from one hand-in. */
+export const MAX_SERIES_DATES = 30;
 
 /** Events this far out at most (the listing shows 60 days). */
 export const MAX_DAYS_AHEAD = 120;
@@ -318,6 +323,20 @@ export function checkEvent(
   const domains = eventDomains(ctx.catalog.link_domains, own);
   const quotes = e.evidence.map((x) => x.quote);
   const today = pacificToday(ctx.now);
+  // Quotes under 12 characters only when they print a price or "free"
+  // with a date or time.
+  for (const x of e.evidence)
+    if (
+      x.quote.trim().length < 12 &&
+      !(
+        /\$\s?\d|\bfree\b/i.test(x.quote) &&
+        (e.dates.some((d) => quotePrintsDate(x.quote, d.day)) ||
+          /\b\d{1,2}(:\d{2})?\s*(a\.?m|p\.?m)\b|\bnoon\b/i.test(x.quote))
+      )
+    )
+      p.push(
+        `The quote "${x.quote}" is too short: 12 characters, or 8 with a price or "free" and a date or time.`,
+      );
 
   for (const [name, text] of [
     ["title", e.title],
@@ -397,9 +416,22 @@ export function checkEvent(
       p.push(
         `"Free" with a price in the cost: say what's free in its own words.`,
       );
-    else if (e.cost.free && !quotes.some((q) => FREE_ADMISSION.test(q)))
+    else if (
+      e.cost.free &&
+      !quotes.some(
+        (q) =>
+          FREE_ADMISSION.test(q) ||
+          // A bare "Free" next to the event's own title or date
+          // ("Santa Flies In · Dec 6 · Free").
+          (/\bfree\b(?!\s+(parking|wi-?fi|coffee|snacks?|refreshments|crafts?|gifts?|samples?|swag|t-shirts?))/i.test(
+            q,
+          ) &&
+            (has([q], e.title) ||
+              e.dates.some((d) => quotePrintsDate(q, d.day)))),
+      )
+    )
       p.push(
-        `"Free" needs a quote about admission ("free admission", "free and open to the public", "no cost").`,
+        `"Free" needs a quote about admission ("free admission", "no cost"), or "Free" next to the event's title or date.`,
       );
     for (const m of e.cost.text.match(/\$\s?\d+(?:\.\d{1,2})?/g) ?? [])
       if (!quotes.some((q) => quoteHasPrice(q, m)))
@@ -552,13 +584,42 @@ export async function validateEvents(
       };
     }),
   );
-  // Two events in one batch can't claim the same page.
+  // One series, handed in as several objects (one per date): merge them
+  // into the first, dates and their check targets together.
+  const first = new Map<string, EventVerdict>();
   for (const v of verdicts) {
-    if (!v.ok || !v.key) continue;
-    if (seen.has(v.key)) {
+    if (!v.ok || !v.key || !v.event) continue;
+    const f = first.get(v.key);
+    if (!f) {
+      first.set(v.key, v);
+      seen.set(v.key, v.index);
+      continue;
+    }
+    const at = (d: { day: string; start?: string }) =>
+      `${d.day} ${d.start ?? ""}`;
+    const have = new Set(f.event!.dates.map(at));
+    const dates = [
+      ...f.event!.dates,
+      ...v.event.dates.filter((d) => !have.has(at(d))),
+    ];
+    if (dates.length > MAX_SERIES_DATES) {
       v.ok = false;
-      v.problems.push(`Same event as #${seen.get(v.key)} in this batch.`);
-    } else seen.set(v.key, v.index);
+      v.problems.push(
+        `Same series as #${seen.get(v.key)}, and together they pass ${MAX_SERIES_DATES} dates. Hand in the rest next week.`,
+      );
+      continue;
+    }
+    f.event = {
+      ...f.event!,
+      dates: dates.sort((a, b) => at(a).localeCompare(at(b))),
+      targets: { ...f.event!.targets, ...v.event.targets },
+      statusByDay: { ...f.event!.statusByDay, ...v.event.statusByDay },
+    };
+    if (f.kind === "one_off") f.kind = "series";
+    v.ok = true;
+    v.merged = f.index;
+    v.event = undefined;
+    v.key = undefined;
   }
   return { ok: verdicts.every((v) => v.ok), events: verdicts };
 }
@@ -572,11 +633,19 @@ async function networkChecks(
   const domains = eventDomains(ctx.catalog.link_domains, ctx.ownHost);
   const main = await get(e.url, domains);
   if (!main || main.status !== 200)
-    problems.push(`${e.url} answered ${main?.status ?? "nothing"}, not 200.`);
+    problems.push(
+      main?.blocked
+        ? `${host(e.url)} shows ${main.blocked} instead of the page, so it can't be checked. Use the organizer's own page.`
+        : `${e.url} answered ${main?.status ?? "nothing"}, not 200.`,
+    );
   for (const x of e.evidence) {
     const r = await get(x.url, domains);
     if (!r || r.status !== 200) {
-      problems.push(`${x.url} answered ${r?.status ?? "nothing"}, not 200.`);
+      problems.push(
+        r?.blocked
+          ? `${host(x.url)} shows ${r.blocked} instead of the page, so the quote can't be checked.`
+          : `${x.url} answered ${r?.status ?? "nothing"}, not 200.`,
+      );
       continue;
     }
     if (!r.text.includes(normalizeText(x.quote)))

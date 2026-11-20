@@ -655,7 +655,7 @@ describe("release 2 review: events rules", () => {
     >[];
     expect(ld.startDate).toBe("2026-11-21");
     expect(ld.endDate).toBe("2026-11-23");
-    expect(ld.url).toMatch(/#2026-11-21$/);
+    expect(ld.url).toMatch(/#2026-11-21-1000$/);
   });
   it("writes a clean calendar file: no line breaks, folded lines, cancellations, all-day spans (L1)", async () => {
     const { icsFold } = await import("./model");
@@ -774,5 +774,76 @@ describe("the final review: printed years and negated weekdays (M5)", () => {
         true,
       ),
     ).toBe(false);
+  });
+});
+
+describe("the writer's first live run", () => {
+  it("merges one series handed in as several objects, instead of failing", async () => {
+    const one = (day: string, start: string) =>
+      base({
+        title: "Story Time",
+        cost: undefined,
+        dates: [{ day, start }],
+        evidence: [
+          {
+            url: URL_,
+            quote: `Saturday, ${day === "2026-11-21" ? "November 21" : "November 28"}, ${start === "10:30" ? "10:30 am" : "1 pm"}. Ages 3 to 10.`,
+          },
+        ],
+      });
+    const r = await validateEvents(
+      {
+        events: [
+          one("2026-11-21", "10:30"),
+          one("2026-11-28", "10:30"),
+          one("2026-11-28", "13:00"),
+        ],
+      },
+      ctx({ fetcher: undefined }),
+    );
+    expect(r.ok).toBe(true);
+    expect(r.events[0].event?.dates.map((d) => `${d.day} ${d.start}`)).toEqual([
+      "2026-11-21 10:30",
+      "2026-11-28 10:30",
+      "2026-11-28 13:00",
+    ]);
+    expect(r.events[1].merged).toBe(0);
+    expect(r.events[0].kind).toBe("series");
+  });
+  it("takes a bare Free next to the title or date, and short quotes with a price and a date", async () => {
+    const free = (quote: string, title = "Santa Flies In") =>
+      base({
+        title,
+        cost: { text: "Free", prices: [], free: true },
+        ages_text: undefined,
+        dates: [{ day: "2026-12-06" }],
+        evidence: [{ url: URL_, quote }],
+      });
+    const r = await validateEvents(
+      {
+        events: [
+          free("Santa Flies In · Dec 6 · Free"),
+          free("Dec 6 · Free", "Short One"),
+          free("Dec 6. Free parking for everyone who comes.", "Parking Day"),
+        ],
+      },
+      ctx({ fetcher: undefined }),
+    );
+    expect(r.events[0].problems).toEqual([]);
+    expect(r.events[1].problems).toEqual([]);
+    expect(r.events[2].problems.join(" ")).toMatch(/Free/);
+    const short = await validateEvents(
+      { events: [free("Dec 6 hi", "Tiny Quote")] },
+      ctx({ fetcher: undefined }),
+    );
+    expect(short.events[0].problems.join(" ")).toMatch(/too short/);
+  });
+  it("allows up to 8 evidence quotes", async () => {
+    const ev = Array.from({ length: 8 }, () => base().evidence[0]);
+    const r = await validateEvents(
+      { events: [base({ evidence: ev })] },
+      ctx({ fetcher: undefined }),
+    );
+    expect(r.events[0].problems).toEqual([]);
   });
 });

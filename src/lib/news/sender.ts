@@ -19,7 +19,7 @@ import { audienceCount, chunkRecipients, snapshotAudience } from "./audience";
 import { CATALOG } from "./catalog";
 import { type ChunkStore, MAX_ATTEMPTS, processChunks } from "./chunks";
 import { purgePending, purgeStopped } from "./subscribers";
-import { pruneTextConsents, sendPendingConfirmations } from "@/lib/texts-store";
+import { pruneTextConsents } from "@/lib/texts-store";
 import {
   beat,
   getNewsSettings,
@@ -703,7 +703,4 @@ export async function newsDailyChecks(now = new Date()) {
   // Same-day takedowns: the stored files of a taken-down post go too.
   const gone = await deleteTakenDownFiles();
   if (gone) console.info(`[news] deleted ${gone} taken-down card files`);
-  // Yeses taken while texting was off get their confirmation first.
-  const confirmed = await sendPendingConfirmations();
-  if (confirmed) console.info(`[texts] sent ${confirmed} held confirmations`);
 }

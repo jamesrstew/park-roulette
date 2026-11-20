@@ -323,7 +323,7 @@ async function Event({ params }: Props) {
           ) : null}
           {!series && next ? (
             <a
-              href={`/events/${row.slug}/calendar.ics?d=${next.day}`}
+              href={`/events/${row.slug}/calendar.ics?d=${next.day}${next.start ? `&t=${next.start}` : ""}`}
               className="crayon-btn wax flex min-h-12 items-center gap-2 bg-crayon-yellow px-4 text-xl"
             >
               <span aria-hidden>
@@ -350,14 +350,14 @@ async function Event({ params }: Props) {
           <ul className="flex flex-col divide-y divide-dashed divide-ink/20">
             {seriesDates.map((d) => (
               <li
-                key={d.day}
+                key={`${d.day}${d.start ?? ""}`}
                 className="flex min-h-12 items-center justify-between gap-3 py-1"
               >
                 <time dateTime={d.start ? `${d.day}T${d.start}` : d.day}>
                   {whenLine(d)}
                 </time>
                 <a
-                  href={`/events/${row.slug}/calendar.ics?d=${d.day}`}
+                  href={`/events/${row.slug}/calendar.ics?d=${d.day}${d.start ? `&t=${d.start}` : ""}`}
                   className="chip min-h-11 shrink-0"
                   aria-label={`Add ${shortDate(d.day)} to calendar`}
                 >

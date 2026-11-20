@@ -23,12 +23,18 @@ type IssueRow = {
 export function AdminNews({
   paused,
   dryRun,
+  textsPaused,
+  textsDryRun,
+  textsPausedReason,
   heartbeat,
   audience,
   issues,
 }: {
   paused: boolean;
   dryRun: boolean;
+  textsPaused: boolean;
+  textsDryRun: boolean;
+  textsPausedReason: string | null;
   /** When the Thursday sender last ran, as text. */
   heartbeat: string;
   /** Confirmed subscribers right now. */
@@ -57,6 +63,27 @@ export function AdminNews({
             dryRun
               ? "On: each issue goes only to ALERT_EMAIL, labeled."
               : "Off: each issue goes to every confirmed subscriber."
+          }
+        />
+        <h3 className="mt-2 font-hand text-2xl">Weekend Pick (Friday texts)</h3>
+        <Switch
+          which="textsPaused"
+          on={textsPaused}
+          label="Texts kill switch"
+          line={
+            textsPaused
+              ? `On: no Weekend Pick goes out.${textsPausedReason ? ` ${textsPausedReason}` : ""}`
+              : "Off: Friday's Weekend Pick sends as usual."
+          }
+        />
+        <Switch
+          which="textsDryRun"
+          on={textsDryRun}
+          label="Texts dry run"
+          line={
+            textsDryRun
+              ? "On: the Weekend Pick goes only to admins' numbers (or the log)."
+              : "Off: it goes to every confirmed number."
           }
         />
         <p className="text-sm text-ink-soft">
@@ -107,7 +134,7 @@ function Switch({
   label,
   line,
 }: {
-  which: "paused" | "dryRun";
+  which: "paused" | "dryRun" | "textsPaused" | "textsDryRun";
   on: boolean;
   label: string;
   line: string;

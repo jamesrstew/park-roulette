@@ -84,6 +84,8 @@ export type FetchResult = {
   text: string;
   /** The Content-Type header (photos must be image/*). */
   contentType?: string;
+  /** The site showed a bot check instead of the page (we never get past one). */
+  blocked?: string;
 };
 /**
  * Fetch a page or image. `domains` is the allowlist for this link: every
@@ -322,6 +324,10 @@ export function styleProblems(text: string): string[] {
   return out;
 }
 
+/** Heads up text about a park joining the map (James: never news). */
+export const NEW_ON_MAP =
+  /\bnew parks?\b|\badded\b[^.]{0,40}\bto (the|our) map\b|\bnew (on|to) the map\b|\bjoined the map\b|\bnewly added\b/i;
+
 // --- Similarity ----------------------------------------------------------
 
 const STOP = new Set(
@@ -359,21 +365,44 @@ export function similarity(a: Set<string>, b: Set<string>): number {
 
 /** Text for "is this quote on the page": entities decoded, spaces collapsed. */
 export function normalizeText(s: string): string {
+  // Entities first (one pass, so "&amp;ndash;" stays text), then the
+  // characters they and the page produce: dashes, quotes, spaces.
   return s
-    .replace(/&nbsp;|&#160;| /gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;|&#34;/gi, '"')
-    .replace(/&#39;|&#x27;|&apos;|&rsquo;|&lsquo;|[‘’]/gi, "'")
-    .replace(/&ldquo;|&rdquo;|[“”]/gi, '"')
-    .replace(/&ndash;|–/gi, "-")
-    .replace(/&mdash;|—/gi, "-")
-    .replace(/&#(\d{1,7});/g, (_, n) => codePoint(Number(n)))
-    .replace(/&#x([0-9a-f]{1,6});/gi, (_, n) => codePoint(parseInt(n, 16)))
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
+    .replace(/&(#\d{1,7}|#x[0-9a-f]{1,6}|[a-z]{2,8});/gi, (m, e: string) => {
+      if (e[0] === "#")
+        return codePoint(
+          e[1] === "x" || e[1] === "X"
+            ? parseInt(e.slice(2), 16)
+            : Number(e.slice(1)),
+        );
+      return NAMED[e.toLowerCase()] ?? m;
+    })
+    .replace(/[\u00a0\u2007\u202f]/g, " ")
+    .replace(/[\u2018\u2019\u201a\u2032]/g, "'")
+    .replace(/[\u201c\u201d\u201e\u2033]/g, '"')
+    .replace(/[\u2010-\u2015\u2212]/g, "-")
+    .replace(/\u2026/g, "...")
     .replace(/\s+/g, " ")
     .trim();
 }
+
+const NAMED: Record<string, string> = {
+  nbsp: " ",
+  amp: "&",
+  quot: '"',
+  apos: "'",
+  lsquo: "'",
+  rsquo: "'",
+  ldquo: '"',
+  rdquo: '"',
+  ndash: "-",
+  mdash: "-",
+  hellip: "...",
+  lt: "<",
+  gt: ">",
+  middot: "·",
+  bull: "•",
+};
 
 /** A numeric entity as text; out-of-range and surrogate code points drop. */
 function codePoint(n: number): string {
@@ -684,7 +713,6 @@ export async function validateIssue(
   // Heads up: changes on our own map since the last issue, never the
   // seasonal default.
   const changes = new Map(plan?.deltas.changes.map((c) => [c.id, c]) ?? []);
-  const newParks = new Set(plan?.deltas.new_parks.map((p) => p.slug) ?? []);
   (issue.heads_up ?? []).forEach((h, i) => {
     const key = `heads_up.${i}`;
     if (h.kind === "park_change") {
@@ -697,8 +725,18 @@ export async function validateIssue(
         );
       else if (c.park !== h.park)
         flag(key, "plan", `Change ${c.id} is about ${c.park}, not ${h.park}.`);
-    } else if (!newParks.has(h.park))
-      flag(key, "plan", "A new park must be one of the plan's new_parks.");
+    } else
+      flag(
+        key,
+        "plan",
+        "Heads up never includes parks new to the map: that's a data change, not news.",
+      );
+    if (NEW_ON_MAP.test(h.text))
+      flag(
+        key,
+        "plan",
+        'Heads up is only for changes that affect a visit, never "new park" or "added to the map".',
+      );
     if (!ctx.parks.has(h.park))
       flag(key, "catalog", `No park "${h.park}" on the map.`);
     const d = seasonalDefault(h.text, month, catalog.seasonal_defaults);
@@ -791,6 +829,14 @@ export async function validateIssue(
     }
     if (w.event && ctx.events && !ctx.events.has(w.event))
       flag(key, "catalog", `No event page "${w.event}" on /events.`);
+    // The cost is a price or "free", from the page. "Check the page for
+    // prices" isn't a cost: with no price printed, the outing goes.
+    if (!priceClaims([w.cost]).length)
+      flag(
+        key,
+        "evidence",
+        `The cost "${w.cost}" names no price. With no price printed on the page, leave this outing out.`,
+      );
     for (const claim of priceClaims([w.cost, w.what]))
       if (!quotesPrice(quotes, claim))
         flag(
@@ -1090,7 +1136,13 @@ export async function validateIssue(
         ).then((r) => {
           if (!r) flag(u.key, "links", `${url} didn't answer.`);
           else if (r.status !== 200)
-            flag(u.key, "links", `${url} answered ${r.status}, not 200.`);
+            flag(
+              u.key,
+              "links",
+              r.blocked
+                ? `${host(url)} shows ${r.blocked} instead of the page. Use another official page.`
+                : `${url} answered ${r.status}, not 200.`,
+            );
           else if (!ours(r.finalUrl) && !allowedLink(r.finalUrl, domains))
             flag(u.key, "links", `${url} redirects off the allowlist.`);
         }),
