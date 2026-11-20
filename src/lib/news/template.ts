@@ -74,7 +74,7 @@ export function esc(s: string): string {
 export const SECTIONS = {
   weather: "The weekend ahead",
   pick: "Featured park",
-  backup: "Indoor backup",
+  backup: "Indoor pick",
   window: "Best time to go",
   headsUp: "Heads up",
   weekend: "This weekend",
@@ -233,6 +233,72 @@ export function outingAges(w: {
 
 type View = ReturnType<typeof view>;
 
+/** "about 90 minutes", "about 2 hours", "about 2 and a half hours" */
+export function visitLength(minutes: number): string {
+  if (minutes < 120) return `about ${minutes} minutes`;
+  const h = Math.floor(minutes / 60);
+  const half = minutes % 60 >= 30;
+  return `about ${h}${half ? " and a half" : ""} hours`;
+}
+
+const WEEKDAY_LONG = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+/**
+ * The Indoor pick as the template draws it (weather-season spec section
+ * 2): name (linked to its own page), address, the day, the drive from
+ * downtown Bend, then Why it works for kids, Ages, Open, Cost, How long,
+ * Make it work and, on snow and ice days, Closer to home.
+ */
+export function indoorView(
+  pb: NonNullable<Issue["plan_b"]>,
+  venue: Catalog["venues"][number],
+  href: string,
+) {
+  const [y, m, d] = (pb.for_day ?? "2000-01-01").split("-").map(Number);
+  const day = pb.for_day
+    ? WEEKDAY_LONG[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
+    : "the weekend";
+  const mins = venue.drive_minutes_from_downtown;
+  const lines: [string, string][] = [
+    ["Why it works for kids", pb.why_kids ?? ""],
+    ["Ages", venue.ages_label],
+    ...(pb.hours ? [["Open", pb.hours] as [string, string]] : []),
+    ...(pb.cost ? [["Cost", pb.cost] as [string, string]] : []),
+    ["How long", visitLength(venue.visit_minutes)],
+    ...(pb.tip ? [["Make it work", pb.tip] as [string, string]] : []),
+    ...(pb.closer_to_home?.length
+      ? [["Closer to home", pb.closer_to_home.join(", ")] as [string, string]]
+      : []),
+  ];
+  return {
+    name: venue.name,
+    href,
+    day,
+    short: !!pb.short,
+    where: venue.address ?? venue.town,
+    drive:
+      mins <= 5
+        ? "In downtown Bend."
+        : `${mins} minutes from downtown${venue.town === "Bend" ? "" : " Bend"}.`,
+    // End each line with a period, unless it already ends a sentence.
+    lines: lines.map(
+      ([k, t]) =>
+        [k, /[.!?]$/.test(t.trim()) ? t.trim() : `${t.trim()}.`] as [
+          string,
+          string,
+        ],
+    ),
+  };
+}
+
 /** The issue in the shape the template draws. */
 function view(issue: Issue, o: RenderOptions) {
   const link = (slug: string, url: string) =>
@@ -261,6 +327,13 @@ function view(issue: Issue, o: RenderOptions) {
     // The writer's one line ("Best park window: Sunday morning"), as text
     // below the card, never drawn into it.
     weatherNote: issue.weekend_ahead?.note ?? null,
+    // Plan-around weekends: one catalog line, under its own label.
+    dress: (() => {
+      const t = issue.dress
+        ? o.catalog.dress_tips.find((d) => d.id === issue.dress?.tip_id)
+        : undefined;
+      return t ? { label: t.label, text: t.text } : null;
+    })(),
     bullets: issue.bullets ?? [],
     pick: {
       name: pick?.name ?? issue.wheel_pick.park,
@@ -280,18 +353,23 @@ function view(issue: Issue, o: RenderOptions) {
       who: issue.wheel_pick.who_for,
       bring: issue.wheel_pick.bring,
     },
-    planB: issue.plan_b
-      ? {
-          title: issue.plan_b.title,
-          text: issue.plan_b.text,
-          label:
-            issue.plan_b.kind === "venue" ? SECTIONS.backup : SECTIONS.window,
-          place: venue
-            ? [venue.name, venue.address ?? venue.town].join(", ")
-            : null,
-          href: venue ? link("plan-b", venue.url) : null,
-        }
-      : null,
+    indoor:
+      issue.plan_b?.kind === "venue" && venue && issue.plan_b.why_kids
+        ? indoorView(issue.plan_b, venue, link("plan-b", venue.url))
+        : null,
+    planB:
+      issue.plan_b && !(issue.plan_b.kind === "venue" && issue.plan_b.why_kids)
+        ? {
+            title: issue.plan_b.title ?? "",
+            text: issue.plan_b.text ?? "",
+            label:
+              issue.plan_b.kind === "venue" ? SECTIONS.backup : SECTIONS.window,
+            place: venue
+              ? [venue.name, venue.address ?? venue.town].join(", ")
+              : null,
+            href: venue ? link("plan-b", venue.url) : null,
+          }
+        : null,
     headsUp: (issue.heads_up ?? []).map((h, i) => {
       const p = o.park(h.park);
       return {
@@ -407,7 +485,7 @@ export function renderCard(v: View): string {
   // The weekend ahead (up top: in Central Oregon the weather is the plan).
   // The card image carries the whole forecast in its alt text; without
   // the image, the same words show as text.
-  if (v.weather || v.weatherNote)
+  if (v.weather || v.weatherNote || v.dress)
     parts.push(
       row(label(SECTIONS.weather, C.blue), "24px 32px 6px 32px") +
         bodyRow(
@@ -417,6 +495,9 @@ export function renderCard(v: View): string {
               ? para(esc(v.weather.words))
               : "") +
             (v.weatherNote ? para(`<b>${esc(v.weatherNote)}</b>`) : "") +
+            (v.dress
+              ? para(`<b>${esc(v.dress.label)}:</b> ${esc(v.dress.text)}`)
+              : "") +
             (v.weather
               ? para(
                   `Forecast: ${a(NWS_BEND, "National Weather Service")}${v.weather.smoky ? ` &middot; Air quality: ${a(AIRNOW_BEND, "AirNow")}` : ""}`,
@@ -456,6 +537,26 @@ export function renderCard(v: View): string {
       "4px 32px 0 32px",
     ),
   );
+  // The Indoor pick: each field on its own line, led by its plain label.
+  if (v.indoor)
+    parts.push(
+      v.indoor.short
+        ? bodyRow(
+            para(
+              `<b>${SECTIONS.backup}:</b> ${a(v.indoor.href, v.indoor.name)}, for ${esc(v.indoor.day)}.`,
+            ),
+            "20px 32px 0 32px",
+          )
+        : row(
+            label(`${SECTIONS.backup}, for ${v.indoor.day}`, C.orange) +
+              `<div style="margin:4px 0 6px 0; font-family:${BODY}; font-size:17px; line-height:25px; color:${C.ink};"><b>${a(v.indoor.href, v.indoor.name)}</b>${v.indoor.where ? `, ${esc(v.indoor.where)}` : ""}.${v.indoor.drive ? ` ${esc(v.indoor.drive)}` : ""}</div>`,
+          ) +
+            bodyRow(
+              v.indoor.lines
+                .map(([k, t]) => para(`<b>${esc(k)}:</b> ${esc(t)}`))
+                .join(""),
+            ),
+    );
   // Plan B
   if (v.planB)
     parts.push(
@@ -625,12 +726,13 @@ export function renderText(issue: Issue, o: RenderOptions): string {
   if (v.dryRun) out.push("DRY RUN. Only James gets this copy.", "");
   out.push(`${NEWS_NAME}`, v.dateLine, "", v.hello);
   if (v.bullets.length) out.push("", ...v.bullets.map((b) => `* ${b}`));
-  if (v.weather || v.weatherNote)
+  if (v.weather || v.weatherNote || v.dress)
     out.push(
       "",
       SECTIONS.weather.toUpperCase(),
       ...(v.weather ? [v.weather.words] : []),
       ...(v.weatherNote ? [v.weatherNote] : []),
+      ...(v.dress ? [`${v.dress.label}: ${v.dress.text}`] : []),
       ...(v.weather
         ? [
             `Forecast: ${NWS_BEND}`,
@@ -647,6 +749,21 @@ export function renderText(issue: Issue, o: RenderOptions): string {
     `Bring. ${v.pick.bring}`,
     v.pick.href,
   );
+  if (v.indoor) {
+    if (v.indoor.short)
+      out.push(
+        "",
+        `${SECTIONS.backup}: ${v.indoor.name}, for ${v.indoor.day}. ${v.indoor.href}`,
+      );
+    else
+      out.push(
+        "",
+        `${SECTIONS.backup.toUpperCase()}, FOR ${v.indoor.day.toUpperCase()}`,
+        `${v.indoor.name}${v.indoor.where ? `, ${v.indoor.where}` : ""}.${v.indoor.drive ? ` ${v.indoor.drive}` : ""}`,
+        v.indoor.href,
+        ...v.indoor.lines.map(([k, t]) => `${k}: ${t}`),
+      );
+  }
   if (v.planB) {
     out.push("", v.planB.label.toUpperCase(), v.planB.title, v.planB.text);
     if (v.planB.place) out.push(v.planB.place);

@@ -1,6 +1,15 @@
 import "server-only";
 import { CATALOG, type WeatherLabel } from "./catalog";
-import { cooldownState, freeItems, planBVenues, wheelPick } from "./cooldowns";
+import {
+  closerToHome,
+  cooldownState,
+  freeItems,
+  indoorVenues,
+  twoIndoorInARow,
+  wheelPick,
+} from "./cooldowns";
+import { airQuality } from "./airnow";
+import { weekTiers } from "./week-tiers";
 import {
   getStoredPlan,
   lastSentAt,
@@ -13,7 +22,12 @@ import type { Plan } from "./plan-types";
 import { SITE_URL } from "@/lib/site";
 import { addDays, calendarFlags, weekendOf } from "./time";
 import { LIMITS } from "./validate";
-import { daysFrom, fetchForecast, weekendForecast } from "./weather";
+import {
+  daysFrom,
+  fetchAlerts,
+  fetchForecast,
+  weekendForecast,
+} from "./weather";
 import { discoverCandidates } from "./universe-store";
 import { igCandidates } from "./igapi";
 import { blockedAccounts, blockedIds, takenDown } from "./takedowns";
@@ -48,11 +62,13 @@ async function buildPlan(
   now: Date,
   picks: string[],
 ): Promise<Plan> {
-  const [parks, history, since, forecast] = await Promise.all([
+  const [parks, history, since, forecast, alerts, air] = await Promise.all([
     loadParks(),
     loadHistory(issueDate),
     lastSentAt(issueDate),
     fetchForecast(),
+    fetchAlerts(),
+    airQuality(issueDate),
   ]);
   const corner = await discoverCandidates({ issueDate, now, history, picks });
   const xBlocked = blockedAccounts("x");
@@ -94,11 +110,17 @@ async function buildPlan(
 
   const days = daysFrom(issueDate, forecast);
   const wk = weekendOf(issueDate);
-  const weekend = days.filter((d) => d.date >= wk.from && d.date <= wk.to);
-  const labels = [
-    ...new Set(weekend.flatMap((d) => d.labels)),
-  ] as WeatherLabel[];
-  const badDays = weekend.filter((d) => d.labels.length).map((d) => d.date);
+  // The tiers decide the week: labels and bad days now come from them
+  // (a 35°F dry day is fine, not "cold"), not from every NWS adjective.
+  const week = weekTiers({
+    issueDate,
+    catalog: CATALOG,
+    forecast,
+    alerts,
+    air,
+  });
+  const labels = week.labels as WeatherLabel[];
+  const badDays = week.disruptiveDays;
 
   // A park families just marked closed is never the pick.
   const closed = new Set(
@@ -114,15 +136,19 @@ async function buildPlan(
     CATALOG.parks,
     closed,
   );
-  const venues = planBVenues(
-    CATALOG,
-    history,
-    issueDate,
-    badDays.length ? labels : [],
-  );
+  const forDay = badDays[0] ?? null;
+  const venues = forDay
+    ? indoorVenues(CATALOG, history, issueDate, forDay, week.forDayHazards)
+    : { weeks: null, repeat: false, eligible: [] };
   const tips = freeItems(CATALOG.tips, history, issueDate, "tip").filter((t) =>
     badDays.length ? t.weather.some((w) => labels.includes(w)) : true,
   );
+  const dressTips = week.planAround.length
+    ? freeItems(CATALOG.dress_tips, history, issueDate, "dress").filter((t) =>
+        t.triggers.some((h) => week.planAround.includes(h)),
+      )
+    : [];
+  const month = Number(issueDate.slice(5, 7));
 
   return {
     issue_date: issueDate,
@@ -134,7 +160,59 @@ async function buildPlan(
       days,
       bad_days: badDays,
       labels,
+      tiers: {
+        counted: week.counted,
+        towns: week.towns,
+        air: air.source === "airnow" ? "airnow" : "nws_alerts",
+      },
+      best_slot: badDays.length ? week.bestSlot : null,
     },
+    weather_mode: badDays.length
+      ? "indoor"
+      : week.planAround.length
+        ? "plan_around"
+        : "fine",
+    indoor: {
+      open: badDays.length > 0,
+      for_day: forDay,
+      hazards: week.forDayHazards,
+      relaxed_to_weeks: venues.weeks,
+      repeat: venues.repeat,
+      short: badDays.length > 0 && twoIndoorInARow(history),
+      venues: venues.eligible.map((v) => ({
+        id: v.id,
+        name: v.name,
+        town: v.town,
+        address: v.address,
+        kind: v.kind,
+        fit: v.fit,
+        what: v.what,
+        url: v.url,
+        story_time: v.story_time,
+        enclosure: v.enclosure,
+        ages_label: v.ages_label,
+        visit_minutes: v.visit_minutes,
+        drive_minutes_from_downtown: v.drive_minutes_from_downtown,
+        cost: v.cost,
+        hours_url: v.hours_url,
+        access_note: v.access_note,
+      })),
+      closer_to_home:
+        forDay && week.forDayHazards.some((h) => h === "snow" || h === "ice")
+          ? closerToHome(CATALOG, forDay)
+          : [],
+    },
+    dress: dressTips.length
+      ? {
+          triggers: week.planAround,
+          tips: dressTips.map((t) => ({
+            id: t.id,
+            text: t.text,
+            label: t.label,
+          })),
+        }
+      : null,
+    season: CATALOG.season_calendar.find((m) => m.month === month),
     forecast: (() => {
       const days = weekendForecast(issueDate, forecast.Bend);
       return days ? { source: "National Weather Service, Bend", days } : null;
@@ -153,6 +231,7 @@ async function buildPlan(
         }
       : null,
     plan_b: {
+      // venue only when the gate is open (the Indoor pick).
       mode: badDays.length ? "venue" : "window",
       relaxed_to_weeks: venues.weeks,
       venues: venues.eligible.map((v) => ({

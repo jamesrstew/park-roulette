@@ -6,7 +6,12 @@ import {
   processChunks,
   type Recipient,
 } from "./chunks";
-import { planBVenues, type SentIssue, wheelPick } from "./cooldowns";
+import {
+  closerToHome,
+  indoorVenues,
+  type SentIssue,
+  wheelPick,
+} from "./cooldowns";
 import type { ForecastDay, Issue } from "./issue";
 import { classify, type OutEmail, post, type SendResult } from "./resend";
 import { signSvix, verifySvix } from "./svix";
@@ -15,6 +20,7 @@ import {
   hasWeatherCard,
   renderHtml,
   renderText,
+  visitLength,
   renderWelcome,
   shortParkName,
   weatherImageUrl,
@@ -31,6 +37,14 @@ const venue = (id: string, extra: Partial<Venue> = {}): Venue => ({
   address: null,
   kind: "indoor_play",
   covered: true,
+  enclosure: "indoor",
+  ages_label: "All ages",
+  visit_minutes: 90,
+  open_days: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+  drive_minutes_from_downtown: 5,
+  cost: "paid",
+  access_note: null,
+  hours_url: null,
   fit: "both",
   what: "",
   weather: ["rain"],
@@ -53,59 +67,117 @@ const usedVenue = (date: string, venueId: string): SentIssue => ({
   } as unknown as Issue,
 });
 
-describe("Plan B cooldown relaxation", () => {
-  const catalog = { venues: [venue("venue-a"), venue("venue-b")] };
-  it("uses 4 weeks when anything fits", () => {
-    const r = planBVenues(
+describe("Indoor pick venues (weather-season v1)", () => {
+  // Saturday, December 5, 2026, for the issue of December 3.
+  const SAT = "2026-12-05";
+  const catalog = {
+    venues: [
+      venue("venue-a", { kind: "museum" }),
+      venue("venue-b", { kind: "pool" }),
+    ],
+  };
+  it("uses 8 weeks when anything fits", () => {
+    const r = indoorVenues(
       catalog,
-      [usedVenue("2026-11-26", "venue-a")],
+      [usedVenue("2026-10-15", "venue-a")],
       "2026-12-03",
+      SAT,
       ["rain"],
     );
-    expect(r.weeks).toBe(4);
+    expect(r.weeks).toBe(8);
+    // venue-a is cooling, and the last pick's kind (museum) is out anyway.
     expect(r.eligible.map((v) => v.id)).toEqual(["venue-b"]);
   });
-  it("relaxes to 3, then 2, only when nothing else fits", () => {
-    const h3 = [
-      usedVenue("2026-11-12", "venue-a"),
-      usedVenue("2026-11-19", "venue-b"),
+  it("relaxes to 6, then 4, then repeats the oldest pick rather than drop the section", () => {
+    const c = {
+      venues: [...catalog.venues, venue("venue-c", { kind: "library" })],
+    };
+    // c was the last pick (kind library): a and b must carry it.
+    const h6 = [
+      usedVenue("2026-10-15", "venue-a"),
+      usedVenue("2026-10-29", "venue-b"),
+      usedVenue("2026-11-26", "venue-c"),
     ];
-    const r3 = planBVenues(catalog, h3, "2026-12-03", ["rain"]);
-    expect(r3).toMatchObject({ weeks: 3 });
-    expect(r3.eligible.map((v) => v.id)).toEqual(["venue-a"]);
-    const h2 = [
-      usedVenue("2026-11-19", "venue-a"),
-      usedVenue("2026-11-26", "venue-b"),
+    const r6 = indoorVenues(c, h6, "2026-12-03", SAT, ["rain"]);
+    expect(r6).toMatchObject({ weeks: 6, repeat: false });
+    expect(r6.eligible.map((v) => v.id)).toEqual(["venue-a"]);
+    const h4 = [
+      usedVenue("2026-11-05", "venue-a"),
+      usedVenue("2026-11-12", "venue-b"),
+      usedVenue("2026-11-26", "venue-c"),
     ];
-    const r2 = planBVenues(catalog, h2, "2026-12-03", ["rain"]);
-    expect(r2).toMatchObject({ weeks: 2 });
-    expect(r2.eligible.map((v) => v.id)).toEqual(["venue-a"]);
+    const r4 = indoorVenues(c, h4, "2026-12-03", SAT, ["rain"]);
+    expect(r4).toMatchObject({ weeks: 4 });
+    expect(r4.eligible.map((v) => v.id)).toEqual(["venue-a"]);
     const h0 = [
-      usedVenue("2026-11-26", "venue-a"),
-      usedVenue("2026-11-26", "venue-b"),
+      usedVenue("2026-11-19", "venue-a"),
+      usedVenue("2026-11-12", "venue-b"),
+      usedVenue("2026-11-26", "venue-c"),
     ];
-    expect(planBVenues(catalog, h0, "2026-12-03", ["rain"])).toEqual({
-      weeks: null,
-      eligible: [],
-    });
+    const r0 = indoorVenues(c, h0, "2026-12-03", SAT, ["rain"]);
+    expect(r0).toMatchObject({ weeks: null, repeat: true });
+    expect(r0.eligible.map((v) => v.id)).toEqual(["venue-b"]);
   });
-  it("skips unverified, out-of-season, wrong-weather and recent story times", () => {
+  it("fits the hazard, the roads and the day, and puts free first", () => {
     const c = {
       venues: [
+        venue("venue-paid", { cost: "paid" }),
+        venue("venue-free", { cost: "free", kind: "library" }),
+        venue("venue-low", { cost: "low", kind: "pool" }),
+        venue("venue-covered", { enclosure: "covered", kind: "skating" }),
+        venue("venue-far", { drive_minutes_from_downtown: 25, kind: "museum" }),
+        venue("venue-closed-sat", {
+          open_days: ["mon", "tue", "wed", "thu", "fri"],
+          kind: "climbing",
+        }),
         venue("venue-unverified", { verified: false }),
         venue("venue-summer", { months: [7] }),
-        venue("venue-hot", { weather: ["hot"] }),
-        venue("venue-story", { story_time: true }),
-        venue("venue-story2", { story_time: true }),
       ],
     };
-    const r = planBVenues(
-      c,
-      [usedVenue("2026-11-05", "venue-story")],
-      "2026-12-03",
-      ["rain"],
-    );
-    expect(r.eligible).toEqual([]);
+    const ids = (h: Parameters<typeof indoorVenues>[4]) =>
+      indoorVenues(c, [], "2026-12-03", SAT, h).eligible.map((v) => v.id);
+    // Rain: covered is fine, 35 minutes is fine.
+    expect(ids(["rain"])).toEqual([
+      "venue-free",
+      "venue-low",
+      "venue-covered",
+      "venue-far",
+      "venue-paid",
+    ]);
+    // Smoke: indoor only.
+    expect(ids(["smoke"])).not.toContain("venue-covered");
+    // Snow: within 15 minutes of downtown.
+    expect(ids(["snow"])).not.toContain("venue-far");
+  });
+  it("lists one open venue in Redmond, Sisters and La Pine (free first) on snow days", () => {
+    const c = {
+      venues: [
+        venue("venue-redmond-library", {
+          name: "Redmond Library",
+          town: "Redmond",
+          cost: "free",
+        }),
+        venue("venue-redmond-pool", {
+          name: "The Hub",
+          town: "Redmond",
+          cost: "low",
+        }),
+        venue("venue-sisters-library", {
+          name: "Sisters Library",
+          town: "Sisters",
+          open_days: ["tue", "wed", "thu", "fri", "sat"],
+        }),
+        venue("venue-la-pine-library", {
+          name: "La Pine Library",
+          town: "La Pine",
+          open_days: ["tue"],
+        }),
+      ],
+    };
+    expect(closerToHome(c, "2026-12-05")).toEqual([
+      "Redmond Library",
+      "Sisters Library",
+    ]);
   });
 });
 
@@ -989,6 +1061,118 @@ describe("the template", () => {
     expect(html).toContain("Photo: <a");
     expect(html).toContain("Bend Park &amp; Recreation District");
     expect(html).not.toContain("opengraph-image");
+  });
+});
+
+describe("the Indoor pick in the email (weather-season v1)", () => {
+  const museum = venue("venue-high-desert-museum", {
+    name: "High Desert Museum",
+    address: "59800 South Highway 97, Bend, OR 97702",
+    kind: "museum",
+    ages_label: "All ages",
+    visit_minutes: 150,
+    drive_minutes_from_downtown: 15,
+    url: "https://www.highdesertmuseum.org/",
+  });
+  const catalog = {
+    venues: [museum],
+    challenges: [],
+    dress_tips: [
+      {
+        id: "dress-mittens",
+        text: "Mittens beat gloves for kids under 5. Pack a spare pair for wet slides.",
+        label: "Dress for it",
+        triggers: ["cold"],
+        months: [12],
+        source: null,
+        verified: true,
+      },
+    ],
+  } as unknown as Catalog;
+  const issue = {
+    issue_date: "2026-12-03",
+    subject: "Snow Saturday, sledding Sunday",
+    preview: "An Indoor pick for the snow.",
+    hello: { text: "Saturday's forecast calls for 4 to 6 inches of snow." },
+    wheel_pick: {
+      park: "juniper-park-bend",
+      why_now: "Now.",
+      who_for: "All.",
+      bring: "Sleds.",
+    },
+    plan_b: {
+      kind: "venue",
+      venue_id: "venue-high-desert-museum",
+      for_day: "2026-12-05",
+      why_kids:
+        "Live river otters and a porcupine, plus walk-through history exhibits",
+      hours: "10 am to 4 pm",
+      cost: "$12 for ages 3 to 12, $20 for adults; 2 and under free",
+      tip: "Go after 10 am, once Highway 97 has been plowed",
+      closer_to_home: ["Redmond Library", "Sisters Library", "La Pine Library"],
+      evidence: [],
+    },
+    dress: { tip_id: "dress-mittens" },
+    passport: { challenge_id: "c", text: "Stamp it." },
+    signoff: { text: "Hit reply." },
+  } as unknown as Issue;
+  const opts = {
+    catalog,
+    site: "https://parkroulette.quest",
+    number: 4,
+    park: () => ({ name: "Juniper Park", city: "Bend" }),
+    links: "direct" as const,
+    unsubscribeUrl: null,
+    postalAddress: null,
+  };
+  it("lays out each field on its own line, led by its plain label", () => {
+    const html = renderHtml(issue, opts);
+    expect(html).toContain("Indoor pick, for Saturday");
+    expect(html).toContain('href="https://www.highdesertmuseum.org/"');
+    expect(html).toContain("15 minutes from downtown.");
+    for (const line of [
+      "<b>Why it works for kids:</b> Live river otters",
+      "<b>Ages:</b> All ages.",
+      "<b>Open:</b> 10 am to 4 pm.",
+      "<b>Cost:</b> $12 for ages 3 to 12",
+      "<b>How long:</b> about 2 and a half hours.",
+      "<b>Make it work:</b> Go after 10 am",
+      "<b>Closer to home:</b> Redmond Library, Sisters Library, La Pine Library.",
+      "<b>Dress for it:</b> Mittens beat gloves",
+    ])
+      expect(html).toContain(line);
+    expect(html).not.toContain("Indoor backup");
+    const text = renderText(issue, opts);
+    expect(text).toContain("INDOOR PICK, FOR SATURDAY");
+    expect(text).toContain("Ages: All ages.");
+    expect(text).toContain("Dress for it: Mittens beat gloves");
+  });
+  it("shortens the third Indoor pick in a row to one line", () => {
+    const short = {
+      ...issue,
+      plan_b: { ...issue.plan_b!, short: true },
+    } as Issue;
+    const html = renderHtml(short, opts);
+    expect(html).toContain("<b>Indoor pick:</b> <a");
+    // One label, not two.
+    expect(html.match(/Indoor pick(?! for the snow)/g)).toHaveLength(1);
+    expect(html).toContain("High Desert Museum</a>, for Saturday.");
+    expect(html).not.toContain("Why it works for kids");
+  });
+  it('never doubles a sentence\'s end ("Free!.")', () => {
+    const free = {
+      ...issue,
+      plan_b: { ...issue.plan_b!, cost: "Free!", tip: "Arrive early." },
+    } as Issue;
+    const html = renderHtml(free, opts);
+    expect(html).toContain("<b>Cost:</b> Free!</");
+    expect(html).toContain("<b>Make it work:</b> Arrive early.</");
+  });
+  it("words the visit length plainly", () => {
+    expect(visitLength(60)).toBe("about 60 minutes");
+    expect(visitLength(90)).toBe("about 90 minutes");
+    expect(visitLength(120)).toBe("about 2 hours");
+    expect(visitLength(150)).toBe("about 2 and a half hours");
   });
 });
 

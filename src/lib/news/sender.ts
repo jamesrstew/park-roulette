@@ -150,9 +150,11 @@ async function step(
     // Reuse the card the draft stored: what was checked is what goes out.
     const draftedMeme = (issue.report as ValidationReport | null)?.issue?.meme;
     const drafted = draftedMeme?.snapshot;
-    report = await validateIssue(
-      issue.body,
-      await validateContext(gate.date, {
+    report = await validateIssue(issue.body, {
+      // At send, a pick that no longer checks out is dropped, never the
+      // whole issue (validate.ts, the Indoor pick rule).
+      stage: "send",
+      ...(await validateContext(gate.date, {
         network: true,
         now,
         cards: drafted?.card
@@ -163,8 +165,8 @@ async function step(
         fallback: draftedMeme?.fallback?.card
           ? { mode: "reuse", snapshot: draftedMeme.fallback }
           : undefined,
-      }),
-    );
+      })),
+    });
   } catch (e) {
     console.error("[news] validation threw", (e as Error)?.message);
     return last

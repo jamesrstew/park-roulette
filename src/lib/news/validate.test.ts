@@ -14,6 +14,9 @@ import {
   siteOf,
   type ValidateContext,
   validateIssue,
+  weatherNumberProblems,
+  quoteHasHoursFor,
+  styleProblems,
 } from "./validate";
 
 // --- Fixtures: one good issue for Thursday, Dec 3, 2026 --------------------
@@ -39,6 +42,15 @@ const catalog: Catalog = {
       address: "1001 SW Bradbury Way, Bend",
       kind: "skating",
       covered: true,
+      enclosure: "covered",
+      ages_label: "All ages",
+      visit_minutes: 90,
+      open_days: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+      drive_minutes_from_downtown: 5,
+      cost: "low",
+      access_note: null,
+      hours_url: null,
+
       fit: "both",
       what: "Skating under a roof.",
       weather: ["rain", "snow", "cold"],
@@ -55,6 +67,15 @@ const catalog: Catalog = {
       address: null,
       kind: "library",
       covered: true,
+      enclosure: "indoor",
+      ages_label: "All ages",
+      visit_minutes: 90,
+      open_days: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+      drive_minutes_from_downtown: 5,
+      cost: "free",
+      access_note: null,
+      hours_url: null,
+
       fit: "toddler",
       what: "Story time.",
       weather: ["rain"],
@@ -71,6 +92,15 @@ const catalog: Catalog = {
       address: null,
       kind: "open_gym",
       covered: true,
+      enclosure: "indoor",
+      ages_label: "All ages",
+      visit_minutes: 90,
+      open_days: ["sun", "mon", "tue", "wed", "thu", "fri", "sat"],
+      drive_minutes_from_downtown: 5,
+      cost: "free",
+      access_note: null,
+      hours_url: null,
+
       fit: "both",
       what: "?",
       weather: ["rain"],
@@ -119,6 +149,23 @@ const catalog: Catalog = {
       months: [10, 11, 12, 1, 2, 3, 4, 5],
     },
   ],
+  dress_tips: [
+    {
+      id: "dress-mittens",
+      text: "Mittens beat gloves for kids under 5. Pack a spare pair for wet slides.",
+      label: "Dress for it",
+      triggers: ["cold", "snow"],
+      months: [11, 12, 1, 2, 3],
+      source: null,
+      verified: true,
+    },
+  ],
+  season_calendar: Array.from({ length: 12 }, (_, i) => ({
+    month: i + 1,
+    theme: "Theme",
+    normal: [],
+    tip: "Tip",
+  })),
 };
 
 const park = (name: string, status = "active"): ParkInfo => ({
@@ -145,7 +192,79 @@ const plan: Plan = {
     days: [],
     bad_days: ["2026-12-05"],
     labels: ["rain"],
+    tiers: {
+      counted: ["2026-12-05", "2026-12-06"],
+      air: "nws_alerts",
+      towns: {
+        Bend: [
+          {
+            date: "2026-12-05",
+            day: "Saturday",
+            tier: "disruptive",
+            disruptive: [{ hazard: "rain", why: "Rain (80%)", source: "text" }],
+            plan_around: [],
+            high: 44,
+            pop: 80,
+            short: "Rain",
+            snow_in: 0,
+            snow_text: null,
+            gust_mph: null,
+            aqi: null,
+            aqi_observed: null,
+            wind_mph: 10,
+          },
+          {
+            date: "2026-12-06",
+            day: "Sunday",
+            tier: "fine",
+            disruptive: [],
+            plan_around: [],
+            high: 45,
+            pop: 10,
+            short: "Partly Sunny",
+            snow_in: 0,
+            snow_text: null,
+            gust_mph: 15,
+            aqi: null,
+            aqi_observed: null,
+            wind_mph: 10,
+          },
+        ],
+      },
+    },
+    best_slot: "Sunday, 11 am to 2 pm",
   },
+  weather_mode: "indoor",
+  indoor: {
+    open: true,
+    for_day: "2026-12-05",
+    hazards: ["rain"],
+    relaxed_to_weeks: 8,
+    repeat: false,
+    short: false,
+    venues: [
+      {
+        id: "venue-library",
+        name: "Central Library",
+        town: "Bend",
+        address: null,
+        kind: "library",
+        fit: "toddler",
+        what: "Story time.",
+        url: "https://www.deschuteslibrary.org/central",
+        story_time: true,
+        enclosure: "indoor",
+        ages_label: "All ages",
+        visit_minutes: 90,
+        drive_minutes_from_downtown: 5,
+        cost: "free",
+        hours_url: null,
+        access_note: null,
+      },
+    ],
+    closer_to_home: [],
+  },
+  dress: null,
   forecast: {
     source: "test",
     days: [
@@ -211,6 +330,7 @@ const plan: Plan = {
     tip: [],
     challenge: [],
     series: [],
+    dress: [],
   },
   challenges: [],
   event_series: [],
@@ -220,6 +340,7 @@ const plan: Plan = {
 
 const PARADE = "https://www.downtownbend.org/parade";
 const SKATE = "https://www.bendparksandrec.org/facility/the-pavilion/";
+const LIB = "https://www.deschuteslibrary.org/central";
 
 const good = (): Issue => ({
   issue_date: DATE,
@@ -239,10 +360,14 @@ const good = (): Issue => ({
   },
   plan_b: {
     kind: "venue",
-    venue_id: "venue-pavilion",
-    title: "Skate under a roof on Saturday",
-    text: "When the rain comes in, The Pavilion keeps the ice dry and covered. Little skaters can hold the walkers along the boards, and big kids can lap the rink until lunch.",
-    evidence: [],
+    venue_id: "venue-library",
+    for_day: "2026-12-05",
+    why_kids:
+      "Picture books, a play kitchen and Saturday stories, all warm and dry while the rain comes through.",
+    hours: "10 am to 5 pm",
+    cost: "Free",
+    tip: "Park on the south side, and come at 10 for the stories.",
+    evidence: [{ url: LIB, quote: "Saturday 10 am to 5 pm. Free." }],
   },
   heads_up: [
     {
@@ -305,6 +430,11 @@ const pages: Record<string, FetchResult> = {
     status: 200,
     finalUrl: SKATE,
     text: "Family skate: Saturdays 1 to 3 p.m., $8 including skates.",
+  },
+  [LIB]: {
+    status: 200,
+    finalUrl: LIB,
+    text: "Central Library. Saturday 10 am to 5 pm. Free. Story time at 10.",
   },
 };
 
@@ -475,7 +605,7 @@ describe("validateIssue", () => {
 
   it("style: banned phrases, first-person claims and exclamation points", async () => {
     const banned = good();
-    banned.plan_b!.text += " A hidden gem.";
+    banned.plan_b!.why_kids += " A hidden gem.";
     const r1 = await validateIssue(banned, ctx());
     expect(rules(r1.dropped)).toContain("plan_b:style");
     expect(r1.issue?.plan_b).toBeUndefined();
@@ -586,9 +716,16 @@ describe("validateIssue", () => {
     };
     const history: SentIssue[] = [{ issueDate: "2026-11-19", body: past }];
     const r = await validateIssue(good(), ctx({ history }));
-    // The Pavilion ran 2 weeks ago: the 4-week cooldown only relaxes when
-    // nothing else fits, and the library still fits the rain.
-    expect(rules(r.dropped)).toContain("plan_b:cooldown");
+    // The Indoor pick's cooldown is the plan's (plan.indoor.venues, built
+    // by indoorVenues; see news.test.ts): a venue it left out is cut.
+    const notOffered = await validateIssue(
+      good(),
+      ctx({
+        history,
+        plan: { ...plan, indoor: { ...plan.indoor!, venues: [] } },
+      }),
+    );
+    expect(rules(notOffered.dropped)).toContain("plan_b:plan");
     // The snow stamp ran 2 weeks ago (12-week cooldown).
     expect(rules(r.errors)).toContain("passport:cooldown");
   });
@@ -938,7 +1075,7 @@ describe("validateIssue", () => {
       "hello:style",
     );
     const pb = good();
-    pb.plan_b!.text += " Hat tip to the Bend Buzz.";
+    pb.plan_b!.why_kids += " Hat tip to the Bend Buzz.";
     expect(rules((await validateIssue(pb, ctx())).dropped)).toContain(
       "plan_b:style",
     );
@@ -1142,5 +1279,276 @@ describe("validateIssue", () => {
       }),
     );
     expect(rules(r.errors)).toContain("issue_date:dates");
+  });
+});
+
+describe("weather and season v1: the Indoor pick and its rules", () => {
+  const closed: Plan = {
+    ...plan,
+    weather: { ...plan.weather, bad_days: [] },
+    weather_mode: "fine",
+    indoor: { ...plan.indoor!, open: false, for_day: null, venues: [] },
+  };
+
+  it("requires the Indoor pick when the gate is open, and refuses one when it's shut", async () => {
+    const none = good();
+    none.plan_b = undefined;
+    expect(rules((await validateIssue(none, ctx())).errors)).toContain(
+      "plan_b:plan",
+    );
+    const shut = await validateIssue(good(), ctx({ plan: closed }));
+    expect(rules(shut.dropped)).toContain("plan_b:plan");
+    expect(shut.issue?.plan_b).toBeUndefined();
+  });
+
+  it("needs a disruptive day and quoted hours for that day", async () => {
+    const sunday = good();
+    sunday.plan_b!.for_day = "2026-12-06";
+    expect(rules((await validateIssue(sunday, ctx())).dropped)).toContain(
+      "plan_b:plan",
+    );
+    const unquoted = good();
+    unquoted.plan_b!.hours = "9 am to 8 pm";
+    // A required pick that's cut fails the issue.
+    const r = await validateIssue(unquoted, ctx());
+    expect(rules(r.dropped)).toContain("plan_b:evidence");
+    expect(rules(r.errors)).toContain("plan_b:plan");
+  });
+
+  it("freezes code's Closer to home and short line into the issue", async () => {
+    const r = await validateIssue(
+      good(),
+      ctx({
+        plan: {
+          ...plan,
+          indoor: {
+            ...plan.indoor!,
+            short: true,
+            closer_to_home: ["Redmond Library", "Sisters Library"],
+          },
+        },
+      }),
+    );
+    expect(r.issue?.plan_b).toMatchObject({
+      closer_to_home: ["Redmond Library", "Sisters Library"],
+      short: true,
+    });
+  });
+
+  it("allows a dress line only on a plan-around weekend, with a tip the plan offers", async () => {
+    const withDress = { ...good(), dress: { tip_id: "dress-mittens" } };
+    expect(rules((await validateIssue(withDress, ctx())).dropped)).toContain(
+      "dress:plan",
+    );
+    const aroundPlan: Plan = {
+      ...plan,
+      dress: {
+        triggers: ["cold"],
+        tips: [
+          { id: "dress-mittens", text: "Mittens.", label: "Dress for it" },
+        ],
+      },
+    };
+    expect(
+      (await validateIssue(withDress, ctx({ plan: aroundPlan }))).dropped,
+    ).toEqual([]);
+    const other = { ...good(), dress: { tip_id: "dress-made-up" } };
+    expect(
+      rules((await validateIssue(other, ctx({ plan: aroundPlan }))).dropped),
+    ).toContain("dress:cooldown");
+  });
+
+  it("keeps forecast numbers to the plan's, never a certainty", async () => {
+    expect(weatherNumberProblems("Up to 6 inches of snow.", plan)).toHaveLength(
+      1,
+    );
+    expect(weatherNumberProblems("Gusts to 15 mph on Sunday.", plan)).toEqual(
+      [],
+    );
+    expect(weatherNumberProblems("Gusts to 30 mph.", plan)).toHaveLength(1);
+    expect(weatherNumberProblems("A high of 44 on Saturday.", plan)).toEqual(
+      [],
+    );
+    expect(
+      weatherNumberProblems("A high of 60 on Saturday.", plan),
+    ).toHaveLength(1);
+    expect(
+      weatherNumberProblems("Stay warm while 6 inches fall outside.", {
+        ...plan,
+        weather: {
+          ...plan.weather,
+          tiers: {
+            ...plan.weather.tiers!,
+            towns: {
+              Bend: [{ ...plan.weather.tiers!.towns.Bend[0], snow_in: 6 }],
+            },
+          },
+        },
+      }),
+    ).toEqual([expect.stringMatching(/never a certainty/)]);
+    const bad = good();
+    bad.hello.text = bad.hello.text.replace(
+      "Saturday looks wet",
+      "Saturday brings 8 inches of snow",
+    );
+    expect(rules((await validateIssue(bad, ctx())).errors)).toContain(
+      "hello:weather",
+    );
+  });
+
+  it("names the disruptive day in the opener", async () => {
+    const i = good();
+    i.hello.text =
+      "Hi there, James here. A wet one is coming across Bend, Redmond and Sisters, so this week is about picking the right day and having a backup ready for the soggy one.";
+    expect(rules((await validateIssue(i, ctx())).errors)).toContain(
+      "hello:weather",
+    );
+  });
+
+  it("keeps cold words out of winter subjects unless a day is disruptive", async () => {
+    const i = { ...good(), subject: "Bundle up for Juniper Park" };
+    expect(
+      rules((await validateIssue(i, ctx({ plan: closed }))).errors),
+    ).toContain("subject:subject");
+    expect(rules((await validateIssue(i, ctx())).errors)).not.toContain(
+      "subject:subject",
+    );
+  });
+
+  it("holds This weekend to one indoor outing (two with a pick), never the pick's venue", async () => {
+    const i = good();
+    i.weekend![0] = {
+      ...i.weekend![0],
+      name: "Lego club at Central Library",
+      place: "Central Library",
+    };
+    const r = await validateIssue(i, ctx());
+    expect(rules(r.dropped)).toContain("weekend.0:plan");
+  });
+
+  it("refuses doom words", async () => {
+    const i = good();
+    i.hello.text = i.hello.text.replace(
+      "Saturday looks wet",
+      "Saturday looks brutal and wet",
+    );
+    expect(rules((await validateIssue(i, ctx())).errors)).toContain(
+      "hello:style",
+    );
+  });
+});
+
+describe("release 5 review: Indoor pick and wording rules", () => {
+  it("M1: the pick is for the plan's day", async () => {
+    const other: Plan = {
+      ...plan,
+      weather: { ...plan.weather, bad_days: ["2026-12-05", "2026-12-06"] },
+    };
+    const i = good();
+    i.plan_b!.for_day = "2026-12-06";
+    expect(
+      rules((await validateIssue(i, ctx({ plan: other }))).dropped),
+    ).toContain("plan_b:plan");
+  });
+  it("M2: the hours quote names the day and prints the open and close times", () => {
+    expect(
+      quoteHasHoursFor(
+        "Saturday: Closed. Sunday 10 am - 5 pm",
+        "10 am to 5 pm",
+        "2026-12-05",
+      ),
+    ).toBe(false);
+    expect(
+      quoteHasHoursFor(
+        "Saturday: Closed. Sunday 10 am - 5 pm",
+        "10 am to 5 pm",
+        "2026-12-06",
+      ),
+    ).toBe(true);
+    expect(
+      quoteHasHoursFor("Mon-Fri 10:00 to 6:00", "10 am to 4 pm", "2026-12-04"),
+    ).toBe(false);
+    expect(
+      quoteHasHoursFor(
+        "Tue–Sat 10:00 AM–6:00 PM; Sun–Mon Closed",
+        "10 am to 6 pm",
+        "2026-12-05",
+      ),
+    ).toBe(true);
+    expect(
+      quoteHasHoursFor(
+        "Open daily, 10 am to 4 pm",
+        "10 am to 4 pm",
+        "2026-12-05",
+      ),
+    ).toBe(true);
+    expect(
+      quoteHasHoursFor("Weekends 9am-7pm", "9 am to 7 pm", "2026-12-06"),
+    ).toBe(true);
+  });
+  it("M3: numbers that aren't forecasts pass; winds and observed AQI count", () => {
+    const p: Plan = {
+      ...plan,
+      weather: {
+        ...plan.weather,
+        tiers: {
+          ...plan.weather.tiers!,
+          towns: {
+            Bend: [
+              {
+                ...plan.weather.tiers!.towns.Bend[0],
+                wind_mph: 30,
+                aqi_observed: 74,
+              },
+            ],
+          },
+        },
+      },
+    };
+    for (const ok of [
+      "Saturday's forecast has a west wind of 20 to 30 mph.",
+      "Kids must be 42 inches tall for the big trampolines.",
+      "Mornings start below 32 degrees.",
+      "Air quality was 74 this morning.",
+    ])
+      expect(weatherNumberProblems(ok, p), ok).toEqual([]);
+    expect(
+      weatherNumberProblems("The forecast calls for 3 inches of snow.", p),
+    ).toHaveLength(1);
+  });
+  it("M4: doom words are whole words", () => {
+    for (const ok of [
+      "Embrace the snow: the sledding hill is right there.",
+      "Non-toxic paints at the library craft table.",
+      "Kids make friendship bracelets.",
+      "The slide is not scary for toddlers.",
+    ])
+      expect(styleProblems(ok), ok).toEqual([]);
+    expect(styleProblems("Brace for a brutal Saturday.")).toHaveLength(2);
+  });
+  it("H2: at send, a failing pick is dropped with a warning, never the issue", async () => {
+    const i = good();
+    i.plan_b!.hours = "9 am to 8 pm";
+    const draft = await validateIssue(i, ctx());
+    expect(rules(draft.errors)).toContain("plan_b:plan");
+    const send = await validateIssue(i, ctx({ stage: "send" }));
+    expect(send.ok).toBe(true);
+    expect(send.issue?.plan_b).toBeUndefined();
+    expect(rules(send.warnings)).toContain("plan_b:plan");
+  });
+  it("the short pick needs only its day", async () => {
+    const i = good();
+    i.plan_b = {
+      kind: "venue",
+      venue_id: "venue-library",
+      for_day: "2026-12-05",
+      evidence: [],
+    };
+    const r = await validateIssue(
+      i,
+      ctx({ plan: { ...plan, indoor: { ...plan.indoor!, short: true } } }),
+    );
+    expect(r.dropped).toEqual([]);
+    expect(r.issue?.plan_b?.short).toBe(true);
   });
 });

@@ -1,17 +1,12 @@
-import {
-  allowedLink,
-  type Catalog,
-  seasonalDefault,
-  type WeatherLabel,
-} from "./catalog";
+import { allowedLink, type Catalog, seasonalDefault } from "./catalog";
 import {
   COOLDOWN_WEEKS,
   cooling,
   freeItems,
   lastUsed,
-  planBVenues,
   type SentIssue,
 } from "./cooldowns";
+import { WINTER_SUBJECT_WORDS } from "./tiers";
 import {
   type Issue,
   type MemeSnapshot,
@@ -57,6 +52,7 @@ export type Rule =
   | "plan"
   | "cooldown"
   | "seasonal"
+  | "weather"
   | "similarity";
 
 export type Finding = { rule: Rule; path: string; message: string };
@@ -105,6 +101,12 @@ export type ParkInfo = {
 };
 
 export type ValidateContext = {
+  /**
+   * draft (the check and drafts routes, the default) or send (the
+   * sender). At send, a required Indoor pick that fails is dropped with a
+   * warning instead of failing the issue: it never skips a week.
+   */
+  stage?: "draft" | "send";
   catalog: Catalog;
   /** Every park on the map, by slug. */
   parks: ReadonlyMap<string, ParkInfo>;
@@ -286,6 +288,27 @@ export const BANNED_PHRASES = [
   "sponsored",
 ];
 
+/**
+ * Doom words (weather-season spec section 6): lead with what works.
+ * Whole words only ("embrace", "bracelets" and "non-toxic paints" pass),
+ * and a "not" in front lets one through ("not scary for toddlers").
+ */
+export const DOOM_WORDS: [RegExp, string][] = [
+  [/\bbrutal\b/i, "brutal"],
+  [/\bnasty\b/i, "nasty"],
+  [/\bmiserable\b/i, "miserable"],
+  [/\bdreary\b/i, "dreary"],
+  [/\bstuck inside\b/i, "stuck inside"],
+  [/\bcabin fever\b/i, "cabin fever"],
+  [/\bhunker(?:ing)? down\b/i, "hunker down"],
+  [/\w*pocalypse\b/i, "-pocalypse"],
+  [/\bbad air\b/i, "bad air"],
+  [/(?<!non-)\btoxic\b/i, "toxic"],
+  [/(?<!\bnot )\bdangerous\b/i, "dangerous"],
+  [/(?<!\bnot )\bscary\b/i, "scary"],
+  [/\bbrace(?: yourself| yourselves| for)?\b(?!s)/i, "brace"],
+];
+
 const DASHES = /—|―|--| – /;
 
 /** "We went", "I saw", "my kids love": claims the writer can't have lived. */
@@ -314,6 +337,8 @@ export function styleProblems(text: string): string[] {
   const lower = text.toLowerCase().replace(/’/g, "'");
   for (const p of BANNED_PHRASES)
     if (lower.includes(p)) out.push(`Banned phrase: "${p}".`);
+  for (const [re, w] of DOOM_WORDS)
+    if (re.test(lower)) out.push(`Doom word: "${w}". Lead with what works.`);
   for (const re of FIRST_PERSON) {
     const m = text.replace(/’/g, "'").match(re);
     if (m)
@@ -509,6 +534,147 @@ export function quoteHasTime(quote: string, time: string): boolean {
   ).test(q);
 }
 
+const DAY_ABBR = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+
+/** Hour tokens in "10 am to 4 pm", "10:30am-6", "noon to 5". */
+function hourTokens(text: string): number[] {
+  const t = text.toLowerCase();
+  const out: number[] = [];
+  for (const m of t.matchAll(
+    /\b(noon|\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)?/g,
+  )) {
+    if (m[1] === "noon") out.push(12);
+    else {
+      const h = Number(m[1]);
+      if (h >= 1 && h <= 24) out.push(h % 12 || 12);
+    }
+  }
+  return out;
+}
+
+/**
+ * Does one segment of a quote cover this weekday ("Saturday", "Sat",
+ * "Tue-Sat", "Monday through Friday", "daily", "weekends") and print both
+ * the open and the close hour of `hours`?
+ */
+export function quoteHasHoursFor(
+  quote: string,
+  hours: string,
+  date: string,
+): boolean {
+  const want = hourTokens(hours);
+  if (want.length < 2) return false;
+  const open = want[0];
+  const close = want[want.length - 1];
+  const wd = weekdayOf(date);
+  const day = String.raw`(sun|mon|tue|wed|thu|fri|sat)[a-z]*\.?`;
+  const covers = (seg: string) => {
+    const s = seg.toLowerCase();
+    if (/\b(daily|every day|7 days|seven days)\b/.test(s)) return true;
+    if (/\bweekends?\b/.test(s) && (wd === 0 || wd === 6)) return true;
+    if (/\bweekdays\b/.test(s) && wd >= 1 && wd <= 5) return true;
+    for (const r of s.matchAll(
+      new RegExp(`\\b${day}\\s*(?:-|–|—|to|through|thru)\\s*${day}`, "g"),
+    )) {
+      const a = DAY_ABBR.indexOf(r[1]);
+      const b = DAY_ABBR.indexOf(r[2]);
+      if (a <= b ? wd >= a && wd <= b : wd >= a || wd <= b) return true;
+    }
+    return new RegExp(`\\b${DAY_ABBR[wd]}[a-z]*\\.?(?![a-z])`).test(s);
+  };
+  return quote.split(/[;\n|]|\.\s+(?=[A-Z])/).some((seg) => {
+    if (!covers(seg)) return false;
+    const got = hourTokens(seg.replace(new RegExp(day, "gi"), " "));
+    return got.includes(open) && got.includes(close);
+  });
+}
+
+/**
+ * Forecast numbers in the writer's words must be the plan's (weather-season
+ * spec, validator rule 4): snow inches (near snow, ice or rain words) and
+ * winds no higher than the plan has, an AQI the plan forecast or
+ * observed, a high or low the forecast has (within a degree), and never a
+ * certainty ("while 6 inches fall"). Other numbers ("42 inches tall",
+ * "below 32 degrees") aren't forecasts and pass.
+ */
+export function weatherNumberProblems(
+  text: string,
+  plan: Plan | null | undefined,
+): string[] {
+  const out: string[] = [];
+  const t = text.replace(/\u00a0/g, " ");
+  const tiers = Object.values(plan?.weather.tiers?.towns ?? {}).flat();
+  const maxSnow = Math.max(0, ...tiers.map((d) => d.snow_in));
+  const maxWind = Math.max(
+    0,
+    ...tiers.map((d) => Math.max(d.gust_mph ?? 0, d.wind_mph ?? 0)),
+  );
+  const aqis = new Set(
+    tiers.flatMap((d) =>
+      [d.aqi, d.aqi_observed].filter((n): n is number => n != null),
+    ),
+  );
+  const temps = [
+    ...tiers.flatMap((d) => (d.high == null ? [] : [d.high])),
+    ...(plan?.forecast?.days ?? []).flatMap((d) =>
+      [d.high, d.low].filter((n): n is number => n != null),
+    ),
+  ];
+  // One sentence at a time, so a number is judged by its own words.
+  for (const sentence of t.split(/(?<=[.!?])\s+/)) {
+    const weathery = /\b(snow|sleet|ice|icy|rain|freezing|accumulat\w*)\b/i;
+    for (const m of sentence.matchAll(
+      /(\d+(?:\.\d+)?)(?:\s*(?:to|-)\s*(\d+(?:\.\d+)?))?\s*(?:inch|inches|in\.)\b/gi,
+    )) {
+      const near = sentence.slice(
+        Math.max(0, (m.index ?? 0) - 40),
+        (m.index ?? 0) + m[0].length + 40,
+      );
+      if (!weathery.test(near)) continue;
+      const hi = Number(m[2] ?? m[1]);
+      if (hi > maxSnow)
+        out.push(
+          `"${m[0]}" of snow isn't in the plan's forecast (${maxSnow ? `up to ${maxSnow} inches` : "no snow amount"}).`,
+        );
+    }
+    for (const m of sentence.matchAll(
+      /(\d+)(?:\s*(?:to|-)\s*(\d+))?\s*mph\b/gi,
+    )) {
+      const hi = Number(m[2] ?? m[1]);
+      if (hi > maxWind)
+        out.push(
+          `"${m[0]}" isn't in the plan's forecast (${maxWind ? `winds to ${maxWind} mph` : "no wind named"}).`,
+        );
+    }
+    for (const m of sentence.matchAll(
+      /\b(?:aqi|air quality(?: index)?(?: forecast)?)(?:\s+(?:of|is|at|near|was))?\s+(\d{2,3})\b/gi,
+    ))
+      if (!aqis.has(Number(m[1])))
+        out.push(`AQI ${m[1]} isn't in the plan's air quality forecast.`);
+    // Temperatures only next to forecast words: "a high of 31", "lows
+    // near 18", "temperatures around 40", "forecast ... 95 degrees".
+    const forecastWords =
+      /\b(forecast|high|highs|low|lows|temperatures?|temps?)\b/i;
+    for (const m of sentence.matchAll(
+      /\b(?:high|low|temperature|temp)s?\s+(?:of|near|around|in the)\s+(-?\d{1,3})\b|(-?\d{1,3})\s*(?:°|degrees)/gi,
+    )) {
+      if (m[2] !== undefined && !forecastWords.test(sentence)) continue;
+      const n = Number(m[1] ?? m[2]);
+      if (temps.length && !temps.some((x) => Math.abs(x - n) <= 1))
+        out.push(`${n}° isn't a high or low in the plan's forecast.`);
+    }
+  }
+  if (
+    /\b(while|as)\s+[^.]{0,20}\binch(es)?\b[^.]{0,20}\b(fall|falls|falling)\b|\binch(es)?\s+(will|is going to)\s+fall\b/i.test(
+      t,
+    )
+  )
+    out.push(
+      'A forecast is a range, never a certainty: say "the forecast calls for 4 to 6 inches", not "while 6 inches fall".',
+    );
+  return out;
+}
+
 // --- The validator -------------------------------------------------------
 
 export async function validateIssue(
@@ -651,15 +817,23 @@ export async function validateIssue(
       `${wp} was featured in the last ${COOLDOWN_WEEKS.featured} weeks.`,
     );
 
-  // Plan B: a catalog venue that fits the weather, with the relaxed cooldown.
+  // The Indoor pick (plan_b kind venue): only when the plan's gate is
+  // open, a venue from plan.indoor.venues, for a disruptive day, with its
+  // hours quoted. Without the gate, plan_b is a clear-week "Best time to
+  // go" tip.
+  const gate = plan?.indoor?.open ?? false;
   if (issue.plan_b) {
     const pb = issue.plan_b;
-    const bad = (
-      plan?.weather.bad_days.length ? plan.weather.labels : []
-    ) as WeatherLabel[];
     if (pb.kind === "venue") {
       const venue = catalog.venues.find((v) => v.id === pb.venue_id);
-      if (!pb.venue_id || !venue)
+      const offered = plan?.indoor?.venues ?? [];
+      if (!gate)
+        flag(
+          "plan_b",
+          "plan",
+          "No counted day is disruptive this week, so there's no Indoor pick. Use a Best time to go tip, or leave it out.",
+        );
+      else if (!pb.venue_id || !venue)
         flag("plan_b", "catalog", `Unknown venue "${pb.venue_id ?? ""}".`);
       else if (!venue.verified)
         flag(
@@ -667,26 +841,71 @@ export async function validateIssue(
           "catalog",
           `${venue.name} isn't verified in the catalog.`,
         );
-      else {
-        const { weeks, eligible } = planBVenues(
-          catalog,
-          history,
-          issue.issue_date,
-          bad,
-        );
-        if (!eligible.some((v) => v.id === venue.id))
-          flag(
-            "plan_b",
-            "cooldown",
-            `${venue.name} isn't eligible this week (cooldown ${weeks ?? "none fits"} weeks, or it doesn't fit the weather or month).`,
-          );
-      }
-    } else {
-      if (bad.length)
+      else if (!offered.some((v) => v.id === venue.id))
         flag(
           "plan_b",
           "plan",
-          "The weekend has bad weather, so Plan B must be an indoor or covered venue.",
+          `${venue.name} isn't one of this week's Indoor pick venues (plan.indoor.venues).`,
+        );
+      if (gate) {
+        // The third pick in a row is one line: only the venue and its day
+        // are printed, so only those are required.
+        const short = plan?.indoor?.short ?? false;
+        if (
+          !pb.for_day ||
+          (!short && (!pb.why_kids || !pb.hours || !pb.cost || !pb.tip))
+        )
+          flag(
+            "plan_b",
+            "schema",
+            short
+              ? "A short Indoor pick needs for_day."
+              : "An Indoor pick needs for_day, why_kids, hours, cost and tip.",
+          );
+        if (pb.for_day && pb.for_day !== plan?.indoor?.for_day)
+          flag(
+            "plan_b",
+            "plan",
+            `The Indoor pick is for ${plan?.indoor?.for_day ?? "no day"} (plan.indoor.for_day), not ${pb.for_day}.`,
+          );
+        // Open: that day's hours, open and close, in one quote that names
+        // the day (or a range or "daily" that covers it).
+        const quotes = pb.evidence.map((e) => e.quote);
+        if (
+          !short &&
+          pb.hours &&
+          pb.for_day &&
+          !quotes.some((q) => quoteHasHoursFor(q, pb.hours!, pb.for_day!))
+        )
+          flag(
+            "plan_b",
+            "evidence",
+            "The Open line's hours (open and close) must appear in an evidence quote from the venue's own page that names that day.",
+          );
+        if (
+          !short &&
+          pb.cost &&
+          !/^free\.?$/i.test(pb.cost.trim()) &&
+          !priceClaims(pb.cost).length
+        )
+          flag(
+            "plan_b",
+            "evidence",
+            `The cost "${pb.cost}" names no price. Use a printed price or "Free".`,
+          );
+      }
+    } else {
+      if (gate)
+        flag(
+          "plan_b",
+          "plan",
+          "A counted day is disruptive, so this week needs an Indoor pick, not a Best time to go tip.",
+        );
+      if (!pb.title || !pb.text)
+        flag(
+          "plan_b",
+          "schema",
+          "A Best time to go tip needs a title and text.",
         );
       if (pb.tip_id) {
         const tip = catalog.tips.find((t) => t.id === pb.tip_id);
@@ -708,6 +927,86 @@ export async function validateIssue(
           );
       }
     }
+  }
+
+  // Dress for it / Good to know: only on a plan-around weekend, with a
+  // free tip that matches its trigger.
+  if (issue.dress) {
+    const offered = plan?.dress?.tips ?? [];
+    if (!offered.length)
+      flag(
+        "dress",
+        "plan",
+        "No counted day is plan-around this week, so there's no dress line.",
+      );
+    else if (!offered.some((t) => t.id === issue.dress?.tip_id))
+      flag(
+        "dress",
+        "cooldown",
+        `Tip ${issue.dress.tip_id} isn't one of this week's dress tips (plan.dress.tips): unknown, cooling down or off-trigger.`,
+      );
+  }
+
+  // Forecast numbers in the words match the plan (amounts are ranges:
+  // never a number the plan doesn't have, never a certainty).
+  for (const u of units)
+    for (const t of u.texts)
+      for (const m of weatherNumberProblems(t, plan)) flag(u.key, "weather", m);
+
+  // When the gate is open, the opener names the disruptive day.
+  if (gate && plan) {
+    const names = plan.weather.bad_days.map((d) => DAYS[weekdayOf(d)]);
+    const hello = issue.hello.text.toLowerCase();
+    if (!names.some((n) => hello.includes(n)))
+      flag(
+        "hello",
+        "weather",
+        `The opener must name the disruptive day (${names.map((n) => n[0].toUpperCase() + n.slice(1)).join(" or ")}).`,
+      );
+  }
+
+  // December to February: no cold words in the subject unless a day is
+  // disruptive.
+  if (
+    (month === 12 || month <= 2) &&
+    !gate &&
+    WINTER_SUBJECT_WORDS.test(issue.subject)
+  )
+    flag(
+      "subject",
+      "subject",
+      "From December to February the subject can't say cold, chilly, freezing or bundle unless a day is disruptive.",
+    );
+
+  // Outing balance: This weekend holds at most one indoor outing (two with
+  // an Indoor pick), and never the pick's own venue.
+  {
+    const indoorNames = catalog.venues.map((v) => v.name.toLowerCase());
+    const pickName =
+      issue.plan_b?.kind === "venue"
+        ? catalog.venues
+            .find((v) => v.id === issue.plan_b?.venue_id)
+            ?.name.toLowerCase()
+        : undefined;
+    const max = gate ? 2 : 1;
+    let n = 0;
+    (issue.weekend ?? []).forEach((w, i) => {
+      const where = `${w.name} ${w.place}`.toLowerCase();
+      const hit = indoorNames.find((v) => where.includes(v));
+      if (!hit) return;
+      if (pickName && hit === pickName)
+        flag(
+          `weekend.${i}`,
+          "plan",
+          "This outing is at the Indoor pick's own venue. Pick another.",
+        );
+      else if (++n > max)
+        flag(
+          `weekend.${i}`,
+          "plan",
+          `This weekend holds at most ${max} indoor outing${max > 1 ? "s" : ""}.`,
+        );
+    });
   }
 
   // Heads up: changes on our own map since the last issue, never the
@@ -869,7 +1168,15 @@ export async function validateIssue(
   // Price claims in Plan B need evidence too.
   if (issue.plan_b) {
     const quotes = issue.plan_b.evidence.map((e) => e.quote);
-    for (const claim of priceClaims(issue.plan_b.text))
+    // A free catalog venue (a library) may just say "Free".
+    const freeVenue =
+      catalog.venues.find((v) => v.id === issue.plan_b?.venue_id)?.cost ===
+        "free" && /^free\.?$/i.test(issue.plan_b.cost?.trim() ?? "");
+    for (const claim of priceClaims(
+      [issue.plan_b.text, freeVenue ? undefined : issue.plan_b.cost].filter(
+        (t): t is string => !!t,
+      ),
+    ))
       if (!quotesPrice(quotes, claim))
         flag(
           "plan_b",
@@ -1194,6 +1501,21 @@ export async function validateIssue(
       path: "weekend_ahead.days",
       message: "The forecast comes from the plan; the one sent was replaced.",
     });
+  // With the gate open, the Indoor pick is required (unless the plan had
+  // no venue at all): a cut or missing one fails the issue.
+  if (
+    gate &&
+    (plan?.indoor?.venues.length ?? 0) > 0 &&
+    (cut.has("plan_b") || issue.plan_b?.kind !== "venue")
+  )
+    (ctx.stage === "send" ? warnings : errors).push({
+      rule: "plan",
+      path: "plan_b",
+      message:
+        ctx.stage === "send"
+          ? "The Indoor pick didn't check out at send time, so it was dropped; the rest of the issue goes."
+          : "A counted day is disruptive, so the issue needs its Indoor pick (plan.indoor.venues).",
+    });
   const trimmed = withoutUnits(issue, cut);
   const cleaned: Issue = {
     ...trimmed,
@@ -1215,6 +1537,17 @@ export async function validateIssue(
       forecast || trimmed.weekend_ahead?.note
         ? { days: forecast, note: trimmed.weekend_ahead?.note }
         : undefined,
+    // Code's parts of the Indoor pick, frozen from the plan.
+    plan_b:
+      trimmed.plan_b?.kind === "venue" && plan?.indoor?.open
+        ? {
+            ...trimmed.plan_b,
+            closer_to_home: plan.indoor.closer_to_home.length
+              ? plan.indoor.closer_to_home
+              : undefined,
+            short: plan.indoor.short || undefined,
+          }
+        : trimmed.plan_b,
   };
 
   // Whole-issue checks, on what would actually go out.

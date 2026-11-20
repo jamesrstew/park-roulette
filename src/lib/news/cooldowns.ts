@@ -1,5 +1,11 @@
 import { createHash } from "node:crypto";
-import type { Catalog, Venue, WeatherLabel } from "./catalog";
+import {
+  type Catalog,
+  type Venue,
+  type WeatherLabel,
+  WEEKDAYS,
+} from "./catalog";
+import { type Hazard, NEEDS_INDOOR, ROAD_HAZARDS } from "./tiers";
 import type { Issue } from "./issue";
 import { addDays, daysBetween } from "./time";
 
@@ -12,9 +18,15 @@ import { addDays, daysBetween } from "./time";
 export const COOLDOWN_WEEKS = {
   wheel: 10,
   featured: 6,
-  /** Plan B relaxes to 3, then 2, only when nothing else fits the weather. */
-  venue: [4, 3, 2],
+  /**
+   * The Indoor pick: 8 weeks, relaxing to 6, then 4, only when nothing else
+   * fits (weather-season spec, section 3). Counted only on issues where
+   * the pick ran.
+   */
+  venue: [8, 6, 4],
   tip: 12,
+  /** Dress for it / Good to know lines. */
+  dress: 12,
   challenge: 12,
   series: 4,
   /** Library story times are an occasional pick (Family Loop covers them). */
@@ -23,7 +35,7 @@ export const COOLDOWN_WEEKS = {
 
 export type SentIssue = { issueDate: string; body: Issue };
 export type CooldownKind =
-  "wheel" | "featured" | "venue" | "tip" | "challenge" | "series";
+  "wheel" | "featured" | "venue" | "tip" | "challenge" | "series" | "dress";
 
 /** The ids one sent issue used, by kind. */
 export function usedIn(body: Issue): Record<CooldownKind, string[]> {
@@ -35,6 +47,7 @@ export function usedIn(body: Issue): Record<CooldownKind, string[]> {
     tip: body.plan_b?.tip_id ? [body.plan_b.tip_id] : [],
     challenge: [body.passport.challenge_id],
     series: (body.weekend ?? []).flatMap((w) => w.series_id ?? []),
+    dress: body.dress?.tip_id ? [body.dress.tip_id] : [],
   };
 }
 
@@ -72,6 +85,7 @@ export function cooldownState(
     ["tip", COOLDOWN_WEEKS.tip],
     ["challenge", COOLDOWN_WEEKS.challenge],
     ["series", COOLDOWN_WEEKS.series],
+    ["dress", COOLDOWN_WEEKS.dress],
   ];
   return Object.fromEntries(
     kinds.map(([kind, weeks]) => [
@@ -90,39 +104,115 @@ export function cooldownState(
   >;
 }
 
+/** The last sent issue's Indoor pick (venue and kind), if one ran. */
+export function lastIndoorPick(
+  history: readonly SentIssue[],
+  catalog: Pick<Catalog, "venues">,
+): Venue | null {
+  const last = [...history]
+    .sort((a, b) => b.issueDate.localeCompare(a.issueDate))
+    .find((h) => h.body.plan_b?.kind === "venue");
+  return (
+    catalog.venues.find((v) => v.id === last?.body.plan_b?.venue_id) ?? null
+  );
+}
+
+/** Did the last two sent issues both carry an Indoor pick? */
+export function twoIndoorInARow(history: readonly SentIssue[]): boolean {
+  const recent = [...history]
+    .sort((a, b) => b.issueDate.localeCompare(a.issueDate))
+    .slice(0, 2);
+  return (
+    recent.length === 2 && recent.every((h) => h.body.plan_b?.kind === "venue")
+  );
+}
+
+const COST_ORDER = { free: 0, low: 1, paid: 2 } as const;
+
 /**
- * Plan B venues that fit this week, with the cooldown relaxed only as far
- * as needed: 4 weeks, else 3, else 2. `bad` is the week's bad-weather
- * labels; with none, any open venue fits (the writer may still prefer a
- * "best window" tip). Story times only when none ran in 8 weeks.
+ * Indoor pick venues for one day (spec sections 2 and 3):
+ *   - verified, in season, open that weekday (open_days);
+ *   - indoor (not covered) for smoke, wind, ice or extreme cold;
+ *   - within 15 minutes of downtown Bend on snow or ice days, else 35;
+ *   - never the last pick's venue or kind (pool, museum, climbing...);
+ *   - cooldown 8 weeks, else 6, else 4; if nothing is free at 4, the
+ *     oldest pick repeats rather than the section dropping;
+ *   - free first, then low cost, then paid (on ice days the closest).
  */
-export function planBVenues(
+export function indoorVenues(
   catalog: Pick<Catalog, "venues">,
   history: readonly SentIssue[],
   issueDate: string,
-  bad: readonly WeatherLabel[],
-): { weeks: number | null; eligible: Venue[] } {
-  const month = Number(issueDate.slice(5, 7));
+  forDay: string,
+  hazards: readonly Hazard[],
+): { weeks: number | null; repeat: boolean; eligible: Venue[] } {
+  const month = Number(forDay.slice(5, 7));
+  const [y, m, d] = forDay.split("-").map(Number);
+  const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  const indoorOnly = hazards.some((h) => NEEDS_INDOOR.includes(h));
+  const roads = hazards.some((h) => ROAD_HAZARDS.includes(h));
+  const ice = hazards.includes("ice");
+  const lastPick = lastIndoorPick(history, catalog);
   const last = lastUsed(history, "venue");
-  const storyRecently = catalog.venues.some(
-    (v) =>
-      v.story_time &&
-      cooling(last.get(v.id), issueDate, COOLDOWN_WEEKS.storyTime),
-  );
-  const fits = catalog.venues.filter(
-    (v) =>
-      v.verified &&
-      v.months.includes(month) &&
-      (bad.length === 0 || v.weather.some((w) => bad.includes(w))) &&
-      !(v.story_time && storyRecently),
-  );
+  const fits = catalog.venues
+    .filter(
+      (v) =>
+        v.verified &&
+        v.months.includes(month) &&
+        v.open_days.includes(weekday) &&
+        (!indoorOnly || v.enclosure === "indoor") &&
+        v.drive_minutes_from_downtown <= (roads ? 15 : 35) &&
+        v.id !== lastPick?.id &&
+        v.kind !== lastPick?.kind,
+    )
+    .sort(
+      (a, b) =>
+        COST_ORDER[a.cost] - COST_ORDER[b.cost] ||
+        (ice
+          ? a.drive_minutes_from_downtown - b.drive_minutes_from_downtown
+          : 0) ||
+        a.id.localeCompare(b.id),
+    );
   for (const weeks of COOLDOWN_WEEKS.venue) {
     const eligible = fits.filter(
       (v) => !cooling(last.get(v.id), issueDate, weeks),
     );
-    if (eligible.length) return { weeks, eligible };
+    if (eligible.length) return { weeks, repeat: false, eligible };
   }
-  return { weeks: null, eligible: [] };
+  // Nothing free at 4 weeks: the oldest pick again beats no help.
+  const oldest = [...fits].sort((a, b) =>
+    (last.get(a.id) ?? "").localeCompare(last.get(b.id) ?? ""),
+  )[0];
+  return oldest
+    ? { weeks: null, repeat: true, eligible: [oldest] }
+    : { weeks: null, repeat: false, eligible: [] };
+}
+
+/**
+ * "Closer to home" on snow and ice days: one open catalog venue each in
+ * Redmond, Sisters and La Pine (free first), so readers there don't drive
+ * to Bend on the worst roads of the year.
+ */
+export function closerToHome(
+  catalog: Pick<Catalog, "venues">,
+  forDay: string,
+): string[] {
+  const month = Number(forDay.slice(5, 7));
+  const [y, m, d] = forDay.split("-").map(Number);
+  const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  return ["Redmond", "Sisters", "La Pine"].flatMap((town) => {
+    const v = catalog.venues
+      .filter(
+        (v) =>
+          v.town === town &&
+          v.verified &&
+          v.enclosure === "indoor" &&
+          v.months.includes(month) &&
+          v.open_days.includes(weekday),
+      )
+      .sort((a, b) => COST_ORDER[a.cost] - COST_ORDER[b.cost])[0];
+    return v ? [v.name] : [];
+  });
 }
 
 /** Catalog items of one kind that are verified, in season and not cooling. */
@@ -132,7 +222,7 @@ export function freeItems<
   items: readonly T[],
   history: readonly SentIssue[],
   issueDate: string,
-  kind: "tip" | "challenge" | "series",
+  kind: "tip" | "challenge" | "series" | "dress",
 ): T[] {
   const month = Number(issueDate.slice(5, 7));
   const last = lastUsed(history, kind);

@@ -3,6 +3,7 @@
 import { EVENTS } from "@/lib/events";
 import { trackEvent } from "@/lib/events-client";
 import { storage } from "@/lib/storage";
+import { scrollIntoViewGently } from "@/lib/scroll";
 import confetti from "canvas-confetti";
 import Link from "next/link";
 import {
@@ -507,6 +508,19 @@ export function SpinScreen({
           signedIn={signedIn}
           onAgain={() => wheel.current?.spin(0)}
           askShowing={askShowing}
+          ask={
+            askServer ? (
+              <Suspense fallback={null}>
+                <ResultAsk
+                  key={result.id}
+                  server={askServer}
+                  park={result}
+                  wet={wet}
+                  onShowing={setAskShowing}
+                />
+              </Suspense>
+            ) : null
+          }
           onStamped={(id, visitId) => {
             setStamped({
               // The same key the server uses (lastStamp), so this stamp is
@@ -520,18 +534,6 @@ export function SpinScreen({
           }}
         />
       )}
-
-      {askServer && result && !spinning ? (
-        <Suspense fallback={null}>
-          <ResultAsk
-            key={result.id}
-            server={askServer}
-            park={result}
-            wet={wet}
-            onShowing={setAskShowing}
-          />
-        </Suspense>
-      ) : null}
 
       {milestone && (
         <MilestoneCard milestone={milestone} onClose={closeMilestone} />
@@ -606,6 +608,7 @@ function ResultCard({
   onAgain,
   onStamped,
   askShowing,
+  ask,
 }: {
   park: ParkSummary;
   here: LatLng | null;
@@ -613,6 +616,11 @@ function ResultCard({
   onAgain: () => void;
   onStamped: (parkId: number, visitId?: number) => void;
   askShowing: boolean;
+  /**
+   * The ask (lib/asks.ts), inside the card right under Let's go!, so it is
+   * on screen with the result (below the card it sat behind the tab bar).
+   */
+  ask?: React.ReactNode;
 }) {
   const [pending, start] = useTransition();
   const [logged, setLogged] = useState(false);
@@ -621,12 +629,20 @@ function ResultCard({
   const ref = useRef<HTMLDivElement>(null);
   const color = CRAYONS[townCrayon(park.city)];
 
+  // The card's bottom, ask included, on screen above the tab bar; again
+  // once the ask arrives (it streams in after the card).
+  // Measured after the card's pop-in animation, whose scale would
+  // otherwise throw the target off.
   useEffect(() => {
-    ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-  }, []);
+    const t = setTimeout(() => scrollIntoViewGently(ref.current, "end"), 450);
+    return () => clearTimeout(t);
+  }, [askShowing]);
 
   return (
-    <div ref={ref} className="relative mt-2 animate-pop-in scroll-mb-32">
+    <div
+      ref={ref}
+      className="relative mt-2 animate-pop-in scroll-mt-4 scroll-mb-32"
+    >
       <div className="tape -top-3 left-1/2 z-10 -translate-x-1/2 -rotate-3" />
       <article className="doodle-box relative flex flex-col gap-3 p-5 pt-6 shadow-[4px_5px_0_#2b2a33]">
         <p className="text-center font-hand text-lg text-ink-soft">
@@ -750,6 +766,8 @@ function ResultCard({
               <Icon name="spin" size={26} /> Again!
             </button>
           </div>
+          {/* The ask sits under every action, so it never pushes We went! down. */}
+          {ask}
           {error && (
             <p
               role="alert"

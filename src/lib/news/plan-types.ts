@@ -1,4 +1,5 @@
-import type { SeasonalDefault, WeatherLabel } from "./catalog";
+import type { SeasonalDefault, SeasonMonth, WeatherLabel } from "./catalog";
+import type { DayTier, Hazard } from "./tiers";
 import type { CooldownKind } from "./cooldowns";
 import type { CalendarFlags } from "./time";
 import type { UniverseReport } from "./universe-store";
@@ -42,6 +43,17 @@ export type PlanVenue = {
   story_time: boolean;
 };
 
+/** An Indoor pick candidate, with the catalog facts code prints. */
+export type PlanIndoorVenue = PlanVenue & {
+  enclosure: "indoor" | "covered";
+  ages_label: string;
+  visit_minutes: number;
+  drive_minutes_from_downtown: number;
+  cost: "free" | "low" | "paid";
+  hours_url: string | null;
+  access_note: string | null;
+};
+
 export type Plan = {
   issue_date: string;
   generated_at: string;
@@ -56,7 +68,46 @@ export type Plan = {
     bad_days: string[];
     /** Every label from Friday to Sunday. */
     labels: WeatherLabel[];
+    /**
+     * The tiers (weather-season v1): the counted days (Saturday, Sunday,
+     * and Friday when any district has no school), per town. Bend gates;
+     * the others are for one "In Sisters" line, never the gate.
+     */
+    tiers?: {
+      counted: string[];
+      towns: Record<string, DayTier[]>;
+      /** Where the air quality came from. */
+      air: "airnow" | "nws_alerts";
+    };
+    /** Disruptive weekends: when to go ("Sunday, 11 am to 2 pm"). */
+    best_slot?: string | null;
   };
+  /** The week in one word: indoor (gate open), plan_around or fine. */
+  weather_mode?: "indoor" | "plan_around" | "fine";
+  /**
+   * The Indoor pick: only when a counted Bend day is disruptive. for_day
+   * is the first such day; venues are eligible for it, best first.
+   */
+  indoor?: {
+    open: boolean;
+    for_day: string | null;
+    hazards: Hazard[];
+    relaxed_to_weeks: number | null;
+    /** Nothing was free at 4 weeks: the oldest pick repeats. */
+    repeat: boolean;
+    /** The third Indoor pick in a row: one short line. */
+    short: boolean;
+    venues: PlanIndoorVenue[];
+    /** Snow and ice days: venues in Redmond, Sisters and La Pine. */
+    closer_to_home: string[];
+  };
+  /** Plan-around weekends: the free dress tips that match. */
+  dress?: {
+    triggers: Hazard[];
+    tips: { id: string; text: string; label: string }[];
+  } | null;
+  /** This month in the seasonal calendar. */
+  season?: SeasonMonth;
   /**
    * The weekend ahead (Bend, NWS): Friday to Sunday, frozen into the issue
    * by the validator. Null when the forecast couldn't be fetched.

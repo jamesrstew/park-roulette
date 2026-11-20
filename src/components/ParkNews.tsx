@@ -25,6 +25,7 @@ export function EmailSignup({
   initial = "",
   fine = PARK_NEWS.fine,
   inline = false,
+  compact = false,
   autoFocus = false,
   onOpen,
   onDone,
@@ -36,6 +37,11 @@ export function EmailSignup({
   fine?: string;
   /** Field and button side by side on wider screens (the footer). */
   inline?: boolean;
+  /**
+   * Smaller, for an ask row (lib/asks.ts): a shorter field and button, and
+   * the success line without its own icon (the row has one).
+   */
+  compact?: boolean;
   autoFocus?: boolean;
   /** The first time the field gets focus or a keystroke (asks: a tap). */
   onOpen?: () => void;
@@ -87,20 +93,25 @@ export function EmailSignup({
     return (
       <p
         role="status"
-        className="flex animate-pop-in items-center gap-2 font-hand text-xl leading-snug"
+        className={`flex animate-pop-in items-center gap-2 font-hand leading-snug ${compact ? "text-lg" : "text-xl"}`}
       >
-        <Icon name="mail" size={28} /> {(doneText ?? successLine)(done.first)}
+        {compact ? null : <Icon name="mail" size={28} />}
+        {(doneText ?? successLine)(done.first)}
       </p>
     );
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2" noValidate>
+    <form
+      onSubmit={submit}
+      className={`flex flex-col ${compact ? "gap-1.5" : "gap-2"}`}
+      noValidate
+    >
       <label htmlFor={id} className="sr-only">
         Your email
       </label>
       <div className={inline ? "flex flex-row gap-2" : "contents"}>
         <input
           id={id}
-          className="field min-w-0 flex-1 text-base"
+          className={`field min-w-0 flex-1 text-base ${compact ? "min-h-11 py-1.5" : ""}`}
           type="email"
           inputMode="email"
           autoComplete="email"
@@ -126,7 +137,7 @@ export function EmailSignup({
         <button
           type="submit"
           disabled={pending}
-          className="crayon-btn wax min-h-12 shrink-0 bg-crayon-blue px-5 text-xl text-white [text-shadow:1px_1px_0_#2b2a33]"
+          className={`crayon-btn wax shrink-0 bg-crayon-blue text-white [text-shadow:1px_1px_0_#2b2a33] ${compact ? "min-h-11 px-3 text-lg" : "min-h-12 px-5 text-xl"}`}
         >
           {pending ? PARK_NEWS.pending : PARK_NEWS.button}
         </button>
@@ -161,7 +172,10 @@ export function EmailSignup({
         ) : null}
       </div>
       {error ? <ErrorLine id={`${id}-err`}>{error}</ErrorLine> : null}
-      <p id={`${id}-fine`} className="text-sm leading-snug text-ink-soft">
+      <p
+        id={`${id}-fine`}
+        className={`leading-snug text-ink-soft ${compact ? "text-xs" : "text-sm"}`}
+      >
         {fine}{" "}
         <Link href="/privacy#park-news" className="underline">
           Privacy

@@ -17,7 +17,11 @@ With no date, the plan is for `next_issue_date`, which it also returns: the next
 The plan is code's half of the issue. Treat it as the truth:
 
 - `wheel_pick`: the featured park, already spun. Write about it; never swap it.
-- `plan_b`: eligible indoor venues (`mode: "venue"` means the weekend has bad weather, so Plan B must be a venue) or clear-week tips (`mode: "window"`).
+- `weather_mode` and `indoor`: the week in one word. Code tiers each counted day (Saturday, Sunday, and Friday when a district has no school) as fine, plan-around or disruptive, from the NWS forecast, NWS alerts and AirNow (`weather.tiers`, per town, with what decided it). `indoor.open` is true when a counted Bend day is disruptive (4 inches of snow or more, ice, all-day rain, gusts of 40 mph, AQI 101 or more, 95°F, 19°F or a wind chill of 0). Then the issue **must** have an Indoor pick for `indoor.for_day`, from `indoor.venues` (best first: free, then low cost, then paid). `indoor.closer_to_home` and `indoor.short` are code's; the checker copies them in.
+- `dress`: on a plan-around weekend (a high of 35 or less, snow under 4 inches at 30% or more, showers with a dry window, gusts of 25 to 39, AQI 51 to 100, 88 to 94°F, thunder), the dress or good-to-know tips you may use. Null otherwise.
+- `weather.best_slot`: on a disruptive weekend, when to go ("Sunday, 11 am to 2 pm", or "the first clear morning"). Use it for the Featured park's timing.
+- `season`: this month's theme, its normal state (never news) and tip.
+- `plan_b.tips`: clear-week tips for "Best time to go" when the gate is shut.
 - `deltas`: park changes on our map since the last issue that change a visit (closed, reopened, a feature added or removed, a seasonal status). `deltas.changes` is the only source for Heads up. A park that joined the map is never news: the plan doesn't list them and the checker refuses them.
 - `forecast`, `weather.labels` and `calendar` (holidays, school breaks, daylight saving time).
 - `cooldowns`, `challenges` (the passport challenges you may use), `event_series` and `seasonal_defaults` (never report these as news).
@@ -123,7 +127,9 @@ Write one JSON object. Unknown keys are refused, so use exactly these:
 - `weekend_ahead`: `{ "note": "Best park window: Sunday morning" }` at most (80 characters). Code fills in the days from the plan.
 - `bullets`: up to 3 short lines (90 characters each) on what's inside.
 - `wheel_pick`: `{ "park": <plan.wheel_pick.slug>, "why_now" (300 characters at most), "who_for" (200), "bring" (200) }`, plus `photo` only from `plan.wheel_pick.photo`.
-- `plan_b`: `{ "kind": "venue", "venue_id", "title" (80), "text" (360), "evidence" (up to 3) }` with a venue from the plan, or `{ "kind": "window", "tip_id", ... }` on a clear week. Any $ price in `text` needs an evidence quote.
+- `plan_b`, the **Indoor pick**, only when `plan.indoor.open` (and then required, unless `indoor.venues` is empty): `{ "kind": "venue", "venue_id": <from plan.indoor.venues>, "for_day": <plan.indoor.for_day>, "why_kids" (220: what kids actually do there), "hours" (80: that day's hours, as printed), "cost" (100: a printed price, "$12 for ages 3 to 12", never "$12/3-12"; or "Free" for a free venue), "tip" (160: "Make it work", one line on parking, when to arrive or what to pack; on ice days it may say the pick can wait for Sunday, never "stay home"), "evidence" (up to 3) }`. One evidence quote, from the venue's own page (`hours_url`), must print the hours; every price needs a quote. Code prints the name (linked), address, drive time, Ages and How long from the catalog, so don't repeat them. Never a venue on the last pick's kind (code already left those out).
+- On a clear week (gate shut), `plan_b` may instead be a Best time to go tip: `{ "kind": "window", "tip_id", "title" (80), "text" (360), "evidence" }`.
+- `dress`: `{ "tip_id": <from plan.dress.tips> }`, only on a plan-around weekend. Code prints the tip's words under its label ("Dress for it" or "Good to know").
 - `heads_up`: up to 4 items, only from `plan.deltas.changes` (`{ "kind": "park_change", "change_id", "park", "text" (240) }`). Never seasonal defaults, and never a park new to the map ("new park", "added to the map"): the checker refuses those. Leave it out when nothing changed.
 - `weekend`: 2 or 3 outings dated Friday to Sunday:
   - fields: `{ "name" (80), "day", "time" (60), "ages_text" (80), "cost" (40), "place" (120), "town" (40), "what" (240), "url", "evidence" (1 to 3), "event", "series_id", "park" }`;
@@ -145,7 +151,12 @@ Write one JSON object. Unknown keys are refused, so use exactly these:
 - One kind parenthetical aside per item at most, and no snark.
 - Our ground, not the competitors': playground conditions, weather-matched outings, towns beyond Bend (Redmond, Sisters, Madras, Prineville, La Pine, Sunriver), indoor backups, and the spin and passport rituals.
 - **The reader test:** every item must change what a parent might do this week. Heads up holds changes only, never the expected seasonal state.
-- Plain section names; readers see the app's own (The weekend ahead, Featured park, Indoor backup or Best time to go, Heads up, This weekend, Passport challenge, Parents' corner). Don't invent headers.
+- Plain section names; readers see the app's own (The weekend ahead, Featured park, Indoor pick or Best time to go, Heads up, This weekend, Passport challenge, Parents' corner). Don't invent headers.
+- **Weather words.** Lead with what works, name the day, and use the forecast's numbers, not adjectives. Say "forecast" once per weather claim (the issue goes out 2 to 3 days early). Amounts are ranges: "the forecast calls for 4 to 6 inches" or "up to 6", never a number the plan doesn't have and never a certainty ("while 6 inches fall"); the checker compares every inch, mph, AQI and temperature with the plan. For air, use only the AQI category's own words ("Unhealthy for Sensitive Groups, and children are in that group"). When the gate is open, the opener names the disruptive day.
+- **No doom words:** brutal, nasty, miserable, dreary, stuck inside, cabin fever, hunker down, "-pocalypse", bad air, toxic, dangerous, scary, brace.
+- **Winter subjects:** from December to February the subject can't say cold, chilly, freezing or bundle unless a day is disruptive.
+- **Outing balance:** This weekend holds at most one indoor outing (two when there's an Indoor pick), and never the pick's own venue.
+- **Other towns:** `weather.tiers.towns` has Redmond, Sisters and La Pine too. A day that's disruptive only there (say, snow in Sisters) can get one line ("In Sisters, the forecast calls for...") but never opens the gate.
 - American English. **No em dashes** (or "--", or a spaced en dash): use a period or a comma.
 - **At most one exclamation point** in the whole issue, subject and preview included.
 - No banned phrases: hidden gem, nestled, something for everyone, fun for the whole family, don't miss, must-see, look no further, whether you're, boasts, vibrant, delve, unforgettable, game changer, bustling, a stone's throw, elevate, unwind, embark, adventure awaits, sponsored, and the like.
@@ -183,7 +194,7 @@ End with a short report:
 
 - the subject;
 - the Wheel Pick;
-- the Plan B kind;
+- the weather mode, and the Indoor pick (venue and day) or the Best time to go tip;
 - how many events were stored and cut, with one-line reasons;
 - which outings and Parents' corner post you used;
 - the word count;

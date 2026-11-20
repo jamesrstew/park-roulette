@@ -12,7 +12,6 @@ import {
 import { Icon, type IconName } from "@/components/icons";
 import { EmailSignup } from "@/components/ParkNews";
 import { ParkTextsCard } from "@/components/ParkTexts";
-import { TextsLink } from "@/components/news/TextsLink";
 import {
   ASKS_KEY,
   type Ask,
@@ -34,6 +33,7 @@ import { trackEvent } from "@/lib/events-client";
 import { pacific } from "@/lib/news/time";
 import { useOverlayOpen } from "@/lib/overlay";
 import { NEWS_NAME, PARK_NEWS, successLine } from "@/lib/park-news";
+import { scrollIntoViewGently } from "@/lib/scroll";
 import { storage } from "@/lib/storage";
 import { TEXTS_COPY } from "@/lib/texts";
 
@@ -205,6 +205,10 @@ function AskBody({
   const [sheet, setSheet] = useState(false);
   const [done, setDone] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  // The field opens below the chips: keep the whole row on screen.
+  useEffect(() => {
+    if (open) scrollIntoViewGently(ref.current, "nearest");
+  }, [open]);
   const shownRef = useRef(onShown);
   useEffect(() => {
     shownRef.current = onShown;
@@ -231,18 +235,18 @@ function AskBody({
     server.phone && server.phoneFresh ? (
       <button
         type="button"
-        className="chip min-h-11"
+        className={CHIP}
         onClick={() => (onOpened("text"), setSheet(true))}
       >
-        <Icon name="phone" size={22} /> {label}
+        <Icon name="phone" size={18} /> {label}
       </button>
     ) : (
       <Link
         href={`/texts?from=${moment}`}
-        className="chip min-h-11"
+        className={CHIP}
         onClick={() => onOpened("text")}
       >
-        <Icon name="phone" size={22} /> {label}
+        <Icon name="phone" size={18} /> {label}
       </Link>
     );
 
@@ -253,18 +257,25 @@ function AskBody({
   let panel: ReactNode = null;
   if (ask.moment === "next_pick") {
     icon = "stamp";
-    lead = `You stamped ${ask.park}!`;
+    // One line: a long park name is cut, never the "You stamped" or "!".
+    lead = (
+      <span className="flex min-w-0">
+        <span className="shrink-0 whitespace-pre">You stamped </span>
+        <span className="truncate">{ask.park}</span>
+        <span className="shrink-0">!</span>
+      </span>
+    );
     line = "Want a new playground to try every week?";
     chips = (
       <>
         {ask.channels.includes("email") ? (
           <button
             type="button"
-            className="chip min-h-11"
+            className={CHIP}
             aria-expanded={open === "email"}
             onClick={() => (onOpened("email"), setOpen("email"))}
           >
-            <Icon name="mail" size={22} /> By email
+            <Icon name="mail" size={18} /> By email
           </button>
         ) : null}
         {ask.channels.includes("text")
@@ -274,16 +285,12 @@ function AskBody({
     );
     if (open === "email")
       panel = (
-        <div className="flex flex-col gap-2">
-          {done ? null : (
-            <p className="leading-snug">
-              {NEWS_NAME}: a playground to try, Thursday mornings.
-            </p>
-          )}
+        <div className="flex flex-col gap-1.5">
           <EmailSignup
             source="next_pick"
-            fine="Unsubscribe anytime."
+            fine={`${NEWS_NAME}, Thursday mornings. Unsubscribe anytime.`}
             inline
+            compact
             autoFocus
             doneText={(first) =>
               first
@@ -292,9 +299,6 @@ function AskBody({
             }
             onDone={() => (setDone(true), onSignedUp("email"))}
           />
-          {!done && ask.channels.includes("text") ? (
-            <TextsLink from="next_pick" />
-          ) : null}
         </div>
       );
   } else if (ask.moment === "rainy_spin") {
@@ -304,11 +308,11 @@ function AskBody({
     chips = (
       <button
         type="button"
-        className="chip min-h-11"
+        className={CHIP}
         aria-expanded={open === "email"}
         onClick={() => (onOpened("email"), setOpen("email"))}
       >
-        <Icon name="mail" size={22} /> Email me Thursdays
+        <Icon name="mail" size={18} /> Email me Thursdays
       </button>
     );
     if (open === "email")
@@ -317,6 +321,7 @@ function AskBody({
           source="rainy_spin"
           fine={server.signedIn ? "Unsubscribe anytime." : PARK_NEWS.fine}
           inline
+          compact
           autoFocus
           doneText={successLine}
           onDone={() => (setDone(true), onSignedUp("email"))}
@@ -329,44 +334,74 @@ function AskBody({
     chips = textChip("weekend_spin", "Get the Weekend Pick");
   }
 
+  // Under an open email field: the text option (Moment 1) beside No thanks.
+  const textInstead =
+    ask.moment === "next_pick" &&
+    open === "email" &&
+    !done &&
+    ask.channels.includes("text") ? (
+      <span className="text-sm leading-snug">
+        Rather get a text?{" "}
+        <Link
+          href="/texts?from=next_pick"
+          className="underline underline-offset-2"
+        >
+          Weekend Pick, on Fridays
+        </Link>
+      </span>
+    ) : null;
+  const noThanks = done ? null : (
+    <button
+      type="button"
+      onClick={onDecline}
+      className="min-h-11 text-sm text-ink-soft underline underline-offset-2"
+    >
+      No thanks
+    </button>
+  );
+  // One column for everything after the icon: lead, line, chips, the
+  // field, the fine print, No thanks and the success line.
   return (
     <section
       ref={ref}
       aria-label="Weekly park picks"
-      className="relative flex flex-col gap-2 rounded-3xl border-2 border-dashed border-ink/30 px-4 py-3"
+      className="relative grid scroll-mb-28 grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5 rounded-2xl border-2 border-dashed border-ink/30 px-3 py-2"
     >
+      <Icon name={icon} size={28} className="mt-0.5" />
+      <div className="flex min-w-0 flex-col gap-1.5">
+        <p className={`min-w-0 leading-snug ${onHide && !done ? "pr-8" : ""}`}>
+          <b className="block font-hand text-xl leading-tight font-normal">
+            {lead}
+          </b>
+          <span className="text-sm">{line}</span>
+        </p>
+        {panel ? (
+          <>
+            {panel}
+            {textInstead || noThanks ? (
+              <div className="-mt-1 flex flex-wrap items-center justify-between gap-x-3">
+                {textInstead}
+                {noThanks}
+              </div>
+            ) : null}
+          </>
+        ) : (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+            {chips}
+            {noThanks}
+          </div>
+        )}
+      </div>
       {onHide && !done ? (
         <button
           type="button"
           onClick={onHide}
           aria-label="Hide for now"
-          className="absolute top-1 right-1 grid size-11 place-items-center text-2xl text-ink-soft"
+          className="absolute top-0 right-0 grid size-11 place-items-center text-2xl text-ink-soft"
         >
           ×
         </button>
       ) : null}
-      <div className="flex items-start gap-3 pr-6">
-        <Icon name={icon} size={34} className="mt-0.5 shrink-0" />
-        <p className="leading-snug">
-          <b className="font-hand text-2xl font-normal">{lead}</b>
-          <br />
-          {line}
-        </p>
-      </div>
-      {panel ?? (
-        <div className="flex flex-wrap items-center gap-2 pl-[46px]">
-          {chips}
-        </div>
-      )}
-      {done ? null : (
-        <button
-          type="button"
-          onClick={onDecline}
-          className="min-h-11 self-start pl-[46px] text-ink-soft underline underline-offset-2"
-        >
-          No thanks
-        </button>
-      )}
       {sheet && server.phone ? (
         <TextsSheet
           moment={ask.moment}
@@ -380,6 +415,9 @@ function AskBody({
     </section>
   );
 }
+
+/** The asks' chips: smaller type than the page's, still a 44px tap target. */
+const CHIP = "chip min-h-11 gap-1.5 px-2.5 py-1 text-sm";
 
 /**
  * The text consent sheet (from next_pick and weekend_spin): the Weekend

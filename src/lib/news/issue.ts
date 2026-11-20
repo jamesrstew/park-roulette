@@ -267,15 +267,38 @@ export const IssueSchema = z.strictObject({
   }),
   plan_b: z
     .strictObject({
-      /** venue: an indoor or covered backup. window: a clear-week timing tip. */
+      /**
+       * venue: the Indoor pick (only when the plan's gate is open).
+       * window: a clear-week timing tip ("Best time to go").
+       */
       kind: z.enum(["venue", "window"]),
       venue_id: z.string().optional(),
       tip_id: z.string().optional(),
-      title: Text(80),
-      text: Text(360),
+      /** Window tips, and Indoor picks from before the v1 layout. */
+      title: Text(80).optional(),
+      text: Text(360).optional(),
+      /** Indoor pick: the day it's for (a disruptive counted day). */
+      for_day: Day.optional(),
+      /** Indoor pick: what kids actually do there (model). */
+      why_kids: Text(220).optional(),
+      /** Indoor pick: that day's hours, as printed (a quote proves them). */
+      hours: Text(80).optional(),
+      /** Indoor pick: a printed price ("$12 for ages 3 to 12") or "Free". */
+      cost: Text(100).optional(),
+      /** Indoor pick: one line on parking, when to arrive or what to pack. */
+      tip: Text(160).optional(),
+      /** Code: "Closer to home" venues on snow and ice days. */
+      closer_to_home: z.array(z.string()).max(3).optional(),
+      /** Code: the third Indoor pick in a row is one short line. */
+      short: z.boolean().optional(),
       evidence: z.array(Evidence).max(3).default([]),
     })
     .optional(),
+  /**
+   * One line on a plan-around weekend: a catalog dress tip (code renders
+   * its words and its "Dress for it" or "Good to know" label).
+   */
+  dress: z.strictObject({ tip_id: z.string() }).optional(),
   heads_up: z.array(HeadsUp).max(4).optional(),
   weekend: z.array(Outing).min(2).max(3).optional(),
   passport: z.strictObject({
@@ -337,12 +360,20 @@ export function issueUnits(issue: Issue): Unit[] {
           u(
             "plan_b",
             false,
-            [issue.plan_b.title, issue.plan_b.text],
+            [
+              issue.plan_b.title,
+              issue.plan_b.text,
+              issue.plan_b.why_kids,
+              issue.plan_b.hours,
+              issue.plan_b.cost,
+              issue.plan_b.tip,
+            ],
             [],
             issue.plan_b.evidence,
           ),
         ]
       : []),
+    ...(issue.dress ? [u("dress", false, [])] : []),
     ...(issue.heads_up ?? []).map((h, i) =>
       u(`heads_up.${i}`, false, [h.text]),
     ),
@@ -392,6 +423,7 @@ export function withoutUnits(issue: Issue, cut: Set<string>): Issue {
         ? { ...issue.weekend_ahead, note: undefined }
         : issue.weekend_ahead,
     meme: cut.has("meme") ? undefined : issue.meme,
+    dress: cut.has("dress") ? undefined : issue.dress,
     heads_up: keep(issue.heads_up, "heads_up"),
     weekend: keep(issue.weekend, "weekend"),
   };

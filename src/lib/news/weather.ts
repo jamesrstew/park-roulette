@@ -3,17 +3,22 @@ import { conditionFromNws } from "@/components/news/WeatherCard";
 import type { ForecastDay } from "./issue";
 import type { DayWeather } from "./plan-types";
 import { addDays, shortDay } from "./time";
+import type { Alert } from "./tiers";
 
 /**
- * The forecast for Bend, Redmond and Sisters from the National Weather
- * Service (api.weather.gov, free, no key, but a User-Agent with a contact
- * is required). Turned into plain labels the plan and validator share.
+ * The forecast for Bend, Redmond, Sisters and La Pine from the National
+ * Weather Service (api.weather.gov, free, no key, but a User-Agent with a
+ * contact is required), plus each town's active alerts. Turned into plain
+ * labels and tiers (tiers.ts) the plan and validator share. Bend gates the
+ * Indoor pick; the other towns are computed and shown, never gated on
+ * (Sisters and La Pine sit in the East Slopes zone, which snows more).
  */
 
 export const TOWNS: Record<string, [number, number]> = {
   Bend: [44.0582, -121.3153],
   Redmond: [44.2726, -121.1739],
   Sisters: [44.291, -121.5492],
+  "La Pine": [43.6704, -121.5036],
 };
 
 export const NWS_USER_AGENT =
@@ -24,7 +29,9 @@ type Period = {
   isDaytime: boolean;
   temperature: number;
   windSpeed?: string;
+  windGust?: string | null;
   shortForecast: string;
+  detailedForecast?: string;
   probabilityOfPrecipitation?: { value: number | null } | null;
 };
 
@@ -169,6 +176,41 @@ export async function fetchForecast(
           `[news] forecast for ${town} failed`,
           (e as Error).message,
         );
+      }
+    }),
+  );
+  return out;
+}
+
+/**
+ * Every town's active NWS alerts (event, onset, ends, expires). A town
+ * that fails is left out; tiers.ts checks each alert against 9 am to 5 pm
+ * of the day it judges.
+ */
+export async function fetchAlerts(
+  fetchImpl: typeof fetch = fetch,
+): Promise<Record<string, Alert[]>> {
+  const out: Record<string, Alert[]> = {};
+  await Promise.all(
+    Object.entries(TOWNS).map(async ([town, [lat, lng]]) => {
+      try {
+        const json = await getJson(
+          `https://api.weather.gov/alerts/active?point=${lat},${lng}`,
+          fetchImpl,
+        );
+        out[town] = (
+          (json.features ?? []) as { properties: Record<string, unknown> }[]
+        ).map(({ properties: p }) => ({
+          event: String(p.event ?? ""),
+          onset:
+            (p.onset as string | null) ??
+            (p.effective as string | null) ??
+            null,
+          ends: (p.ends as string | null) ?? null,
+          expires: (p.expires as string | null) ?? null,
+        }));
+      } catch (e) {
+        console.warn(`[news] alerts for ${town} failed`, (e as Error).message);
       }
     }),
   );

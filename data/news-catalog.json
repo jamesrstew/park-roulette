@@ -452,6 +452,60 @@
       "to": "2027-05-31",
       "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
       "verified": true
+    },
+    {
+      "id": "jcsd-summer-2027",
+      "label": "Jefferson County 509J summer break begins (last student day June 15)",
+      "district": "Jefferson County School District 509J",
+      "from": "2027-06-16",
+      "to": "2027-06-30",
+      "source": "https://www.jcsd.k12.or.us/fs/resource-manager/view/a996e7ec-cdc8-4675-97bd-39bfad322231",
+      "verified": true
+    },
+    {
+      "id": "rsd-summer-2027",
+      "label": "Redmond School District summer break begins (last day June 16, half day)",
+      "district": "Redmond School District",
+      "from": "2027-06-17",
+      "to": "2027-06-30",
+      "source": "https://files.smartsites.parentsquare.com/10836/rsd_-_school_board_calendar_26-27.pdf",
+      "verified": true
+    },
+    {
+      "id": "ccsd-summer-2027",
+      "label": "Crook County School District summer break begins (last day June 17, half day)",
+      "district": "Crook County School District",
+      "from": "2027-06-18",
+      "to": "2027-06-30",
+      "source": "https://www.crookcountyschools.org/wp-content/uploads/2026/07/26-27-School-Event-Calendar-Board-Approved-4-13-26-1.pdf",
+      "verified": true
+    },
+    {
+      "id": "ssd-ses-sms-2027-06-16",
+      "label": "Sisters elementary and middle schools: no school (high school half day, finals)",
+      "district": "Sisters School District",
+      "from": "2027-06-16",
+      "to": "2027-06-16",
+      "source": "https://district.ssd6.org/download/2026-2027-ssd-school-calendar/?wpdmdl=88525",
+      "verified": true
+    },
+    {
+      "id": "ssd-summer-2027",
+      "label": "Sisters School District summer break begins (last day June 16 for high school, June 15 for elementary and middle)",
+      "district": "Sisters School District",
+      "from": "2027-06-17",
+      "to": "2027-08-27",
+      "source": "https://district.ssd6.org/download/2026-2027-ssd-school-calendar/?wpdmdl=88525",
+      "verified": true
+    },
+    {
+      "id": "blps-summer-2027",
+      "label": "Bend-La Pine Schools summer break begins (last day June 17)",
+      "district": "Bend-La Pine Schools",
+      "from": "2027-06-18",
+      "to": "2027-06-30",
+      "source": "https://calendarstates.com/oregon/bend-la-pine-schools/",
+      "verified": false
     }
   ],
   "parks": [
@@ -900,7 +954,15 @@
       "url": "https://www.highdesertmuseum.org/",
       "source": "https://www.highdesertmuseum.org/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 150,
+      "drive_minutes_from_downtown": 15,
+      "cost": "paid",
+      "access_note": "Free wheelchairs at Admissions; all indoor exhibitions wheelchair accessible; motion-sensor entrance doors; 8 accessible parking spaces; KultureCity sensory bags (noise-canceling headphones) and quiet areas.",
+      "hours_url": "https://www.highdesertmuseum.org/visit/visit-bend-oregon/"
     },
     {
       "id": "venue-juniper-swim-fitness",
@@ -917,7 +979,15 @@
       "url": "https://www.bendparksandrec.org/facility/juniper-swim-and-fitness-center/",
       "source": "https://www.bendparksandrec.org/facility/juniper-swim-and-fitness-center/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 5,
+      "cost": "low",
+      "access_note": null,
+      "hours_url": "https://www.bendparksandrec.org/facility/juniper-swim-and-fitness-center/"
     },
     {
       "id": "venue-the-pavilion",
@@ -934,7 +1004,15 @@
       "url": "https://www.bendparksandrec.org/facility/the-pavilion/",
       "source": "https://www.bendparksandrec.org/facility/the-pavilion/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "covered",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 5,
+      "cost": "low",
+      "access_note": "Skate assists and helmets available to borrow. Children under 10 must be accompanied by someone 16 or older (except instructor-led programs).",
+      "hours_url": "https://www.bendparksandrec.org/facility/the-pavilion/"
     },
     {
       "id": "venue-central-library",
@@ -951,7 +1029,15 @@
       "url": "https://www.deschuteslibrary.org/about/libraries/central",
       "source": "https://www.deschuteslibrary.org/about/libraries/central",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 15,
+      "cost": "free",
+      "access_note": "Sensory-Friendly Story Time listed ('A story time for children with diverse sensory needs'); the Nov 20 session was canceled.",
+      "hours_url": "https://www.deschuteslibrary.org/about/libraries/central"
     },
     {
       "id": "venue-deschutes-historical-museum",
@@ -968,7 +1054,15 @@
       "url": "https://www.deschuteshistory.org/",
       "source": "https://www.deschuteshistory.org/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["tue", "wed", "thu", "fri", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 5,
+      "cost": "low",
+      "access_note": "Two accessible parking spaces near the entrance; free manual wheelchair (call to reserve); elevator to second floor; restrooms with changing tables.",
+      "hours_url": "https://www.deschuteshistory.org/visit-us/"
     },
     {
       "id": "venue-bend-rock-gym",
@@ -985,7 +1079,15 @@
       "url": "https://www.bendrockgym.com/",
       "source": "https://www.bendrockgym.com/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "Ages 4 and up",
+      "visit_minutes": 120,
+      "drive_minutes_from_downtown": 10,
+      "cost": "paid",
+      "access_note": null,
+      "hours_url": "https://www.bendrockgym.com/"
     },
     {
       "id": "venue-circuit-bouldering-bend",
@@ -1002,7 +1104,15 @@
       "url": "https://www.thecircuitgym.com/bend",
       "source": "https://www.thecircuitgym.com/bend",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 10,
+      "cost": "paid",
+      "access_note": null,
+      "hours_url": "https://www.thecircuitgym.com/bend"
     },
     {
       "id": "venue-trampoline-zone",
@@ -1019,7 +1129,15 @@
       "url": "https://tzbend.com/",
       "source": "https://tzbend.com/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 10,
+      "cost": "paid",
+      "access_note": null,
+      "hours_url": "https://tzbend.com/"
     },
     {
       "id": "venue-cascade-indoor-sports",
@@ -1036,7 +1154,15 @@
       "url": "https://cascadeindoorsports.com/",
       "source": "https://cascadeindoorsports.com/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat"],
+      "ages_label": "Ages 3 and up",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 10,
+      "cost": "paid",
+      "access_note": null,
+      "hours_url": "https://cascadeindoorsports.com/bigger-play-thing-hours/"
     },
     {
       "id": "venue-free-spirit-bend",
@@ -1053,7 +1179,16 @@
       "url": "https://freespirityoganinjaplay.com/",
       "source": "https://freespirityoganinjaplay.com/locations/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["tue", "thu", "fri", "sat", "sun"],
+      "ages_label": "Ages 10 months to 13 years",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 5,
+      "cost": "paid",
+      "access_note": null,
+      "hours_url": "https://freespirityoganinjaplay.com/bend-or/",
+      "note": "Its site prints no open-play price (checked November 20, 2026): the Indoor pick's Cost line needs a price quoted from its page, or this venue gets cut."
     },
     {
       "id": "venue-sun-mountain-fun-center",
@@ -1070,7 +1205,15 @@
       "url": "https://sunmountainfun.com/",
       "source": "https://sunmountainfun.com/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 120,
+      "drive_minutes_from_downtown": 10,
+      "cost": "paid",
+      "access_note": null,
+      "hours_url": "https://sunmountainfun.com/"
     },
     {
       "id": "venue-the-hub-redmond",
@@ -1087,7 +1230,15 @@
       "url": "https://www.raprd.org/the-hub",
       "source": "https://www.raprd.org/the-hub",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 25,
+      "cost": "low",
+      "access_note": null,
+      "hours_url": "https://www.raprd.org/the-hub"
     },
     {
       "id": "venue-redmond-library",
@@ -1104,7 +1255,15 @@
       "url": "https://www.deschuteslibrary.org/about/libraries/redmond",
       "source": "https://www.deschuteslibrary.org/kids/programs",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 25,
+      "cost": "free",
+      "access_note": null,
+      "hours_url": "https://www.deschuteslibrary.org/about/libraries/redmond"
     },
     {
       "id": "venue-little-bug-play-hub",
@@ -1122,7 +1281,16 @@
       "source": "https://littlebugplayhub.com/",
       "verified": false,
       "verified_on": "2026-11-19",
-      "why_unverified": "Official site names Redmond but its contact page shows a Texas template address, so the street address could not be confirmed."
+      "why_unverified": "Official site names Redmond but its contact page shows a Texas template address, so the street address could not be confirmed.",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+      "ages_label": "Ages 0 to 7",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 25,
+      "cost": "paid",
+      "access_note": null,
+      "hours_url": "https://littlebugplayhub.com/play",
+      "note": "Unverified: its site still has a template footer (a Texas address) and 'Coming Soon' hours. A Redmond Spokesman story (November 29, 2023) gives 522 SW 6th Street; confirm by hand before verifying."
     },
     {
       "id": "venue-sisters-library",
@@ -1139,7 +1307,15 @@
       "url": "https://www.deschuteslibrary.org/about/libraries/sisters",
       "source": "https://www.deschuteslibrary.org/kids/programs",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["tue", "wed", "thu", "fri", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 30,
+      "cost": "free",
+      "access_note": null,
+      "hours_url": "https://www.deschuteslibrary.org/about/libraries/sisters"
     },
     {
       "id": "venue-sharc",
@@ -1156,7 +1332,16 @@
       "url": "https://www.sunriversharc.com/facility-activities/indoor-aquatics",
       "source": "https://www.sunriversharc.com/facility-activities/indoor-aquatics",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": [],
+      "ages_label": "All ages",
+      "visit_minutes": 120,
+      "drive_minutes_from_downtown": 25,
+      "cost": "paid",
+      "access_note": null,
+      "hours_url": "https://www.sunriversharc.com/facility-activities/indoor-aquatics",
+      "note": "sunriversharc.com blocks automated readers (403), so its hours couldn't be checked: no open days listed until checked by hand."
     },
     {
       "id": "venue-sunriver-nature-center",
@@ -1164,7 +1349,7 @@
       "town": "Sunriver",
       "address": "57245 River Rd, Sunriver, OR 97707",
       "kind": "nature_center",
-      "covered": true,
+      "covered": false,
       "fit": "both",
       "what": "A nature center and observatory where kids explore nature and can look at the sun through telescopes during solar viewing.",
       "weather": ["rain", "cold", "wind"],
@@ -1172,8 +1357,17 @@
       "story_time": false,
       "url": "https://www.snco.org/",
       "source": "https://www.snco.org/",
-      "verified": true,
-      "verified_on": "2026-11-19"
+      "verified": false,
+      "verified_on": "2026-11-19",
+      "enclosure": "covered",
+      "open_days": ["wed", "thu", "fri", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 25,
+      "cost": "low",
+      "access_note": null,
+      "hours_url": "https://www.snco.org/hours-admission",
+      "note": "Building closed for remodeling from December 1, 2026, no reopening date posted (snco.org, checked November 20, 2026). Mostly outdoors."
     },
     {
       "id": "venue-sunriver-library",
@@ -1190,7 +1384,15 @@
       "url": "https://www.deschuteslibrary.org/about/libraries/sunriver",
       "source": "https://www.deschuteslibrary.org/kids/programs",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["tue", "wed", "thu", "fri", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 25,
+      "cost": "free",
+      "access_note": null,
+      "hours_url": "https://www.deschuteslibrary.org/about/libraries/sunriver"
     },
     {
       "id": "venue-la-pine-library",
@@ -1207,7 +1409,15 @@
       "url": "https://www.deschuteslibrary.org/about/libraries/lapine",
       "source": "https://www.deschuteslibrary.org/kids/programs",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["tue", "wed", "thu", "fri", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 35,
+      "cost": "free",
+      "access_note": null,
+      "hours_url": "https://www.deschuteslibrary.org/about/libraries/lapine"
     },
     {
       "id": "venue-bowman-museum",
@@ -1224,7 +1434,16 @@
       "url": "https://crookcountyhistorycenter.org/",
       "source": "https://crookcountyhistorycenter.org/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["tue", "wed", "thu", "fri", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 40,
+      "cost": "free",
+      "access_note": null,
+      "hours_url": "https://crookcountyhistorycenter.org/",
+      "note": "Closed all of January (its own page). Free admission."
     },
     {
       "id": "venue-crook-county-library",
@@ -1241,7 +1460,15 @@
       "url": "https://crooklibraryor.gov/",
       "source": "https://crooklibraryor.gov/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "fri", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 40,
+      "cost": "free",
+      "access_note": null,
+      "hours_url": "https://crooklibraryor.gov/"
     },
     {
       "id": "venue-mac-madras",
@@ -1258,7 +1485,15 @@
       "url": "https://www.macrecdistrict.com/",
       "source": "https://www.macrecdistrict.com/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["sat", "sun"],
+      "ages_label": "All ages",
+      "visit_minutes": 90,
+      "drive_minutes_from_downtown": 50,
+      "cost": "low",
+      "access_note": null,
+      "hours_url": "https://www.macrecdistrict.com/aquatic-schedule"
     },
     {
       "id": "venue-jefferson-county-library",
@@ -1275,7 +1510,15 @@
       "url": "https://www.jcld.org/",
       "source": "https://www.jcld.org/",
       "verified": true,
-      "verified_on": "2026-11-19"
+      "verified_on": "2026-11-19",
+      "enclosure": "indoor",
+      "open_days": ["mon", "tue", "wed", "thu", "sat"],
+      "ages_label": "All ages",
+      "visit_minutes": 60,
+      "drive_minutes_from_downtown": 50,
+      "cost": "free",
+      "access_note": null,
+      "hours_url": "https://www.jcld.org/locations-hours"
     }
   ],
   "event_series": [
@@ -1664,10 +1907,10 @@
     },
     {
       "id": "rink-season",
-      "label": "The ice rink is open in winter",
+      "label": "The ice rink is open from late October to early April",
       "match": ["ice rink", "pavilion", "skating"],
       "with": ["open", "season", "back"],
-      "months": [11, 12, 1, 2]
+      "months": [10, 11, 12, 1, 2, 3]
     },
     {
       "id": "outdoor-pools-off",
@@ -1678,10 +1921,371 @@
     },
     {
       "id": "smoke-season",
-      "label": "Wildfire smoke is possible in late summer",
+      "label": "Wildfire smoke is possible from July to October",
       "match": ["smoke", "wildfire"],
       "with": ["possible", "season", "may", "could"],
+      "months": [7, 8, 9, 10]
+    },
+    {
+      "id": "early-dark",
+      "label": "It gets dark early after daylight saving time ends",
+      "match": ["dark early", "gets dark", "early sunset", "sunset at"],
+      "with": [],
+      "months": [11, 12, 1]
+    },
+    {
+      "id": "freezing-fog",
+      "label": "Freezing fog and inversions in winter",
+      "match": ["freezing fog", "inversion"],
+      "with": [],
+      "months": [11, 12, 1, 2]
+    },
+    {
+      "id": "woodsmoke",
+      "label": "Woodsmoke haze some winter mornings",
+      "match": ["woodsmoke", "wood smoke"],
+      "with": [],
+      "months": [11, 12, 1, 2]
+    },
+    {
+      "id": "mud-season",
+      "label": "Muddy trails in spring",
+      "match": ["mud", "muddy"],
+      "with": [],
+      "months": [3, 4]
+    },
+    {
+      "id": "prescribed-burns",
+      "label": "Prescribed-burn smoke in spring and fall",
+      "match": ["prescribed burn", "prescribed fire", "controlled burn"],
+      "with": [],
+      "months": [4, 5, 9, 10]
+    },
+    {
+      "id": "pine-pollen",
+      "label": "Pine pollen in late May and June",
+      "match": ["pollen"],
+      "with": [],
+      "months": [5, 6]
+    },
+    {
+      "id": "mosquitoes",
+      "label": "Mosquitoes by the river in early summer",
+      "match": ["mosquito", "mosquitoes"],
+      "with": [],
+      "months": [6, 7]
+    },
+    {
+      "id": "fireworks-ban",
+      "label": "Fourth of July fireworks bans",
+      "match": ["fireworks"],
+      "with": ["ban", "banned", "not allowed", "prohibited"],
+      "months": [6, 7]
+    },
+    {
+      "id": "fire-restrictions",
+      "label": "Fire restrictions in summer",
+      "match": [
+        "fire restriction",
+        "fire restrictions",
+        "burn ban",
+        "campfire"
+      ],
+      "with": [],
       "months": [7, 8, 9]
+    }
+  ],
+  "dress_tips": [
+    {
+      "id": "dress-mittens",
+      "text": "Mittens beat gloves for kids under 5. Pack a spare pair for wet slides.",
+      "label": "Dress for it",
+      "triggers": ["cold", "snow"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-thin-layers",
+      "text": "Three thin layers beat one puffy coat: kids can shed one when they warm up on the climbers.",
+      "label": "Dress for it",
+      "triggers": ["cold"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-hand-warmers",
+      "text": "Keep a few hand warmers in the car, and slip one into each mitten for the walk back.",
+      "label": "Dress for it",
+      "triggers": ["cold", "snow"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-thermos",
+      "text": "A thermos of warm cocoa turns a 30-minute park stop into an hour.",
+      "label": "Dress for it",
+      "triggers": ["cold", "snow", "wind"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-slide-towel",
+      "text": "Bring a small towel to dry frosty slides and swing seats before the first ride.",
+      "label": "Dress for it",
+      "triggers": ["cold", "snow", "rain"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-dry-socks",
+      "text": "Leave dry socks and a spare hat in the car for the ride home.",
+      "label": "Dress for it",
+      "triggers": ["snow", "cold", "rain"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-neck-gaiter",
+      "text": "A neck gaiter stays put on slides and climbers; a long scarf can catch.",
+      "label": "Dress for it",
+      "triggers": ["cold", "wind"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-snow-pants",
+      "text": "Snow or rain pants over leggings keep knees dry on slides, sleds and wet benches.",
+      "label": "Dress for it",
+      "triggers": ["snow", "rain"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-boots",
+      "text": "Snow boots, not sneakers: wood chips and paths stay slushy well past noon.",
+      "label": "Dress for it",
+      "triggers": ["snow"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-wind-shell",
+      "text": "On a gusty day, a thin wind shell over a fleece keeps kids warmer than a heavier coat.",
+      "label": "Dress for it",
+      "triggers": ["wind", "cold"],
+      "months": [10, 11, 12, 1, 2, 3, 4, 5],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-hat-ears",
+      "text": "A hat that covers the ears matters more than a thicker jacket when the wind picks up.",
+      "label": "Dress for it",
+      "triggers": ["wind", "cold"],
+      "months": [10, 11, 12, 1, 2, 3, 4, 5],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-snow-glare",
+      "text": "Sun on fresh snow is bright: sunglasses or a brimmed hat help small eyes.",
+      "label": "Dress for it",
+      "triggers": ["snow"],
+      "months": [11, 12, 1, 2, 3],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "dress-rain-boots",
+      "text": "Rain boots and a hooded shell: showers pass, and the puddles are half the fun.",
+      "label": "Dress for it",
+      "triggers": ["rain"],
+      "months": [10, 11, 12, 1, 2, 3, 4, 5, 6],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "know-heat-morning",
+      "text": "Go before 11 am: slides and dark surfaces heat up fast in the afternoon sun.",
+      "label": "Good to know",
+      "triggers": ["heat"],
+      "months": [6, 7, 8, 9],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "know-heat-water",
+      "text": "Bring a full water bottle for each kid, and take breaks in the shade between rounds.",
+      "label": "Good to know",
+      "triggers": ["heat"],
+      "months": [5, 6, 7, 8, 9],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "know-heat-hat",
+      "text": "Put on sunscreen and a brimmed hat before you leave; shade slides off most play structures by 1 pm.",
+      "label": "Good to know",
+      "triggers": ["heat"],
+      "months": [6, 7, 8, 9],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "know-air-moderate",
+      "text": "Air quality Moderate: unusually sensitive kids may need shorter, easier play. Everyone else can play as usual.",
+      "label": "Good to know",
+      "triggers": ["smoke"],
+      "months": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "know-air-check",
+      "text": "Air quality can change by the hour in smoke season: check AirNow before you head out.",
+      "label": "Good to know",
+      "triggers": ["smoke"],
+      "months": [6, 7, 8, 9, 10],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "know-thunder-car",
+      "text": "When thunder roars, head to the car, and wait 30 minutes after the last rumble before going back.",
+      "label": "Good to know",
+      "triggers": ["thunder"],
+      "months": [5, 6, 7, 8, 9],
+      "source": null,
+      "verified": true
+    },
+    {
+      "id": "know-thunder-morning",
+      "text": "Summer storms here build in the afternoon: plan the playground for the morning.",
+      "label": "Good to know",
+      "triggers": ["thunder"],
+      "months": [5, 6, 7, 8, 9],
+      "source": null,
+      "verified": true
+    }
+  ],
+  "season_calendar": [
+    {
+      "month": 1,
+      "theme": "Snow play",
+      "normal": [
+        "icy play equipment",
+        "closed park restrooms",
+        "early dark",
+        "freezing fog and inversions"
+      ],
+      "tip": "Sunny midday parks"
+    },
+    {
+      "month": 2,
+      "theme": "Snow; Presidents Day",
+      "normal": ["icy play equipment", "closed park restrooms", "early dark"],
+      "tip": "Sled hills"
+    },
+    {
+      "month": 3,
+      "theme": "Snow and mud; spring break",
+      "normal": [
+        "muddy trails",
+        "drinking fountains off",
+        "late snow (March still averages a few inches)"
+      ],
+      "tip": "Parks that drain"
+    },
+    {
+      "month": 4,
+      "theme": "Wind and mud",
+      "normal": [
+        "gusty afternoons",
+        "Sno-Park permits through April 30",
+        "The Pavilion switches to roller skating mid-April"
+      ],
+      "tip": "Sheltered parks"
+    },
+    {
+      "month": 5,
+      "theme": "Green-up",
+      "normal": [
+        "frosty mornings",
+        "spring prescribed-burn smoke on the west side"
+      ],
+      "tip": "Layers for a 30-degree swing"
+    },
+    {
+      "month": 6,
+      "theme": "Splash pads; school's out",
+      "normal": [
+        "pine pollen (yellow dust, about May 25 to June 15)",
+        "river mosquitoes",
+        "frost still possible on early mornings"
+      ],
+      "tip": "Morning splash"
+    },
+    {
+      "month": 7,
+      "theme": "Shade and water",
+      "normal": [
+        "afternoon thunderstorms",
+        "hot slides",
+        "smoke possible",
+        "Fourth of July fireworks bans"
+      ],
+      "tip": "Go before 11 am"
+    },
+    {
+      "month": 8,
+      "theme": "Smoke watch",
+      "normal": ["smoke season", "fire restrictions"],
+      "tip": "The AirNow check"
+    },
+    {
+      "month": 9,
+      "theme": "Back to school",
+      "normal": ["smoke likely in bad years", "splash pads ending"],
+      "tip": "Evening parks"
+    },
+    {
+      "month": 10,
+      "theme": "Leaves, frost",
+      "normal": [
+        "outdoor pools closed",
+        "fall prescribed-burn smoke",
+        "first snow possible late in the month"
+      ],
+      "tip": "Leaf piles"
+    },
+    {
+      "month": 11,
+      "theme": "First snow; Thanksgiving break",
+      "normal": [
+        "Sno-Park permits",
+        "early dark after daylight saving time ends",
+        "freezing fog"
+      ],
+      "tip": "Dry socks"
+    },
+    {
+      "month": 12,
+      "theme": "Winter break",
+      "normal": [
+        "rink season",
+        "inversions and freezing fog",
+        "woodsmoke haze some mornings (La Pine especially)"
+      ],
+      "tip": "Pavilion skate"
     }
   ]
 }
