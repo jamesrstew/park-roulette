@@ -6,7 +6,12 @@ import { ErrorLine } from "@/components/ErrorLine";
 import { Icon } from "@/components/icons";
 import { signUpForEmail, stopParkNews } from "@/lib/client-actions";
 import type { SignupSource } from "@/lib/news/subscribers";
-import { cleanEmail, PARK_NEWS, suggestEmail } from "@/lib/park-news";
+import {
+  cleanEmail,
+  PARK_NEWS,
+  successLine,
+  suggestEmail,
+} from "@/lib/park-news";
 import { sfx } from "@/lib/sound";
 
 /**
@@ -21,7 +26,9 @@ export function EmailSignup({
   fine = PARK_NEWS.fine,
   inline = false,
   autoFocus = false,
+  onOpen,
   onDone,
+  doneText,
 }: {
   source: SignupSource;
   initial?: string;
@@ -30,8 +37,15 @@ export function EmailSignup({
   /** Field and button side by side on wider screens (the footer). */
   inline?: boolean;
   autoFocus?: boolean;
-  /** Called after a good reply, with the address (settings, onboarding). */
-  onDone?: (email: string) => void;
+  /** The first time the field gets focus or a keystroke (asks: a tap). */
+  onOpen?: () => void;
+  /**
+   * Called after a good reply, with the address and the first issue's
+   * day ("Thursday, December 3"), when the caller shows its own success.
+   */
+  onDone?: (email: string, firstIssue: string | null) => void;
+  /** The success line, from the first issue's day (default successLine). */
+  doneText?: (firstIssue: string | null) => string;
 }) {
   const id = useId();
   const [email, setEmail] = useState(initial);
@@ -40,7 +54,13 @@ export function EmailSignup({
   /** Offer the typo fix once; a second press sends it as typed. */
   const [hinted, setHinted] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [done, setDone] = useState<{ first: string | null } | null>(null);
+  const [opened, setOpened] = useState(false);
+  const open = () => {
+    if (opened) return;
+    setOpened(true);
+    onOpen?.();
+  };
   const [pending, start] = useTransition();
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,17 +76,20 @@ export function EmailSignup({
       const r = await signUpForEmail(email, source, trap);
       if (!r.ok) return (sfx.oops(), setError(r.error));
       sfx.pop();
-      setDone(true);
-      onDone?.(cleanEmail(email) ?? email);
+      const first = r.firstIssue ?? null;
+      setDone({ first });
+      onDone?.(cleanEmail(email) ?? email, first);
     });
   };
-  if (done && !onDone)
+  // Callers with their own success (settings) pass onDone alone; callers
+  // that only want to hear about it (asks) pass doneText too.
+  if (done && (!onDone || doneText))
     return (
       <p
         role="status"
         className="flex animate-pop-in items-center gap-2 font-hand text-xl leading-snug"
       >
-        <Icon name="mail" size={28} /> {PARK_NEWS.success}
+        <Icon name="mail" size={28} /> {(doneText ?? successLine)(done.first)}
       </p>
     );
   return (
@@ -87,10 +110,12 @@ export function EmailSignup({
           maxLength={254}
           placeholder="you@example.com"
           autoFocus={autoFocus}
+          onFocus={open}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-err` : `${id}-fine`}
           value={email}
           onChange={(e) => {
+            open();
             setEmail(e.target.value);
             setHint(null);
             setHinted(false);
@@ -219,11 +244,11 @@ function EmailRow({ email, trusted }: { email: EmailState; trusted: boolean }) {
             initial={address ?? ""}
             fine="Unsubscribe anytime."
             autoFocus
-            onDone={(a) => {
+            onDone={(a, first) => {
               setMode("view");
               setStopped(false);
               setChangedTo(a);
-              setSaved(PARK_NEWS.success);
+              setSaved(successLine(first));
             }}
           />
           <button

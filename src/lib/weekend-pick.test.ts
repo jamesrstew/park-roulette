@@ -6,6 +6,9 @@ import {
   confirmWindowOpen,
   dryRunText,
   fitWords,
+  parkCode,
+  parkIdFromCode,
+  shortLink,
   guardrailTrips,
   hookFor,
   SITE,
@@ -18,6 +21,7 @@ import {
 } from "./weekend-pick";
 
 const park = (over: Partial<Parameters<typeof composeText>[0]> = {}) => ({
+  id: 1234,
   name: "Wildflower Park",
   city: "Bend",
   slug: "wildflower-park-bend",
@@ -30,7 +34,7 @@ describe("the Weekend Pick text", () => {
   it("follows the template, in GSM-7, 160 characters at most", () => {
     const t = composeText(park(), null, 12)!;
     expect(t).toBe(
-      "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/parks/wildflower-park-bend Reply STOP to opt out",
+      "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/w/ya Reply STOP to opt out",
     );
     expect(textProblems(t)).toBeNull();
     const snowy = composeText(
@@ -113,7 +117,7 @@ describe("the Weekend Pick text", () => {
   it("drops the weather word rather than the week (M1)", () => {
     // 146 characters without the word, 161 with it.
     const p = park({
-      name: "B".repeat(34),
+      name: "B".repeat(42),
       slug: "b-bend",
       features: ["toddler_area"],
     });
@@ -130,11 +134,24 @@ describe("the Weekend Pick text", () => {
       ),
     ).toContain("Sunny weekend?");
   });
+  it("links with our own short link, base 36 of the park id", () => {
+    expect(parkCode(1234)).toBe("ya");
+    expect(parkIdFromCode("ya")).toBe(1234);
+    expect(shortLink(1234)).toBe("https://parkroulette.quest/w/ya");
+    for (const bad of ["", "0", "00a", "YA", "abcde", "a-b", "../x"])
+      expect(parkIdFromCode(bad), bad).toBeNull();
+    // The old long park link no longer passes the checks.
+    expect(
+      textProblems(
+        "Park Roulette: Weekend Pick: X, Bend. Swings. https://parkroulette.quest/parks/x Reply STOP to opt out",
+      ),
+    ).toMatch(/short link/);
+  });
   it("counts septets and maps curly quotes and dashes to ASCII (L2)", () => {
     expect(septets("abc")).toBe(3);
     expect(septets("a[b]~")).toBe(8);
     // 160 characters, but "[" takes two septets: 161.
-    const t = `Park Roulette: [ ${SITE}/parks/a ${"x".repeat(86)} Reply STOP to opt out`;
+    const t = `Park Roulette: [ ${SITE}/w/a ${"x".repeat(90)} Reply STOP to opt out`;
     expect(t.length).toBe(160);
     expect(textProblems(t)).toBe("over 160 characters");
     const curly = composeText(
@@ -150,14 +167,14 @@ describe("the Weekend Pick text", () => {
     expect(dryRunText(short)).toBe(`[Dry run] ${short}`);
     const long = composeText(
       park({
-        name: "B".repeat(40),
+        name: "B".repeat(47),
         slug: "b-bend",
         features: ["toddler_area"],
       }),
       null,
       1,
     )!;
-    expect(long.length).toBe(152);
+    expect(long.length).toBe(151);
     expect(dryRunText(long)).toBe(long);
   });
 });

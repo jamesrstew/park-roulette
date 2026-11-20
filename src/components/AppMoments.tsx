@@ -94,6 +94,7 @@ export function AppMoments({ signedIn }: { signedIn: boolean }) {
   return (
     <div
       role="status"
+      data-overlay
       className="doodle-box fixed inset-x-4 top-[max(env(safe-area-inset-top),1rem)] z-[1100] mx-auto max-w-md animate-pop-in bg-[#fffdf7] px-4 py-3 text-center shadow-[3px_4px_0_#2b2a33]"
     >
       <p className="font-hand text-2xl">

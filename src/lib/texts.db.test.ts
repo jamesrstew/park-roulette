@@ -250,6 +250,52 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
         .then(async () => expect(await at(), status).toBe(want));
   });
 
+  it("confirms by MMS with our contact card, and by plain SMS if Twilio refuses the media", async () => {
+    const calls: URLSearchParams[] = [];
+    twilio(() => Response.json({ sid: "SMok" }, { status: 201 }));
+    globalThis.fetch = (async (_u: RequestInfo | URL, init?: RequestInit) => {
+      const p = new URLSearchParams(String(init?.body));
+      calls.push(p);
+      // The media is refused; the plain text goes.
+      return p.get("MediaUrl")
+        ? Response.json({ code: 21620 }, { status: 400 })
+        : Response.json({ sid: "SMsms" }, { status: 201 });
+    }) as typeof fetch;
+    expect(await store.optIn(A, "texts_page", details, DAY)).toBe("on");
+    expect(calls).toHaveLength(2);
+    expect(calls[0].get("MediaUrl")).toBe(
+      "https://parkroulette.quest/park-roulette.vcf",
+    );
+    expect(calls[0].get("Body")).toContain("Tap the card to save us");
+    expect(calls[1].get("MediaUrl")).toBeNull();
+    expect(calls[1].get("Body")).toBe(
+      "Park Roulette: You're in! 1 weekend playground pick a week, Fridays (up to 5/mo). Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+    );
+    expect(await store.confirmedForTexts(A)).toBe(true);
+
+    // The MMS goes: one text, with the card.
+    calls.length = 0;
+    globalThis.fetch = (async (_u: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(new URLSearchParams(String(init?.body)));
+      return Response.json({ sid: "SMmms" }, { status: 201 });
+    }) as typeof fetch;
+    expect(await store.optIn(B, "texts_page", details, DAY)).toBe("on");
+    expect(calls).toHaveLength(1);
+    expect(calls[0].get("MediaUrl")).toContain("/park-roulette.vcf");
+
+    // A STOP Twilio already has (21610) is never retried as SMS.
+    await q("truncate contact_consents, sms_opt_outs restart identity");
+    calls.length = 0;
+    globalThis.fetch = (async (_u: RequestInfo | URL, init?: RequestInit) => {
+      calls.push(new URLSearchParams(String(init?.body)));
+      return Response.json({ code: 21610 }, { status: 400 });
+    }) as typeof fetch;
+    expect(await store.optIn(A, "texts_page", details, DAY)).toBe(
+      "needs_start",
+    );
+    expect(calls).toHaveLength(1);
+  });
+
   it("records delivery reports, signed, and turns off numbers that can't get texts (H1)", async () => {
     await store.optIn(A, "texts_page", details);
     await store.optIn(B, "texts_page", details);

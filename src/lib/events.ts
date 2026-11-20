@@ -4,6 +4,9 @@
  * tied to a person, or anything a person typed. (Vercel Pro allows two
  * properties per event.)
  *
+ * Directions from a spin result carries {from: "spin", ask: "yes" | "no"}:
+ * whether an ask was showing under the result (the Let's go! guardrail).
+ *
  * The funnel: Code requested → Number verified → Family started / Joined a
  * family → Spin → Stamped (first: yes) → Review saved → Invite shared.
  */
@@ -27,6 +30,14 @@ export const EVENTS = {
   emailSignup: "Email signup",
   /** Weekend texts, with a `source`. */
   textSignup: "Text signup",
+  /**
+   * Ask moments (lib/asks.ts), each with {moment, channel}: moment is
+   * next_pick, rainy_spin or weekend_spin; channel is email, text or both.
+   * Shown once a day per moment, when the row is half on screen.
+   */
+  askShown: "Ask shown",
+  askOpened: "Ask opened",
+  askDeclined: "Ask declined",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

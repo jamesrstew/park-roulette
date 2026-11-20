@@ -68,8 +68,9 @@ export function confirmationsEnabled(): boolean {
 export const TWILIO_STOPPED = 21610;
 /** Delivery errors that mean the number can't get texts (off, not listed). */
 export const UNREACHABLE = new Set([30003, 30005, 30006]);
-/** Delivery errors James hears about (carrier filtering, unknown). */
-export const ALERT_CODES = new Set([30007, 30008]);
+/** Delivery errors James hears about (carrier filtering, unknown, and the
+ * contact card failing to fetch or deliver as MMS). */
+export const ALERT_CODES = new Set([30007, 30008, 11200, 12300, 30019]);
 
 export type SendResult =
   | { ok: true; sid?: string; logged?: boolean }
@@ -198,7 +199,7 @@ export async function optIn(
     await note(phone, "confirmation_pending", source, details);
     return "on";
   }
-  const sent = await sendText(phone, TEXTS.confirmation, { enabled: true });
+  const sent = await sendConfirmation(phone);
   if (sent.ok) {
     await note(phone, "confirmation_sent", source, {
       ...details,
@@ -318,9 +319,7 @@ export async function sendPendingConfirmations(
       out.waiting++;
       continue;
     }
-    const sent = await sendText(address, TEXTS.confirmation, {
-      enabled: true,
-    });
+    const sent = await sendConfirmation(address);
     if (sent.ok) {
       await note(address, "confirmation_sent", "held_until_live", {
         path: "held",
@@ -440,10 +439,28 @@ export async function noteTextSent(phone: string): Promise<void> {
  * at Twilio) puts it on our STOP list too. Delivery status comes back on
  * /api/texts/status.
  */
+/** Our contact card, the confirmation's MMS media. */
+export const VCARD_URL = `${SITE_URL}/park-roulette.vcf`;
+
+/**
+ * The confirmation: an MMS with our contact card, so families can save the
+ * number. If Twilio refuses the media (anything but 21610, a 5xx or a
+ * timeout), the plain SMS confirmation goes instead.
+ */
+export async function sendConfirmation(phone: string): Promise<SendResult> {
+  const mms = await sendText(phone, TEXTS.confirmation, {
+    enabled: true,
+    mediaUrl: VCARD_URL,
+  });
+  if (mms.ok || mms.temporary || mms.code === TWILIO_STOPPED) return mms;
+  console.warn(`[texts] confirmation MMS refused (${mms.why}); sending SMS`);
+  return sendText(phone, TEXTS.confirmationSms, { enabled: true });
+}
+
 export async function sendText(
   to: string,
   body: string,
-  { enabled }: { enabled: boolean },
+  { enabled, mediaUrl }: { enabled: boolean; mediaUrl?: string },
 ): Promise<SendResult> {
   if (!enabled || !process.env.TWILIO_TEXTS_SERVICE_SID) {
     console.info(
@@ -468,6 +485,7 @@ export async function sendText(
           MessagingServiceSid: process.env.TWILIO_TEXTS_SERVICE_SID!,
           Body: body,
           StatusCallback: `${SITE_URL}/api/texts/status`,
+          ...(mediaUrl ? { MediaUrl: mediaUrl } : {}),
         }),
         signal: AbortSignal.timeout(10_000),
         cache: "no-store",

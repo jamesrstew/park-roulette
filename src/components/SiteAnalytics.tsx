@@ -6,6 +6,8 @@ import { useEffect } from "react";
 import { URL_EVENTS } from "@/lib/events";
 import { trackEvent } from "@/lib/events-client";
 import { analyticsPath, analyticsUrl } from "@/lib/analytics-url";
+import { ASKS_KEY, parseState, recordOn } from "@/lib/asks";
+import { storage } from "@/lib/storage";
 
 /**
  * Vercel Web Analytics: counts page views with no cookies. We hand it the
@@ -15,7 +17,21 @@ import { analyticsPath, analyticsUrl } from "@/lib/analytics-url";
 export function SiteAnalytics() {
   const clean = analyticsPath(usePathname() ?? "/");
   // Events from actions that redirected (?ev=start-home): record once, drop.
-  const evKey = useSearchParams().get("ev");
+  const params = useSearchParams();
+  const evKey = params.get("ev");
+  const via = params.get("via");
+  // An arrival from an email link (/n/ adds ?via=email): this browser gets
+  // the email, so the ask moments never offer it (lib/asks.ts). Then drop it.
+  useEffect(() => {
+    if (via !== "email") return;
+    storage.set(
+      ASKS_KEY,
+      JSON.stringify(recordOn(parseState(storage.get(ASKS_KEY)), "email")),
+    );
+    const url = new URL(window.location.href);
+    url.searchParams.delete("via");
+    window.history.replaceState(window.history.state, "", url);
+  }, [via]);
   useEffect(() => {
     if (!evKey) return;
     if (Object.prototype.hasOwnProperty.call(URL_EVENTS, evKey)) {

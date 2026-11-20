@@ -74,6 +74,16 @@ export const explorers = pgTable(
     emailToken: text("email_token").unique(),
     /** Answered the one-time park news card (yes or no thanks). */
     parkNewsAskedAt: timestamp("park_news_asked_at", { withTimezone: true }),
+    /**
+     * "No thanks" to the weekly picks, per channel, from an ask moment
+     * (lib/asks.ts): never offered that channel again, on any phone.
+     */
+    picksEmailDeclinedAt: timestamp("picks_email_declined_at", {
+      withTimezone: true,
+    }),
+    picksTextDeclinedAt: timestamp("picks_text_declined_at", {
+      withTimezone: true,
+    }),
     /** Can moderate: hide reviews, settle park fixes. Set by hand. */
     isAdmin: boolean("is_admin").notNull().default(false),
     /** When this grown-up agreed to the Terms and Privacy Policy. */

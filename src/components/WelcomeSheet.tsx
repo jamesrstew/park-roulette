@@ -11,15 +11,13 @@ import { CRAYONS, crayon } from "@/lib/crayons";
 import { sfx } from "@/lib/sound";
 import { storage } from "@/lib/storage";
 import { PHONE_NUDGE_KEY } from "./PhoneNudge";
-import { PicksSheetPage } from "./PicksSheetPage";
-import { dismissParkNews } from "@/lib/client-actions";
-import { normalizeUSPhone } from "@/lib/phone-format";
 
 /**
  * Shown once on /?welcome=1 right after joining. Page 1 greets the new
  * explorer with confetti and a 3-line how-to; page 2 (if they have no number
  * yet) asks for their phone, which is how they'll sign in anywhere later.
- * Then "Make it an app!".
+ * Then "Make it an app!". (The weekly picks ask moved to after a first
+ * outing: "You stamped {Park}!" above the wheel, lib/asks.ts.)
  */
 export function WelcomeSheet({
   name,
@@ -28,9 +26,6 @@ export function WelcomeSheet({
   crewName,
   crewLink,
   hasPhone,
-  phone = null,
-  offerPicks = false,
-  textsSendingOn = false,
 }: {
   name: string;
   avatar: string;
@@ -39,17 +34,8 @@ export function WelcomeSheet({
   /** This crew's join link: the way back in for explorers with no phone. */
   crewLink: string;
   hasPhone: boolean;
-  /** This grown-up's number (E.164), if they have one. */
-  phone?: string | null;
-  /**
-   * Ask about the weekly park picks once (trusted grown-ups who haven't
-   * answered). Needs a number: kids, borrowed links and no-number skip it.
-   */
-  offerPicks?: boolean;
-  textsSendingOn?: boolean;
 }) {
-  const [page, setPage] = useState<"hello" | "phone" | "picks">("hello");
-  const [number, setNumber] = useState<string | null>(phone);
+  const [page, setPage] = useState<"hello" | "phone">("hello");
   const [phoneAdded, setPhoneAdded] = useState(false);
   const [phoneSkipped, setPhoneSkipped] = useState(false);
   const params = useSearchParams();
@@ -68,8 +54,6 @@ export function WelcomeSheet({
     // Leaving the phone page without a number (backdrop, Escape, Skip) is a
     // skip: don't ask again in the install sheet a second later.
     if (page === "phone" && !phoneAdded) setPhoneSkipped(true);
-    // Leaving the picks page any way at all counts as "Not now".
-    if (page === "picks") void dismissParkNews();
     setClosed(true);
     if (offerInstall) setInstallOpen(true);
   };
@@ -144,18 +128,7 @@ export function WelcomeSheet({
             : "mb-[max(env(safe-area-inset-bottom),0.75rem)] pt-14"
         }`}
       >
-        {page === "picks" && number ? (
-          <PicksSheetPage
-            phone={number}
-            textsSendingOn={textsSendingOn}
-            headingId="welcome-h"
-            onFinish={() => {
-              setPage("hello");
-              setClosed(true);
-              if (offerInstall) setInstallOpen(true);
-            }}
-          />
-        ) : page === "phone" ? (
+        {page === "phone" ? (
           <>
             <h2 id="welcome-h" className="font-hand text-4xl leading-tight">
               One more thing!
@@ -167,13 +140,9 @@ export function WelcomeSheet({
             <PhoneCode
               mode="add"
               autoFocus
-              onDone={(shown) => {
+              onDone={() => {
                 setPhoneAdded(true);
-                const e164 = normalizeUSPhone(shown);
-                if (offerPicks && e164) {
-                  setNumber(e164);
-                  setTimeout(() => setPage("picks"), 900);
-                } else setTimeout(() => finishRef.current(), 900);
+                setTimeout(() => finishRef.current(), 900);
               }}
               onSkip={finish}
               skipLabel="Skip for now"
@@ -232,8 +201,7 @@ export function WelcomeSheet({
             <button
               type="button"
               onClick={() => {
-                if (hasPhone)
-                  return offerPicks && number ? setPage("picks") : finish();
+                if (hasPhone) return finish();
                 confetti.reset(); // don't rain on the number field
                 setPage("phone");
               }}

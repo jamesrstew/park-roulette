@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { featuredIn } from "@/lib/news/data";
+import { isThisWeekendsPick } from "@/lib/asks";
 import { Suspense } from "react";
 import { HappeningNearby } from "@/components/events/Modules";
 import { CrayonLoading } from "@/components/Loading";
@@ -82,6 +83,7 @@ async function ParkLoader({ params, searchParams }: Props) {
         me={me}
         townLink={townLink}
         justAdded={sp.added === "1"}
+        weekendPick={isThisWeekendsPick(featured, new Date()) ? featured : null}
       />
       <HappeningNearby park={detail.park} />
       {featured ? (

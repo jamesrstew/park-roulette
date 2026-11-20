@@ -58,26 +58,34 @@ async function getJson(url: string) {
 export async function townForecast(
   town: string,
 ): Promise<{ daily: Period[]; hourly: Period[] } | null> {
-  "use cache";
-  cacheLife("hours");
-  const at = FORECAST_TOWNS[town];
-  if (!at) return null;
+  if (!FORECAST_TOWNS[town]) return null;
+  // A failed fetch throws out of the cached part, so it isn't kept for an
+  // hour: the next request tries NWS again.
   try {
-    const point = await getJson(
-      `https://api.weather.gov/points/${at[0]},${at[1]}`,
-    );
-    const [daily, hourly] = await Promise.all([
-      getJson(point.properties.forecast as string),
-      getJson(point.properties.forecastHourly as string),
-    ]);
-    return {
-      daily: daily.properties.periods as Period[],
-      hourly: hourly.properties.periods as Period[],
-    };
+    return await cachedForecast(town);
   } catch (e) {
     console.warn(`[events] forecast for ${town} failed`, (e as Error).message);
     return null;
   }
+}
+
+async function cachedForecast(
+  town: string,
+): Promise<{ daily: Period[]; hourly: Period[] }> {
+  "use cache";
+  cacheLife("hours");
+  const at = FORECAST_TOWNS[town];
+  const point = await getJson(
+    `https://api.weather.gov/points/${at[0]},${at[1]}`,
+  );
+  const [daily, hourly] = await Promise.all([
+    getJson(point.properties.forecast as string),
+    getJson(point.properties.forecastHourly as string),
+  ]);
+  return {
+    daily: daily.properties.periods as Period[],
+    hourly: hourly.properties.periods as Period[],
+  };
 }
 
 /** "snow likely", lowercased NWS words. */

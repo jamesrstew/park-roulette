@@ -41,7 +41,19 @@ function phoneFrom(raw: unknown): string {
   if (!phone) throw new UserError("Park texts are for US numbers only.");
   return phone;
 }
-const sources = z.enum(["texts_page", "settings", "welcome_sheet"]);
+/** Where a yes came from (recorded as the consent's source). */
+const TEXT_SOURCES = [
+  "texts_page",
+  "settings",
+  "welcome_sheet",
+  // Ask moments (lib/asks.ts).
+  "next_pick",
+  "rainy_spin",
+  "weekend_spin",
+  // The Weekend Pick line in the email footer and welcome email.
+  "email_footer",
+] as const;
+const sources = z.enum(TEXT_SOURCES);
 
 export type TextsResult =
   | { ok: true; state: OptInResult; track?: ActionResult["track"] }

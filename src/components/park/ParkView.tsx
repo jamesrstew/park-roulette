@@ -23,6 +23,7 @@ export function ParkView({
   me,
   townLink,
   justAdded,
+  weekendPick = null,
 }: {
   detail: Detail;
   fixes: PendingFix[];
@@ -30,6 +31,8 @@ export function ParkView({
   /** The town's guide page (or its spot on the Central Oregon page). */
   townLink: string;
   justAdded: boolean;
+  /** This weekend's issue featured this park: its date, for the sticker. */
+  weekendPick?: string | null;
 }) {
   const { park, reviews, myVisits, stats, unseen, otherRatings } = detail;
   /** Park fixes and reports count from grown-ups who sign in with a number. */
@@ -82,6 +85,7 @@ export function ParkView({
         crossedOff={crossedOff}
         notes={park.notes?.trim() || null}
         playground={play !== "none"}
+        weekendPick={weekendPick}
       />
 
       {!park.approved && (

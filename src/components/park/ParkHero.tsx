@@ -21,6 +21,7 @@ export function ParkHero({
   crossedOff,
   notes,
   playground = true,
+  weekendPick = null,
 }: {
   notes: string | null;
   /** False for a park without a playground (changes the doodle). */
@@ -35,6 +36,8 @@ export function ParkHero({
   visitCount: number;
   signedIn: boolean;
   crossedOff: boolean;
+  /** "This weekend's pick" sticker, linked to that issue (its date). */
+  weekendPick?: string | null;
 }) {
   const town = CRAYONS[townCrayon(city)];
   return (
@@ -83,6 +86,14 @@ export function ParkHero({
       </div>
 
       <div className="mt-1 text-center">
+        {weekendPick ? (
+          <Link
+            href={`/newsletter/${weekendPick}`}
+            className="mb-1 inline-flex min-h-11 -rotate-2 items-center gap-1.5 border-2 border-ink bg-[color-mix(in_srgb,var(--color-crayon-yellow)_35%,#fffdf7)] px-3 font-hand text-lg shadow-[2px_2px_0_#2b2a33]"
+          >
+            <Icon name="sparkles" size={22} /> This weekend&apos;s pick
+          </Link>
+        ) : null}
         <h1
           className={`font-hand text-[2.6rem] leading-[0.95] text-balance ${crossedOff ? "text-ink-soft" : ""}`}
         >

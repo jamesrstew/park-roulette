@@ -20,7 +20,23 @@ export const metadata: Metadata = {
 /** The card is named by the page's H1 (its own heading was cut). */
 const HEADING_ID = "weekend-pick-h";
 
-async function Optin() {
+/**
+ * ?from= an ask moment (lib/asks.ts) or the email footer line is recorded
+ * as the yes's source.
+ */
+const FROM = [
+  "next_pick",
+  "rainy_spin",
+  "weekend_spin",
+  "email_footer",
+] as const;
+type Props = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+async function Optin({ searchParams }: Props) {
+  const from = (await searchParams).from;
+  const source = FROM.find((f) => f === from) ?? "texts_page";
   const me = await getMe();
   const sending = confirmationsEnabled();
   if (me?.isKid)
@@ -59,7 +75,7 @@ async function Optin() {
   return (
     <ParkTextsCard
       number={me?.phone ?? null}
-      source="texts_page"
+      source={source}
       sendingOn={sending}
       textsFrom={TEXTS_FROM}
       labelledBy={HEADING_ID}
@@ -68,7 +84,7 @@ async function Optin() {
   );
 }
 
-export default function TextsPage() {
+export default function TextsPage({ searchParams }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <PageTitle
@@ -81,7 +97,7 @@ export default function TextsPage() {
         subtitle={<p>{TEXTS_COPY.subtitle}</p>}
       />
       <Suspense fallback={<CrayonLoading label="One sec…" />}>
-        <Optin />
+        <Optin searchParams={searchParams} />
       </Suspense>
       <p className="flex min-h-11 items-center gap-2 leading-snug">
         <Icon name="mail" size={26} />

@@ -42,7 +42,7 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
     process.env.TWILIO_TEXTS_SERVICE_SID = "MG_test";
     texted.length = 0;
     await q(
-      "truncate sms_program_sends, contact_consents, sms_opt_outs, sms_last_texts, news_sends, news_issues, news_settings, parks, explorers, crews restart identity cascade",
+      "truncate sms_program_sends, contact_consents, sms_opt_outs, sms_last_texts, news_sends, news_issues, news_settings, news_clicks, parks, explorers, crews restart identity cascade",
     );
     await q(`insert into parks (slug, name, city, lat, lng, approved_at, features)
       values ('wildflower-park-bend', 'Wildflower Park', 'Bend', 44.05, -121.29, now(), '{toddler_area,fenced}')`);
@@ -64,6 +64,31 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
     const r = await pick.runWeekendPick(FRI);
     expect(r.action).toBe("skipped");
     expect(await q("select id from sms_program_sends")).toEqual([]);
+  });
+
+  it("the short link goes to the park page and counts taps per issue, nothing more", async () => {
+    const { GET } = await import("@/app/w/[code]/route");
+    const tap = async (code: string) => {
+      const r = await GET(new Request(`http://localhost/w/${code}`), {
+        params: Promise.resolve({ code }),
+      });
+      return { status: r.status, to: r.headers.get("location") };
+    };
+    // Before any issue featured it: the redirect works, nothing counted.
+    expect(await tap("1")).toEqual({
+      status: 302,
+      to: "https://parkroulette.quest/parks/wildflower-park-bend",
+    });
+    expect(await q("select * from news_clicks")).toEqual([]);
+    await sentIssue2();
+    await tap("1");
+    await tap("1");
+    expect(
+      await q("select issue_date::text as d, slug, clicks from news_clicks"),
+    ).toEqual([{ d: "2026-12-03", slug: "weekend-pick-text", clicks: 2 }]);
+    // Unknown or malformed codes go home.
+    for (const code of ["zz", "0", "Ab", "a/b"])
+      expect((await tap(code)).to, code).toBe("https://parkroulette.quest/");
   });
 
   it("dry run tests on a validated draft when nothing went out; a real run never does", async () => {
@@ -116,7 +141,7 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].phone).toBe(A);
     expect(rows[0].body).toBe(
-      "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/parks/wildflower-park-bend Reply STOP to opt out",
+      "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/w/1 Reply STOP to opt out",
     );
     const again = await pick.runWeekendPick(
       new Date(FRI.getTime() + 15 * 60_000),

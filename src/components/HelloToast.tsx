@@ -72,6 +72,7 @@ export function HelloToast() {
   return (
     <div
       role="status"
+      data-overlay
       className="doodle-box fixed inset-x-4 top-[max(env(safe-area-inset-top),1rem)] z-[1300] mx-auto flex max-w-md animate-pop-in items-center justify-center gap-2 bg-[#fffdf7] px-4 py-3 shadow-[3px_4px_0_#2b2a33]"
     >
       <span className="animate-wiggle">

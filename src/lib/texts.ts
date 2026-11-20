@@ -115,10 +115,17 @@ export function checkboxLine(version: string, number: string | null): string {
   );
 }
 
-// --- The texts we send (GSM-7, one segment each) ---------------------------
+// --- The texts we send (GSM-7) ----------------------------------------------
 
+/**
+ * Every text we send. All are one SMS segment except `confirmation`, an MMS
+ * that carries our contact card (/park-roulette.vcf); if Twilio refuses the
+ * media it goes as `confirmationSms` instead.
+ */
 export const TEXTS = {
   confirmation:
+    "Park Roulette: You're in! One playground pick every Friday afternoon (up to 5/mo). Tap the card to save us so you know it's us. Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+  confirmationSms:
     "Park Roulette: You're in! 1 weekend playground pick a week, Fridays (up to 5/mo). Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
   help: "Park Roulette: Weekend Pick, about 1 text a week on Fridays. Help: hello@parkroulette.quest. Msg & data rates may apply. Reply STOP to opt out.",
   stop: "Park Roulette: You're unsubscribed and won't get more texts. Reply START to rejoin.",
@@ -128,7 +135,7 @@ export const TEXTS = {
 
 /** A real Weekend Pick, for the success state (its link answered 200). */
 export const SAMPLE_TEXT =
-  "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/parks/wildflower-park-bend Reply STOP to opt out";
+  "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/w/51 Reply STOP to opt out";
 
 /** GSM-7 only (one bad character makes a text Unicode: 70 a segment). */
 export function isGsm7(s: string): boolean {

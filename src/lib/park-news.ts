@@ -110,3 +110,24 @@ export function suggestEmail(raw: string): string | null {
     ? `${user}@${fixed}`
     : null;
 }
+
+/** "Thursday, December 3" from "2026-12-03". */
+export function issueDay(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+/**
+ * The signup success line, with the first issue's real date when the
+ * action gave it ("You're in! Look for us Thursday, December 3.").
+ */
+export function successLine(firstIssue?: string | null): string {
+  return firstIssue
+    ? `You're in! Look for us ${firstIssue}.`
+    : PARK_NEWS.success;
+}

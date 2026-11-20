@@ -15,6 +15,7 @@ import {
   hasWeatherCard,
   renderHtml,
   renderText,
+  renderWelcome,
   shortParkName,
   weatherImageUrl,
 } from "./template";
@@ -942,6 +943,31 @@ describe("the template", () => {
     expect(text).toContain("THE WEEKEND AHEAD");
     expect(text).toContain("Weekend forecast for Bend. Friday: sunny");
     expect(text).toContain("Featured park: Juniper (Bend)");
+  });
+  it("offers the Weekend Pick in one quiet footer line, HTML and text", () => {
+    const link = "https://parkroulette.quest/texts?from=email_footer";
+    const html = renderHtml(issue, opts);
+    expect(html).toContain(
+      `Want the weekend&#39;s park by text? <a class="link" href="${link}"`,
+    );
+    expect(html).toContain("Get the Weekend Pick on Fridays</a>.");
+    // Above the legal lines.
+    expect(html.indexOf("from=email_footer")).toBeLessThan(
+      html.indexOf("True Craft Ventures LLC"),
+    );
+    expect(renderText(issue, opts)).toContain(
+      `Want the weekend's park by text? Get the Weekend Pick on Fridays: ${link}`,
+    );
+    const w = renderWelcome({
+      site: "https://parkroulette.quest",
+      unsubscribeUrl: "https://parkroulette.quest/news/unsubscribe?t=T",
+      latestIssueUrl: null,
+      postalAddress: "PO Box 1",
+    });
+    expect(w.html).toContain(`href="${link}"`);
+    expect(w.text).toContain(
+      `Want the weekend's park by text? Get the Weekend Pick on Fridays: ${link}`,
+    );
   });
   it("credits a BPRD photo", () => {
     const html = renderHtml(

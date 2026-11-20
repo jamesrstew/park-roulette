@@ -8,7 +8,10 @@ import { isGsm7, septets, toGsmAscii } from "./texts";
  * when the issue's forecast and Friday's fresh forecast agree.
  *
  *   Park Roulette: Weekend Pick: {hook} {Park}, {Town}. {fit}.
- *   https://parkroulette.quest/parks/{slug} Reply STOP to opt out
+ *   https://parkroulette.quest/w/{code} Reply STOP to opt out
+ *
+ * The link is our own short link (/w/{code}, the park's id in base 36):
+ * it redirects to the park page and counts taps per issue.
  */
 
 export const SITE = "https://parkroulette.quest";
@@ -37,7 +40,30 @@ export const LOCAL_WINDOW = { from: 8, to: 20 };
 /** Two sends in a row with STOP above this rate pause the texts. */
 export const STOP_RATE_LIMIT = 0.01;
 
+/** A park's short-link code: its id in base 36 ("3f"). */
+export function parkCode(id: number): string {
+  return id.toString(36);
+}
+
+/** The park id a short-link code names, or null for anything else. */
+export function parkIdFromCode(code: string): number | null {
+  if (!/^[0-9a-z]{1,4}$/.test(code)) return null;
+  const id = parseInt(code, 36);
+  return Number.isSafeInteger(id) && id > 0 && parkCode(id) === code
+    ? id
+    : null;
+}
+
+/** news_clicks' key for Weekend Pick taps (per issue, next to /n/ links). */
+export const WEEKEND_PICK_CLICK = "weekend-pick-text";
+
+/** The text's link: /w/{code}. */
+export function shortLink(id: number): string {
+  return `${SITE}/w/${parkCode(id)}`;
+}
+
 export type ParkFacts = {
+  id: number;
   name: string;
   city: string;
   slug: string;
@@ -102,7 +128,7 @@ export function composeText(
 ): string | null {
   if (park.status !== "active") return null;
   if (!/^[a-z0-9-]+$/.test(park.slug)) return null;
-  const url = `${SITE}/parks/${park.slug}`;
+  const url = shortLink(park.id);
   // Curly quotes and dashes in a name would make the text Unicode (70 a
   // segment): plain ASCII instead.
   const name = toGsmAscii(park.name);
@@ -138,8 +164,11 @@ export function textProblems(text: string): string | null {
   if (!text.startsWith("Park Roulette:")) return "doesn't start with the brand";
   if (!text.endsWith(SUFFIX)) return "doesn't end with the STOP line";
   const urls = text.match(/https?:\/\/\S+/g) ?? [];
-  if (urls.length !== 1 || !urls[0].startsWith(`${SITE}/parks/`))
-    return "needs exactly one link, to a park page";
+  if (
+    urls.length !== 1 ||
+    !/^https:\/\/parkroulette\.quest\/w\/[0-9a-z]{1,4}$/.test(urls[0])
+  )
+    return "needs exactly one link, our short link to a park";
   return null;
 }
 

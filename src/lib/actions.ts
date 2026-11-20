@@ -306,22 +306,30 @@ const visitInput = z.object({
 
 export async function logVisit(
   input: z.input<typeof visitInput>,
-): Promise<ActionResult> {
+): Promise<ActionResult & { visitId?: number }> {
   try {
     const me = await requireMe();
     const data = visitInput.parse(input);
-    await db.insert(visits).values({
-      parkId: data.parkId,
-      crewId: me.crew.id,
-      loggedBy: me.id,
-      visitedOn: data.visitedOn,
-    });
+    const [visit] = await db
+      .insert(visits)
+      .values({
+        parkId: data.parkId,
+        crewId: me.crew.id,
+        loggedBy: me.id,
+        visitedOn: data.visitedOn,
+      })
+      .returning({ id: visits.id });
     const [{ n }] = await db
       .select({ n: sql<number>`count(*)::int` })
       .from(visits)
       .where(eq(visits.crewId, me.crew.id));
     refresh();
-    return { ok: true, track: ev(EVENTS.stamped, { first: n === 1 }) };
+    return {
+      ok: true,
+      track: ev(EVENTS.stamped, { first: n === 1 }),
+      // The ask moments key a stamp by its visit (lib/asks.ts, lastStamp).
+      visitId: visit.id,
+    };
   } catch (e) {
     return fail("logVisit", e);
   }

@@ -6,6 +6,8 @@ import { storage } from "@/lib/storage";
 import confetti from "canvas-confetti";
 import Link from "next/link";
 import {
+  Suspense,
+  use,
   useCallback,
   useEffect,
   useMemo,
@@ -45,6 +47,8 @@ import { Stars } from "./Stars";
 import { Wheel, type WheelHandle, type WheelItem } from "./Wheel";
 import { sfx } from "@/lib/sound";
 import { PageTitle } from "./PageTitle";
+import { AskSlot, type AskServer } from "./AskRow";
+import type { Wet } from "@/lib/asks";
 import { SoundToggle } from "./SoundToggle";
 
 const MAX_WEDGES = 10;
@@ -83,10 +87,20 @@ function todayLocal() {
 export function SpinScreen({
   parks: everything,
   signedIn,
+  asks,
+  wet = NO_WET,
 }: {
   /** The whole bucket list; crossed-off parks never land on the wheel. */
   parks: ParkSummary[];
   signedIn: boolean;
+  /** The ask moments' facts (lib/asks.ts); none, no asks. */
+  asks?: AskServer;
+  /**
+   * Monday to Wednesday: the coming weekend's wet day, per town. A promise
+   * the server streams: read under its own Suspense, never holding up the
+   * wheel.
+   */
+  wet?: Promise<Record<string, Wet | null>>;
 }) {
   const parks = useMemo(
     () => everything.filter((p) => !isCrossedOff(p)),
@@ -103,6 +117,18 @@ export function SpinScreen({
   const [spinning, setSpinning] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const wheel = useRef<WheelHandle>(null);
+  /** An ask is showing under the result (the Directions event's `ask`). */
+  const [askShowing, setAskShowing] = useState(false);
+  /** A stamp made here just now: no ask for 10 minutes. */
+  const [stamped, setStamped] = useState<{
+    key: string;
+    park: string;
+    at: string;
+  } | null>(null);
+  const askServer = useMemo(
+    () => (asks && stamped ? { ...asks, lastStamp: stamped } : asks),
+    [asks, stamped],
+  );
 
   // Remember filters between visits (read once after mount; write after that).
   const hydrated = useRef(false);
@@ -291,6 +317,10 @@ export function SpinScreen({
         </div>
       )}
 
+      {askServer && !result && !spinning ? (
+        <AskSlot server={askServer} surface="idle" />
+      ) : null}
+
       {/* Filters: compact summary, expandable drawer */}
       <section
         aria-label="Filters"
@@ -476,17 +506,66 @@ export function SpinScreen({
           here={here}
           signedIn={signedIn}
           onAgain={() => wheel.current?.spin(0)}
-          onStamped={(id) => {
+          askShowing={askShowing}
+          onStamped={(id, visitId) => {
+            setStamped({
+              // The same key the server uses (lastStamp), so this stamp is
+              // never asked about twice.
+              key: visitId ? `v${visitId}` : `here-${Date.now()}`,
+              park: everything.find((p) => p.id === id)?.name ?? "",
+              at: new Date().toISOString(),
+            });
             const m = stampMilestone(everything, id);
             if (m) setMilestone(m);
           }}
         />
       )}
 
+      {askServer && result && !spinning ? (
+        <Suspense fallback={null}>
+          <ResultAsk
+            key={result.id}
+            server={askServer}
+            park={result}
+            wet={wet}
+            onShowing={setAskShowing}
+          />
+        </Suspense>
+      ) : null}
+
       {milestone && (
         <MilestoneCard milestone={milestone} onClose={closeMilestone} />
       )}
     </div>
+  );
+}
+
+const NO_WET: Promise<Record<string, Wet | null>> = Promise.resolve({});
+
+/** The ask under a result, once the forecast has streamed in. */
+function ResultAsk({
+  server,
+  park,
+  wet: pending,
+  onShowing,
+}: {
+  server: AskServer;
+  park: ParkSummary;
+  wet: Promise<Record<string, Wet | null>>;
+  onShowing: (showing: boolean) => void;
+}) {
+  const wet = use(pending);
+  return (
+    <AskSlot
+      server={server}
+      surface="result"
+      result={{
+        playable: park.status === "active" && playOf(park) !== "none",
+        // The park's town, else Bend's (towns without a forecast).
+        wet: (park.city in wet ? wet[park.city] : wet.Bend) ?? null,
+      }}
+      onShowing={onShowing}
+    />
   );
 }
 
@@ -526,12 +605,14 @@ function ResultCard({
   signedIn,
   onAgain,
   onStamped,
+  askShowing,
 }: {
   park: ParkSummary;
   here: LatLng | null;
   signedIn: boolean;
   onAgain: () => void;
-  onStamped: (parkId: number) => void;
+  onStamped: (parkId: number, visitId?: number) => void;
+  askShowing: boolean;
 }) {
   const [pending, start] = useTransition();
   const [logged, setLogged] = useState(false);
@@ -599,7 +680,12 @@ function ResultCard({
             href={directionsUrl(park)}
             target="_blank"
             rel="noreferrer"
-            onClick={() => trackEvent(EVENTS.directions, { from: "spin" })}
+            onClick={() =>
+              trackEvent(EVENTS.directions, {
+                from: "spin",
+                ask: askShowing ? "yes" : "no",
+              })
+            }
           >
             <Icon name="directions" size={30} /> Let&apos;s go!
           </a>
@@ -633,7 +719,7 @@ function ResultCard({
                     if (!r.ok) return (sfx.oops(), setError(r.error));
                     sfx.stamp();
                     setLogged(true);
-                    onStamped(park.id);
+                    onStamped(park.id, "visitId" in r ? r.visitId : undefined);
                   })
                 }
               >

@@ -37,5 +37,21 @@ export async function GET(
       set: { clicks: sql`${newsClicks.clicks} + 1` },
     })
     .catch((e) => console.error("[news] click count failed", e?.name));
-  return away(link.url);
+  return away(viaEmail(link.url));
+}
+
+/**
+ * Our own pages get ?via=email, so the app knows this browser already gets
+ * the email and never asks for it (lib/asks.ts). Other sites' links go
+ * as they are.
+ */
+function viaEmail(to: string): string {
+  try {
+    const u = new URL(to);
+    if (u.origin !== new URL(SITE_URL).origin) return to;
+    u.searchParams.set("via", "email");
+    return u.toString();
+  } catch {
+    return to;
+  }
 }

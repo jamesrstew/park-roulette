@@ -80,7 +80,10 @@ export type SignupSource =
   | "welcome_sheet"
   | "settings"
   | "texts_page"
-  | "confirm_page";
+  | "confirm_page"
+  | "next_pick"
+  | "rainy_spin"
+  | "weekend_spin";
 
 // --- IP fingerprints -----------------------------------------------------
 

@@ -33,6 +33,11 @@ export type Me = {
   termsAccepted: boolean;
   /** Answered the one-time park picks ask (the welcome sheet). */
   parkNewsAsked: boolean;
+  /** When (ISO), for the ask moments' "old Not now" rule. */
+  parkNewsAskedAt: string | null;
+  /** Said "No thanks" to the weekly picks by email or by text (asks). */
+  picksEmailDeclined: boolean;
+  picksTextDeclined: boolean;
   crew: {
     id: number;
     name: string;
@@ -61,6 +66,8 @@ export async function getMe(): Promise<Me | null> {
       isAdmin: explorers.isAdmin,
       termsAcceptedAt: explorers.termsAcceptedAt,
       parkNewsAskedAt: explorers.parkNewsAskedAt,
+      picksEmailDeclinedAt: explorers.picksEmailDeclinedAt,
+      picksTextDeclinedAt: explorers.picksTextDeclinedAt,
       crew: {
         id: crews.id,
         name: crews.name,
@@ -85,8 +92,37 @@ export async function getMe(): Promise<Me | null> {
     isAdmin: row.isAdmin,
     termsAccepted: row.termsAcceptedAt != null,
     parkNewsAsked: row.parkNewsAskedAt != null,
+    parkNewsAskedAt: row.parkNewsAskedAt?.toISOString() ?? null,
+    picksEmailDeclined: row.picksEmailDeclinedAt != null,
+    picksTextDeclined: row.picksTextDeclinedAt != null,
     crew: row.crew,
   };
+}
+
+/**
+ * The crew's latest stamp (the ask moments' "You stamped {Park}!"): its
+ * visit id, the park's name and when it was made. Null before any.
+ */
+export async function lastStamp(
+  crewId: number,
+): Promise<{ key: string; park: string; at: string } | null> {
+  const [r] = await db
+    .select({ id: visits.id, park: parks.name, at: visits.createdAt })
+    .from(visits)
+    .innerJoin(parks, eq(parks.id, visits.parkId))
+    .where(eq(visits.crewId, crewId))
+    .orderBy(desc(visits.createdAt), desc(visits.id))
+    .limit(1);
+  return r ? { key: `v${r.id}`, park: r.park, at: r.at.toISOString() } : null;
+}
+
+/** Did this grown-up's number pass a code in the last 30 days? */
+export async function phoneFresh(explorerId: number): Promise<boolean> {
+  const [r] = await db
+    .select({ at: explorers.phoneVerifiedAt })
+    .from(explorers)
+    .where(eq(explorers.id, explorerId));
+  return !!r?.at && Date.now() - r.at.getTime() < 30 * 86_400_000;
 }
 
 export type ParkSummary = {

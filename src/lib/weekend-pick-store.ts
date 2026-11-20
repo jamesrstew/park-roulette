@@ -177,6 +177,7 @@ export async function weekText(
   const slug = sent.issue.wheel_pick.park;
   const [park] = await db
     .select({
+      id: parks.id,
       name: parks.name,
       city: parks.city,
       slug: parks.slug,
@@ -195,6 +196,7 @@ export async function weekText(
     return {
       why: `No text fits for ${park.name}, this week's featured park (closed, or no kid-fit words fit in 160 characters).`,
     };
+  // The final page the short link lands on, not /w/ itself (a 302).
   const url = `${SITE}/parks/${park.slug}`;
   if (!(await linkOk(url)))
     return { why: `The park page ${url} didn't answer 200.` };

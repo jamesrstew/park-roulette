@@ -21,7 +21,8 @@ import {
 } from "./action-utils";
 import { getMe } from "./data";
 import { ev, EVENTS } from "./events";
-import { cleanEmail, PARK_NEWS } from "./park-news";
+import { nextIssueDate } from "./news/data";
+import { cleanEmail, issueDay, PARK_NEWS } from "./park-news";
 import { clientIp } from "./sms";
 
 /**
@@ -41,18 +42,12 @@ const SOURCES = [
   "settings",
   "texts_page",
   "confirm_page",
+  // Ask moments (lib/asks.ts).
+  "next_pick",
+  "rainy_spin",
+  "weekend_spin",
 ] as const satisfies readonly SignupSource[];
 const source = z.enum(SOURCES);
-
-/** Park picks in settings are for grown-ups signed in properly. */
-async function requireTrustedGrownUp() {
-  const me = await requireGrownUp();
-  if (!me.trusted)
-    throw new UserError(
-      "Sign in with your own number to get the weekly park picks.",
-    );
-  return me;
-}
 
 /**
  * "Count us in!" from anywhere: the footer, /newsletter, an issue page,
@@ -65,17 +60,17 @@ export async function signUpForEmail(
   rawEmail: string,
   from: SignupSource,
   website = "",
-): Promise<ActionResult> {
+): Promise<ActionResult & { firstIssue?: string }> {
   try {
     const where = source.parse(from);
     const email = cleanEmail(z.string().max(300).parse(rawEmail));
     if (!email) throw new UserError("That email looks off. Try again?");
     const track = ev(EVENTS.emailSignup, { source: where });
     // A bot filled the hidden field: the same answer, and nothing happens.
-    if (website) return { ok: true, track };
+    if (website) return { ok: true, track, firstIssue: await firstIssue() };
     const me = await getMe();
     // Kids don't sign up for email: the same answer, and nothing happens.
-    if (me?.isKid) return { ok: true, track };
+    if (me?.isKid) return { ok: true, track, firstIssue: await firstIssue() };
     const explorerId = me && me.trusted ? me.id : null;
     const ip = await clientIp();
     // Over the per-IP or daily cap: a neutral "busy" (it says nothing
@@ -90,34 +85,64 @@ export async function signUpForEmail(
         console.error("[news] signup failed", (e as Error)?.message);
       }
     });
-    if (explorerId) {
-      await db
-        .update(explorers)
-        .set({
-          parkNewsAskedAt: sql`coalesce(${explorers.parkNewsAskedAt}, now())`,
-        })
-        .where(eq(explorers.id, explorerId));
-      refresh();
-    }
-    return { ok: true, track };
+    if (explorerId) refresh();
+    return { ok: true, track, firstIssue: await firstIssue() };
   } catch (e) {
     return fail("signUpForEmail", e);
   }
 }
 
-/** "Not now" on the welcome sheet: never ask again (settings still offers it). */
-export async function dismissParkNews(): Promise<ActionResult> {
+/**
+ * The success line's date ("Thursday, December 3"): the first issue a new
+ * subscriber gets (skip weeks included). Never fails a signup: without it
+ * the line says "Thursday morning".
+ */
+async function firstIssue(): Promise<string | undefined> {
   try {
-    const me = await requireTrustedGrownUp();
+    return issueDay(await nextIssueDate());
+  } catch (e) {
+    console.error("[news] next issue date failed", (e as Error)?.message);
+    return undefined;
+  }
+}
+
+const channels = z
+  .array(z.enum(["email", "text"]))
+  .min(1)
+  .max(2);
+
+/**
+ * "No thanks" on an ask (lib/asks.ts), signed in: that channel is never
+ * offered again, on any phone. Signed out, the browser keeps it. Settings
+ * and the footer still offer both.
+ */
+export async function declinePicks(
+  which: ("email" | "text")[],
+): Promise<ActionResult> {
+  try {
+    const list = channels.parse(which);
+    const me = await getMe();
+    // Only a trusted grown-up's answer goes on the account (a borrowed
+    // family link never changes it); the browser keeps it either way.
+    if (!me || me.isKid || !me.trusted) return { ok: true };
     await db
       .update(explorers)
       .set({
-        parkNewsAskedAt: sql`coalesce(${explorers.parkNewsAskedAt}, now())`,
+        ...(list.includes("email")
+          ? {
+              picksEmailDeclinedAt: sql`coalesce(${explorers.picksEmailDeclinedAt}, now())`,
+            }
+          : {}),
+        ...(list.includes("text")
+          ? {
+              picksTextDeclinedAt: sql`coalesce(${explorers.picksTextDeclinedAt}, now())`,
+            }
+          : {}),
       })
       .where(eq(explorers.id, me.id));
     return { ok: true };
   } catch (e) {
-    return fail("dismissParkNews", e);
+    return fail("declinePicks", e);
   }
 }
 

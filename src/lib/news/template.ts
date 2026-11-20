@@ -19,6 +19,16 @@ import { longDate, shortDay } from "./time";
  */
 
 export const NEWS_NAME = "Bend Playground Passport";
+
+/**
+ * The quiet Weekend Pick line in the issue footer and the welcome email
+ * (James, November 2026). /texts records the yes's source as email_footer.
+ */
+export const TEXTS_CROSS_SELL = {
+  lead: "Want the weekend's park by text?",
+  text: "Get the Weekend Pick on Fridays",
+  path: "/texts?from=email_footer",
+} as const;
 export const NEWS_TAGLINE = "Central Oregon playgrounds, rain or shine.";
 
 // --- Palette and type (the crayon box) -----------------------------------
@@ -539,7 +549,7 @@ function footer(v: View): string {
     .join(" &middot; ");
   return `<tr><td class="px txt-soft" style="padding:20px 32px 8px 32px; font-family:${BODY}; font-size:13px; line-height:20px; color:${C.soft}; text-align:center;">
 You're getting ${esc(NEWS_NAME)} because you signed up at parkroulette.quest and confirmed your email. Every Thursday morning.<br>
-${a(`${v.site}/texts`, "Get a weekend park pick by text.")}<br>
+${esc(TEXTS_CROSS_SELL.lead)} ${a(`${v.site}${TEXTS_CROSS_SELL.path}`, TEXTS_CROSS_SELL.text)}.<br>
 Park Roulette is free, has no ads and never sells your data.<br>
 ${links}<br>
 True Craft Ventures LLC${v.postal ? ` &middot; ${esc(v.postal)}` : ""}
@@ -677,7 +687,7 @@ export function renderText(issue: Issue, o: RenderOptions): string {
     "",
     "--",
     `You're getting ${NEWS_NAME} because you signed up at parkroulette.quest and confirmed your email. Every Thursday morning.`,
-    `Get a weekend park pick by text: ${v.site}/texts`,
+    `${TEXTS_CROSS_SELL.lead} ${TEXTS_CROSS_SELL.text}: ${v.site}${TEXTS_CROSS_SELL.path}`,
     "Park Roulette is free, has no ads and never sells your data.",
   );
   if (v.unsubscribeUrl) out.push(`Unsubscribe: ${v.unsubscribeUrl}`);
@@ -722,6 +732,8 @@ function shortMail(o: {
   small?: string;
   /** A small line ending in a link ("Didn't sign up? Unsubscribe anytime"). */
   smallLink?: { lead: string; href: string; text: string };
+  /** One more quiet line with a link, above the signature (welcome). */
+  quietLink?: { lead: string; href: string; text: string };
   site: string;
   postalAddress: string | null;
 }): { subject: string; html: string; text: string } {
@@ -731,6 +743,9 @@ function shortMail(o: {
     ...o.lines.flatMap((l) => [l, ""]),
     ...(o.button ? [`${o.button.text}: ${o.button.href}`, ""] : []),
     ...(o.small ? [o.small, ""] : []),
+    ...(o.quietLink
+      ? [`${o.quietLink.lead} ${o.quietLink.text}: ${o.quietLink.href}`, ""]
+      : []),
     ...(o.smallLink
       ? [`${o.smallLink.lead} ${o.smallLink.text}: ${o.smallLink.href}`, ""]
       : []),
@@ -747,6 +762,7 @@ function shortMail(o: {
 ${o.lines.map((l) => para(esc(l))).join("")}
 ${o.button ? `<div style="margin:16px 0;">${button(o.button.href, o.button.text, C.buttonBlue)}</div>` : ""}
 ${o.small ? para(esc(o.small), ` color:${C.soft}; font-size:14px;`) : ""}
+${o.quietLink ? para(`${esc(o.quietLink.lead)} ${a(o.quietLink.href, o.quietLink.text)}.`, ` color:${C.soft}; font-size:14px;`) : ""}
 ${o.smallLink ? para(`${esc(o.smallLink.lead)} ${a(o.smallLink.href, o.smallLink.text)}`, ` color:${C.soft}; font-size:14px;`) : ""}
 ${para(`James, ${a(o.site, "Park Roulette")}`)}
 </td></tr>
@@ -774,6 +790,11 @@ export function renderWelcome(o: {
     button: o.latestIssueUrl
       ? { href: o.latestIssueUrl, text: "Read the latest issue" }
       : undefined,
+    quietLink: {
+      lead: TEXTS_CROSS_SELL.lead,
+      href: `${o.site}${TEXTS_CROSS_SELL.path}`,
+      text: TEXTS_CROSS_SELL.text,
+    },
     smallLink: {
       lead: "Didn't sign up?",
       href: o.unsubscribeUrl,

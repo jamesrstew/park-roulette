@@ -10,14 +10,23 @@ import {
   TEXTS_CONSENT_VERSION,
 } from "./texts";
 import { twilioSignature, verifyTwilio } from "./twilio-signature";
+import { fold, parkRouletteVcard } from "./vcard";
+import { VCARD_PHOTO_JPEG } from "./vcard-photo";
 
 describe("Weekend texts words", () => {
-  it("every text is GSM-7 and one segment", () => {
+  it("every text is GSM-7 and one segment (the MMS confirmation aside)", () => {
     for (const [name, t] of Object.entries(TEXTS)) {
       expect(isGsm7(t), name).toBe(true);
-      expect(t.length, name).toBeLessThanOrEqual(160);
+      if (name !== "confirmation")
+        expect(t.length, name).toBeLessThanOrEqual(160);
       expect(t.startsWith("Park Roulette:"), name).toBe(true);
+      if (name !== "stop") expect(t, name).toContain("STOP");
     }
+    // The MMS confirmation (with our contact card), word for word.
+    expect(TEXTS.confirmation).toBe(
+      "Park Roulette: You're in! One playground pick every Friday afternoon (up to 5/mo). Tap the card to save us so you know it's us. Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+    );
+    expect(TEXTS.confirmationSms).toContain("Reply HELP for help");
     expect(isGsm7("Curly ’quote’")).toBe(false);
     expect(isGsm7("dash — here")).toBe(false);
   });
@@ -186,5 +195,43 @@ describe("END as a stop", () => {
     ["the end", "other"],
   ])("%s → %s", (msg, want) => {
     expect(classifyReply(msg)).toBe(want);
+  });
+});
+
+describe("the contact card", () => {
+  it("is a vCard 3.0 with our name, number, site, note and a small photo", () => {
+    const card = parkRouletteVcard({
+      number: "+15417198628",
+      site: "https://parkroulette.quest",
+    });
+    expect(card.startsWith("BEGIN:VCARD\r\nVERSION:3.0\r\n")).toBe(true);
+    expect(card.endsWith("END:VCARD\r\n")).toBe(true);
+    for (const line of [
+      "FN:Park Roulette",
+      "ORG:Park Roulette",
+      "TEL;TYPE=CELL,VOICE:+15417198628",
+      "URL:https://parkroulette.quest",
+      "NOTE:Weekend Pick: one playground every Friday",
+    ])
+      expect(card).toContain(`\r\n${line}\r\n`);
+    // Every physical line fits in 75 octets.
+    for (const l of card.split("\r\n"))
+      expect(l.length).toBeLessThanOrEqual(75);
+    // The photo: a JPEG under 30 KB.
+    const photo = Buffer.from(VCARD_PHOTO_JPEG, "base64");
+    expect(photo.length).toBeLessThan(30_000);
+    expect([...photo.subarray(0, 3)]).toEqual([0xff, 0xd8, 0xff]);
+    // Unfolded, the photo comes back whole.
+    expect(card.replace(/\r\n /g, "")).toContain(
+      `PHOTO;ENCODING=b;TYPE=JPEG:${VCARD_PHOTO_JPEG}\r\n`,
+    );
+    expect(
+      parkRouletteVcard({ number: null, site: "https://parkroulette.quest" }),
+    ).not.toContain("TEL");
+  });
+  it("folds long lines", () => {
+    const f = fold("x".repeat(200));
+    expect(f.split("\r\n").map((l) => l.length)).toEqual([75, 75, 52]);
+    expect(f.replace(/\r\n /g, "")).toBe("x".repeat(200));
   });
 });

@@ -22,7 +22,14 @@ import {
   TEXTS_COPY,
 } from "@/lib/texts";
 
-type Source = "texts_page" | "settings" | "welcome_sheet";
+type Source =
+  | "texts_page"
+  | "settings"
+  | "welcome_sheet"
+  | "next_pick"
+  | "rainy_spin"
+  | "weekend_spin"
+  | "email_footer";
 type Done = "on" | "already" | "needs_start" | "failed";
 
 /**
@@ -205,41 +212,12 @@ export function ParkTextsCard({
               />
             </>
           )}
-          <label className="flex min-h-11 cursor-pointer items-start gap-3">
-            <input
-              type="checkbox"
-              className="mt-1 size-7 shrink-0 accent-crayon-green"
-              checked={checked}
-              aria-describedby={`${id}-terms`}
-              onChange={(e) => (setChecked(e.target.checked), setError(null))}
-            />
-            <span className="leading-snug">
-              {number ? (
-                <>
-                  {words.checkbox.split("{number}")[0]}
-                  <b className="whitespace-nowrap">{prettyPhone(number)}</b>
-                  {words.checkbox.split("{number}")[1]}
-                </>
-              ) : (
-                checkboxLine(TEXTS_CONSENT_VERSION, null)
-              )}
-            </span>
-          </label>
-          <p
-            id={`${id}-terms`}
-            className="pl-10 text-[0.9rem] leading-snug text-ink sm:-mt-2"
-          >
-            {words.disclosure}{" "}
-            <span className="whitespace-nowrap">
-              <Link href="/terms#park-texts" className="underline">
-                Terms
-              </Link>{" "}
-              ·{" "}
-              <Link href="/privacy#park-texts" className="underline">
-                Privacy
-              </Link>
-            </span>
-          </p>
+          <TextsConsentBlock
+            id={id}
+            number={number}
+            checked={checked}
+            onChange={(v) => (setChecked(v), setError(null))}
+          />
           <div aria-live="polite">
             {error ? <ErrorLine>{error}</ErrorLine> : null}
           </div>
@@ -399,5 +377,67 @@ export function TextsRow({
         </p>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * The consent block, one source for every Weekend Pick yes (/texts,
+ * settings, the ask sheet): the unchecked box with the checkbox line, and
+ * the full disclosure in ink right under it, with Terms and Privacy. The
+ * words come from the frozen TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION];
+ * never retype them.
+ */
+export function TextsConsentBlock({
+  id,
+  number,
+  checked,
+  onChange,
+}: {
+  /** A unique id prefix (useId) for the disclosure's id. */
+  id: string;
+  /** The signed-in number (E.164), or null for "this number". */
+  number: string | null;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  const words = TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION];
+  return (
+    <>
+      <label className="flex min-h-11 cursor-pointer items-start gap-3">
+        <input
+          type="checkbox"
+          className="mt-1 size-7 shrink-0 accent-crayon-green"
+          checked={checked}
+          aria-describedby={`${id}-terms`}
+          onChange={(e) => onChange(e.target.checked)}
+        />
+        <span className="leading-snug">
+          {number ? (
+            <>
+              {words.checkbox.split("{number}")[0]}
+              <b className="whitespace-nowrap">{prettyPhone(number)}</b>
+              {words.checkbox.split("{number}")[1]}
+            </>
+          ) : (
+            checkboxLine(TEXTS_CONSENT_VERSION, null)
+          )}
+        </span>
+      </label>
+      <p
+        id={`${id}-terms`}
+        className="pl-10 text-[0.9rem] leading-snug text-ink sm:-mt-2"
+      >
+        {words.disclosure}{" "}
+        <span className="whitespace-nowrap">
+          <Link href="/terms#park-texts" className="underline">
+            Terms
+          </Link>{" "}
+          ·{" "}
+          <Link href="/privacy#park-texts" className="underline">
+            Privacy
+          </Link>
+        </span>
+      </p>
+    </>
   );
 }
