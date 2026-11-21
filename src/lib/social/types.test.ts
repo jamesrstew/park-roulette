@@ -88,6 +88,7 @@ function ctx(over: Partial<SocialCtx> = {}): SocialCtx {
     parks: new Map(),
     events: new Map(),
     recent: [],
+    profiles: new Map(),
     planParks: [],
     cooling: new Set(),
     photoFor: () => null,

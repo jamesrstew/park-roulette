@@ -1,5 +1,5 @@
 import "server-only";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -20,7 +20,10 @@ import { IssueSchema, type Issue } from "@/lib/news/issue";
 import { addDays, pacific } from "@/lib/news/time";
 import { normalizeText, type Fetcher } from "@/lib/news/validate";
 import { SITE_URL } from "@/lib/site";
+import { oneLinerFor, planProfile, postTraits } from "@/lib/park-profiles";
+import { currentProfiles } from "@/lib/park-profiles-check";
 import { type RecentIdea, themesFor } from "./at-home";
+import { postCandidates } from "./candidates";
 import {
   composeEventsWeek,
   composeStory,
@@ -236,39 +239,6 @@ async function lastFeatured(): Promise<string | null> {
   return body.success ? body.data.wheel_pick.park : null;
 }
 
-/** Up to 3 park-post parks, code-picked: open, outside cooldowns, checked photo first. */
-function postCandidates(
-  all: Map<string, ParkInfo>,
-  cooling: Set<string>,
-  exclude: Set<string>,
-  hasPhoto: (slug: string) => boolean,
-  seed: string,
-): string[] {
-  const noPick = new Set(
-    CATALOG.parks.filter((p) => p.no_pick).map((p) => p.slug),
-  );
-  const score = (slug: string) =>
-    createHash("sha256").update(`${seed}:${slug}`).digest().readUInt32BE(0);
-  return [...all.values()]
-    .filter(
-      (p) =>
-        p.approved &&
-        p.status === "active" &&
-        (p.play === "playground" || p.play === "nature") &&
-        !noPick.has(p.slug) &&
-        !cooling.has(p.slug) &&
-        !exclude.has(p.slug),
-    )
-    .sort(
-      (a, b) =>
-        Number(hasPhoto(b.slug)) - Number(hasPhoto(a.slug)) ||
-        b.features.length - a.features.length ||
-        score(a.slug) - score(b.slug),
-    )
-    .slice(0, 3)
-    .map((p) => p.slug);
-}
-
 /**
  * Holiday-hours evidence: does the venue's own page (its host only, the
  * validator checked that) print the quote? Fetched live.
@@ -311,6 +281,7 @@ export async function socialCtx(
   const photoFor = (slug: string) => clearedFor(verdicts, slug);
   const sat = slotFor("at_home", weekOf).date;
   const ideas = await recentIdeas(sat, sat);
+  const profiles = await currentProfiles(now);
   return {
     now,
     catalog: CATALOG,
@@ -321,12 +292,15 @@ export async function socialCtx(
       slotDate: r.slotDate,
       modelText: (r.spec as PostSpec).modelText,
     })),
+    profiles,
     planParks: postCandidates(
       all,
       cooling,
       new Set(featured ? [featured] : []),
       (s) => !!photoFor(s),
       weekOf,
+      profiles,
+      Number(postSlot.date.slice(5, 7)),
     ),
     cooling,
     photoFor,
@@ -404,6 +378,10 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
       town: p.city,
       address: p.address,
       features: p.features,
+      profile: planProfile(
+        ctx.profiles.get(slug),
+        Number(mon.date.slice(5, 7)),
+      ),
       photo: photo ? { src: photo.src, check: photoState(photo.src) } : null,
     };
   };
@@ -463,6 +441,12 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
         name: p.name,
         town: p.city,
         features: p.features,
+        signature: oneLinerFor(ctx.profiles.get(p.slug), month),
+        traits: postTraits(ctx.profiles.get(p.slug), month).map((t) => ({
+          text: t.text,
+          keys: t.keys,
+          kind: t.kind,
+        })),
       })),
     at_home: {
       day: sat.date,
@@ -490,6 +474,8 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
           ? "No restroom claims (November to March)."
           : "Restroom claims only when the park's features list restrooms.",
       first_person: "None: no I, we, my, our.",
+      signature:
+        "The park post leads with a signature trait: the hook and the what line (the caption's opening) each name one of post_parks[].profile.traits (by its key words). Generic lines are refused: built for ... fans, something for everyone, fun for all ages, great place.",
       dated: `Dated items start ${DATED_LEAD_HOURS}+ hours after the post goes out.`,
       school_out:
         "Saying school is out needs break_id from breaks, covering the post's days and the towns you name.",

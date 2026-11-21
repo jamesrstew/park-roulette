@@ -42,14 +42,16 @@ Only `clear` lets a photo into a post, and only while the file still has the sam
 
 ## 3. Monday: the park post
 
-Pick one of `post_parks` (a `clear` photo first). Write:
+Pick one of `post_parks` (a `clear` photo first). Code only offers parks with verified, in-season **signature traits** of 2 or more kinds (nearby and history don't count) (`post_parks[].profile`: `one_liner`, and `traits`, each our own words with its `keys`, kind and source). Out-of-season traits (a summer sprayground in November) aren't listed and can't lead. **Lead with the most distinctive trait**, not a feature list: the pirate ship, the log forest, the creek, the all-abilities design, the sledding hill. That's why a parent picks this park over the one down the street.
 
-- `hook`: a keyword hook, 8 words at most, that someone would search ("Bend playground for little climbers", "A Bend playground built for every kid"). Code adds ": <Park name>" after it.
+- `hook`: a keyword hook, 8 words at most, that someone would search, **naming a signature trait** ("Bend's pirate ship playground", "A juniper log forest to climb in Bend"). Code adds ": <Park name>" after it.
+- `what`: **the caption's opening line** (it comes right after the hook). It must name a signature trait too, then may add what else is there, **only from the park's `features` or its traits** (the checker refuses swings, slides, a zipline, a splash pad, a fence, a toddler area, climbing, accessible play, shade, picnic tables, trails, courts, water or stroller paths that neither the record nor a trait backs).
 - `who`: who it fits (ages, stage).
-- `what`: what's there, **only from the park's `features`** (the checker refuses swings, slides, a zipline, a splash pad, a fence, a toddler area, climbing, accessible play, shade, picnic tables, trails, courts, water or stroller paths the record doesn't list).
 - `bring`: what to bring, for this week's weather and season.
 - `break_id`: only if any line says school is out (then a `breaks` id is required).
 - `hashtags`: up to 3 from `rules.hashtags`.
+
+The checker matches traits by their `keys` only (whole words, plurals and -er/-ing forms count: "climbers" matches "climbing"): the hook and the what line must each use a key of a trait that isn't `nearby` or `history`. Town names, "playground" and other filler never count. Generic copy is refused anywhere: "built for ... fans", "something for everyone", "fun for all ages", "of all ages", "for the whole family", "great place", "hidden gem(s)", "perfect for". A trait backs a claim only when it's the right kind (a `fenced` trait for a fence, a `water` trait naming that same creek or pond), and a `google_places` trait never backs a fence or accessibility claim. Use trait text as given; add nothing from reviews. Never edit data/park-profiles.json yourself; if a trait looks wrong, say so in your report. (Whoever edits traits by hand runs `node scripts/park-profiles/google-places.mjs --check` afterward: it fails on any 4-word run shared with Google's text.)
 
 Code adds the address, the photo credit (only when a checked photo is used), the call to action and the hashtags, and draws one 4:5 image: the photo (or the crayon park card) with a taped label. The checker also holds `bring` to the park's features ("swimsuits for the splash pad" needs a splash pad).
 

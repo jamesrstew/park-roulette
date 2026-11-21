@@ -24,6 +24,7 @@ export function ParkView({
   townLink,
   justAdded,
   weekendPick = null,
+  oneLiner = null,
 }: {
   detail: Detail;
   fixes: PendingFix[];
@@ -33,6 +34,8 @@ export function ParkView({
   justAdded: boolean;
   /** This weekend's issue featured this park: its date, for the sticker. */
   weekendPick?: string | null;
+  /** The park's signature one-liner this month (data/park-profiles.json). */
+  oneLiner?: string | null;
 }) {
   const { park, reviews, myVisits, stats, unseen, otherRatings } = detail;
   /** Park fixes and reports count from grown-ups who sign in with a number. */
@@ -87,6 +90,10 @@ export function ParkView({
         playground={play !== "none"}
         weekendPick={weekendPick}
       />
+
+      {!crossedOff && oneLiner ? (
+        <p className="mt-2 px-1 font-body text-sm text-ink-soft">{oneLiner}</p>
+      ) : null}
 
       {!park.approved && (
         <NewParkBanner

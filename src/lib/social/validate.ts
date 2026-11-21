@@ -13,6 +13,17 @@ import { listed } from "@/lib/events/state";
 // A cycle (roundup uses eventTextProblem): both only call at run time.
 import { roundupAges } from "./roundup";
 import {
+  CONTEXT_KINDS,
+  genericPhrases,
+  MIN_POST_TRAITS,
+  type ParkProfile,
+  postKinds,
+  postTraits,
+  type Trait,
+  traitIn,
+  type TraitKind,
+} from "@/lib/park-profiles";
+import {
   ideaOverlap,
   ideaProblems,
   ideaText,
@@ -77,6 +88,8 @@ export type SocialCtx = {
   events: ReadonlyMap<string, EventRow>;
   /** The last posts (newest first), for the overlap check. */
   recent: readonly RecentPost[];
+  /** Signature-trait profiles by park slug (data/park-profiles.json). */
+  profiles: ReadonlyMap<string, ParkProfile>;
   /** The plan's park-post candidates (code picked them, outside cooldowns). */
   planParks: readonly string[];
   /** Parks featured on Instagram in the cooldown (other slots). */
@@ -229,40 +242,169 @@ export function eventTextProblem(
  * Features a sentence claims, and the park record that must back each
  * one. Code fills facts; the model's lines may only say what's recorded.
  */
-const CLAIMS: [RegExp, string, string[]][] = [
-  [/\bbaby swings?\b|\bbucket swings?\b/i, "baby swings", ["baby_swings"]],
-  [/\bswings?\b/i, "swings", ["swings", "baby_swings"]],
-  [/\bslides?\b/i, "slides", ["slides", "great_slides", "hot_slides"]],
-  [/\bzip ?lines?\b/i, "a zipline", ["zipline"]],
-  [/\bsplash\b|\bspray (park|ground)\b/i, "a splash pad", ["splash_pad"]],
-  [/\bsand ?box\b/i, "a sandbox", ["sandbox"]],
-  [/\btoddlers?\b/i, "a toddler area", ["toddler_area"]],
-  [/\bfenced?\b/i, "a fence", ["fenced"]],
-  [/\bclimb\w*/i, "climbing", ["climbing"]],
-  [/\bspinn(y|er|ers|ing)\b|merry-go-round/i, "spinning things", ["spinny"]],
-  [
-    /\b(accessible|universal[- ]design|wheelchair|inclusive|all abilities)\b/i,
-    "accessible play",
-    ["accessible"],
-  ],
-  [/\bshad(e|y)\b/i, "shade", ["shade"]],
-  [/\bpicnic\b/i, "picnic tables", ["picnic"]],
-  [/\btrails?\b|\bloop\b/i, "a trail", ["trail"]],
-  [/\bdog park\b/i, "a dog park", ["dog_park"]],
-  [/\b(courts?|basketball|tennis|pickleball)\b/i, "courts", ["sports_courts"]],
-  [/\b(river|pond|lake|creek)\b/i, "water", ["water_view"]],
-  [/\bstrollers?\b/i, "stroller-friendly paths", ["stroller_friendly"]],
+type Claim = {
+  re: RegExp;
+  words: string;
+  /** Park features that back it. */
+  features: string[];
+  /** Trait kinds that may back it (never nearby or history). */
+  kinds: TraitKind[];
+  /** A safety claim: a google_places trait never backs it. */
+  safety?: boolean;
+  /** The trait must use the same word ("pond" needs a pond, not a river). */
+  sameWord?: boolean;
+};
+
+const CLAIMS: Claim[] = [
+  {
+    re: /\bbaby swings?\b|\bbucket swings?\b/i,
+    words: "baby swings",
+    features: ["baby_swings"],
+    kinds: ["toddler"],
+  },
+  {
+    re: /\bswings?\b/i,
+    words: "swings",
+    features: ["swings", "baby_swings"],
+    kinds: ["signature_structure", "toddler"],
+  },
+  {
+    re: /\bslides?\b/i,
+    words: "slides",
+    features: ["slides", "great_slides", "hot_slides"],
+    kinds: ["signature_structure"],
+  },
+  {
+    re: /\bzip ?lines?\b/i,
+    words: "a zipline",
+    features: ["zipline"],
+    kinds: ["signature_structure", "all_abilities"],
+  },
+  {
+    re: /\bsplash\b|\bspray ?(park|ground)s?\b/i,
+    words: "a splash pad",
+    features: ["splash_pad"],
+    kinds: ["splash_pad"],
+  },
+  {
+    re: /\bsand ?box(es)?\b/i,
+    words: "a sandbox",
+    features: ["sandbox"],
+    kinds: ["nature_play"],
+  },
+  {
+    re: /\btoddlers?\b/i,
+    words: "a toddler area",
+    features: ["toddler_area"],
+    kinds: ["toddler"],
+  },
+  {
+    re: /\bfenc(e|ed|es|ing)\b/i,
+    words: "a fence",
+    features: ["fenced"],
+    kinds: ["fenced"],
+    safety: true,
+  },
+  {
+    re: /\bclimb\w*/i,
+    words: "climbing",
+    features: ["climbing"],
+    kinds: ["signature_structure", "nature_play", "other"],
+  },
+  {
+    re: /\bspinn(y|er|ers|ing)\b|merry-go-round/i,
+    words: "spinning things",
+    features: ["spinny"],
+    kinds: ["signature_structure"],
+  },
+  {
+    re: /\b(accessible|universal[- ]design|wheelchair|inclusive|all abilities)\b/i,
+    words: "accessible play",
+    features: ["accessible"],
+    kinds: ["all_abilities"],
+    safety: true,
+  },
+  {
+    re: /\bshad(e|y|ed)\b/i,
+    words: "shade",
+    features: ["shade"],
+    kinds: ["shade"],
+  },
+  {
+    re: /\bpicnic\b/i,
+    words: "picnic tables",
+    features: ["picnic"],
+    kinds: [],
+  },
+  {
+    re: /\btrails?\b|\bloop\b/i,
+    words: "a trail",
+    features: ["trail"],
+    kinds: ["trail", "paved_loop"],
+  },
+  {
+    re: /\bdog park\b/i,
+    words: "a dog park",
+    features: ["dog_park"],
+    kinds: ["other"],
+  },
+  {
+    re: /\b(courts?|basketball|tennis|pickleball)\b/i,
+    words: "courts",
+    features: ["sports_courts"],
+    kinds: ["other"],
+  },
+  {
+    re: /\b(river|pond|lake|creek)\b/i,
+    words: "water",
+    features: ["water_view"],
+    kinds: ["water"],
+    sameWord: true,
+  },
+  {
+    re: /\bstrollers?\b/i,
+    words: "stroller-friendly paths",
+    features: ["stroller_friendly"],
+    kinds: ["paved_loop"],
+  },
 ];
 
-/** Claims in the text the park's record doesn't back. */
+type BackingTrait = Pick<Trait, "text" | "kind" | "source">;
+
+const matchedWords = (re: RegExp, text: string) =>
+  new Set(
+    [...text.matchAll(new RegExp(re.source, "gi"))].map((m) =>
+      m[0].toLowerCase(),
+    ),
+  );
+
+function traitBacks(c: Claim, t: BackingTrait, text: string): boolean {
+  if (!c.kinds.includes(t.kind) || CONTEXT_KINDS.has(t.kind)) return false;
+  if (c.safety && t.source === "google_places") return false;
+  if (!c.re.test(t.text)) return false;
+  if (!c.sameWord) return true;
+  const have = matchedWords(c.re, t.text);
+  return [...matchedWords(c.re, text)].every((w) => have.has(w));
+}
+
+/**
+ * Claims in the text the park's record doesn't back. A verified,
+ * in-season profile trait of the right kind backs a claim too ("creek"
+ * when a water trait says creek); a Google-sourced trait never backs a
+ * fence or accessibility claim.
+ */
 export function unbackedClaims(
   text: string,
   features: readonly string[],
+  traits: readonly BackingTrait[] = [],
 ): string[] {
   const has = new Set(features);
   return CLAIMS.filter(
-    ([re, , need]) => re.test(text) && !need.some((f) => has.has(f)),
-  ).map(([, words]) => words);
+    (c) =>
+      c.re.test(text) &&
+      !c.features.some((f) => has.has(f)) &&
+      !traits.some((t) => traitBacks(c, t, text)),
+  ).map((c) => c.words);
 }
 
 /** Park features as chips (never restrooms; splash pads May to September). */
@@ -669,10 +811,11 @@ async function resolveItem(
   const p = ctx.parks.get(rest);
   if (!p || !p.approved || p.status !== "active")
     return { ok: false, cut: `${it.ref}: not an open park on the map.` };
-  const claims = unbackedClaims(it.what, p.features);
+  const traits = postTraits(ctx.profiles.get(p.slug), month);
+  const claims = unbackedClaims(it.what, p.features, traits);
   const off = ungrounded(
     it.what,
-    `${p.name} ${featureChips(p.features, month, 99).join(" ")} playground park`,
+    `${p.name} ${featureChips(p.features, month, 99).join(" ")} ${traits.map((t) => `${t.text} ${t.keys.join(" ")}`).join(" ")} playground park`,
   );
   if (claims.length || off.length)
     return {
@@ -796,10 +939,42 @@ export async function validateParkPost(
     ["bring", d.bring],
   ] as const)
     r.errors.push(...textProblems(text, { month, label }));
+  for (const [label, text] of [
+    ["hook", d.hook],
+    ["who", d.who],
+    ["what", d.what],
+    ["bring", d.bring],
+  ] as const) {
+    const generic = genericPhrases(text);
+    if (generic.length)
+      r.errors.push(
+        `${label}: ${generic.join(", ")} could be any park. Say what makes this one different.`,
+      );
+  }
+  const profile = ctx.profiles.get(d.park) ?? null;
   if (park) {
+    // In-season traits only; nearby and history traits can't lead.
+    const traits = postTraits(profile, month);
+    const leads = traits.filter((t) => !CONTEXT_KINDS.has(t.kind));
+    const n = postKinds(profile, month);
+    if (n < MIN_POST_TRAITS)
+      r.errors.push(
+        `${park.name} has signature traits of ${n} kind${n === 1 ? "" : "s"} this month; a park post needs ${MIN_POST_TRAITS}.`,
+      );
+    else {
+      if (!traitIn(d.hook, leads))
+        r.errors.push(
+          "The hook must lead with one of the park's signature traits, using one of its keys (plan: post_parks[].profile.traits[].keys).",
+        );
+      if (!traitIn(d.what, leads))
+        r.errors.push(
+          "The what line opens the caption: it must name one of the park's signature traits, using one of its keys.",
+        );
+    }
     const claims = unbackedClaims(
       [d.hook, d.who, d.what, d.bring].join(" "),
       park.features,
+      traits,
     );
     if (claims.length)
       r.errors.push(

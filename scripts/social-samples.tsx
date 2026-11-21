@@ -399,9 +399,9 @@ async function main() {
       {
         type: "park_post",
         park: larkspur.slug,
-        hook: "A Bend playground built for every kid",
-        who: "Universal-design play for all ages and abilities.",
-        what: "Picnic tables for grown-ups and a walking trail around it.",
+        hook: "A Bend playground for all abilities",
+        who: "Kids of every age and ability, side by side.",
+        what: "Three play zones for all abilities, at the Larkspur Trail trailhead.",
         bring: "Mittens, and a snack for the picnic tables.",
         hashtags: ["#BendOregon", "#CentralOregon", "#BendKids"],
       },

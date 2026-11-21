@@ -116,3 +116,7 @@ Entries added beyond her list (18): Prineville (Crooked River, Gervais, Harwood,
 - **Sunriver**: only Fort Rock and Paulina, as on her list. Mary McCallum Park is owner-only. Other Sunriver Owners Association parks (Besson Commons, Ponderosa Park) have no playground in OSM.
 - **Towns with nothing found**: Tumalo, Terrebonne (other than Smith Rock), Powell Butte, Metolius (school only), Camp Sherman and Warm Springs have no public playground in OSM or in any source that could be reached.
 - **Sites that could not be reached**: the official city sites for Redmond, Sisters, Madras and Culver block or reset automated requests. Their parks rely on OSM and secondary sources, plus her list for Redmond.
+
+## Park signature traits (park-profiles.json)
+
+Each park's 0 to 5 signature traits, in our own words, with curated `keys` and evidence quotes (src/lib/park-profiles.ts has the rules). Traits are written by hand. Google Places is an input only: `GOOGLE_PLACES_KEY=... node scripts/park-profiles/google-places.mjs` fills the gitignored data/.google-cache/, and `--facts` copies place ids and true/false facts. **After any trait edit, run `node scripts/park-profiles/google-places.mjs --check`**, which fails on any 4-word run shared with Google's text, then `pnpm test`.

@@ -1110,3 +1110,42 @@ export const socialDmReplies = pgTable(
 export type Crew = typeof crews.$inferSelect;
 export type Explorer = typeof explorers.$inferSelect;
 export type Park = typeof parks.$inferSelect;
+
+/**
+ * The monthly re-check of park signature-trait evidence
+ * (lib/park-profiles-check.ts), one row per evidence page. A trait whose
+ * quote is in `missingQuotes` of a `missing` page with `missStreak` 2 or
+ * more is dropped everywhere (posts, plans, park pages) until the quote
+ * is seen again or the data is fixed. `unknownStreak` counts checks in a
+ * row that couldn't tell (bot wall, timeout).
+ */
+export const parkEvidenceChecks = pgTable(
+  "park_evidence_checks",
+  {
+    url: text("url").primaryKey(),
+    /** ok | missing | unknown */
+    status: text("status").notNull(),
+    /** The quotes this page no longer prints (all of them on a 404 or 410). */
+    missingQuotes: jsonb("missing_quotes")
+      .$type<string[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    unknownStreak: integer("unknown_streak").notNull().default(0),
+    /**
+     * Checks in a row with a missing quote (overlapping misses). A trait
+     * drops only at 2; a check that sees the quote again clears it.
+     */
+    missStreak: integer("miss_streak").notNull().default(0),
+    /** When James was last told about this page; null: not yet. */
+    notifiedAt: timestamp("notified_at", { withTimezone: true }),
+    checkedAt: timestamp("checked_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "park_evidence_checks_status",
+      sql`${t.status} in ('ok', 'missing', 'unknown')`,
+    ),
+  ],
+);
