@@ -1,4 +1,5 @@
 import type { ForecastDay, Issue } from "@/lib/news/issue";
+import { commonBody, eventFit, ideaFit } from "@/components/social/fit";
 import { ideaText } from "./at-home";
 import {
   type AtHomeDraft,
@@ -166,7 +167,7 @@ const WATER =
 
 /** Code's safety line for an idea: water play with kids under 6. */
 export function ideaSafety(i: AtHomeDraft["ideas"][number]): string | null {
-  const text = [i.title, ...i.need, ...i.steps].join(" ");
+  const text = [i.title, ...i.need, ...i.steps, i.payoff].join(" ");
   return i.ages.from < 6 && WATER.test(text) ? COPY.waterSafety : null;
 }
 
@@ -183,7 +184,19 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
     title: i.title.trim(),
     need: i.need.map((n) => n.trim()),
     steps: i.steps.map(sentence),
+    payoff: sentence(i.payoff),
   }));
+  const ideaBody = commonBody(
+    ideas.map((i) =>
+      ideaFit({
+        title: i.title,
+        need: i.need.join(", "),
+        steps: i.steps,
+        payoff: i.payoff,
+        safety: ideaSafety(i),
+      }),
+    ),
+  );
   const slides: SlideSpec[] = [
     {
       t: "headline",
@@ -202,6 +215,8 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
       ages: agesLabel(i.ages),
       need: i.need.join(", "),
       steps: i.steps,
+      payoff: i.payoff,
+      body: ideaBody,
       safety: ideaSafety(i),
     })),
     { t: "cta", line: COPY.thursday, cta, sub: COPY.free },
@@ -213,6 +228,7 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
       `${n + 1}. ${i.title} (${agesLabel(i.ages).toLowerCase()})`,
       `You need: ${i.need.join(", ")}.`,
       ...i.steps.map((s) => `- ${s}`),
+      `${COPY.payoffLabel}: ${i.payoff}`,
       ...(ideaSafety(i) ? [ideaSafety(i)!] : []),
       "",
     ]),
@@ -232,7 +248,12 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
     headline,
     modelText: [
       headline,
-      ...ideas.flatMap((i) => [i.title, i.need.join(", "), ...i.steps]),
+      ...ideas.flatMap((i) => [
+        i.title,
+        i.need.join(", "),
+        ...i.steps,
+        i.payoff,
+      ]),
     ].join("\n"),
     facts: {
       parks: [],
@@ -247,6 +268,18 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
 
 // --- F. Family events this week (Tuesday, code only) -----------------------
 
+/**
+ * Where an event is, with its town: "At Fir Street Park, Sisters", or
+ * "At Redmond Library" when the venue's name already says the town.
+ */
+export function placeLine(venue: string, town: string): string {
+  const named = new RegExp(
+    `\\b${town.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
+    "i",
+  );
+  return named.test(venue) ? `At ${venue}` : `At ${venue}, ${town}`;
+}
+
 /** One roundup event, resolved from kid_events by code. */
 export type WeekEvent = {
   slug: string;
@@ -259,6 +292,8 @@ export type WeekEvent = {
   venue: string;
   town: string;
   ages: string[];
+  /** What kids do there, from the stored `what` (null: no clean short line). */
+  desc: string | null;
   /** The printed cost's chip ("Free", "$8 kids"); null when none is printed. */
   cost: string | null;
   host: string | null;
@@ -272,6 +307,18 @@ export function composeEventsWeek(
 ): PostSpec {
   const cta = ctaLine(dms);
   const headline = COPY.eventsHeadline;
+  const eventBody = commonBody(
+    events.map((e) =>
+      eventFit({
+        title: e.title,
+        desc: e.desc,
+        place: placeLine(e.venue, e.town),
+        chips: [...e.ages, ...(e.cost ? [e.cost] : [])],
+        host: e.host,
+        also: e.also,
+      }),
+    ),
+  );
   const towns = [...new Set(events.map((e) => e.town))].sort(
     (a, b) => Number(b === "Bend") - Number(a === "Bend"),
   );
@@ -293,6 +340,8 @@ export function composeEventsWeek(
       date: e.date,
       time: e.time,
       title: e.title,
+      desc: e.desc,
+      body: eventBody,
       venue: e.venue,
       town: e.town,
       ages: e.ages,
@@ -316,6 +365,7 @@ export function composeEventsWeek(
     ...events.map((e) =>
       [
         `${e.weekday}, ${e.date} · ${e.time}: ${e.title}, ${e.town}.`,
+        ...(e.desc ? [`${e.desc}.`] : []),
         `${e.ages.join(", ")}.${e.cost ? ` ${e.cost}.` : ""}`,
         ...(e.host ? [`Hosted by ${e.host}.`] : []),
         ...(e.also ? [`${e.also}.`] : []),
@@ -509,9 +559,9 @@ export function slideAlt(s: SlideSpec): string {
     case "item":
       return `${s.n} of ${s.of}: ${s.name}. ${strip(s.what)}. ${s.facts.join(", ")}.`;
     case "idea":
-      return `${s.n} of ${s.of}: ${s.title}. ${s.ages}. You need: ${s.need}. ${s.steps.map((x, i) => `${i + 1}. ${x}`).join(" ")}${s.safety ? ` ${s.safety}` : ""}`;
+      return `${s.n} of ${s.of}: ${s.title}. ${s.ages}. You need: ${s.need}. ${s.steps.map((x, i) => `${i + 1}. ${x}`).join(" ")} ${COPY.payoffLabel}: ${s.payoff}${s.safety ? ` ${s.safety}` : ""}`;
     case "event":
-      return `${s.n} of ${s.of}: ${s.title}. ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}.${s.cost ? ` ${s.cost}.` : ""}${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
+      return `${s.n} of ${s.of}: ${s.title}.${s.desc ? ` ${s.desc}.` : ""} ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}.${s.cost ? ` ${s.cost}.` : ""}${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
     case "cta":
       return [s.url ? `${s.line} ${s.url}.` : s.line, s.sub, s.fine, s.cta]
         .filter(Boolean)

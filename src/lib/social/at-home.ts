@@ -141,7 +141,9 @@ export const ideaText = (i: {
   title: string;
   need: readonly string[];
   steps: readonly string[];
-}) => [i.title, ...i.need, ...i.steps].join(". ");
+  payoff?: string;
+}) =>
+  [i.title, ...i.need, ...i.steps, ...(i.payoff ? [i.payoff] : [])].join(". ");
 
 /**
  * The recent idea this one repeats, or null: a title whose content words
@@ -326,17 +328,78 @@ export function postTextProblems(
   return out;
 }
 
+// --- The payoff: every idea ends on what the kid gets out of it --------------
+
+/** Lines that end nothing: "Have fun!", "Enjoy!", "That's it!". */
+const GENERIC_PAYOFF =
+  /^(and )?(now )?(have (so much |lots of |a ton of )?fun|have a (blast|ball|great time)|enjoy( it| yourselves| the (fun|time))?|that'?s it|ta-?da|done|all done|you'?re done|happy (crafting|playing|making|snow day|holidays?)|let the fun begin|fun for (all|everyone|the whole family)|great job|well done|so fun|so much fun|what fun)\b[\s!.]*$/i;
+
+/** Prep verbs: a line that starts with one and pays off nothing is just another step. */
+const PREP =
+  /^(cut|fold|fill|tape|glue|mix|stir|pour|tear|trace|draw|add|put|place|set( up)?|lay|line( up)?|roll|wrap|press|stick|measure|gather|collect|sort|cover|wet|scoop|paint|color|thread|tie|stack)\b/i;
+
+/** Words that say the payoff: what the kid ends up with, or the moment it pays off. */
+const PAYOFF =
+  /\b(now|then|watch\w*|see|look|race|play|hang|show|display|give|gift|wear|keep|take (it|them|turns)|cheer|win\w*|admire|glow\w*|shine\w*|sparkl\w*|light(s)? up|fly|flies|float\w*|sail\w*|spin\w*|launch\w*|crash\w*|bounce\w*|pop\w*|tumble\w*|knock\w*|topple\w*|surprise\w*|reveal\w*|appear\w*|grow\w*|sprout\w*|melt\w*|count|who|until|every|whoever|first to|your own|ready|ends? up|get to|gets? to|treasure|keepsake|forever|tonight|tomorrow|all (day|week|winter)|for (the|a) (table|tree|window|fridge|door|wall))\b/i;
+
+/**
+ * Why a payoff isn't one, or []: it must be there, end something (not a
+ * bare "Have fun!"), and not be one more step (a prep verb with nothing
+ * paid off, or the same words as a step).
+ */
+export function payoffProblems(i: {
+  steps: readonly string[];
+  payoff: string;
+}): string[] {
+  const p = i.payoff.trim();
+  if (!p)
+    return [
+      "needs a payoff: what the kid ends up with, or the moment it pays off.",
+    ];
+  if (GENERIC_PAYOFF.test(p))
+    return [
+      `the payoff "${p}" is generic. Say what the kid ends up with or gets to do ("Hang it in a sunny window and watch the colors glow").`,
+    ];
+  const out: string[] = [];
+  if (PREP.test(p) && !PAYOFF.test(p))
+    out.push(
+      `the payoff "${p}" reads like another step. End on what the kid gets: the moment it works, or what they keep.`,
+    );
+  else if (!PAYOFF.test(p))
+    out.push(
+      `the payoff "${p}" doesn't say what the kid gets. End with the moment it works ("Now race them down the hallway") or what they keep.`,
+    );
+  const words = (t: string) =>
+    new Set(
+      t
+        .toLowerCase()
+        .replace(/[^a-z' ]+/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length > 3),
+    );
+  const pw = words(p);
+  for (const s of i.steps) {
+    const sw = words(s);
+    const both = [...pw].filter((w) => sw.has(w)).length;
+    if (pw.size && both / pw.size >= 0.7) {
+      out.push(`the payoff repeats a step ("${s}").`);
+      break;
+    }
+  }
+  return out;
+}
+
 /** Every problem with one idea, or [] when it's fine. */
 export function ideaProblems(i: AtHomeIdea): string[] {
   const label = `idea "${i.title}"`;
-  const all = [i.title, ...i.need, ...i.steps].join(". ");
+  const all = [i.title, ...i.need, ...i.steps, i.payoff].join(". ");
   const out: string[] = [];
   for (const h of hazardsIn(all, i.ages.from))
     out.push(`${label}: not safe for these ages (${h}).`);
   const brand = BRANDS.exec(all);
   if (brand) out.push(`${label}: no brands or products ("${brand[0]}").`);
   if (/[™®©]/.test(all)) out.push(`${label}: no trademark signs.`);
-  const caps = properNouns([i.title, ...i.steps].join(". "));
+  const caps = properNouns([i.title, ...i.steps, i.payoff].join(". "));
   if (caps.length)
     out.push(
       `${label}: "${caps.join(", ")}" reads like a brand or a name. Use plain household words.`,
@@ -347,7 +410,8 @@ export function ideaProblems(i: AtHomeIdea): string[] {
     if (NOT_HOUSEHOLD.test(n))
       out.push(`${label}: need "${n}" isn't a household item.`);
   }
-  for (const s of i.steps)
+  out.push(...payoffProblems(i).map((p) => `${label}: ${p}`));
+  for (const s of [...i.steps, i.payoff])
     if (NOT_HOUSEHOLD.test(s))
       out.push(
         `${label}: a step asks for something to buy, print or watch ("${NOT_HOUSEHOLD.exec(s)![0]}"). Household items only.`,

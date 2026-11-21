@@ -15,6 +15,8 @@ import { WeatherGlyph, type WeatherIcon } from "@/components/news/WeatherCard";
 import { ALIASES, DRAWINGS } from "@/components/icons/drawings";
 import { compile, type Mark } from "@/components/icons/kit";
 import { CRAYONS } from "@/lib/crayons";
+import { EVENT, eventFit, IDEA, ideaFit } from "./fit";
+import { placeLine } from "@/lib/social/compose";
 import { COPY, FEED, type SlideSpec, STORY } from "@/lib/social/model";
 
 export const INK = "#2b2a33";
@@ -86,9 +88,10 @@ export function SlideIcon({ name, size }: { name: string; size: number }) {
   );
 }
 
-/** A crayon icon, or a weather glyph for the weather words (snow, rain). */
+/** A crayon icon, or a weather glyph for the weather words (snow, rain, sun). */
 function AnyIcon({ name, size }: { name: string; size: number }) {
-  return name === "snow" || name === "rain" ? (
+  // "sun" in the crayon set is the frowning no-shade sun: draw the weather one.
+  return name === "snow" || name === "rain" || name === "sun" ? (
     <WeatherGlyph icon={name} size={size} />
   ) : (
     <SlideIcon name={name} size={size} />
@@ -490,7 +493,7 @@ function HeadlineSlide({
             style={{
               display: "flex",
               flexDirection: "column",
-              fontSize: 50,
+              fontSize: 54,
               color: SOFT,
               marginTop: 30,
               lineHeight: 1.25,
@@ -586,7 +589,7 @@ function ItemSlide({
             key={i}
             style={{
               display: "flex",
-              fontSize: 42,
+              fontSize: 48,
               padding: "6px 22px 10px",
               border: `5px solid ${INK}`,
               borderRadius: "26px 18px 28px 16px",
@@ -632,12 +635,20 @@ function NumberBlob({
   );
 }
 
-function Chip({ text, fill }: { text: string; fill: string }) {
+function Chip({
+  text,
+  fill,
+  size = 48,
+}: {
+  text: string;
+  fill: string;
+  size?: number;
+}) {
   return (
     <div
       style={{
         display: "flex",
-        fontSize: 42,
+        fontSize: size,
         padding: "6px 22px 10px",
         border: `5px solid ${INK}`,
         borderRadius: "26px 18px 28px 16px",
@@ -652,14 +663,15 @@ function Chip({ text, fill }: { text: string; fill: string }) {
 /** The small line above a slide's title ("Idea 1 of 4"). */
 function Kicker({ text }: { text: string }) {
   return (
-    <div style={{ display: "flex", fontSize: 44, color: SOFT }}>{text}</div>
+    <div style={{ display: "flex", fontSize: 50, color: SOFT }}>{text}</div>
   );
 }
 
 /**
- * An "at home" idea, laid out like a recipe card: name, ages, what you
- * need (in a tinted box), then 2 or 3 numbered steps, and code's safety
- * line right under the steps it's about.
+ * An "at home" idea, laid out like a recipe card: the place and ages, the
+ * name, what you need, 2 or 3 numbered steps, then the payoff as the
+ * ending, in its own starred box, and code's safety line last. Type sizes
+ * come from fit.ts: the largest that fits this idea's words.
  */
 function IdeaSlide({
   s,
@@ -669,33 +681,36 @@ function IdeaSlide({
   page?: { n: number; of: number };
 }) {
   const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
-  const words = s.steps.join(" ").length + s.need.length;
-  const stepSize = words > 230 ? 46 : 52;
+  const fit = ideaFit(s, s.body ? [s.body] : undefined);
+  const body = fit.body;
   return (
     <Frame page={page} color={color}>
       <div
         style={{
           display: "flex",
-          alignItems: "flex-start",
+          alignItems: "center",
           justifyContent: "space-between",
+          height: IDEA.header,
         }}
       >
-        <div style={{ display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 22 }}>
           <Kicker text={`Idea ${s.n} of ${s.of}`} />
-          <div
-            style={{
-              display: "flex",
-              fontSize: s.title.length > 20 ? 84 : 100,
-              lineHeight: 1.04,
-              marginTop: 6,
-              maxWidth: 700,
-            }}
-          >
-            {s.title}
-          </div>
-          <Scribble width={300} color={color} />
+          <Chip text={s.ages} fill={tint(color, 0.3)} />
         </div>
-        <AnyIcon name={s.icon} size={170} />
+        <AnyIcon name={s.icon} size={100} />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          fontSize: fit.title,
+          lineHeight: 1.04,
+          marginTop: 8,
+        }}
+      >
+        {s.title}
+      </div>
+      <div style={{ display: "flex", marginTop: -8 }}>
+        <Scribble width={300} color={color} />
       </div>
       <div
         style={{
@@ -703,44 +718,54 @@ function IdeaSlide({
           flexDirection: "column",
           flex: 1,
           justifyContent: "center",
-          gap: 26,
+          gap: IDEA.gap,
         }}
       >
-        <div style={{ display: "flex" }}>
-          <Chip text={s.ages} fill={tint(color, 0.3)} />
-        </div>
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: 16,
             background: tint(color, 0.12),
             border: `4px solid ${INK}`,
             borderRadius: "24px 16px 26px 14px",
-            padding: "10px 24px 16px",
+            padding: "8px 24px 14px",
           }}
         >
-          <div style={{ display: "flex", fontSize: 36 }}>You need</div>
           <div
             style={{
               display: "flex",
-              fontSize: s.need.length > 70 ? 44 : 50,
+              width: IDEA.needLabelW,
+              flexShrink: 0,
+              fontSize: 42,
+              color: SOFT,
+              marginTop: Math.round((body - 42) / 2) + 4,
+            }}
+          >
+            You need
+          </div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: body,
               lineHeight: 1.18,
+              flex: 1,
             }}
           >
             {s.need}
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           {s.steps.map((step, i) => (
             <div
               key={i}
               style={{ display: "flex", alignItems: "flex-start", gap: 20 }}
             >
-              <NumberBlob n={i + 1} color={color} size={64} />
+              <NumberBlob n={i + 1} color={color} size={56} />
               <div
                 style={{
                   display: "flex",
-                  fontSize: stepSize,
+                  fontSize: body,
                   lineHeight: 1.16,
                   flex: 1,
                 }}
@@ -750,13 +775,41 @@ function IdeaSlide({
             </div>
           ))}
         </div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 20,
+            background: tint(color, 0.35),
+            border: `6px solid ${INK}`,
+            borderRadius: "30px 18px 34px 16px",
+            boxShadow: `8px 10px 0 ${INK}`,
+            padding: "8px 22px 14px",
+          }}
+        >
+          <SlideIcon name="star" size={60} />
+          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+            <div style={{ display: "flex", fontSize: 40, color: SOFT }}>
+              {COPY.payoffLabel}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                fontSize: body + 2,
+                lineHeight: 1.16,
+              }}
+            >
+              {s.payoff}
+            </div>
+          </div>
+        </div>
         {s.safety ? (
           <div
             style={{
               display: "flex",
               alignItems: "center",
               gap: 14,
-              fontSize: 40,
+              fontSize: 46,
               background: tint(CRAYONS.yellow, 0.35),
               border: `4px solid ${INK}`,
               borderRadius: "20px 14px 22px 12px",
@@ -785,7 +838,18 @@ function EventSlide({
   page?: { n: number; of: number };
 }) {
   const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
-  const titleSize = s.title.length > 48 ? 80 : s.title.length > 28 ? 96 : 116;
+  const place = placeLine(s.venue, s.town);
+  const fit = eventFit(
+    {
+      title: s.title,
+      desc: s.desc,
+      place,
+      chips: [...s.ages, ...(s.cost ? [s.cost] : [])],
+      host: s.host,
+      also: s.also,
+    },
+    s.body ? [s.body] : undefined,
+  );
   return (
     <Frame page={page} color={color}>
       <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
@@ -821,10 +885,22 @@ function EventSlide({
             {s.date}
           </div>
         </div>
-        <div
-          style={{ display: "flex", fontSize: 64, lineHeight: 1.1, flex: 1 }}
-        >
-          {s.time}
+        <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+          <div style={{ display: "flex", fontSize: 68, lineHeight: 1.1 }}>
+            {s.time}
+          </div>
+          {s.also ? (
+            <div
+              style={{
+                display: "flex",
+                fontSize: 50,
+                color: SOFT,
+                marginTop: 6,
+              }}
+            >
+              {s.also}
+            </div>
+          ) : null}
         </div>
       </div>
       <div
@@ -834,46 +910,56 @@ function EventSlide({
           position: "absolute",
           left: 0,
           right: 0,
-          top: 340,
+          top: EVENT.top,
         }}
       >
-        <div style={{ display: "flex", fontSize: titleSize, lineHeight: 1.06 }}>
+        <div style={{ display: "flex", fontSize: fit.title, lineHeight: 1.06 }}>
           {s.title}
         </div>
         <div style={{ display: "flex", marginTop: 4 }}>
           <Scribble width={340} color={color} />
         </div>
+        {s.desc ? (
+          <div
+            style={{
+              display: "flex",
+              fontSize: fit.body,
+              lineHeight: 1.2,
+              marginTop: 14,
+            }}
+          >
+            {s.desc}
+          </div>
+        ) : null}
         <div
           style={{
             display: "flex",
-            fontSize: s.venue.length > 34 ? 50 : 58,
+            fontSize: fit.body + 4,
+            lineHeight: 1.2,
             color: SOFT,
             marginTop: 14,
           }}
         >
-          {`At ${s.venue}`}
+          {place}
         </div>
         <div
-          style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 56 }}
+          style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 36 }}
         >
           {s.ages.map((a) => (
-            <Chip key={a} text={a} fill={tint(color, 0.3)} />
+            <Chip key={a} text={a} fill={tint(color, 0.3)} size={EVENT.chip} />
           ))}
-          {s.cost ? <Chip text={s.cost} fill={CARD} /> : null}
-          <Chip text={s.town} fill={CARD} />
+          {s.cost ? <Chip text={s.cost} fill={CARD} size={EVENT.chip} /> : null}
         </div>
-        {s.host || s.also ? (
+        {s.host ? (
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              fontSize: 44,
-              marginTop: 34,
+              fontSize: fit.body - 4,
+              marginTop: 26,
               lineHeight: 1.25,
             }}
           >
-            {s.host ? <span>{`Hosted by ${s.host}`}</span> : null}
-            {s.also ? <span style={{ color: SOFT }}>{s.also}</span> : null}
+            {`Hosted by ${s.host}`}
           </div>
         ) : null}
       </div>
@@ -929,7 +1015,7 @@ function CtaSlide({
         <div
           style={{
             display: "flex",
-            fontSize: 52,
+            fontSize: 58,
             color: SOFT,
             justifyContent: "center",
             textAlign: "center",
@@ -943,7 +1029,7 @@ function CtaSlide({
         <div
           style={{
             display: "flex",
-            fontSize: 38,
+            fontSize: 46,
             justifyContent: "center",
             textAlign: "center",
             marginTop: 20,
@@ -1000,7 +1086,7 @@ function WeatherSlide({
           <DayCard key={d.label} d={d} color={colors[i]} width={282} />
         ))}
       </div>
-      <div style={{ display: "flex", fontSize: 38, color: SOFT }}>
+      <div style={{ display: "flex", fontSize: 42, color: SOFT }}>
         Forecast: National Weather Service, Bend
       </div>
     </Frame>
@@ -1040,7 +1126,7 @@ function ParkSlide({
         <div
           style={{
             display: "flex",
-            fontSize: 30,
+            fontSize: 34,
             color: SOFT,
             marginTop: 14,
             alignSelf: "center",
@@ -1050,7 +1136,7 @@ function ParkSlide({
         </div>
       ) : null}
       <div
-        style={{ display: "flex", fontSize: 44, color: SOFT, marginTop: 18 }}
+        style={{ display: "flex", fontSize: 48, color: SOFT, marginTop: 18 }}
       >
         This week&apos;s pick
       </div>
@@ -1060,7 +1146,7 @@ function ParkSlide({
       <div
         style={{
           display: "flex",
-          fontSize: s.why.length > 180 ? 38 : s.why.length > 110 ? 44 : 52,
+          fontSize: s.why.length > 180 ? 40 : s.why.length > 110 ? 46 : 54,
           lineHeight: 1.2,
           marginTop: 12,
         }}
@@ -1131,7 +1217,7 @@ function ParkCardSlide({
             left: 70,
             bottom: 70,
             display: "flex",
-            fontSize: 32,
+            fontSize: 36,
             background: "rgba(255, 253, 247, 0.92)",
             border: `4px solid ${INK}`,
             borderRadius: 16,
@@ -1257,7 +1343,7 @@ function StorySlide({
       </div>
       {photo && s.photo?.credit ? (
         <div
-          style={{ display: "flex", fontSize: 30, color: SOFT, marginTop: 18 }}
+          style={{ display: "flex", fontSize: 34, color: SOFT, marginTop: 18 }}
         >
           {s.photo.credit}
         </div>

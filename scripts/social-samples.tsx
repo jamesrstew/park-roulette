@@ -11,7 +11,6 @@ import type { Issue } from "../src/lib/news/issue";
 import { ageTags } from "../src/lib/events/ages";
 import type { EventRow } from "../src/lib/events/model";
 import {
-  composeAtHome,
   composeEventsWeek,
   composeParkPost,
   composeStory,
@@ -19,7 +18,9 @@ import {
   composeUnpack,
   type ParkInfo,
 } from "../src/lib/social/compose";
-import { slotFor } from "../src/lib/social/model";
+import { AtHomeDraft, slotFor } from "../src/lib/social/model";
+import { CATALOG } from "../src/lib/news/catalog";
+import { validateAtHome } from "../src/lib/social/validate";
 import { photosFor, renderPost } from "../src/lib/social/render";
 import { pickWeekEvents, roundupWindow } from "../src/lib/social/roundup";
 
@@ -313,6 +314,84 @@ const issue: Issue = {
   signoff: { text: "Spotted a closure? Hit reply." },
 };
 
+/**
+ * A Saturday "at home" carousel, built through the real validator (the
+ * Saturday after the plan's week starts), so the sample proves its copy
+ * passes every rule: hazards by age, brands, the payoff.
+ */
+async function atHomeSample() {
+  const week = "2026-11-30";
+  const draft: AtHomeDraft = {
+    type: "at_home",
+    headline: "Snowy Saturday: 4 cozy ideas",
+    highlight: "cozy",
+    theme: "first-snow",
+    ideas: [
+      {
+        title: "Snow paint",
+        ages: { from: 2, to: 8 },
+        need: ["spray bottles", "water", "food coloring"],
+        steps: [
+          "Fill each bottle with water and food coloring",
+          "Spray stripes and letters on clean snow",
+        ],
+        payoff: "Watch the whole yard turn into a rainbow",
+        icon: "snow",
+      },
+      {
+        title: "Window color catchers",
+        ages: { from: 3, to: 8 },
+        need: ["tissue paper scraps", "clear tape"],
+        steps: [
+          "Tear tissue paper into small bright pieces",
+          "Stick them on a strip of tape, sticky side up",
+        ],
+        payoff: "Hang it in a sunny window and watch the colors glow",
+        icon: "sun",
+      },
+      {
+        title: "Paper snowflakes",
+        ages: { from: 5, to: 10 },
+        need: ["paper", "scissors"],
+        steps: [
+          "Fold a square of paper in half three times",
+          "Snip small shapes along the folded edges",
+        ],
+        payoff: "Unfold it and hang a blizzard in the window",
+        icon: "sparkles",
+      },
+      {
+        title: "Sock snowball fight",
+        ages: { from: 3, to: 10 },
+        need: ["rolled-up socks", "couch pillows"],
+        steps: [
+          "Roll pairs of socks into soft snowballs",
+          "Build a pillow wall on each side of the room",
+        ],
+        payoff: "Now let the indoor snowball battle begin",
+        icon: "party",
+      },
+    ],
+    hashtags: ["#BendKids", "#CentralOregon", "#BendOregon"],
+  };
+  const r = await validateAtHome(AtHomeDraft.parse(draft), week, {
+    now: new Date("2026-11-29T02:00:00Z"),
+    catalog: CATALOG,
+    parks: new Map(),
+    events: new Map(),
+    recent: [],
+    planParks: [],
+    cooling: new Set(),
+    photoFor: () => null,
+    dms: false,
+    recentIdeas: [],
+  });
+  console.log(
+    `at_home validator: ${r.ok ? "ok" : "FAILED"}${r.errors.length ? `\n  ${r.errors.join("\n  ")}` : ""}`,
+  );
+  return r.spec!;
+}
+
 async function main() {
   await mkdir(out, { recursive: true });
   const posts = {
@@ -406,60 +485,7 @@ async function main() {
     ),
     teaser: composeTeaser(issue, harvest, false),
     story: composeStory(issue, harvest, false),
-    at_home: composeAtHome(
-      {
-        type: "at_home",
-        headline: "Thanksgiving weekend: 4 cozy ideas",
-        highlight: "cozy",
-        theme: "thanksgiving",
-        ideas: [
-          {
-            title: "Snow paint",
-            ages: { from: 2, to: 8 },
-            need: ["spray bottles", "water", "food coloring"],
-            steps: [
-              "Fill each bottle with water and a few drops of color",
-              "Spray stripes, letters and pictures on clean snow",
-            ],
-            icon: "snow",
-          },
-          {
-            title: "Hand turkeys",
-            ages: { from: 2, to: 6 },
-            need: ["paper", "crayons"],
-            steps: [
-              "Trace a hand on paper with the fingers spread wide",
-              "Color each finger as a feather, then add a beak and feet",
-            ],
-            icon: "crayon",
-          },
-          {
-            title: "Thankful paper chain",
-            ages: { from: 3, to: 9 },
-            need: ["paper", "crayons", "tape"],
-            steps: [
-              "Tear paper into long strips, one for each person",
-              "Draw or write one thing to be thankful for on each strip",
-              "Loop and tape the strips into a chain for the table",
-            ],
-            icon: "heart",
-          },
-          {
-            title: "Bathtub boat race",
-            ages: { from: 2, to: 6 },
-            need: ["foil", "a bathtub", "a little water", "straws"],
-            steps: [
-              "Fold foil into small boats, one for each racer",
-              "Run a few inches of water in the bathtub",
-              "Blow through straws to race the boats to the far end",
-            ],
-            icon: "sparkles",
-          },
-        ],
-        hashtags: ["#BendKids", "#CentralOregon", "#BendOregon"],
-      },
-      false,
-    ),
+    at_home: await atHomeSample(),
     events_week: roundupSample(),
   };
   for (const [name, spec] of Object.entries(posts)) {

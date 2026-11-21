@@ -717,29 +717,37 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
   /** Each idea its own words (identical steps would be a repeat in the post). */
   const STEPS: Record<string, string[]> = {
     "Snow paint": [
-      "Fill spray bottles with water and a little food coloring",
-      "Spray stripes and letters on clean snow outside",
+      "Fill spray bottles with water and food coloring",
+      "Spray stripes and letters on clean snow",
     ],
     "Hand turkeys": [
       "Trace a hand on paper with the fingers spread wide",
-      "Color each finger as a feather, then add a beak",
+      "Color each finger as a feather",
     ],
     "Paper chain": [
-      "Tear paper into long strips, one for each person",
-      "Loop and tape the strips into a chain for the table",
+      "Tear paper into long strips, one each",
+      "Loop and tape the strips into a chain",
     ],
     "Painting the snow": [
-      "Fill spray bottles with water and a little food coloring",
+      "Fill spray bottles with water and food coloring",
       "Spray pictures on fresh snow in the yard",
     ],
     "Hallway bowling": [
-      "Line up empty plastic bottles at the end of the hall",
-      "Roll a soft ball to knock them down, then reset",
+      "Line up empty bottles at the end of the hall",
+      "Roll a soft ball to knock them down",
     ],
     "Sock puppets": [
       "Draw faces on old socks with markers",
       "Put on a puppet show from behind the couch",
     ],
+  };
+  const PAYOFF: Record<string, string> = {
+    "Snow paint": "Watch the yard turn into a rainbow",
+    "Hand turkeys": "Hang the flock on the fridge for the week",
+    "Paper chain": "Drape it over the table for dinner tonight",
+    "Painting the snow": "Watch the whole yard glow with color",
+    "Hallway bowling": "Count who knocks down the most bottles",
+    "Sock puppets": "Now the puppets put on a show for the family",
   };
   const atHomeDraft = (week: string, titles: string[]) => ({
     week_of: week,
@@ -754,6 +762,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
           ages: { from: 3, to: 8 },
           need: ["paper", "crayons", "tape"],
           steps: STEPS[title],
+          payoff: PAYOFF[title],
         })),
       },
     ],

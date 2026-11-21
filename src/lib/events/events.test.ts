@@ -316,6 +316,38 @@ describe("series, slugs and dates", () => {
     ).toBe("Saturdays, 10:30 am");
     expect(costChip(storedFrom(base(), null, ""))).toBe("$13 kids");
   });
+  it("shows the printed price range, never just the low end", () => {
+    const priced = (
+      text: string,
+      prices: { label: string; amount: number }[],
+    ) =>
+      costChip(
+        storedFrom(base({ cost: { text, prices, free: false } }), null, ""),
+      );
+    // TEAL prints "Price From $5.00 to $20.00".
+    expect(
+      priced("Price From $5.00 to $20.00", [
+        { label: "from", amount: 5 },
+        { label: "to", amount: 20 },
+      ]),
+    ).toBe("$5 to $20");
+    expect(
+      priced("$8 to $12 kids, $20 grown-ups", [
+        { label: "kids", amount: 8 },
+        { label: "kids", amount: 12 },
+        { label: "grown-ups", amount: 20 },
+      ]),
+    ).toBe("$8 to $12 kids");
+    expect(priced("$4.50", [{ label: "admission", amount: 4.5 }])).toBe(
+      "$4.50",
+    );
+    expect(
+      priced("$5 per child", [
+        { label: "per child", amount: 5 },
+        { label: "per child", amount: 5 },
+      ]),
+    ).toBe("$5 kids");
+  });
   it("trims the title, never the date or town", () => {
     const long = storedFrom(
       base({

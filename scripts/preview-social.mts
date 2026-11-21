@@ -98,7 +98,9 @@ async function main() {
   }
   console.log(`In (${pick.events.length}):`);
   for (const e of pick.events)
-    console.log(`  - ${e.weekday} ${e.date} ${e.time}: ${e.title} (${e.town})`);
+    console.log(
+      `  - ${e.weekday} ${e.date} ${e.time}: ${e.title} (${e.town})${e.desc ? `\n      ${e.desc}` : ""}`,
+    );
   const spec = composeEventsWeek(pick.events, window, false);
   await mkdir(out, { recursive: true });
   const files = await renderPost(spec, []);

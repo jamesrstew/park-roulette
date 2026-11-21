@@ -70,10 +70,11 @@ Fun things to do with kids at home on a Saturday morning, not just crafts: games
 - `theme`: one id from `at_home.themes`. A holiday theme, when there is one, is usually the stronger hook. **Every idea must fit the theme the headline names.** If the ideas mix (Thanksgiving and first snow), name the wider one in the headline ("Thanksgiving weekend: 4 cozy ideas").
 - `headline`: 4 to 8 words, `highlight` one of its words. A number must equal the ideas.
 - `ideas`: 3 to 5, each:
-  - `title`: a short name, 32 characters at most ("Snow paint", "Hallway bowling"). Not like any of `recent_ideas` (the checker compares titles by their words, so "Painting ice" repeats "Ice painting").
+  - `title`: a short name, 24 characters at most ("Snow paint", "Hallway bowling"). Not like any of `recent_ideas` (the checker compares titles by their words, so "Painting ice" repeats "Ice painting").
   - `ages`: `{"from": 2, "to": 6}`, whole years, the youngest the idea is safe and fun for.
-  - `need`: 1 to 5 household items, lowercase, plain words ("paper", "crayons", "a big bowl"). Nothing to buy, print, download or watch.
-  - `steps`: 2 or 3 plain steps, 8 to 80 characters each, telling a grown-up what to do.
+  - `need`: 1 to 4 household items, lowercase, plain words ("paper", "crayons", "a big bowl"), 48 characters at most all together. Nothing to buy, print, download or watch.
+  - `steps`: 2 or 3 plain steps, 8 to 56 characters each, telling a grown-up what to do.
+  - `payoff` (required): the ending, 12 to 56 characters. What the kid ends up with, or the moment it pays off: "Hang it in a sunny window and watch the colors glow", "Now race them down the hallway", "Count who knocked down the most". It's drawn as the idea's last box, "The best part". It must say what the kid gets (a moment, a thing to keep, a race or show), not one more prep step ("Fold the paper in half"), and never a bare "Have fun!", "Enjoy!" or "That's it!" (the checker refuses those).
   - `icon`: optional, from `at_home.icons`.
 - **Safety, always** (the checker refuses these in the ideas, the headline and the caption):
   - **Never, at any age:** knives or blades, glue guns, a stove, oven, kettle, microwave, baking, boiling, or anything heated, warmed or cooked (pretend cooking is fine), candles or fire, irons, cleaners or chemicals (bleach, hydrogen peroxide, rubbing alcohol, sanitizer, glow sticks), batteries, magnets, plastic bags, ladders, standing or jumping on chairs, counters, tables or beds, trampolines, snow tunnels or digging and crawling into snow, ponds, lakes, rivers or ice, streets and driveways, and anything that needs the freezer or prep overnight ("freeze dance" is fine).
@@ -95,7 +96,7 @@ Fun things to do with kids at home on a Saturday morning, not just crafts: games
 ## 7. Check, then a fresh-eyes review
 
 1. `POST https://parkroulette.quest/api/social/check` with `{"week_of": "<week_of>", "posts": [<park post>, <carousel>, <at home>]}`. Each post comes back with `errors`, `warnings`, `cut` and the `spec` (the exact caption and slides). Fix every error and check again.
-2. Then hand all three posts, with their `spec` and the plan, to an **editor subagent** with fresh eyes. Ask it to answer only these: Is every claim backed by the plan? Is anything unsafe for kids or about kids (for "at home": could a toddler choke, get burned, cut or hurt doing it as written, at the youngest age given)? Does every "at home" idea fit the headline's theme and work Saturday morning with what's in the house? Does each slide make sense in two seconds on a phone? Any first person, competitor or repeat of `recent`? Is the headline something a Bend parent would stop for? Apply what it finds (or say why not), and check again.
+2. Then hand all three posts, with their `spec` and the plan, to an **editor subagent** with fresh eyes. Ask it to answer only these: Is every claim backed by the plan? Is anything unsafe for kids or about kids (for "at home": could a toddler choke, get burned, cut or hurt doing it as written, at the youngest age given)? Does every "at home" idea fit the headline's theme, work Saturday morning with what's in the house, and end on a payoff a kid would actually look forward to? Does each slide make sense in two seconds on a phone? Any first person, competitor or repeat of `recent`? Is the headline something a Bend parent would stop for? Apply what it finds (or say why not), and check again.
 
 ## 8. Hand in
 

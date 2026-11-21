@@ -546,15 +546,26 @@ export function isFree(e: StoredEvent): boolean {
   return !!e.cost?.free && !(e.cost.prices ?? []).some((p) => p.amount > 0);
 }
 
-/** The short chip: "Free", "$13 kids", "$5". */
+const dollars = (n: number) =>
+  `$${Number.isInteger(n) ? n : n.toFixed(2).replace(/\.00$/, "")}`;
+
+/**
+ * The short chip: "Free", "$13 kids", "$5", or the printed range when the
+ * page prints more than one price ("$5 to $20", "$8 to $12 kids"), so the
+ * chip never understates what a family pays. Kids' prices are used when
+ * the page labels them; otherwise every paid price. Null: no printed price.
+ */
 export function costChip(e: StoredEvent): string | null {
   if (!e.cost) return null;
   if (isFree(e)) return "Free";
   const paid = (e.cost.prices ?? []).filter((p) => p.amount > 0);
   if (!paid.length) return null;
-  const kid = paid.find((p) => /kid|child|youth/i.test(p.label)) ?? paid[0];
-  const amount = `$${Number.isInteger(kid.amount) ? kid.amount : kid.amount.toFixed(2)}`;
-  return /kid|child|youth/i.test(kid.label) ? `${amount} kids` : amount;
+  const kids = paid.filter((p) => /kid|child|youth/i.test(p.label));
+  const set = (kids.length ? kids : paid).map((p) => p.amount);
+  const lo = Math.min(...set);
+  const hi = Math.max(...set);
+  const amount = lo === hi ? dollars(lo) : `${dollars(lo)} to ${dollars(hi)}`;
+  return kids.length ? `${amount} kids` : amount;
 }
 
 export function domainOf(url: string): string {

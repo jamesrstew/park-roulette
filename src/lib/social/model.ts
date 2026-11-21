@@ -111,6 +111,8 @@ export const COPY = {
   eventsDetailsLine: "Details and more at",
   eventsUrl: "parkroulette.quest/events",
   eventsFine: "Each event is run by its host. Check times before you go.",
+  /** The label over an idea's payoff, on the slide and in the caption. */
+  payoffLabel: "The best part",
   /** The "at home" caption's save prompt (saves drive reach on idea posts). */
   save: "Save this for the next morning at home.",
   /** Water ideas for kids under 6 (code adds it; the model never has to). */
@@ -304,9 +306,25 @@ export const IDEA_ICONS = [
 ] as const;
 export type IdeaIcon = (typeof IDEA_ICONS)[number];
 
+/**
+ * Copy limits for an idea slide, set so the longest allowed idea fits the
+ * 4:5 card at the larger body type (types.test.ts renders the worst case).
+ */
+export const IDEA_LIMITS = {
+  title: 24,
+  needItem: 22,
+  needItems: 4,
+  /** "spray bottles, water, food coloring": the joined line. */
+  needLine: 44,
+  step: 52,
+  /** All the steps together (3 steps: about 34 characters each). */
+  steps: 104,
+  payoff: 52,
+} as const;
+
 export const AtHomeIdea = z.strictObject({
-  /** A short name ("Snow paint"), 32 characters at most. */
-  title: Words(32, 3),
+  /** A short name ("Snow paint"), 24 characters at most. */
+  title: Words(IDEA_LIMITS.title, 3),
   /** Who it's for, in whole years ("Ages 2 to 6"). */
   ages: z
     .strictObject({
@@ -315,9 +333,29 @@ export const AtHomeIdea = z.strictObject({
     })
     .refine((a) => a.to > a.from, "ages.to must be above ages.from"),
   /** Household items only, lowercase words ("spray bottles"). */
-  need: z.array(Words(28, 2)).min(1).max(5),
+  need: z
+    .array(Words(IDEA_LIMITS.needItem, 2))
+    .min(1)
+    .max(IDEA_LIMITS.needItems)
+    .refine(
+      (n) => n.join(", ").length <= IDEA_LIMITS.needLine,
+      `need: ${IDEA_LIMITS.needLine} characters at most, all items together`,
+    ),
   /** 2 or 3 plain steps. */
-  steps: z.array(Words(80, 8)).min(2).max(3),
+  steps: z
+    .array(Words(IDEA_LIMITS.step, 8))
+    .min(2)
+    .max(3)
+    .refine(
+      (st) => st.join("").length <= IDEA_LIMITS.steps,
+      `steps: ${IDEA_LIMITS.steps} characters at most, all steps together`,
+    ),
+  /**
+   * The payoff: what the kid ends up with, or the moment it pays off ("Hang
+   * it in a sunny window and watch the colors glow", "Now race them down
+   * the hallway"). Not another step, and never a bare "Have fun!".
+   */
+  payoff: Words(IDEA_LIMITS.payoff, 12),
   icon: z.enum(IDEA_ICONS).optional(),
 });
 export type AtHomeIdea = z.infer<typeof AtHomeIdea>;
@@ -405,6 +443,10 @@ export type SlideSpec =
       ages: string;
       need: string;
       steps: string[];
+      /** The ending: what the kid ends up with, or the moment it pays off. */
+      payoff: string;
+      /** Body type for every idea slide of the post (fit.ts), px. */
+      body?: number;
       /** Code's safety line (water play), or null. */
       safety: string | null;
     }
@@ -419,6 +461,10 @@ export type SlideSpec =
       /** "10 am to noon", "Starts 6 pm". */
       time: string;
       title: string;
+      /** What kids do there, from the stored `what`, 70 characters at most. */
+      desc: string | null;
+      /** Body type for every event slide of the post (fit.ts), px. */
+      body?: number;
       venue: string;
       town: string;
       ages: string[];

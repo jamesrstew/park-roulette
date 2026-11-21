@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { ageTags } from "@/lib/events/ages";
 import type { EventRow } from "@/lib/events/model";
 import { CATALOG } from "@/lib/news/catalog";
@@ -7,6 +7,7 @@ import { pacific } from "@/lib/news/time";
 import {
   hazardsIn,
   ideaProblems,
+  payoffProblems,
   repeatOf,
   themesFor,
   titleSimilarity,
@@ -41,8 +42,9 @@ const idea = (over: Partial<AtHomeIdea> = {}): AtHomeIdea => ({
   need: ["paper", "crayons"],
   steps: [
     "Trace a hand on paper with the fingers spread wide",
-    "Color each finger as a feather, then add a beak and feet",
+    "Color each finger as a feather, add a beak",
   ],
+  payoff: "Hang the flock on the fridge for the whole week",
   ...over,
 });
 
@@ -58,10 +60,11 @@ const atHome = (over: Partial<AtHomeDraft> = {}): AtHomeDraft => ({
       ages: { from: 3, to: 9 },
       need: ["paper", "crayons", "tape"],
       steps: [
-        "Tear paper into long strips, one for each person",
-        "Draw one thing to be thankful for on each strip",
-        "Loop and tape the strips into a chain for the table",
+        "Tear paper into strips, one each",
+        "Draw one thankful thing on each",
+        "Loop and tape them into a chain",
       ],
+      payoff: "Hang it over the table and read them out at dinner",
     }),
     idea({
       title: "Cardboard box fort",
@@ -71,6 +74,7 @@ const atHome = (over: Partial<AtHomeDraft> = {}): AtHomeDraft => ({
         "Stand the boxes up and drape blankets over the top",
         "Add pillows inside and read books in the fort",
       ],
+      payoff: "Now it's a secret clubhouse: password to get in",
     }),
   ],
   hashtags: ["#BendKids", "#CentralOregon", "#BendOregon"],
@@ -1067,6 +1071,316 @@ describe("the towns line never starts or ends on a dot", () => {
     }
     expect(lines.join(" · ")).toBe(
       "Bend · Madras · Sisters · La Pine · Redmond · Prineville",
+    );
+  });
+});
+
+// --- James's feedback on the live posts (November 21) ---------------------------
+
+describe("at home: every idea ends on a payoff", () => {
+  const steps = [
+    "Fold foil into small boats, one for each racer",
+    "Run a few inches of water in the bathtub",
+  ];
+
+  it("takes a real ending: what the kid gets, or the moment it pays off", () => {
+    for (const payoff of [
+      "Hang it in a sunny window and watch the colors glow",
+      "Now race them down the hallway",
+      "Blow and see whose boat sails to the far end first",
+      "Keep it on the fridge until the snow melts",
+      "Take turns knocking the tower down",
+      "Give one to each grown-up at dinner",
+    ])
+      expect(payoffProblems({ steps, payoff }), payoff).toEqual([]);
+  });
+
+  it("refuses a generic sign-off", () => {
+    for (const payoff of [
+      "Have fun!",
+      "Enjoy!",
+      "Have a blast!",
+      "That's it!",
+      "Happy crafting!",
+      "And have so much fun",
+    ])
+      expect(payoffProblems({ steps, payoff }).join(" "), payoff).toMatch(
+        /generic/,
+      );
+  });
+
+  it("refuses another step, or a step said again", () => {
+    expect(
+      payoffProblems({
+        steps,
+        payoff: "Fold the corners in to make a point",
+      }).join(" "),
+    ).toMatch(/another step/);
+    expect(
+      payoffProblems({
+        steps,
+        payoff: "Put the boats in a row on the table",
+      }).join(" "),
+    ).toMatch(/another step/);
+    expect(
+      payoffProblems({
+        steps,
+        payoff: "Then fold foil into small boats, one for each racer",
+      }).join(" "),
+    ).toMatch(/repeats a step/);
+  });
+
+  it("the payoff is required, drawn as the slide's ending, and in the caption", async () => {
+    const noPayoff = WeekDraft.safeParse({
+      week_of: WEEK,
+      posts: [
+        atHome({
+          ideas: atHome().ideas.map(({ payoff: _p, ...rest }) => {
+            void _p;
+            return rest as AtHomeIdea;
+          }),
+        }),
+      ],
+    });
+    expect(noPayoff.success).toBe(false);
+    const r = await validateAtHome(atHome(), WEEK, ctx());
+    expect(r.errors).toEqual([]);
+    const slide = r.spec!.slides[1];
+    expect(slide).toMatchObject({
+      t: "idea",
+      payoff: "Hang the flock on the fridge for the whole week.",
+    });
+    expect(r.spec!.caption).toContain(
+      `${COPY.payoffLabel}: Hang the flock on the fridge for the whole week.`,
+    );
+    const bad = atHome();
+    bad.ideas[0] = idea({ payoff: "Have fun!!" });
+    const rb = await validateAtHome(bad, WEEK, ctx());
+    expect(rb.errors.join(" ")).toMatch(/generic/);
+    const hazard = atHome();
+    hazard.ideas[0] = idea({ payoff: "Now light a candle and admire it" });
+    expect(
+      (await validateAtHome(hazard, WEEK, ctx())).errors.join(" "),
+    ).toMatch(/fire and flames/);
+  });
+});
+
+describe("nothing overflows: the longest allowed copy fits at the larger type", async () => {
+  const { ideaFit, eventFit, IDEA, EVENT } =
+    await import("@/components/social/fit");
+  const { IDEA_LIMITS } = await import("./model");
+  const words = (n: number, w = "wwww") =>
+    Array.from({ length: Math.ceil(n / (w.length + 1)) }, () => w)
+      .join(" ")
+      .slice(0, n);
+  /** Real words, cut to exactly n characters at a word boundary or less. */
+  const prose = (n: number) => {
+    const src =
+      "Set the cups in a row on the floor and take turns tossing rolled socks into them for points, then line up the best shots and count up the scores together";
+    let out = "";
+    for (const w of src.split(" "))
+      if ((out ? out.length + 1 : 0) + w.length <= n)
+        out += (out ? " " : "") + w;
+      else break;
+    return out.padEnd(n, "m").slice(0, n);
+  };
+
+  it("an idea at every limit, with the safety line, still fits", () => {
+    const title = "Thankful paper chain fun";
+    expect(title.length).toBe(IDEA_LIMITS.title);
+    const third = Math.floor(IDEA_LIMITS.steps / 3);
+    for (const steps of [
+      // Three steps sharing the total, and two at the per-step limit.
+      [prose(third), prose(third), prose(third)],
+      [prose(IDEA_LIMITS.step), prose(IDEA_LIMITS.steps - IDEA_LIMITS.step)],
+    ]) {
+      const fit = ideaFit({
+        title,
+        need: prose(IDEA_LIMITS.needLine),
+        steps,
+        payoff: prose(IDEA_LIMITS.payoff),
+        safety: COPY.waterSafety,
+      });
+      expect(fit.fits).toBe(true);
+      expect(fit.body).toBeGreaterThanOrEqual(IDEA.body[IDEA.body.length - 1]);
+    }
+  });
+
+  it("the schema holds every idea to those limits", () => {
+    const long = WeekDraft.safeParse({
+      week_of: WEEK,
+      posts: [
+        atHome({
+          ideas: [
+            idea({
+              steps: [
+                "Set out paper and crayons on the table",
+                "Draw a big turkey with a feather for each kid",
+                "Color every feather a different color of the fall",
+              ],
+            }),
+            idea(),
+            idea(),
+          ],
+        }),
+      ],
+    });
+    expect(long.success).toBe(false);
+    expect(JSON.stringify(long.error)).toMatch(/all steps together/);
+  });
+
+  it("a typical idea gets the largest body type", () => {
+    const fit = ideaFit({
+      title: "Snow paint",
+      need: "spray bottles, water, food coloring",
+      steps: [
+        "Fill each bottle with water and a few drops of color",
+        "Spray stripes, letters and pictures on clean snow",
+      ],
+      payoff: "Watch the whole yard turn into a rainbow",
+      safety: COPY.waterSafety,
+    });
+    expect(fit).toMatchObject({ body: 58, fits: true });
+  });
+
+  it("an event with long but real-length words fits; a pathological one is caught", () => {
+    expect(
+      eventFit({
+        title: "Winter Wildlife Walk for Families with the Naturalists",
+        desc: prose(70),
+        place: "At Deschutes Public Library, Downtown Bend Branch, Bend",
+        chips: ["Ages 10 to 18", "$12.50 to $20 kids"],
+        host: "Bend Park & Recreation District Youth Programs",
+        also: "Also Wed, Thu, Fri, Sat",
+      }).fits,
+    ).toBe(true);
+    expect(
+      eventFit({
+        title: words(80, "Mmmmmmm"),
+        desc: prose(70),
+        place: `At ${words(100, "Mmmmmmm")}, La Pine`,
+        chips: ["Ages 10 to 18", "$12.50 to $20 kids"],
+        host: words(80, "Mmmmmmm"),
+        also: "Also Wed, Thu, Fri, Sat",
+      }).fits,
+    ).toBe(false);
+    expect(EVENT.body[0]).toBeGreaterThan(50);
+  });
+
+  it("a long title never shrinks to the body's size (the body steps down instead)", () => {
+    const f = eventFit({
+      title: "Hydro Dipping Ornaments and Cards Playshop",
+      desc: "Kids and a grown-up dip ornaments and cards into floating paint",
+      place: "At TEAL Tea + Art Lounge, Bend",
+      chips: ["Ages 6 and up"],
+      host: null,
+      also: null,
+    });
+    expect(f.fits).toBe(true);
+    expect(f.title).toBeGreaterThanOrEqual(f.body * 1.3);
+  });
+
+  it("the roundup drops the descriptor, then the event, rather than overflow", () => {
+    const tue = slotFor("events_week", WEEK);
+    const w = roundupWindow(tue.date, tue.publishAt);
+    const now = new Date(tue.publishAt.getTime() - 30 * 60_000);
+    const r = pickWeekEvents(
+      [
+        ev({ slug: "a", day: "2026-11-25" }),
+        ev({ slug: "b", day: "2026-11-26" }),
+        ev({ slug: "c", day: "2026-11-27" }),
+        ev({ slug: "d", day: "2026-11-28" }),
+        ev({
+          slug: "huge",
+          day: "2026-11-29",
+          title: words(80, "Mmmmmmm"),
+          venue: words(100, "Mmmmmmm"),
+          host: words(80, "Mmmmmmm"),
+        }),
+      ],
+      w,
+      now,
+    );
+    expect(r.events.map((e) => e.slug)).not.toContain("huge");
+    expect(r.left.join(" ")).toMatch(/huge: too many words for one slide/);
+  });
+});
+
+describe("the roundup's short descriptor, from the stored what", () => {
+  let shortWhat: (w: string | undefined) => string | null;
+  beforeAll(async () => {
+    shortWhat = (await import("./roundup")).shortWhat;
+  });
+
+  it("uses a short first sentence as it is", () => {
+    expect(
+      shortWhat(
+        "Stories, songs and rhymes for babies. Stay after to play with toys.",
+      ),
+    ).toBe("Stories, songs and rhymes for babies");
+  });
+
+  it("cuts a long sentence before a clause or place phrase, never mid-thought", () => {
+    const d = shortWhat(
+      "Stories, songs and rhymes for babies and their grown-ups at the Downtown Bend Library, followed by free play.",
+    )!;
+    expect(d.length).toBeLessThanOrEqual(70);
+    expect(d).toBe("Stories, songs and rhymes for babies and their grown-ups");
+    expect(d).not.toMatch(/…|\.\.\.|\b(and|with|the|at|for)$/);
+    expect(
+      shortWhat(
+        "Kids build and launch paper rockets with the museum's educators, then test which design flies farthest outside.",
+      ),
+    ).toBe("Kids build and launch paper rockets with the museum's educators");
+    // Real summaries from the events table (December 2026).
+    expect(
+      shortWhat(
+        "Kids squish and sculpt air-dry clay into a new little creature or treat each week and bring it home.",
+      ),
+    ).toBe("Kids squish and sculpt air-dry clay into a new little creature");
+    expect(
+      shortWhat(
+        "Kids and a grown-up dip ornaments and cards into floating paint to make swirly marbled holiday keepsakes together.",
+      ),
+    ).toBe("Kids and a grown-up dip ornaments and cards into floating paint");
+    expect(
+      shortWhat(
+        "Kids mix painting with a little science, working through a hands-on art project with a licensed teacher.",
+      ),
+    ).toBe("Kids mix painting with a little science");
+  });
+
+  it("no clean cut: no line (never an ellipsis)", () => {
+    expect(
+      shortWhat(
+        "Supercalifragilisticexpialidociousness-themed extravaganzaaaaaaaaaaaaaaaaaaaaaaaaa celebrationnnnnnnn",
+      ),
+    ).toBeNull();
+    expect(shortWhat(undefined)).toBeNull();
+  });
+
+  it("appears under the title on the slide and in the caption", async () => {
+    const { composeEventsWeek } = await import("./compose");
+    const tue = slotFor("events_week", WEEK);
+    const w = roundupWindow(tue.date, tue.publishAt);
+    const now = new Date(tue.publishAt.getTime() - 30 * 60_000);
+    const pick = pickWeekEvents(
+      ["a", "b", "c", "d"].map((slug, i) =>
+        ev({ slug, day: `2026-11-2${5 + i}` }),
+      ),
+      w,
+      now,
+    );
+    expect(pick.events[0].desc).toBe(
+      "A kids' event for the tests, with enough words in it",
+    );
+    const spec = composeEventsWeek(pick.events, w, false);
+    expect(spec.slides[1]).toMatchObject({
+      t: "event",
+      desc: "A kids' event for the tests, with enough words in it",
+    });
+    expect(spec.caption).toContain(
+      "A kids' event for the tests, with enough words in it.",
     );
   });
 });

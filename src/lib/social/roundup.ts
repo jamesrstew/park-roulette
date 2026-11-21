@@ -11,9 +11,10 @@ import {
 import { ALL_AGES } from "@/lib/events/ages";
 import { listed } from "@/lib/events/state";
 import { addDays, weekdayOf } from "@/lib/news/time";
-import type { WeekEvent } from "./compose";
+import { placeLine, type WeekEvent } from "./compose";
 import { DATED_LEAD_HOURS, EVENTS_MAX, EVENTS_MIN } from "./model";
-import { eventTextProblem } from "./validate";
+import { eventFit } from "@/components/social/fit";
+import { eventTextProblem, textProblems } from "./validate";
 
 /** ageTags' open top ("6 and up" reads as [6, 99]). */
 const OPEN_TOP = 99;
@@ -41,6 +42,49 @@ export function timeLine(d: Pick<EventDate, "start" | "end">): string {
   const b = clock(d.end);
   const m = /^(.+) (am|pm)$/.exec(a);
   return m && b.endsWith(` ${m[2]}`) ? `${m[1]} to ${b}` : `${a} to ${b}`;
+}
+
+/** The longest event descriptor (two lines on the slide). */
+export const DESC_MAX = 70;
+
+/** Where a long sentence may be cut: before a clause or a place phrase. */
+const CUTS =
+  /(?=[,;:]\s)|(?=\s[–—-]\s)|(?=\s(?:with|at|in|into|on|for|from|during|where|while|and|or|plus|then|before|after|using|led by|hosted by|presented by|inside|outside|near|to (?:make|create|build|learn|explore|try|see|play|take|bring|share))\s)/gi;
+
+/** Words a descriptor can't end on. */
+const DANGLING =
+  /\s+(and|or|with|the|a|an|for|to|of|at|in|on|plus|their|your|its|by|from|as)$/i;
+
+/**
+ * A short line saying what kids do there, from the stored event's `what`
+ * (the harvest's verified summary): its first sentence when that's 70
+ * characters or less, else cut before a clause or a place phrase at a word
+ * boundary ("Stories, songs and rhymes for babies" from "... for babies
+ * and their grown-ups at the Downtown Bend Library"). Never an ellipsis or
+ * a cut mid-thought: with no clean cut, null (the slide shows no line).
+ */
+export function shortWhat(what: string | undefined): string | null {
+  if (!what) return null;
+  const first = what
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)[0]
+    .replace(/[.!?]+$/, "")
+    .trim();
+  const tidy = (t: string) => {
+    let x = t.trim().replace(/[\s,;:–—-]+$/, "");
+    while (DANGLING.test(x))
+      x = x.replace(DANGLING, "").replace(/[\s,;:–—-]+$/, "");
+    return x ? x[0].toUpperCase() + x.slice(1) : x;
+  };
+  if (first.length <= DESC_MAX) return first.length >= 12 ? tidy(first) : null;
+  let best: string | null = null;
+  for (const m of first.matchAll(CUTS)) {
+    const cut = tidy(first.slice(0, m.index));
+    if (cut.length > DESC_MAX) break;
+    if (cut.length >= 24) best = cut;
+  }
+  return best;
 }
 
 /** The oldest youngest-age a roundup event may print (a family event, not a teen one). */
@@ -108,6 +152,12 @@ export type RoundupPick = {
  * `screen` checks an event's title, venue and host names (default: the
  * text rules, and no bars, breweries or wineries); null is fine.
  */
+/** Our summary's words still pass the text rules as a descriptor (else none). */
+function descOk(d: string | null): string | null {
+  if (!d) return null;
+  return textProblems(d, { month: 1, label: "descriptor" }).length ? null : d;
+}
+
 export function pickWeekEvents(
   rows: Iterable<EventRow>,
   window: ReturnType<typeof roundupWindow>,
@@ -147,7 +197,7 @@ export function pickWeekEvents(
           .filter((day) => day !== first.day),
       ),
     ];
-    candidates.push({
+    const c = {
       slug: e.slug,
       day: first.day,
       start: first.start!,
@@ -159,6 +209,7 @@ export function pickWeekEvents(
       venue: e.data.venue.name,
       town: e.data.venue.town,
       ages: ages.chips,
+      desc: descOk(shortWhat(e.data.what)),
       cost,
       host:
         e.data.organizer &&
@@ -169,7 +220,21 @@ export function pickWeekEvents(
       also: more.length
         ? `Also ${more.map((d) => DAYS3[weekdayOf(d)]).join(", ")}`
         : null,
+    };
+    // Nothing overflows the card: drop the descriptor if that's what it
+    // takes, and leave out an event whose words still don't fit.
+    const copy = (desc: string | null) => ({
+      ...c,
+      desc,
+      place: placeLine(c.venue, c.town),
+      chips: [...c.ages, ...(c.cost ? [c.cost] : [])],
     });
+    if (!eventFit(copy(c.desc)).fits) c.desc = null;
+    if (!eventFit(copy(null)).fits) {
+      left.push(`${e.slug}: too many words for one slide`);
+      continue;
+    }
+    candidates.push(c);
   }
   candidates.sort((a, b) => a.at - b.at || a.slug.localeCompare(b.slug));
   if (candidates.length < EVENTS_MIN)
