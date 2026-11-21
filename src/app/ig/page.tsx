@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
@@ -47,6 +48,7 @@ function thursdayLine(date: string): string {
 }
 
 async function Signup({ searchParams }: Props) {
+  await connection(); // the date matters here
   const from = (await searchParams).from;
   const source = igSource(from);
   const [me, next, latest] = await Promise.all([

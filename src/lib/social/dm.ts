@@ -188,7 +188,7 @@ export async function dailySocialCheck(
     .where(
       and(
         eq(newsSettings.id, 1),
-        sql`(${newsSettings.socialDailyAt} is null or ${newsSettings.socialDailyAt} < ${new Date(now.getTime() - 20 * 3_600_000)})`,
+        sql`(${newsSettings.socialDailyAt} is null or ${newsSettings.socialDailyAt} < ${new Date(now.getTime() - 20 * 3_600_000).toISOString()})`,
       ),
     )
     .returning({ id: newsSettings.id });
@@ -217,7 +217,7 @@ export async function dailySocialCheck(
   const [d] = await db.execute<{ replies: number; failed: number }>(sql`
     select count(*) filter (where status = 'sent')::int as replies,
            count(*) filter (where status = 'failed')::int as failed
-    from ${socialDmReplies} where created_at > ${since}`);
+    from ${socialDmReplies} where created_at > ${since.toISOString()}`);
   let comments = 0;
   const posts = await db
     .select({ mediaId: socialPosts.igMediaId })
