@@ -859,7 +859,7 @@ function EventSlide({
           {s.ages.map((a) => (
             <Chip key={a} text={a} fill={tint(color, 0.3)} />
           ))}
-          <Chip text={s.cost} fill={CARD} />
+          {s.cost ? <Chip text={s.cost} fill={CARD} /> : null}
           <Chip text={s.town} fill={CARD} />
         </div>
         {s.host || s.also ? (

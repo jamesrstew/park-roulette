@@ -25,7 +25,9 @@ const OPEN_TOP = 99;
  * The window runs from the post plus 12 hours (the dated-lead rule) to the
  * end of the following Monday. An event counts only when it's on the
  * listing (confirmed, a kids' event, inside the 60-day horizon), its date
- * is scheduled, and it prints a start time, ages and a cost. One slide per
+ * is scheduled, and it prints a start time and ages. Its price chip shows
+ * only when the page prints a cost (costChip); with none, no price at all,
+ * never "free" or "check the page". One slide per
  * event (its first date in the window). At least 4, or the week is
  * skipped; at most 8, spread across towns and days. Ordered by date.
  */
@@ -122,11 +124,8 @@ export function pickWeekEvents(
       left.push(`${e.slug}: ${ages.why}`);
       continue;
     }
+    // Printed cost or none: never a guess.
     const cost = costChip(e.data);
-    if (!cost) {
-      left.push(`${e.slug}: no printed cost`);
-      continue;
-    }
     const bad = screen(e.data);
     if (bad) {
       left.push(`${e.slug}: ${bad}`);
@@ -177,7 +176,7 @@ export function pickWeekEvents(
     return {
       events: [],
       left,
-      skip: `Only ${candidates.length} kids' events with printed ages, times and cost this week (${EVENTS_MIN} needed).`,
+      skip: `Only ${candidates.length} kids' events with printed ages and times this week (${EVENTS_MIN} needed).`,
     };
   // Greedy spread: the next pick is the event whose town and day are least
   // used so far; the earlier start breaks ties. Bend (where most readers

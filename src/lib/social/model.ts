@@ -422,7 +422,8 @@ export type SlideSpec =
       venue: string;
       town: string;
       ages: string[];
-      cost: string;
+      /** Null when the page prints no cost: no price chip. */
+      cost: string | null;
       host: string | null;
       /** "Also Thu, Sat" when it repeats in the window. */
       also: string | null;

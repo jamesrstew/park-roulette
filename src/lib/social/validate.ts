@@ -172,17 +172,25 @@ export function textProblems(
 
 /**
  * Venues no family post names: bars, breweries, taprooms, wineries and the
- * like, even when they host a kids' event.
+ * like, even when they host a kids' event. A bare "lounge" or "wine" is
+ * not one (TEAL Tea + Art Lounge runs kids' classes; "Wine Bar" is still a
+ * bar): cocktail lounges are, and so are the bar-lounges named below.
  */
 export const ADULT_VENUE =
-  /\b(bars?|brew(ery|eries|ing|pub|pubs|house)|taprooms?|tap ?house|pubs?|saloons?|winer(y|ies)|wines?|distiller(y|ies)|taverns?|lounges?|beer ?gardens?|cider ?house|ciderworks?)\b/i;
+  /\b(bars?|brew(ery|eries|ing|pub|pubs|house)|taprooms?|tap ?house|pubs?|saloons?|winer(y|ies)|distiller(y|ies)|taverns?|cocktail ?lounges?|beer ?gardens?|cider ?house|ciderworks?)\b/i;
+
+/** Bars whose name says only "lounge", in lower case. */
+export const BAR_LOUNGES = ["astro lounge"];
 
 /** Why a venue or host name is out of every social post, or null. */
 export function venueProblem(
   name: string,
   { month, label }: { month: number; label: string },
 ): string | null {
-  if (ADULT_VENUE.test(norm(name)))
+  if (
+    ADULT_VENUE.test(norm(name)) ||
+    BAR_LOUNGES.some((b) => norm(name).toLowerCase().includes(b))
+  )
     return `${label} "${name}" is a bar, brewery or winery: never in a family post.`;
   // A name is a proper name, not our words: first person ("Our Lady
   // of ...") is fine there; competitors, links and unsafe words are not.

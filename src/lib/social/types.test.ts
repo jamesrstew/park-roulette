@@ -524,7 +524,7 @@ describe("pickWeekEvents", () => {
     expect(r.events).toEqual([]);
   });
 
-  it("only confirmed, scheduled kids' events with printed ages, a time and a cost, inside the window", () => {
+  it("only confirmed, scheduled kids' events with printed ages and a time, inside the window", () => {
     const r = pickWeekEvents(
       [
         ev({ slug: "ok-1", day: "2026-11-25" }),
@@ -533,7 +533,6 @@ describe("pickWeekEvents", () => {
         ev({ slug: "ok-4", day: "2026-11-30", town: "La Pine" }),
         ev({ slug: "no-ages", day: "2026-11-25", ages: null }),
         ev({ slug: "teens", day: "2026-11-25", ages: "Ages 13 to 18" }),
-        ev({ slug: "no-cost", day: "2026-11-25", cost: null }),
         ev({ slug: "no-time", day: "2026-11-25", start: "" }),
         ev({ slug: "unconfirmed", day: "2026-11-25", confirm: "unconfirmed" }),
         ev({ slug: "canceled", day: "2026-11-27", canceled: "2026-11-27" }),
@@ -643,6 +642,37 @@ describe("composeEventsWeek", () => {
     }),
     ev({ slug: "d", day: "2026-11-30", town: "La Pine", title: "Kids Craft" }),
   ];
+
+  it("takes events with no printed cost, and shows no price for them, never free", async () => {
+    const { composeEventsWeek, slideAlt } = await import("./compose");
+    const mixed = [
+      ev({ slug: "free", day: "2026-11-25", title: "Free Story Time" }),
+      ev({ slug: "paid", day: "2026-11-26", cost: 8, title: "Clay Class" }),
+      ev({ slug: "np-1", day: "2026-11-27", cost: null, title: "Lego Club" }),
+      ev({ slug: "np-2", day: "2026-11-28", cost: null, title: "Baby Songs" }),
+    ];
+    const pick = pickWeekEvents(mixed, w, now);
+    expect(pick.skip).toBeNull();
+    expect(pick.events.map((e) => [e.slug, e.cost])).toEqual([
+      ["free", "Free"],
+      ["paid", "$8 kids"],
+      ["np-1", null],
+      ["np-2", null],
+    ]);
+    const spec = composeEventsWeek(pick.events, w, false);
+    const lines = (spec.caption ?? "").split("\n");
+    for (const t of ["Lego Club", "Baby Songs"]) {
+      const line = lines.find((l) => l.includes(t))!;
+      expect(line).toMatch(/Ages 3 to 6\.$/);
+      expect(line).not.toMatch(/free|check|\$|null|undefined|\.\s*\./i);
+    }
+    expect(lines.find((l) => l.includes("Clay Class"))).toContain("$8 kids.");
+    const alts = spec.slides
+      .filter((x) => x.t === "event")
+      .map((x) => slideAlt(x));
+    expect(alts[2]).not.toMatch(/free|null|undefined|\.\s*\./i);
+    expect(alts[2]).toMatch(/Ages 3 to 6\.$/);
+  });
 
   it("a fixed headline naming no event, one equal slide per event, the details close", async () => {
     const { composeEventsWeek } = await import("./compose");
@@ -925,6 +955,7 @@ describe("the roundup: ages, venues and hosts", () => {
       "Faith Hope and Charity Winery",
       "Oregon Spirit Distillery",
       "Astro Lounge",
+      "The Velvet Cocktail Lounge",
       "Old Mill Pub",
       "Sisters Saloon",
     ];
@@ -945,6 +976,22 @@ describe("the roundup: ages, venues and hosts", () => {
     expect(r.left.filter((l) => /bar, brewery or winery/.test(l))).toHaveLength(
       adult.length + 1,
     );
+  });
+
+  it("keeps a tea and art lounge: a bare lounge or wine isn't a bar", () => {
+    const r = pickWeekEvents(
+      [
+        ...base,
+        ev({ slug: "teal", day: "2026-11-29", venue: "TEAL Tea + Art Lounge" }),
+        ev({ slug: "wine", day: "2026-11-29", venue: "Wine Country Farm" }),
+      ],
+      w,
+      now,
+    );
+    expect(r.events.map((e) => e.slug)).toEqual(
+      expect.arrayContaining(["teal", "wine"]),
+    );
+    expect(r.left.filter((l) => /bar, brewery or winery/.test(l))).toEqual([]);
   });
 
   it("runs the competitor, link and unsafe rules on venue and host names", () => {

@@ -259,7 +259,8 @@ export type WeekEvent = {
   venue: string;
   town: string;
   ages: string[];
-  cost: string;
+  /** The printed cost's chip ("Free", "$8 kids"); null when none is printed. */
+  cost: string | null;
   host: string | null;
   also: string | null;
 };
@@ -315,7 +316,7 @@ export function composeEventsWeek(
     ...events.map((e) =>
       [
         `${e.weekday}, ${e.date} · ${e.time}: ${e.title}, ${e.town}.`,
-        `${e.ages.join(", ")}. ${e.cost}.`,
+        `${e.ages.join(", ")}.${e.cost ? ` ${e.cost}.` : ""}`,
         ...(e.host ? [`Hosted by ${e.host}.`] : []),
         ...(e.also ? [`${e.also}.`] : []),
       ].join(" "),
@@ -510,7 +511,7 @@ export function slideAlt(s: SlideSpec): string {
     case "idea":
       return `${s.n} of ${s.of}: ${s.title}. ${s.ages}. You need: ${s.need}. ${s.steps.map((x, i) => `${i + 1}. ${x}`).join(" ")}${s.safety ? ` ${s.safety}` : ""}`;
     case "event":
-      return `${s.n} of ${s.of}: ${s.title}. ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}. ${s.cost}.${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
+      return `${s.n} of ${s.of}: ${s.title}. ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}.${s.cost ? ` ${s.cost}.` : ""}${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
     case "cta":
       return [s.url ? `${s.line} ${s.url}.` : s.line, s.sub, s.fine, s.cta]
         .filter(Boolean)
