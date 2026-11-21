@@ -11,6 +11,12 @@ import {
 } from "@/lib/events/model";
 import { listed } from "@/lib/events/state";
 import {
+  genericPhrases,
+  MIN_POST_TRAITS,
+  type ParkProfile,
+  traitIn,
+} from "@/lib/park-profiles";
+import {
   ideaOverlap,
   ideaProblems,
   ideaText,
@@ -75,6 +81,8 @@ export type SocialCtx = {
   events: ReadonlyMap<string, EventRow>;
   /** The last posts (newest first), for the overlap check. */
   recent: readonly RecentPost[];
+  /** Signature-trait profiles by park slug (data/park-profiles.json). */
+  profiles: ReadonlyMap<string, ParkProfile>;
   /** The plan's park-post candidates (code picked them, outside cooldowns). */
   planParks: readonly string[];
   /** Parks featured on Instagram in the cooldown (other slots). */
@@ -241,14 +249,21 @@ const CLAIMS: [RegExp, string, string[]][] = [
   [/\bstrollers?\b/i, "stroller-friendly paths", ["stroller_friendly"]],
 ];
 
-/** Claims in the text the park's record doesn't back. */
+/**
+ * Claims in the text the park's record doesn't back. A verified profile
+ * trait backs a claim too ("creek" when a trait says the park has one).
+ */
 export function unbackedClaims(
   text: string,
   features: readonly string[],
+  traits: readonly string[] = [],
 ): string[] {
   const has = new Set(features);
   return CLAIMS.filter(
-    ([re, , need]) => re.test(text) && !need.some((f) => has.has(f)),
+    ([re, , need]) =>
+      re.test(text) &&
+      !need.some((f) => has.has(f)) &&
+      !traits.some((t) => re.test(t)),
   ).map(([, words]) => words);
 }
 
@@ -775,10 +790,39 @@ export async function validateParkPost(
     ["bring", d.bring],
   ] as const)
     r.errors.push(...textProblems(text, { month, label }));
+  for (const [label, text] of [
+    ["hook", d.hook],
+    ["who", d.who],
+    ["what", d.what],
+    ["bring", d.bring],
+  ] as const) {
+    const generic = genericPhrases(text);
+    if (generic.length)
+      r.errors.push(
+        `${label}: ${generic.join(", ")} could be any park. Say what makes this one different.`,
+      );
+  }
+  const profile = ctx.profiles.get(d.park) ?? null;
   if (park) {
+    const n = profile?.traits.length ?? 0;
+    if (n < MIN_POST_TRAITS)
+      r.errors.push(
+        `${park.name} has ${n} verified signature trait${n === 1 ? "" : "s"}; a park post needs ${MIN_POST_TRAITS}.`,
+      );
+    else {
+      if (!traitIn(d.hook, profile, park.name))
+        r.errors.push(
+          "The hook must lead with one of the park's signature traits (plan: post_parks[].profile.traits).",
+        );
+      if (!traitIn(d.what, profile, park.name))
+        r.errors.push(
+          "The what line opens the caption: it must name one of the park's signature traits.",
+        );
+    }
     const claims = unbackedClaims(
       [d.hook, d.who, d.what, d.bring].join(" "),
       park.features,
+      profile?.traits.map((t) => t.text) ?? [],
     );
     if (claims.length)
       r.errors.push(

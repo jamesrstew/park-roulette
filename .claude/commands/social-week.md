@@ -42,14 +42,16 @@ Only `clear` lets a photo into a post, and only while the file still has the sam
 
 ## 3. Monday: the park post
 
-Pick one of `post_parks` (a `clear` photo first). Write:
+Pick one of `post_parks` (a `clear` photo first). Code only offers parks with 2 or more verified **signature traits** (`post_parks[].profile`: `one_liner`, and `traits`, each our own words with its kind and source). **Lead with the most distinctive trait**, not a feature list: the pirate ship, the log forest, the creek, the all-abilities design, the sledding hill. That's why a parent picks this park over the one down the street.
 
-- `hook`: a keyword hook, 8 words at most, that someone would search ("Bend playground for little climbers", "A Bend playground built for every kid"). Code adds ": <Park name>" after it.
+- `hook`: a keyword hook, 8 words at most, that someone would search, **naming a signature trait** ("Bend's pirate ship playground", "A juniper log forest to climb in Bend"). Code adds ": <Park name>" after it.
+- `what`: **the caption's opening line** (it comes right after the hook). It must name a signature trait too, then may add what else is there, **only from the park's `features` or its traits** (the checker refuses swings, slides, a zipline, a splash pad, a fence, a toddler area, climbing, accessible play, shade, picnic tables, trails, courts, water or stroller paths that neither the record nor a trait backs).
 - `who`: who it fits (ages, stage).
-- `what`: what's there, **only from the park's `features`** (the checker refuses swings, slides, a zipline, a splash pad, a fence, a toddler area, climbing, accessible play, shade, picnic tables, trails, courts, water or stroller paths the record doesn't list).
 - `bring`: what to bring, for this week's weather and season.
 - `break_id`: only if any line says school is out (then a `breaks` id is required).
 - `hashtags`: up to 3 from `rules.hashtags`.
+
+The checker matches traits by their key words (a trait's distinctive words, never the park's own name): "pirate ship" matches "The SS Columbia pirate ship play structure". A hook or opening line with no trait word is refused, and so is generic copy anywhere: "built for ... fans", "something for everyone", "fun for all ages", "great place", "hidden gem". Traits sourced from `google_places` count like any other, but stay in our words: never quote reviews.
 
 Code adds the address, the photo credit (only when a checked photo is used), the call to action and the hashtags, and draws one 4:5 image: the photo (or the crayon park card) with a taped label. The checker also holds `bring` to the park's features ("swimsuits for the splash pad" needs a splash pad).
 

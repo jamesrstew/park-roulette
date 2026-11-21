@@ -7,6 +7,7 @@ import type { UniverseReport } from "./universe-store";
 import type { IgCandidate } from "./igapi";
 import type { Candidate } from "./xapi";
 import type { ForecastDay, Issue } from "./issue";
+import type { planProfile } from "@/lib/park-profiles";
 
 type PhotoInput = NonNullable<Issue["wheel_pick"]["photo"]>;
 
@@ -131,6 +132,11 @@ export type Plan = {
     city: string;
     url: string;
     features: string[];
+    /**
+     * Signature traits (data/park-profiles.json): lead the Wheel Pick with
+     * one. Optional: plans stored before profiles existed have none.
+     */
+    profile?: ReturnType<typeof planProfile>;
     reasons: string[];
     eligible_count: number;
     /** A vetted photo to use as wheel_pick.photo, or null (crayon card). */

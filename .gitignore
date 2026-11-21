@@ -51,3 +51,4 @@ next-env.d.ts
 # seed output for non-local DBs (crew invite links)
 .crew-links.local
 .tmp/
+data/.google-cache/

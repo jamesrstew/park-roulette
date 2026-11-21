@@ -1,0 +1,2860 @@
+{
+  "al-moody-park-bend": {
+    "place_id": "ChIJI2_4JlXPuFQRdJmZaYReGUo",
+    "traits": [
+      {
+        "text": "Tree-house play garden and a train engine for preschoolers",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/al-moody/",
+            "quote": "a \"tree house\" play garden, a train engine for pre-school age children"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A winter sledding area",
+        "kind": "sledding",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/al-moody/",
+            "quote": "turf play area, winter sledding area and basic park amenities"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A Wildside zone where kids build their own forts",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/parks-trails/natural-play-areas/",
+            "quote": "Children are encouraged to dig, stack logs and even create their own forts"
+          },
+          {
+            "url": "https://www.bendparksandrec.org/parks-trails/natural-play-areas/",
+            "quote": "Wildside Play Areas Al Moody Park 2225 NE Dagget Ln., Bend, Oregon"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A protected rock ridge with quail and rockchucks",
+        "kind": "nature",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/al-moody/",
+            "quote": "for wildlife such as quail, yellow marmots (rockchucks) and squirrels"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A tree-house play garden and a train engine for preschoolers to climb plus a winter sledding area",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "alpenglow-park-bend": {
+    "place_id": "ChIJjYeRIOzHuFQRwo5EPOylFaI",
+    "traits": [
+      {
+        "text": "Bend's first park bouldering area, with routes for adaptive climbers",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/alpenglow-park/",
+            "quote": "The bouldering area is a first for a Bend park."
+          },
+          {
+            "url": "https://www.bendparksandrec.org/park/alpenglow-park/",
+            "quote": "accessible routes with rope assist climbing for adaptive climbers"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A seasonal sprayground (summer only)",
+        "kind": "splash_pad",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/alpenglow-park/",
+            "quote": "bouldering, playground, seasonal sprayground, event pavilion"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A 0.9-mile paved perimeter loop",
+        "kind": "paved_loop",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/alpenglow-park/",
+            "quote": "There are 2.2 miles of ADA-accessible paved paths, including a 0.9-mile perimeter loop path."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Cascade views over ponderosa and juniper",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/alpenglow-park/",
+            "quote": "The views of the Cascades showcase the high desert landscape"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Bend's first park bouldering area, a summer sprayground and a 0.9-mile paved loop",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "wheelchair_accessible_restroom": true,
+      "free_parking_lot": true
+    }
+  },
+  "alpine-park-bend": {
+    "place_id": "ChIJhVdvefPHuFQRanxLO-yqPsk",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true
+    }
+  },
+  "awbrey-village-park-bend": {
+    "place_id": "ChIJz3HQ0sPIuFQRcZfH_Pufj84",
+    "traits": [
+      {
+        "text": "Regional views to the south and east",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/awbrey-village-park/",
+            "quote": "offers a playground as well as regional views to the south and east"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A small northwest Bend playground with regional views to the south and east",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "bend-whitewater-park-bend": {
+    "place_id": "ChIJ53nNryzGuFQRF3EVH5AQvLc",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "big-sky-park-and-luke-damon-sports-complex-bend": {
+    "place_id": "ChIJ99Ey6pLFuFQRO1k6Md1rIu4",
+    "traits": [
+      {
+        "text": "Big Sky Bike Park: pump track, skills course and BMX track",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/big-sky-park-luke-damon-sports-complex/",
+            "quote": "The Big Sky Bike Park features include a pump track, learning area, trials area, skills course and singletrack trails."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A perimeter trail around the whole park",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/big-sky-park-luke-damon-sports-complex/",
+            "quote": "an aggregate perimeter trail, picnic tables, a water spigot"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A pump track, bike skills course and BMX track next to the playground and a perimeter trail",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true
+    }
+  },
+  "blakely-park-bend": {
+    "place_id": "ChIJ79JDxMnHuFQRjx0oiW_EfEE",
+    "traits": [
+      {
+        "text": "A mostly fenced playground",
+        "kind": "fenced",
+        "source": "google_places",
+        "evidence": [],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Near the Deschutes River Trail and the canal trail",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/blakely-park/",
+            "quote": "The park is in proximity to the Deschutes River Trail and the Central Oregon Canal Trail."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Big lawns under shade trees",
+        "kind": "shade",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/blakely-park/",
+            "quote": "with its large lawn areas and shade trees"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A mostly fenced playground near the Deschutes River Trail, with big shady lawns",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "boyd-park-bend": {
+    "place_id": "ChIJYbEPAjvPuFQRsBy6rhWSozE",
+    "traits": [
+      {
+        "text": "Trails through rock outcroppings with mountain and desert views",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/boyd-park/",
+            "quote": "soft surface trails that wind through native landscapes with rock outcroppings and superb mountain and desert views"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Named for the family who homesteaded the area",
+        "kind": "history",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/boyd-park/",
+            "quote": "The Boyd family had originally homesteaded in the area"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Wild trails through rock outcroppings with mountain and desert views",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "brooks-park-bend": {
+    "place_id": "ChIJCx-zjZzIuFQRepsfTkU8v_g",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "canal-row-park-bend": {
+    "place_id": "ChIJJb2e6k7PuFQR0F3DdhgbNkc",
+    "traits": [
+      {
+        "text": "A water trough kids can route, in a nature play area",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/canal-row-park/",
+            "quote": "water trough that lets kids route water for an interactive natural play experience"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Rushing canal water beside the lawn",
+        "kind": "water",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/canal-row-park/",
+            "quote": "listening to the rushing water of the canal"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Easy access to the canal trail",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/canal-row-park/",
+            "quote": "offers easy access to the canal trail through that part of town"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A water trough kids can route themselves, right by the rushing canal",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "cinder-cone-natural-area-bend": {
+    "place_id": "ChIJ4wICWnu5uFQR244R4dPBMqw",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": false,
+      "wheelchair_accessible_parking": false
+    }
+  },
+  "columbia-park-bend": {
+    "place_id": "ChIJmx2cNdXHuFQRPnb8xUBWumY",
+    "traits": [
+      {
+        "text": "The SS Columbia pirate ship play structure",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/columbia-park/",
+            "quote": "a playground featuring the \"SS Columbia\" ship-like structure"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Known around town as Pirate Ship Park",
+        "kind": "history",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/columbia-park/",
+            "quote": "is known as the \"Pirate Ship Park\" by many in the community"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A slide built into the hillside",
+        "kind": "signature_structure",
+        "source": "google_places",
+        "evidence": [],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "River views from benches along the trail",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/columbia-park/",
+            "quote": "Benches allow visitors to relax and enjoy the river view."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "The SS Columbia pirate ship, a hillside slide and Deschutes River views",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "compass-park-bend": {
+    "place_id": "ChIJybtbm2_IuFQRXf-ByAsVnYI",
+    "traits": [
+      {
+        "text": "A Wildside zone where kids build their own forts",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/parks-trails/natural-play-areas/",
+            "quote": "Children are encouraged to dig, stack logs and even create their own forts"
+          },
+          {
+            "url": "https://www.bendparksandrec.org/parks-trails/natural-play-areas/",
+            "quote": "Wildside Play Areas Al Moody Park 2225 NE Dagget Ln., Bend, Oregon Compass Park 2500 NW Crossing Dr."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A unique circular park in NorthWest Crossing",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/compass-park/",
+            "quote": "a gathering place for the neighborhood on the unique circular property"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A round park with a Wildside zone where kids build their own forts",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "discovery-park-bend": {
+    "place_id": "ChIJm_62OmjIuFQRFFpWc5J8CKE",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_street_parking": true
+    }
+  },
+  "dohema-river-access-bend": {
+    "place_id": "ChIJt_jIyZzIuFQRftEyYXW6je0",
+    "traits": [],
+    "one_liner": null,
+    "facts": {}
+  },
+  "drake-park-and-mirror-pond-bend": {
+    "place_id": "ChIJ0X9o4ILIuFQR600tZYpGJXM",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": false,
+      "free_street_parking": true
+    }
+  },
+  "eagle-park-bend": {
+    "place_id": "ChIJsxGVGGbPuFQRKXdoei60t-E",
+    "traits": [
+      {
+        "text": "A frisbee climber and basket swings for free-form play",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/eagle-park/",
+            "quote": "The playground features basket swings, a frisbee climber and was created to inspire more free-form creative play"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Cascade views over juniper, sage and lava rock",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/eagle-park/",
+            "quote": "lovely views of the Cascade Mountains"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A frisbee climber and basket swings made for free-form play, with Cascade views",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "empire-crossing-park-bend": {
+    "place_id": "ChIJYZ6jkYLPuFQRCwJfHKPH4CI",
+    "traits": [
+      {
+        "text": "A two-tiered play area built into the hillside",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/empire-crossing-park/",
+            "quote": "The park includes a two-tiered play area designed to take advantage of the natural topography of the park"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A paved accessible path to the playground",
+        "kind": "all_abilities",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/empire-crossing-park/",
+            "quote": "A paved accessible path through the park provides connection to the playground and picnic areas."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A two-tiered play area built into the hill, with a paved accessible path",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "farewell-bend-park-bend": {
+    "place_id": "ChIJN3EwHM_HuFQRRx83nLsT2SQ",
+    "traits": [
+      {
+        "text": "A lumber mill themed playground",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/farewell-bend-park/",
+            "quote": "features a \"lumber mill\" theme and is popular for children and families"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A small river beach for play",
+        "kind": "water",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/farewell-bend-park/",
+            "quote": "The north end has a small beach area for play and relaxation"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A boardwalk along the Deschutes River",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/farewell-bend-park/",
+            "quote": "There are also a boardwalk along the river"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A bouldering and climbing area by the playground",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/farewell-bend-park/",
+            "quote": "A small bouldering and climbing area neighbors the playground."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A lumber mill playground on the Deschutes, with a river beach and a boardwalk",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true,
+      "free_street_parking": true
+    }
+  },
+  "fieldstone-park-bend": {
+    "place_id": "ChIJj7Qu9WXPuFQRfWVXcSrewcs",
+    "traits": [
+      {
+        "text": "A bike skills area beside a shaded playground",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/fieldstone/",
+            "quote": "a shaded playground, soft surface trails through natural area and a bike skills area"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Mountain views from the park and its trails",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/fieldstone/",
+            "quote": "Beautiful mountain views can be seen from the park and trails."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A bike skills area beside a shaded playground, with mountain views",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "first-street-rapids-park-bend": {
+    "place_id": "ChIJAYWN0pnIuFQRHQeXFaPH2VQ",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "foxborough-park-bend": {
+    "place_id": "ChIJ0WrrDlXGuFQR7ZNwtLKh84g",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "gardenside-park-bend": {
+    "place_id": "ChIJ8T56JmXGuFQRT1jsw0fPjQo",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "goodrich-pasture-park-bend": {
+    "place_id": "ChIJM1QStLbJuFQRWM0iKoqzeYg",
+    "traits": [
+      {
+        "text": "Towering old-growth ponderosa pines",
+        "kind": "shade",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/goodrich-pasture-park/",
+            "quote": "Goodrich Pasture Park features towering old-growth Ponderosa trees"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Exploratory play areas and a demonstration garden",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/goodrich-pasture-park/",
+            "quote": "It has a small demonstration garden, exploratory play areas"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A family pasture since the 1940s",
+        "kind": "history",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/goodrich-pasture-park/",
+            "quote": "The site was used as a pasture by the Goodrich family since the 1940s."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Towering old ponderosas over exploratory play, on a family pasture from the 1940s",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_restroom": true
+    }
+  },
+  "harmon-park-bend": {
+    "place_id": "ChIJd6PKi4PIuFQR0TfrNG9Eu6s",
+    "traits": [
+      {
+        "text": "The old tugboat is gone; a new boat play structure is planned for summer 2027",
+        "kind": "history",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://ktvz.com/community/2026/11/16/work-begins-to-replace-boat-at-harmon-park",
+            "quote": "BPRD tentatively plans to install the new boat play feature in summer 2027."
+          },
+          {
+            "url": "https://ktvz.com/community/2026/11/16/work-begins-to-replace-boat-at-harmon-park",
+            "quote": "earned Harmon Park the nickname \"the boat park\""
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A small river access gate behind the Boat House",
+        "kind": "water",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/harmon-park/",
+            "quote": "There is a small river access point through the fence gate behind the Hobby Hut and Boat House."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Big shade trees across the river from Drake Park",
+        "kind": "shade",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/harmon-park/",
+            "quote": "located along the Deschutes River across the river from Drake Park"
+          },
+          {
+            "url": "https://www.bendparksandrec.org/park/harmon-park/",
+            "quote": "large shade trees, and a popular playground"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Bend's boat park by the river: a new boat play structure is planned for summer 2027",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "wheelchair_accessible_restroom": true,
+      "free_street_parking": true
+    }
+  },
+  "harvest-park-bend": {
+    "place_id": "ChIJfUK6z9TIuFQRU8mgnw4Blgg",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "hillside-park-bend": {
+    "place_id": "ChIJV1F1n5PIuFQRmbCm4CY-Epk",
+    "traits": [
+      {
+        "text": "Panoramic views from the side of Awbrey Butte",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/hillside-i-park/",
+            "quote": "Hillside is a community park perched on the side of Awbrey Butte and offers panoramic views to the south."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "One of Bend's designated natural play areas",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/parks-trails/natural-play-areas/",
+            "quote": "Natural Play Areas Discovery Park 1315 NW Discovery Dr., Bend, Oregon Canal Row Park 1630 NE Butler Market Rd., Bend, Oregon First Street Rapids Park 1980 NW First St., Bend, Oregon Hillside Park"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "An off-leash dog area next door",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/hillside-i-park/",
+            "quote": "adjacent to the City of Bend reservoir site, which offers a partially fenced off-leash area"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Panoramic views from Awbrey Butte, a natural play area and an off-leash area next door",
+    "facts": {}
+  },
+  "hillside-park-ii-bend": {
+    "place_id": "ChIJ_z7W24_IuFQR26XD1w3RM9c",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "hixon-park-bend": {
+    "place_id": "ChIJQ-q6X9PHuFQRVvVeL9amnEQ",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "hollinshead-park-bend": {
+    "place_id": "ChIJSWoL4qvIuFQRrF70dzk0eoo",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "hollygrape-park-bend": {
+    "place_id": "ChIJF9ybU4bHuFQReGvVH9lCjLE",
+    "traits": [
+      {
+        "text": "Paths to the River Canyon Natural Area",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/hollygrape-park/",
+            "quote": "pedestrian connections that lead to Elk Meadow Elementary, the River Canyon Natural Area"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Paths from the playground to the River Canyon Natural Area",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "jaycee-park-bend": {
+    "place_id": "ChIJNximyjvGuFQRZUYk8M3V7fE",
+    "traits": [
+      {
+        "text": "Started in 1969 as Railroad Park, next to the tracks",
+        "kind": "history",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/jaycee-park/",
+            "quote": "Originally named Railroad Park due to it's proximity to the railroad tracks"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Started in 1969 as Railroad Park, right next to the tracks",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "juniper-park-bend": {
+    "place_id": "ChIJ-VMjoRjGuFQR6mjq6HlzJ9s",
+    "traits": [
+      {
+        "text": "Sound, tactile, spinning and balance play pieces",
+        "kind": "signature_structure",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://ktvz.com/?p=299314",
+            "quote": "unique play options, including sound and tactile play elements, spinning and balance play structures"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Rebuilt in 2020 for kids of all abilities",
+        "kind": "all_abilities",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://ktvz.com/?p=299314",
+            "quote": "improves access to and opportunities for community members of all abilities to enjoy the park"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A shade structure and wide paths at the playground",
+        "kind": "shade",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/juniper-park/",
+            "quote": "shade structure, wide pathways, accessible parking and a new restroom"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Right next to Juniper Swim & Fitness Center",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/juniper-park/",
+            "quote": "The park surrounds Juniper Swim & Fitness Center"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Sound, tactile and spinning play pieces, built for all abilities, by the Juniper pool",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "kiwanis-park-bend": {
+    "place_id": "ChIJVfytvkfGuFQRco-LaZobmaY",
+    "traits": [
+      {
+        "text": "A Pilot Butte view, a July 4th fireworks favorite",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/kiwanis-park/",
+            "quote": "The park has a good view of Pilot Butte making it a popular neighborhood spot to watch the July 4th fireworks"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A Pilot Butte view that makes it a July 4th fireworks favorite",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "larkspur-park-bend": {
+    "place_id": "ChIJCWB8qlzGuFQR2mP4gYn_JxA",
+    "traits": [
+      {
+        "text": "An all-children's playground with three zones for all abilities",
+        "kind": "all_abilities",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/larkspur-park/",
+            "quote": "Rotary Clubs of Bend funded the construction of an \"all children's playground\" at this park"
+          },
+          {
+            "url": "https://www.bendparksandrec.org/park/larkspur-park/",
+            "quote": "It features three distinct areas of play for children of all ages and abilities."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Trailhead for the Larkspur Trail",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/larkspur-park/",
+            "quote": "Larkspur Park is an official trailhead and parking area for the Larkspur Trail"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Next to the Larkspur Community Center",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/larkspur-park/",
+            "quote": "As a companion to the Larkspur Community Center"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "An all-children's playground with three play zones, at the Larkspur Trail trailhead",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "lewis-and-clark-park-bend": {
+    "place_id": "ChIJTbD6smfIuFQRupsp4v6Mt2I",
+    "traits": [
+      {
+        "text": "A shady perimeter sidewalk loop",
+        "kind": "paved_loop",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/lewis-clark-park-2/",
+            "quote": "There is a perimeter sidewalk path under mature trees for a leisurely stroll around the park."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A shady sidewalk loop around a classic NorthWest Crossing playground",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "little-fawn-park-bend": {
+    "place_id": "ChIJJc3hdQDHuFQRtcrwm0dHIik",
+    "traits": [
+      {
+        "text": "Named for the deer herd that calls it home",
+        "kind": "nature",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/little-fawn-park/",
+            "quote": "in recognition of the herd of deer that call it home"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Rocky, up-and-down terrain with rock outcroppings",
+        "kind": "nature",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/little-fawn-park/",
+            "quote": "features varying topography, rock outcroppings and mature trees"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Named for the deer herd that lives here, with rock outcroppings to explore",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "manzanita-ridge-park-bend": {
+    "place_id": "ChIJmV2qdQDJuFQR2gUBSSkSLjw",
+    "traits": [
+      {
+        "text": "A giant beaver play structure made of logs",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/manzanita-ridge-park/",
+            "quote": "a large beaver play structure constructed of logs"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A connector trail to the Manzanita Trail and Shevlin Park",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/manzanita-ridge-park/",
+            "quote": "running from the park's north end to the Manzanita Trail, the Shevlin Park trails system and Discovery Park"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A giant beaver play structure made of logs, with a trail toward Shevlin Park",
+    "facts": {
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "mckay-park-bend": {
+    "place_id": "ChIJZz5fVdPHuFQRKrQUWcd90x8",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true
+    }
+  },
+  "millers-landing-park-bend": {
+    "place_id": "ChIJI4fJPyvGuFQRSRfhJum-fqw",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true
+    }
+  },
+  "mountain-view-park-bend": {
+    "place_id": "ChIJw_y20_DFuFQR5QKVPUVOHTM",
+    "traits": [
+      {
+        "text": "Mountain and Pilot Butte views",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/mountain-view-park/",
+            "quote": "Mountain views and views of Pilot Butte make this park perfect for picnics."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Fully accessible walking trails",
+        "kind": "all_abilities",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/mountain-view-park/",
+            "quote": "large open lawn play areas, fully accessible walking trails"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Mountain and Pilot Butte views, with fully accessible walking trails",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true,
+      "free_street_parking": true
+    }
+  },
+  "northpointe-park-bend": {
+    "place_id": "ChIJ_-LgTw7PuFQR6-7i8oOsdRA",
+    "traits": [
+      {
+        "text": "Musical instruments and a sensory discovery area",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/northpointe-park/",
+            "quote": "The play area includes a traditional play structure with shade sails, musical instruments and natural sensory discovery area."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A small skate spot for beginners",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/northpointe-park/",
+            "quote": "There's also a small skate feature for beginning and intermediate riders."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A paved loop path",
+        "kind": "paved_loop",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/northpointe-park/",
+            "quote": "The park includes a paved loop path"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Musical instruments, a sensory area and a beginner skate spot, on a paved loop",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "orchard-park-bend": {
+    "place_id": "ChIJYxxqsaXIuFQRhntftBzZD0A",
+    "traits": [
+      {
+        "text": "A hummingbird garden by the play area",
+        "kind": "nature",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/orchard-park/",
+            "quote": "the garden space is located next to the gazebo by the play area"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A giant sequoia grove, an oak forest and an orchard",
+        "kind": "nature",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/orchard-park/",
+            "quote": "A grove of giant sequoia, an oak forest and an autumn orchard"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A hummingbird garden by the play area, plus giant sequoias and an orchard",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_street_parking": true
+    }
+  },
+  "overturf-park-bend": {
+    "place_id": "ChIJU-vlZ3nIuFQRCoarP-ZSHZM",
+    "traits": [
+      {
+        "text": "A trail to the Overturf Butte off-leash dog area",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/overturf-park/",
+            "quote": "off-leash dog area near Skyliner Summit Loop, which can be accessed from trail connection at the park"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A trail link to the Cascade Highlands Trail",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/overturf-park/",
+            "quote": "The trail also provides access to the Cascade Highlands Trail."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A trail from the playground to the Overturf Butte off-leash area and beyond",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "pacific-crest-athletic-fields-bend": {
+    "place_id": "ChIJAyKDcfXJuFQRCk3mZXZ24K8",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "pacific-park-bend": {
+    "place_id": "ChIJ01mOjZ7IuFQRYdEaYFaVd1Q",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "pageant-park-bend": {
+    "place_id": "ChIJiYk8jIPIuFQRIvCG28aEbe4",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "pilot-butte-neighborhood-park-bend": {
+    "place_id": "ChIJEwH92xrGuFQRF91IBps6fxA",
+    "traits": [
+      {
+        "text": "At the foot of the Pilot Butte scenic viewpoint",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/pilot-butte-neighborhood-park/",
+            "quote": "bring park amenities to the Pilot Butte State Scenic Viewpoint"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Trailhead for the Larkspur Trail",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/pilot-butte-neighborhood-park/",
+            "quote": "Pilot Butte Neighborhood Park is an official trailhead and parking area for Larkspur trail"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A playground at the foot of the Pilot Butte scenic viewpoint, on the Larkspur Trail",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "wheelchair_accessible_restroom": true
+    }
+  },
+  "pine-nursery-park-bend": {
+    "place_id": "ChIJH9k4eT_PuFQRq646pxi59NM",
+    "traits": [
+      {
+        "text": "An all-abilities playground",
+        "kind": "all_abilities",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/pine-nursery-park/",
+            "quote": "a 14-acre off-leash area for dogs, all-abilities playground"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A stocked fishing pond open to all ages",
+        "kind": "water",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/pine-nursery-park/",
+            "quote": "Fishing at Pine Nursery Park is open to all ages."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A Wildside zone where kids build their own forts",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/parks-trails/natural-play-areas/",
+            "quote": "Children are encouraged to dig, stack logs and even create their own forts"
+          },
+          {
+            "url": "https://www.bendparksandrec.org/parks-trails/natural-play-areas/",
+            "quote": "Compass Park 2500 NW Crossing Dr., Bend, Oregon Pine Nursery Park 3750 NE Purcell Blvd."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A 14-acre off-leash dog area",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/pine-nursery-park/",
+            "quote": "a 14-acre off-leash area for dogs"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "An all-abilities playground beside a stocked fishing pond open to every age",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true
+    }
+  },
+  "pine-ridge-park-bend": {
+    "place_id": "ChIJc77L1pbHuFQRVx_JNI1H964",
+    "traits": [
+      {
+        "text": "A play garden for kids",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/pine-ridge-park/",
+            "quote": "a play \"garden\" for children, a picnic area with shade shelter"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A play garden for kids under mature trees",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "pioneer-park-bend": {
+    "place_id": "ChIJkTfiw5jIuFQRXgeE0sXsWsA",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "ponderosa-park-bend": {
+    "place_id": "ChIJ38pHDEDGuFQRzNHOjYv_Uxw",
+    "traits": [
+      {
+        "text": "A small sledding hill for little kids",
+        "kind": "sledding",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/ponderosa-park/",
+            "quote": "the hill next to the ball field is a small but fun sledding hill that's perfect for small children"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Two popular skateparks",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/ponderosa-park/",
+            "quote": "two skateparks which are very popular"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "The Coyner Trail to Juniper Park",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/ponderosa-park/",
+            "quote": "includes connection to Juniper Park via Coyner Trail"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A little-kid sledding hill on snow days, two skateparks and the Coyner Trail",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true
+    }
+  },
+  "providence-park-bend": {
+    "place_id": "ChIJ87kCDOTFuFQROlcYv_A1NBM",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "quail-park-bend": {
+    "place_id": "ChIJSe7R_VfIuFQRh86Is6iUtCQ",
+    "traits": [
+      {
+        "text": "Half the park kept as native conifer forest",
+        "kind": "nature",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/quail-park/",
+            "quote": "About half of the site was preserved in native conifer cover"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "About half the park kept as native conifer forest, with trails",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "riley-ranch-nature-reserve-bend": {
+    "place_id": "ChIJL6XjqifJuFQR4Hsu-Ds7E9E",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "river-canyon-park-bend": {
+    "place_id": "ChIJ3WAIbojHuFQR61HPbm6NLJg",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true
+    }
+  },
+  "river-rim-park-site-bend": {
+    "place_id": "ChIJ7ykr9nm4uFQRpS_b99INdEI",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "riverbend-park-bend": {
+    "place_id": "ChIJITacrs3HuFQRSH0bHZpQbss",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "riverview-park-bend": {
+    "place_id": "ChIJz5L2oLnIuFQRMON-w92yCkI",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "rockridge-park-bend": {
+    "place_id": "ChIJ9SEJrh_PuFQRMtKEu16Um6Q",
+    "traits": [
+      {
+        "text": "A juniper log forest, boulder scrambles and a climbing tree",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/rockridge-park/",
+            "quote": "This play area features a Juniper \"log forest\" where children can navigate smoothed and repurposed trees"
+          },
+          {
+            "url": "https://www.bendparksandrec.org/park/rockridge-park/",
+            "quote": "log steppers, boulder scrambles and a climbing tree"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A second playground with a tree house",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/rockridge-park/",
+            "quote": "offers more traditional play features and a \"tree house.\""
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A lunar-scape skatepark and a bike skills course",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/rockridge-park/",
+            "quote": "lunar-scape skatepark, 9-hole disc golf course, a bike skills course"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Old juniper and lava rock that feel miles from town",
+        "kind": "nature",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/rockridge-park/",
+            "quote": "which makes you feel like you're miles outside of town"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A juniper log forest and boulder scramble, plus a tree-house playground",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "sawyer-park-bend": {
+    "place_id": "ChIJVUJaGc_IuFQRK_jwWuDfzrw",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true
+    }
+  },
+  "sawyer-uplands-park-bend": {
+    "place_id": "ChIJXQl8r9rIuFQR-mh_mnPX1wg",
+    "traits": [
+      {
+        "text": "A trail down to the Deschutes River Trail",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/sawyer-uplands-park/",
+            "quote": "There is a unpaved trail connection down to the Deschutes River Trail and to Sawyer Park"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Canyon walls and a steep ravine",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/sawyer-uplands-park/",
+            "quote": "A portion of the park includes canyon walls, natural areas and a steep ravine."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A canyon-rim playground with a trail down to the Deschutes River Trail",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "shevlin-park-bend": {
+    "place_id": "ChIJNzW_rjbIuFQRnLICSeRHcPg",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "wheelchair_accessible_restroom": true,
+      "free_parking_lot": true
+    }
+  },
+  "skyline-sports-complex-bend": {
+    "place_id": "ChIJIaGvDgDHuFQRYvf9_vBnahE",
+    "traits": [
+      {
+        "text": "Groomed cross-country ski tracks on snowy days",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/skyline-sports-complex/",
+            "quote": "During cold, snowy weather, cross-country ski grooming at Skyline Sports Complex is done by community volunteers"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Mountain views",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/skyline-sports-complex/",
+            "quote": "team celebrations, company picnics and birthday parties with beautiful mountain views"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Groomed cross-country ski tracks in snowy weather, and mountain views",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true
+    }
+  },
+  "stone-creek-park-bend": {
+    "place_id": "ChIJK2rImU3GuFQRGYDAsi7vizY",
+    "traits": [
+      {
+        "text": "A mini excavator, sandboxes, log steppers and a water trough",
+        "kind": "nature_play",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/stone-creek/",
+            "quote": "The natural play areas feature sand boxes with \"log steppers,\" a water trough, a mini \"excavator\""
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Views to China Hat Butte and Newberry",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/stone-creek/",
+            "quote": "sweeping views southeast to China Hat Butte and even the Newberry National Volcanic Monument"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A small bike pump track and skate spot",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/stone-creek/",
+            "quote": "The park features a small bike pump track, a small skate spot"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A mini excavator, sandboxes and a water trough, with views to China Hat Butte",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "stover-park-bend": {
+    "place_id": "ChIJBcpSSlPPuFQRE85lsGSQjQk",
+    "traits": [
+      {
+        "text": "Good shade trees over the playground",
+        "kind": "shade",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/stover-park/",
+            "quote": "The playground has several good shade trees"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A Kiwanis park from 1972, honoring Dutch Stover",
+        "kind": "history",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/stover-park/",
+            "quote": "Stover Park was developed in partnership with the City of Bend and Kiwanis Club in 1972."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Good shade trees over the playground at a 1972 Kiwanis park",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "summit-park-bend": {
+    "place_id": "ChIJWyWVpezIuFQRwy6dVirN8-4",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "sun-meadow-park-bend": {
+    "place_id": "ChIJe_ZpGarHuFQRPlVs-IhrpP0",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "sunset-view-park-bend": {
+    "place_id": "ChIJ7xvIV3vIuFQRZFBSid2qqK4",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true
+    }
+  },
+  "sylvan-park-bend": {
+    "place_id": "ChIJj_5lJO_IuFQRJatKwYB2UGQ",
+    "traits": [
+      {
+        "text": "Bend's highest-elevation park, atop Awbrey Butte",
+        "kind": "view",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/project/sylvan-park-playground-renovation/",
+            "quote": "Sylvan Park, BPRD's highest elevation park in Bend, is located at the top of Awbrey Butte"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A woods trail to Summit Park",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/sylvan-park/",
+            "quote": "the park is connected to Summit Park by an unpaved trail"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Bend's highest park, on top of Awbrey Butte, with a woods trail to Summit Park",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "wheelchair_accessible_restroom": true
+    }
+  },
+  "three-pines-park-bend": {
+    "place_id": "ChIJA3M_v1PIuFQRiZNhazRtmw0",
+    "traits": [
+      {
+        "text": "A railroad-themed playground for young kids",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/three-pines-park/",
+            "quote": "playground structure for young children with a \"railroad\" theme in honor of the lumber rail lines"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Paved paths toward Shevlin Park",
+        "kind": "trail",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/three-pines-park/",
+            "quote": "leading to the trail connections at Shevlin Commons to Shevlin Park"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A railroad-themed playground for little kids, with paths toward Shevlin Park",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true
+    }
+  },
+  "tillicum-park-chase-ranch-bend": {
+    "place_id": "ChIJ62TSv2fLuFQRlphO7a9yIh4",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true
+    }
+  },
+  "wildflower-park-bend": {
+    "place_id": "ChIJc7ziUXi4uFQRw6z1vbgmu6U",
+    "traits": [
+      {
+        "text": "Separate playgrounds for younger and older kids",
+        "kind": "toddler",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/wildflower-park/",
+            "quote": "This large neighborhood park features two playground areas for different ages"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Separate playgrounds for younger and older kids, with a big open lawn",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true
+    }
+  },
+  "woodriver-park-bend": {
+    "place_id": "ChIJ7yv2P8nHuFQRNgY7Lb65Gx0",
+    "traits": [
+      {
+        "text": "A short walk to the Cedarwood riverfront trailhead",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/woodriver-park/",
+            "quote": "The Cedarwood riverfront trailhead is located a short walk from the park."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A short walk to the Cedarwood riverfront trailhead",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "panorama-park-crooked-river-ranch": {
+    "place_id": "ChIJSZIQQMjYvlQRoC8fcSnsq94",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "culver-city-park-culver": {
+    "place_id": "ChIJBwAQjPfcvlQRrpNzqsVN-ds",
+    "traits": [
+      {
+        "text": "A new skate park and pump track (opened 2025)",
+        "kind": "other",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://madraspioneer.com/2025/10/30/culver-skate-park-opens-with-celebration-after-six-years-of-community-effort/",
+            "quote": "The park, which also features pickleball courts and a pump track, opened with fanfare on Oct. 26."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A new skate park, pump track and pickleball courts, opened in October 2025",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "finley-butte-park-la-pine": {
+    "place_id": "ChIJ07J40EZ9x1QRfnUZ5ZnttQ0",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "frontier-heritage-park-la-pine": {
+    "place_id": "ChIJcdsaNq59x1QR9q07UXxmG-w",
+    "traits": [
+      {
+        "text": "Next to the La Pine Community Center",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://lapineparks.org/frontier-heritage-park/",
+            "quote": "home to the administrative offices, the La Pine community center, a playground, fountain"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Right beside the La Pine Community Center",
+    "facts": {
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "juniper-hill-park-madras": {
+    "place_id": "ChIJw0elTkTqvlQR_6xQSylP_nc",
+    "traits": [
+      {
+        "text": "Views of Mount Jefferson, Mount Hood and the train trestle",
+        "kind": "view",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://madraspioneer.com/2013/06/26/just-kidding-summer-fun-with-your-kids/",
+            "quote": "the park has breathtaking views of Mount Jefferson and Mount Hood, the Madras train trestle, and the town below"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A big structure with a spiral slide, plus a little-kid area",
+        "kind": "signature_structure",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://madraspioneer.com/2013/06/26/just-kidding-summer-fun-with-your-kids/",
+            "quote": "a large play structure, when you first come in, with a spiral slide and climbing features"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A long paved path for strollers and skates",
+        "kind": "paved_loop",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://madraspioneer.com/2013/06/26/just-kidding-summer-fun-with-your-kids/",
+            "quote": "a long paved path for jogging, walking, stroller rides or roller skating"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Views of Mount Jefferson, Mount Hood and the train trestle from Madras's largest park",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "sahalee-park-madras": {
+    "place_id": "ChIJFx_g5C7qvlQRLMw9dukbTlA",
+    "traits": [
+      {
+        "text": "Water play features next to the playground",
+        "kind": "splash_pad",
+        "source": "google_places",
+        "evidence": [],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Water play features next to the playground",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "crooked-river-park-prineville": {
+    "place_id": "ChIJVVVVMQUyuVQRfdg1tzx7C9E",
+    "traits": [
+      {
+        "text": "Access to the Crooked River",
+        "kind": "water",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/crooked-river-park",
+            "quote": "The park also has excellent river access"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Two children's playground areas",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/crooked-river-park",
+            "quote": "and two children's playground areas"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A covered outdoor amphitheater",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/crooked-river-park",
+            "quote": "an outdoor covered amphitheater, two-sided pavilion"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Crooked River access and two play areas at Prineville's largest park",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "gervais-park-prineville": {
+    "place_id": "ChIJrcx8LbUzuVQRqNpSmQ9kWw0",
+    "traits": [
+      {
+        "text": "On the Crooked River, next to the library",
+        "kind": "water",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/gervis-park",
+            "quote": "This 4.7 acres park is located along the Crooked River and is located close to the Crook County Library."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Nature trails with learning signs",
+        "kind": "nature",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/gervis-park",
+            "quote": "Designed as an outdoor learning center for school children and adults alike, this park has nature trails, information signs"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A nature-trail park on the Crooked River, right by the Crook County Library",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "harwood-park-prineville": {
+    "place_id": "ChIJZyH1-8szuVQRe2JeDh_a73U",
+    "traits": [
+      {
+        "text": "Right on Ochoco Creek",
+        "kind": "water",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/harwood-park",
+            "quote": "is located on Harwood Avenue where it meets Ochoco Creek"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Shaded areas around a 2019 playground",
+        "kind": "shade",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/harwood-park",
+            "quote": "this 1.5-acre park with shaded areas"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A shady little park where Harwood Avenue meets Ochoco Creek",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "ochoco-creek-park-prineville": {
+    "place_id": "ChIJ2Y1TrRQyuVQRGOfQ6P2RXz4",
+    "traits": [
+      {
+        "text": "Castle Park playground, in the district's most popular park",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/ochoco-creek-park",
+            "quote": "Facilities include Castle Park, two covered pavilions"
+          },
+          {
+            "url": "https://www.ccprd.org/ochoco-creek-park",
+            "quote": "is the most popular park in the District"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Along Ochoco Creek, with a paved walking path",
+        "kind": "water",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/ochoco-creek-park",
+            "quote": "The park is located along Ochoco Creek from Elm Street to the east side of Juniper Street."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "An outdoor amphitheater",
+        "kind": "other",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/ochoco-creek-park",
+            "quote": "an outdoor amphitheater, basketball courts"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Castle Park playground along Ochoco Creek, in Prineville's most popular park",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "free_parking_lot": true,
+      "free_street_parking": true
+    }
+  },
+  "pioneer-park-prineville": {
+    "place_id": "ChIJy-m_IEAyuVQRYWu25kLRU24",
+    "traits": [
+      {
+        "text": "A toddler playground",
+        "kind": "toddler",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/pioneer-park",
+            "quote": "a drinking fountain, and a toddler playground"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A log cabin museum on site",
+        "kind": "history",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/pioneer-park",
+            "quote": "its facilities include a log cabin museum, pavilion with stage"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Prineville's oldest park, by the courthouse",
+        "kind": "history",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/pioneer-park",
+            "quote": "Prineville's oldest park is located downtown next to the Crook County Courthouse"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A toddler playground and a log cabin museum in Prineville's oldest park",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "stryker-park-prineville": {
+    "place_id": "ChIJH2qjyUEyuVQRQ8VOTf2WIQw",
+    "traits": [
+      {
+        "text": "Kiwanis Splash Park",
+        "kind": "splash_pad",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/styrker-park",
+            "quote": "Along with the Kiwanis Splash Park the first phase of the Stryker Park Playground"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A toddler playground for ages 2 to 5",
+        "kind": "toddler",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/styrker-park",
+            "quote": "to give kids ages 2-5 a safe place to play"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "An inclusive playground added in 2024",
+        "kind": "all_abilities",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/styrker-park",
+            "quote": "In 2024 the Inclusive Playground area was installed."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Kiwanis Splash Park, a 2-to-5 playground and a 2024 inclusive play area",
+    "facts": {}
+  },
+  "yellowpine-park-prineville": {
+    "place_id": "ChIJWc7get4zuVQRBHMUUpGOeuI",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "american-legion-community-park-redmond": {
+    "place_id": "ChIJw1Nd3C8rv1QRCY456FtXkhw",
+    "traits": [
+      {
+        "text": "530 veterans' names engraved in the pavement",
+        "kind": "history",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://ktvz.com/?p=1403422",
+            "quote": "with 530 veterans' names engraved on the pavement"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "530 veterans' names engraved in the pavement around Redmond's community park",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "baker-park-redmond": {
+    "place_id": "ChIJVVVViC0rv1QRSrPAl2UQBr4",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "centennial-park-redmond": {
+    "place_id": "ChIJY4EDyf0rv1QRfao4lObgIRw",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "wheelchair_accessible_restroom": true
+    }
+  },
+  "diamond-bar-ranch-park-redmond": {
+    "place_id": "ChIJq6qqi4Uqv1QR3K3sEZz1A7Y",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "fairhaven-park-redmond": {
+    "place_id": "ChIJL8JWIx8rv1QRghnnBa2wimU",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "hayden-park-redmond": {
+    "place_id": "ChIJ_zC1uE4rv1QRLARm4GqAxnU",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "high-desert-sports-complex-redmond": {
+    "place_id": "ChIJMcJUKZ8qv1QRHTDIvZJyOKM",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "kalama-park-redmond": {
+    "place_id": "ChIJAQAAGS8rv1QRfVyfiVY9xvQ",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true
+    }
+  },
+  "quartz-park-redmond": {
+    "place_id": "ChIJvVgVBYkrv1QRTWxDHj7vyRY",
+    "traits": [
+      {
+        "text": "Skate dots and horseshoe pits",
+        "kind": "other",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://ktvz.com/news/redmond/2024/09/10/weekly-park-pick-quartz-park-in-redmond-offers-variety-of-features-for-all-to-enjoy/",
+            "quote": "including a playground, pavilion, trails, skate dots and horseshoe pits"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Climbing areas for both little and big kids",
+        "kind": "signature_structure",
+        "source": "google_places",
+        "evidence": [],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Skate dots and a modern climbing playground for little and big kids",
+    "facts": {
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true,
+      "free_parking_lot": true
+    }
+  },
+  "quince-park-redmond": {
+    "place_id": "ChIJzd47LvUqv1QRJqG9EjI_VZM",
+    "traits": [
+      {
+        "text": "A forest-themed play area built from concrete",
+        "kind": "signature_structure",
+        "source": "google_places",
+        "evidence": [],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Fully fenced, with a separate little-kid area",
+        "kind": "fenced",
+        "source": "google_places",
+        "evidence": [],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A flat path for strolling or biking",
+        "kind": "paved_loop",
+        "source": "google_places",
+        "evidence": [],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A forest-themed play area built from concrete, plus a fenced little-kid zone",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "sam-johnson-park-redmond": {
+    "place_id": "ChIJdQtQHycrv1QRo-jfyv_hXVY",
+    "traits": [
+      {
+        "text": "Hope Playground, Oregon's largest inclusive playground",
+        "kind": "all_abilities",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://ktvz.com/?p=75302",
+            "quote": "construction of Oregon's largest inclusive playground"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A dual zipline for all abilities",
+        "kind": "signature_structure",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://ktvz.com/?p=75302",
+            "quote": "We have a dual zip line that will accommodate people of all abilities."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A climbing wall modeled on Smith Rock, with a Monkeyface",
+        "kind": "signature_structure",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://ktvz.com/?p=75302",
+            "quote": "A custom-made climbing wall that mirrors the Dry Canyon walls and Smith Rock. A replica of Monkeyface"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "A dedicated area for babies and toddlers",
+        "kind": "toddler",
+        "source": "google_places",
+        "evidence": [],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Hope Playground: Oregon's largest inclusive playground, with a dual zipline",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "spruce-park-redmond": {
+    "place_id": null,
+    "traits": [],
+    "one_liner": null,
+    "facts": {}
+  },
+  "umatilla-sports-complex-redmond": {
+    "place_id": "ChIJq6qqVrLUuFQRysW56wpAmuM",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "varnish-park-redmond": {
+    "place_id": "ChIJt-O8f2Qqv1QRvZZ7sh-huvY",
+    "traits": [],
+    "one_liner": null,
+    "facts": {}
+  },
+  "west-canyon-rim-park-redmond": {
+    "place_id": "ChIJVVWV7uUqv1QR0rb1bHSPhw0",
+    "traits": [],
+    "one_liner": null,
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true
+    }
+  },
+  "cliff-clemens-park-sisters": {
+    "place_id": "ChIJGZiZ_4m_VkARytnm76n3keY",
+    "traits": [
+      {
+        "text": "The first swing set ever in a Sisters city park",
+        "kind": "history",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://nuggetnews.com/story/2011/08/23/news/new-playground-opens-in-sisters/20117.html",
+            "quote": "The playground includes a swing set, the first ever installed at a Sisters city park."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Rotating cups and a climbing structure",
+        "kind": "signature_structure",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://nuggetnews.com/story/2011/08/23/news/new-playground-opens-in-sisters/20117.html",
+            "quote": "Other features include a climbing structure and rotating cups."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Home of the first swing set in a Sisters city park, plus spinning cups",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "coffield-community-center-playground-sisters": {
+    "place_id": null,
+    "traits": [],
+    "one_liner": null,
+    "facts": {}
+  },
+  "village-green-park-sisters": {
+    "place_id": null,
+    "traits": [
+      {
+        "text": "Climbing rocks, slides and traverse equipment",
+        "kind": "signature_structure",
+        "source": "news",
+        "evidence": [
+          {
+            "url": "https://redmondspokesman.com/2020/03/18/sisters-to-install-new-playground-at-village-green-park/",
+            "quote": "The new play structure will include climbing rocks, multiple slides, traverse equipment, swing"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "Climbing rocks and a traverse on downtown Sisters' play structure",
+    "facts": {}
+  },
+  "fort-rock-park-sunriver": {
+    "place_id": "ChIJ9TV1rBe9uFQRRjC9VFixh44",
+    "traits": [
+      {
+        "text": "In the heart of Sunriver",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://sunriverchamber.com/parks/",
+            "quote": "Located between Circles 4 and 11 in the heart of Sunriver."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A playground in the heart of Sunriver, between Circles 4 and 11",
+    "facts": {
+      "allows_dogs": true,
+      "good_for_children": true,
+      "wheelchair_accessible_entrance": true,
+      "wheelchair_accessible_parking": true
+    }
+  },
+  "paulina-park-sunriver": {
+    "place_id": null,
+    "traits": [
+      {
+        "text": "A rock climbing wall by the playground",
+        "kind": "signature_structure",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://sunriverchamber.com/parks/",
+            "quote": "the park features a playground, bocce ball court, rock climbing wall"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Right at the SHARC",
+        "kind": "nearby",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://sunriverchamber.com/parks/",
+            "quote": "Paulina Park is located at the SHARC on Overlook Road near Circle 2."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A rock climbing wall beside the playground, right at the SHARC",
+    "facts": {}
+  },
+  "smith-rock-state-park-terrebonne": {
+    "place_id": null,
+    "traits": [],
+    "one_liner": null,
+    "facts": {}
+  },
+  "sisters-community-park-sisters": {
+    "place_id": null,
+    "traits": [
+      {
+        "text": "Opened in fall 2025 on the old Sisters Elementary site",
+        "kind": "history",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://sistersrecreation.com/parks/sisters-community-park",
+            "quote": "The park sits on the site of the old Sisters Elementary School"
+          },
+          {
+            "url": "https://sistersrecreation.com/parks/sisters-community-park",
+            "quote": "Sisters Community Park opened to the public in late fall 2025."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      }
+    ],
+    "one_liner": "A new park (fall 2025) on the old Sisters Elementary School site",
+    "facts": {}
+  },
+  "crescent-park-madras": {
+    "place_id": null,
+    "traits": [],
+    "one_liner": null,
+    "facts": {}
+  }
+}

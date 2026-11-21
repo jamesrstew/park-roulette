@@ -14,6 +14,7 @@ import { ReportButton } from "./ReportButton";
 import { JoinNudge } from "./JoinNudge";
 import { AboutPark } from "./AboutPark";
 import { parkFacts } from "@/lib/park-facts";
+import { PROFILES } from "@/lib/park-profiles";
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getParkDetail>>>;
 
@@ -87,6 +88,12 @@ export function ParkView({
         playground={play !== "none"}
         weekendPick={weekendPick}
       />
+
+      {!crossedOff && PROFILES.get(park.slug)?.one_liner ? (
+        <p className="mt-2 px-1 font-body text-sm text-ink-soft">
+          {PROFILES.get(park.slug)!.one_liner}
+        </p>
+      ) : null}
 
       {!park.approved && (
         <NewParkBanner

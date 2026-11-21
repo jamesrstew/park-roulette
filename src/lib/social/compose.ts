@@ -69,8 +69,9 @@ export function composeParkPost(
   const caption = [
     `${hook}: ${park.name}`,
     "",
-    d.who.trim(),
+    // The signature trait opens the caption (the validator holds it).
     d.what.trim(),
+    d.who.trim(),
     d.bring.trim(),
     "",
     park.address ?? `${park.name}, ${park.city}, Oregon`,
@@ -94,7 +95,7 @@ export function composeParkPost(
     caption,
     fbCaption: forFacebook(caption, cta),
     headline: hook,
-    modelText: [hook, d.who, d.what, d.bring].join("\n"),
+    modelText: [hook, d.what, d.who, d.bring].join("\n"),
     facts: { parks: [park.slug], events: [], venues: [], issue: null },
   };
 }

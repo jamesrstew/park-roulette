@@ -30,6 +30,7 @@ import {
   type UnpackDraft,
   WeekDraft,
 } from "./model";
+import type { ParkProfile } from "@/lib/park-profiles";
 import {
   headlineCount,
   holidayHours,
@@ -99,6 +100,48 @@ function event(over: Partial<EventRow["data"]> = {}): EventRow {
   };
 }
 
+const trait = (text: string, kind: ParkProfile["traits"][number]["kind"]) => ({
+  text,
+  kind,
+  source: "official" as const,
+  evidence: [
+    {
+      url: "https://www.bendparksandrec.org/park/larkspur-park/",
+      quote:
+        "It features three distinct areas of play for children of all ages and abilities.",
+    },
+  ],
+  verified_on: "2026-11-21",
+});
+
+const PROFILES_FIXTURE = new Map<string, ParkProfile>([
+  [
+    "larkspur-park-bend",
+    {
+      place_id: null,
+      traits: [
+        trait(
+          "An all-children's playground with three zones for all abilities",
+          "all_abilities",
+        ),
+        trait("Trailhead for the Larkspur Trail", "trail"),
+      ],
+      one_liner:
+        "An all-children's playground for all abilities, at the Larkspur Trail.",
+      facts: {},
+    },
+  ],
+  [
+    "pine-nursery-park-bend",
+    {
+      place_id: null,
+      traits: [trait("A stocked fishing pond", "water")],
+      one_liner: "A stocked fishing pond by the playground.",
+      facts: {},
+    },
+  ],
+]);
+
 function ctx(over: Partial<SocialCtx> = {}): SocialCtx {
   const p = park();
   return {
@@ -117,6 +160,7 @@ function ctx(over: Partial<SocialCtx> = {}): SocialCtx {
     ]),
     events: new Map([["no-school-open-rec-swim", event()]]),
     recent: [],
+    profiles: PROFILES_FIXTURE,
     planParks: [p.slug],
     cooling: new Set(),
     photoFor: () => null,
@@ -129,9 +173,9 @@ function ctx(over: Partial<SocialCtx> = {}): SocialCtx {
 const parkPost = (over: Partial<ParkPostDraft> = {}): ParkPostDraft => ({
   type: "park_post",
   park: "larkspur-park-bend",
-  hook: "A Bend playground built for every kid",
-  who: "Universal-design play for all ages and abilities.",
-  what: "Picnic tables for grown-ups and a walking trail.",
+  hook: "A Bend playground for all abilities",
+  who: "Kids who want room to roam, little ones to big kids.",
+  what: "Three play zones for all abilities, plus a walking trail.",
   bring: "Mittens and a snack.",
   hashtags: ["#BendOregon", "#CentralOregon", "#BendKids"],
   ...over,
@@ -285,7 +329,9 @@ describe("the park post", () => {
     expect(r.ok).toBe(true);
     const c = r.spec!.caption!;
     expect(
-      c.startsWith("A Bend playground built for every kid: Larkspur Park\n"),
+      c.startsWith(
+        "A Bend playground for all abilities: Larkspur Park\n\nThree play zones",
+      ),
     ).toBe(true);
     expect(c).toContain("1600 SE Reed Market Rd, Bend, OR 97701");
     expect(c).toContain(COPY.bio);
@@ -385,7 +431,7 @@ describe("the park post", () => {
             kind: "unpack",
             slotDate: "2026-11-18",
             modelText:
-              "A Bend playground built for every kid\nUniversal-design play for all ages and abilities.\nPicnic tables for grown-ups and a walking trail.",
+              "A Bend playground for all abilities\nThree play zones for all abilities, plus a walking trail.\nKids who want room to roam, little ones to big kids.",
           },
         ],
       }),
@@ -874,5 +920,58 @@ describe("keyword DMs", () => {
   });
   it("the DM is code-written and links to /ig with its source", () => {
     expect(COPY.dm).toContain("https://parkroulette.quest/ig?from=ig_dm");
+  });
+});
+
+describe("signature traits lead the park post", () => {
+  it("refuses a hook or an opening line without a profile trait", async () => {
+    const r = await validateParkPost(
+      parkPost({
+        hook: "A Bend playground to visit this week",
+        what: "Picnic tables for grown-ups and open lawns.",
+      }),
+      WEEK,
+      ctx(),
+    );
+    const all = r.errors.join(" ");
+    expect(all).toMatch(
+      /hook must lead with one of the park's signature traits/,
+    );
+    expect(all).toMatch(/what line opens the caption/);
+  });
+  it("refuses generic phrases anywhere", async () => {
+    const r = await validateParkPost(
+      parkPost({
+        hook: "A playground built for all abilities fans",
+        who: "Something for everyone, fun for all ages.",
+        bring: "Snacks: a great place for a picnic.",
+      }),
+      WEEK,
+      ctx(),
+    );
+    const all = r.errors.join(" ");
+    expect(all).toMatch(/built for \.\.\. fans/);
+    expect(all).toMatch(/something for everyone/);
+    expect(all).toMatch(/fun for all ages/);
+    expect(all).toMatch(/great place/);
+  });
+  it("refuses a park with fewer than 2 traits", async () => {
+    const r = await validateParkPost(
+      parkPost({
+        park: "pine-nursery-park-bend",
+        hook: "A Bend fishing pond playground",
+      }),
+      WEEK,
+      ctx({ planParks: ["pine-nursery-park-bend"] }),
+    );
+    expect(r.errors.join(" ")).toMatch(
+      /1 verified signature trait; a park post needs 2/,
+    );
+  });
+  it("lets a verified trait back a claim the feature list lacks", () => {
+    expect(unbackedClaims("Right by the creek", [])).toEqual(["water"]);
+    expect(
+      unbackedClaims("Right by the creek", [], ["Shady spot on Ochoco Creek"]),
+    ).toEqual([]);
   });
 });
