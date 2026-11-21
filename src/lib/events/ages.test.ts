@@ -168,3 +168,46 @@ describe("what Central Oregon organizers print (events-ages survey)", () => {
       }
     });
 });
+
+describe("the events-ages review: teens, durations, lists", () => {
+  const notKids = [
+    "Teens (ages 12-17)",
+    "Ages 11-18",
+    "Grades 6-12",
+    "Teen (13-18)",
+    "Teens 10-18",
+    "para jóvenes de 10 a 18 años",
+    "jóvenes de 12-18 años",
+    "adolescentes de 11 a 17 años",
+    "For teens, ages 10 and up",
+  ];
+  for (const s of notKids)
+    it(`${s} is not a kids' event`, () => {
+      expect(ageTags(s)?.kids, s).toBe(false);
+      expect(ageTags(s)?.tags ?? [], s).toEqual([]);
+    });
+  it("keeps kids' ranges that run up through the teens", () => {
+    expect(ageTags("Ages 7 thru teens")?.kids).toBe(true);
+    expect(ageTags("Ages 8-17")?.kids).toBe(true);
+    expect(ageTags("ages 10 and up")?.kids).toBe(true);
+  });
+  it("never reads a duration as ages", () => {
+    expect(ageTags("for 2-3 hours")).toBeNull();
+    expect(ageTags("kids 2-3 hours")).toBeNull();
+    expect(ageTags("Ages 4-8, for 2-3 hours")?.range).toEqual([4, 8]);
+  });
+  it("reads youth, tweens and back-to-back ranges", () => {
+    expect(ageTags("Youth 6-12")).toMatchObject({ kids: true, range: [6, 12] });
+    expect(ageTags("tweens 9-12")).toMatchObject({
+      kids: true,
+      range: [9, 12],
+    });
+    expect(ageTags("Ages 3-5 & 6-10")).toMatchObject({
+      kids: true,
+      range: [3, 10],
+    });
+    // A gap between them is still unclear.
+    expect(ageTags("Ages 3-5 and ages 9-12")).toBeNull();
+    expect(ageTags("Ages 3-5 & 9-12")).toBeNull();
+  });
+});

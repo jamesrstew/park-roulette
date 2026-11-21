@@ -174,8 +174,13 @@ export function pickWeekEvents(
       left.push(`${e.slug}: ${ages.why}`);
       continue;
     }
-    // Printed cost or none: never a guess.
+    // Printed cost or none: never a guess. A printed cost the chip can't
+    // show (no amount read) would print as no price: leave it out.
     const cost = costChip(e.data);
+    if (e.data.cost && !cost) {
+      left.push(`${e.slug}: printed cost we can't show`);
+      continue;
+    }
     const bad = screen(e.data);
     if (bad) {
       left.push(`${e.slug}: ${bad}`);

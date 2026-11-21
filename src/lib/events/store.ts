@@ -18,6 +18,7 @@ import {
   type EventRow,
   type EventStatus,
   eventSlug,
+  keyStem,
   kindOf,
   lastEnd,
   LEGACY_SERIES_KEY,
@@ -117,6 +118,103 @@ export async function createdToday(now = new Date()): Promise<number> {
 
 class CapReached extends Error {}
 
+/**
+ * A hand-in for a stored page keeps what it leaves out. The harvest
+ * re-hands known pages (new dates, printed ages); a hand-in that omits
+ * `annual`, `series`, `series_id`, `organizer` or the venue's pin would
+ * otherwise drop them, and a dropped `annual` or `series: false` changes
+ * the key and splits the page. So each verdict finds its stored page (its
+ * key, or the same venue and title stem stored as an annual page, or as a
+ * one-off sharing a day with it) and takes the page's key and those
+ * fields. The page's `url` stays when the hand-in links the same site.
+ * Printed ages and cost are not carried: a hand-in replaces them. Pure;
+ * mutates the verdicts.
+ */
+export function adoptStored(
+  verdicts: EventVerdict[],
+  rows: readonly { seriesKey: string; kind: string; data: unknown }[],
+): void {
+  for (const v of verdicts) {
+    if (!v.ok || !v.event || !v.key) continue;
+    const e = v.event;
+    const venue = venueKey(e.venue);
+    const stem = keyStem(e.title);
+    const days = new Set(e.dates.map((d) => d.day));
+    const same = (r: (typeof rows)[number]) => {
+      const d = r.data as StoredEvent;
+      return venueKey(d.venue) === venue && keyStem(d.title) === stem;
+    };
+    const row =
+      rows.find((r) => r.seriesKey === v.key || rowKey(r) === v.key) ??
+      rows.find(
+        (r) =>
+          same(r) &&
+          e.annual === undefined &&
+          (r.kind === "annual"
+            ? e.series === undefined
+            : r.seriesKey.startsWith("one:") &&
+              e.series !== true &&
+              (r.data as StoredEvent).dates.some((d) => days.has(d.day))),
+      );
+    if (!row) continue;
+    const prev = row.data as StoredEvent;
+    const host = (u: string) => {
+      try {
+        return new URL(u).hostname.replace(/^www\./, "");
+      } catch {
+        return u;
+      }
+    };
+    const pinned = !!(e.venue.park || e.venue.lat != null);
+    v.event = {
+      ...e,
+      ...(e.series_id === undefined && prev.series_id
+        ? { series_id: prev.series_id }
+        : {}),
+      ...(e.organizer === undefined && prev.organizer
+        ? { organizer: prev.organizer }
+        : {}),
+      ...(e.annual === undefined && prev.annual !== undefined
+        ? { annual: prev.annual }
+        : {}),
+      ...(e.series === undefined && prev.series !== undefined
+        ? { series: prev.series }
+        : {}),
+      ...(host(e.url) === host(prev.url) ? { url: prev.url } : {}),
+      ...(!pinned && (prev.venue.park || prev.venue.lat != null)
+        ? {
+            venue: {
+              ...e.venue,
+              ...(prev.venue.park ? { park: prev.venue.park } : {}),
+              ...(prev.venue.lat != null
+                ? { lat: prev.venue.lat, lng: prev.venue.lng }
+                : {}),
+            },
+            point: prev.point,
+          }
+        : {}),
+    };
+    if (v.key !== row.seriesKey && rowKey(row) !== v.key) {
+      // Joined by venue and stem: this page's key, kind and slug.
+      v.key = row.seriesKey;
+      v.kind = row.kind as EventRow["kind"];
+    }
+  }
+}
+
+/** adoptStored against every stored row (the route runs it before de-duplication). */
+export async function adoptStoredPages(verdicts: EventVerdict[]) {
+  if (!verdicts.some((v) => v.ok && v.event)) return;
+  const rows = await db
+    .select({
+      seriesKey: kidEvents.seriesKey,
+      kind: kidEvents.kind,
+      data: kidEvents.data,
+    })
+    .from(kidEvents);
+  adoptStored(verdicts, rows);
+}
+
 export async function upsertEvents(
   verdicts: EventVerdict[],
   opts: { network: boolean; newLeft?: number },
@@ -132,6 +230,7 @@ export async function upsertEvents(
   // Admin repairs stick, whoever calls this (the route screens first, so
   // the hand-in hears why; this is the backstop).
   screenEdits(verdicts, await editBlocks());
+  await adoptStoredPages(verdicts);
   const budget = { left: opts.newLeft ?? Infinity };
   for (const v of verdicts) {
     if (!v.ok || !v.event || !v.key || !v.slug || !v.kind) continue;
@@ -207,8 +306,8 @@ async function upsertOne(
     let kind = v.kind!;
     if (old) {
       const prev = old.data as StoredEvent;
-      // Same key and not a declared one-off: one page, every date kept.
-      if (!v.key!.startsWith("one:")) {
+      // Same key: one page, every date kept (a one-off's too).
+      {
         // Keep earlier dates the new hand-in no longer lists.
         // An occurrence is its day and start time: two showtimes on one
         // day are two dates.
@@ -223,7 +322,9 @@ async function upsertOne(
           ].sort((a, b) => key(a).localeCompare(key(b))),
           targets: { ...prev.targets, ...data.targets },
         };
-        if (data.dates.length > 1 || kind === "series")
+        if (old.kind === "one_off" && v.key!.startsWith("one:"))
+          kind = "one_off";
+        else if (data.dates.length > 1 || kind === "series")
           kind =
             old.kind === "annual" || kind === "annual" ? "annual" : "series";
       }
@@ -360,7 +461,17 @@ export async function knownEvents(
      */
     facts: Pick<
       StoredEvent,
-      "venue" | "setting" | "cost" | "ages_text" | "signup" | "parking"
+      | "venue"
+      | "setting"
+      | "cost"
+      | "ages_text"
+      | "signup"
+      | "parking"
+      | "series_id"
+      | "organizer"
+      | "annual"
+      | "series"
+      | "what"
     >;
   })[]
 > {
@@ -400,6 +511,11 @@ export async function knownEvents(
       ],
       facts: {
         venue: e.venue,
+        what: e.what,
+        ...(e.series_id ? { series_id: e.series_id } : {}),
+        ...(e.organizer ? { organizer: e.organizer } : {}),
+        ...(e.annual !== undefined ? { annual: e.annual } : {}),
+        ...(e.series !== undefined ? { series: e.series } : {}),
         ...(e.setting ? { setting: e.setting } : {}),
         ...(e.cost ? { cost: e.cost } : {}),
         ...(e.ages_text ? { ages_text: e.ages_text } : {}),

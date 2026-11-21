@@ -1,6 +1,7 @@
 import { eventsContext } from "@/lib/events/context";
 import { dedupe, screenEdits } from "@/lib/events/dedupe";
 import {
+  adoptStoredPages,
   createdToday,
   DAILY_NEW_CAP,
   editBlocks,
@@ -46,6 +47,8 @@ export async function POST(req: Request) {
   // Admin repairs stick: dates an admin took off, and pages removed in
   // the last 60 days, stay gone.
   screenEdits(report.events, await editBlocks());
+  // A re-hand of a stored page keeps its key and the facts it leaves out.
+  await adoptStoredPages(report.events);
   dedupe(report.events, await knownEvents(new Date(), 120));
   const devStore =
     !network &&

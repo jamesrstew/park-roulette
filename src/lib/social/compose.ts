@@ -391,7 +391,13 @@ export function composeEventsWeek(
     modelText: "",
     facts: {
       parks: [],
-      events: events.map((e) => ({ slug: e.slug, day: e.day, start: e.start })),
+      events: events.map((e) => ({
+        slug: e.slug,
+        day: e.day,
+        start: e.start,
+        ages: e.ages,
+        cost: e.cost,
+      })),
       venues: [],
       issue: null,
     },

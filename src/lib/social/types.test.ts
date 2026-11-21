@@ -678,6 +678,17 @@ describe("composeEventsWeek", () => {
     expect(alts[2]).toMatch(/Ages 3 to 6\.$/);
   });
 
+  it("leaves out a printed cost the chip can't show", () => {
+    const odd = ev({ slug: "odd", day: "2026-11-25" });
+    (odd.data as { cost: unknown }).cost = {
+      text: "By donation",
+      prices: [],
+      free: false,
+    };
+    const r = pickWeekEvents([odd], w, now);
+    expect(r.left).toContain("odd: printed cost we can't show");
+  });
+
   it("a fixed headline naming no event, one equal slide per event, the details close", async () => {
     const { composeEventsWeek } = await import("./compose");
     const pick = pickWeekEvents(rows, w, now);
@@ -711,7 +722,13 @@ describe("composeEventsWeek", () => {
     expect(spec.caption).toContain(COPY.eventsFine);
     expect(spec.caption).not.toMatch(/\b(we|our|us)\b/i);
     expect(spec.facts.events).toEqual(
-      pick.events.map((e) => ({ slug: e.slug, day: e.day, start: e.start })),
+      pick.events.map((e) => ({
+        slug: e.slug,
+        day: e.day,
+        start: e.start,
+        ages: e.ages,
+        cost: e.cost,
+      })),
     );
   });
 });
@@ -945,7 +962,8 @@ describe("the roundup: ages, venues and hosts", () => {
       "Ages 10 to 18",
     ]);
     expect(r.events.find((e) => e.slug === "a")!.ages).toEqual(["Ages 3 to 6"]);
-    expect(r.left.join(" ")).toMatch(/middle: youngest age 11/);
+    // 11 to 14 is a teen range now (ageTags): off the kids' listing.
+    expect(r.events.map((e) => e.slug)).not.toContain("middle");
   });
 
   it("leaves out bars, breweries, taprooms, wineries and the like, as venue or host", () => {
@@ -960,6 +978,16 @@ describe("the roundup: ages, venues and hosts", () => {
       "Oregon Spirit Distillery",
       "Astro Lounge",
       "The Velvet Cocktail Lounge",
+      "Wine Lounge",
+      "Hookah Lounge",
+      "Cigar Lounge",
+      "Sports Lounge",
+      "Wine Room",
+      "Wine Co.",
+      "Wine Cellar",
+      "Gastro Lounge",
+      "Art Bar",
+      "Tea Room and Wine Bar",
       "Old Mill Pub",
       "Sisters Saloon",
     ];
@@ -982,18 +1010,17 @@ describe("the roundup: ages, venues and hosts", () => {
     );
   });
 
-  it("keeps a tea and art lounge: a bare lounge or wine isn't a bar", () => {
+  it("keeps a tea or art lounge (TEAL), and only when no other adult word is there", () => {
     const r = pickWeekEvents(
       [
         ...base,
         ev({ slug: "teal", day: "2026-11-29", venue: "TEAL Tea + Art Lounge" }),
-        ev({ slug: "wine", day: "2026-11-29", venue: "Wine Country Farm" }),
       ],
       w,
       now,
     );
     expect(r.events.map((e) => e.slug)).toEqual(
-      expect.arrayContaining(["teal", "wine"]),
+      expect.arrayContaining(["teal"]),
     );
     expect(r.left.filter((l) => /bar, brewery or winery/.test(l))).toEqual([]);
   });
@@ -1023,6 +1050,43 @@ describe("the roundup: ages, venues and hosts", () => {
     expect(
       venueProblem("Downtown Bend Library", { month: 11, label: "venue" }),
     ).toBeNull();
+  });
+});
+
+describe("stillTrue compares the printed ages and cost", () => {
+  it("a changed age range or price breaks the post's facts", async () => {
+    const { stillTrue } = await import("./validate");
+    const e = ev({ slug: "x", day: "2026-11-25", cost: 8 });
+    const c = {
+      now: new Date("2026-11-24T15:00:00Z"),
+      catalog: CATALOG,
+      parks: new Map(),
+      events: new Map([["x", e]]),
+    };
+    const fact = {
+      slug: "x",
+      day: "2026-11-25",
+      start: "10:00",
+      ages: ["Ages 3 to 6"],
+      cost: "$8 kids" as string | null,
+    };
+    const facts = (f: typeof fact) => ({
+      parks: [],
+      events: [f],
+      venues: [],
+      issue: null,
+    });
+    expect(stillTrue(facts(fact), c)).toBeNull();
+    expect(stillTrue(facts({ ...fact, ages: ["Ages 3 to 6"] }), c)).toBeNull();
+    expect(stillTrue(facts({ ...fact, ages: ["Ages 2 to 5"] }), c)).toMatch(
+      /printed ages changed/,
+    );
+    expect(stillTrue(facts({ ...fact, cost: "$5 kids" }), c)).toMatch(
+      /printed cost changed from \$5 kids to \$8 kids/,
+    );
+    expect(stillTrue(facts({ ...fact, cost: null }), c)).toMatch(
+      /printed cost changed from none/,
+    );
   });
 });
 

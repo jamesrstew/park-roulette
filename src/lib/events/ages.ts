@@ -63,7 +63,12 @@ export function ageTags(printed: string | null | undefined): Ages | null {
       " ",
     )
     .replace(/\b\d{1,2}:\d{2}\b/g, " ")
-    .replace(/\b\d{1,2}\s*(a\.?m\b\.?|p\.?m\b\.?)|\bnoon\b/g, " ");
+    .replace(/\b\d{1,2}\s*(a\.?m\b\.?|p\.?m\b\.?)|\bnoon\b/g, " ")
+    // Durations aren't ages either ("for 2-3 hours", "90 minutes").
+    .replace(
+      /\b\d{1,3}(\.\d+)?(\s*(-|to)\s*\d{1,3}(\.\d+)?)?\s*(hours?|hrs?\.?|minutes?|mins?\.?|days?|weeks?|sessions?|classes)\b/g,
+      " ",
+    );
   // Words about who may come or who's free, not who it's for: no tag.
   // ("Not recommended for children under 5", "Children under 3 free",
   // "under 18 must be accompanied").
@@ -84,7 +89,7 @@ export function ageTags(printed: string | null | undefined): Ages | null {
     return { tags: [ALL_AGES], kids: true, range: null };
   // Ages must be named, not guessed from a stray number.
   if (
-    !/\b(ages?|aged|grades?|graders?|kindergarten(ers)?|years?|yrs?|months?|mos?|year-olds?|kids|children|toddlers|babies|infants|preschoolers?)\b|\bunder \d|\d\s*\+/.test(
+    !/\b(ages?|aged|grades?|graders?|kindergarten(ers)?|years?|yrs?|months?|mos?|year-olds?|kids|children|toddlers|babies|infants|preschoolers?|youth|tweens?|teens?)\b|\bunder \d|\d\s*\+/.test(
       t,
     )
   )
@@ -153,9 +158,29 @@ export function ageTags(printed: string | null | undefined): Ages | null {
     const unit1 = x[2] ?? unit2;
     return [years(x[1], unit1), years(x[3], unit2)];
   };
+  // "Ages 3-5 & 6-10": back-to-back ranges after one age word are one
+  // range (3 to 10).
+  {
+    const R = `${N}\\s*(?:-|to)\\s*${N}`;
+    const list = new RegExp(
+      `\\bages? (${R}(?:\\s*(?:,|and|or)\\s*${R})+)\\b`,
+      "g",
+    );
+    rest = rest.replace(list, (_all: string, body: string) => {
+      const pairs = [...body.matchAll(new RegExp(R, "g"))].map(
+        (x) => [Number(x[1]), Number(x[2])] as [number, number],
+      );
+      // With a gap, each range stays its own (and the check below finds
+      // them unclear).
+      if (pairs.some((x, i) => i > 0 && x[0] > pairs[i - 1][1] + 1))
+        spans.push(...pairs);
+      else spans.push([pairs[0][0], Math.max(...pairs.map((x) => x[1]))]);
+      return " ";
+    });
+  }
   take(
     new RegExp(
-      `\\b(?:ages?|aged|kids|children|toddlers|babies|for)\\s+(?:from\\s+)?${N}\\s*${UNIT}?\\s*(?:-|to)\\s*${N}\\s*${UNIT}?`,
+      `\\b(?:ages?|aged|kids|children|toddlers|babies|for|youth|tweens?|teens?)\\s+\\(?(?:from\\s+)?${N}\\s*${UNIT}?\\s*(?:-|to)\\s*${N}\\s*${UNIT}?`,
     ),
     range,
   );
@@ -198,6 +223,16 @@ export function ageTags(printed: string | null | undefined): Ages | null {
   const hi = Math.max(...spans.map((s) => s[1]));
   if (lo > hi) return null;
   if (lo > KID_MAX) return { tags: [], kids: false, range: [lo, hi] };
+  // Teen programs aren't kids' events: a range that starts at 11 and runs
+  // past 12 ("Ages 11-18", "Grades 6-12"), or teen words that aren't the
+  // top of a kids' range ("7 thru teens").
+  if (
+    (lo >= 11 && hi > KID_MAX) ||
+    /\bteens?\b|\bj[oó]venes\b|\badolesc/.test(
+      t.replace(/\b\d{1,2}\s*(-|to)\s*(the )?teens\b/g, " "),
+    )
+  )
+    return { tags: [], kids: false, range: [lo, hi] };
   const tags = AGE_BRACKETS.filter(
     (b) => b.lo <= Math.min(hi, KID_MAX) && b.hi >= lo,
   ).map((b) => b.tag);

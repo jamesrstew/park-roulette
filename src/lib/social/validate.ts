@@ -10,6 +10,8 @@ import {
   whenLine,
 } from "@/lib/events/model";
 import { listed } from "@/lib/events/state";
+// A cycle (roundup uses eventTextProblem): both only call at run time.
+import { roundupAges } from "./roundup";
 import {
   ideaOverlap,
   ideaProblems,
@@ -171,26 +173,29 @@ export function textProblems(
 }
 
 /**
- * Venues no family post names: bars, breweries, taprooms, wineries and the
- * like, even when they host a kids' event. A bare "lounge" or "wine" is
- * not one (TEAL Tea + Art Lounge runs kids' classes; "Wine Bar" is still a
- * bar): cocktail lounges are, and so are the bar-lounges named below.
+ * Venues no family post names: bars, breweries, taprooms, wineries,
+ * lounges and the like, even when they host a kids' event. One exemption:
+ * a tea or art lounge ("TEAL Tea + Art Lounge" runs kids' classes) whose
+ * only adult word is "lounge" or "wine". "Wine Bar" is a bar either way.
  */
 export const ADULT_VENUE =
-  /\b(bars?|brew(ery|eries|ing|pub|pubs|house)|taprooms?|tap ?house|pubs?|saloons?|winer(y|ies)|distiller(y|ies)|taverns?|cocktail ?lounges?|beer ?gardens?|cider ?house|ciderworks?)\b/i;
+  /\b(bars?|brew(ery|eries|ing|pub|pubs|house)|taprooms?|tap ?house|pubs?|saloons?|winer(y|ies)|wines?|distiller(y|ies)|taverns?|lounges?|beer ?gardens?|cider ?house|ciderworks?)\b/i;
+/** The adult words a tea or art lounge may carry. */
+const LOUNGE_WORDS = /\b(lounges?|wines?)\b/gi;
+const TEA_OR_ART = /\btea\b|\bart\b/i;
 
-/** Bars whose name says only "lounge", in lower case. */
-export const BAR_LOUNGES = ["astro lounge"];
+/** Bars named only "... Lounge" (whole words, any case). */
+export const BAR_LOUNGES = [/\bastro lounge\b/i];
 
 /** Why a venue or host name is out of every social post, or null. */
 export function venueProblem(
   name: string,
   { month, label }: { month: number; label: string },
 ): string | null {
-  if (
-    ADULT_VENUE.test(norm(name)) ||
-    BAR_LOUNGES.some((b) => norm(name).toLowerCase().includes(b))
-  )
+  const n = norm(name);
+  const exempt =
+    TEA_OR_ART.test(n) && !ADULT_VENUE.test(n.replace(LOUNGE_WORDS, " "));
+  if (BAR_LOUNGES.some((b) => b.test(n)) || (ADULT_VENUE.test(n) && !exempt))
     return `${label} "${name}" is a bar, brewery or winery: never in a family post.`;
   // A name is a proper name, not our words: first person ("Our Lady
   // of ...") is fine there; competitors, links and unsafe words are not.
@@ -649,7 +654,15 @@ async function resolveItem(
         ].filter((x): x is string => !!x),
       },
       fact: {
-        events: [{ slug, day, ...(date.start ? { start: date.start } : {}) }],
+        events: [
+          {
+            slug,
+            day,
+            ...(date.start ? { start: date.start } : {}),
+            ...(e.data.ages_text ? { ages: [e.data.ages_text] } : {}),
+            cost: costChip(e.data),
+          },
+        ],
       },
     };
   }
@@ -1004,7 +1017,7 @@ export function stillTrue(
     if (!p || !p.approved || p.status !== "active")
       return `${slug} isn't open on the map any more.`;
   }
-  for (const { slug, day, start } of facts.events) {
+  for (const { slug, day, start, ages, cost } of facts.events) {
     const e = ctx.events.get(slug);
     if (!e || !listed(e, ctx.now)) return `${slug} is off the events listing.`;
     if (statusOn(e.data, day, e.status) !== "scheduled")
@@ -1014,6 +1027,19 @@ export function stillTrue(
       if (now !== start)
         return `${slug} on ${day} now starts at ${now ?? "no stated time"}, not ${start}.`;
     }
+    // The ages and price the post printed: the roundup's chips, or an
+    // item's printed words.
+    if (ages !== undefined) {
+      const r = roundupAges(e.data.ages);
+      const shown = [
+        "chips" in r ? r.chips : null,
+        e.data.ages_text ? [e.data.ages_text] : null,
+      ];
+      if (!shown.some((x) => x && x.join("|") === ages.join("|")))
+        return `${slug}'s printed ages changed from ${ages.join(", ")}.`;
+    }
+    if (cost !== undefined && (costChip(e.data) ?? null) !== cost)
+      return `${slug}'s printed cost changed from ${cost ?? "none"} to ${costChip(e.data) ?? "none"}.`;
   }
   for (const id of facts.venues) {
     const v = ctx.catalog.venues.find((x) => x.id === id);

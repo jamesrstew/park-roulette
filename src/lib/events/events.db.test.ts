@@ -81,8 +81,10 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
     await store.upsertEvents([verdict("Baby Story Time", "2026-11-21")], {
       network: true,
     });
+    // The library prints ages but no cost; a price here stands for a
+    // source that prints one (TEAL, Tower).
     const agesQuote = "A gentle story time for infant and caregiver. 0-18 mo.";
-    const costQuote = "Saturday, 2026-11-28, 10:30 am. Free admission.";
+    const costQuote = "Saturday, 2026-11-28, 10:30 am. Price $5.00";
     const [r] = await store.upsertEvents(
       [
         verdict(
@@ -91,7 +93,11 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
           {},
           {
             ages_text: "0-18 mo.",
-            cost: { text: "Free admission", prices: [], free: true },
+            cost: {
+              text: "$5",
+              prices: [{ label: "class", amount: 5 }],
+              free: false,
+            },
             evidence: [
               { url: PAGE, quote: costQuote },
               { url: PAGE, quote: agesQuote },
@@ -108,7 +114,7 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
       dates: { day: string }[];
       ages: { tags: string[]; range: number[] };
       ages_text: string;
-      cost: { free: boolean };
+      cost: { free: boolean; text: string };
       targets: Record<string, unknown>;
     };
     expect(data.dates.map((d) => d.day)).toEqual(["2026-11-21", "2026-11-28"]);
@@ -118,14 +124,14 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
     ]);
     expect(data.ages_text).toBe("0-18 mo.");
     expect(data.ages).toMatchObject({ tags: ["Ages 0-3"], range: [0, 1] });
-    expect(data.cost.free).toBe(true);
+    expect(data.cost).toMatchObject({ text: "$5", free: false });
     // /api/events/known shows the stored facts, so the harvest can see a
     // page that lacks them and hand them in again with new dates.
     const [k] = await store.knownEvents(new Date("2026-11-19T20:00:00Z"));
     expect(k.facts).toMatchObject({
       venue: { name: "Downtown Bend Library", town: "Bend" },
       ages_text: "0-18 mo.",
-      cost: { text: "Free admission", free: true },
+      cost: { text: "$5", free: false },
     });
     // A hand-in replaces the page's facts: one without ages drops them
     // (the harvest prompt hands them in again every time).
@@ -135,6 +141,171 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
     const [after] = await store.knownEvents(new Date("2026-11-19T20:00:00Z"));
     expect(after.facts.ages_text).toBeUndefined();
     expect(after.dates).toHaveLength(3);
+  });
+
+  describe("a re-hand keeps what it leaves out (events-ages review)", () => {
+    const pages = async () =>
+      (await q(
+        "select slug, kind, series_key, data from kid_events order by id",
+      )) as {
+        slug: string;
+        kind: string;
+        series_key: string;
+        data: Record<string, unknown> & { dates: { day: string }[] };
+      }[];
+
+    it("A: series_id and organizer survive a re-hand without them", async () => {
+      await store.upsertEvents(
+        [
+          verdict(
+            "Family Skate",
+            "2026-11-21",
+            {},
+            {
+              series_id: "bprd-family-skate",
+              organizer: { name: "Bend Park and Recreation", url: PAGE },
+            },
+          ),
+        ],
+        { network: true },
+      );
+      await store.upsertEvents(
+        [verdict("Family Skate", "2026-11-28", {}, { ages_text: "All ages" })],
+        { network: true },
+      );
+      const rows = await pages();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].data).toMatchObject({
+        series_id: "bprd-family-skate",
+        organizer: { name: "Bend Park and Recreation" },
+        ages_text: "All ages",
+      });
+      expect(rows[0].data.dates).toHaveLength(2);
+      const [k] = await store.knownEvents(new Date("2026-11-19T20:00:00Z"));
+      expect(k.facts).toMatchObject({
+        series_id: "bprd-family-skate",
+        organizer: { name: "Bend Park and Recreation" },
+        what: expect.any(String),
+      });
+    });
+
+    it("B: an annual page re-handed without annual stays one page", async () => {
+      await store.upsertEvents(
+        [verdict("Tree Lighting", "2026-12-05", {}, { annual: true })],
+        { network: true },
+      );
+      await store.upsertEvents(
+        [verdict("Tree Lighting", "2026-12-05", {}, { ages_text: "All ages" })],
+        { network: true },
+      );
+      const rows = await pages();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].kind).toBe("annual");
+      expect(rows[0].series_key).toMatch(/^annual:/);
+      expect(rows[0].data).toMatchObject({
+        annual: true,
+        ages_text: "All ages",
+      });
+    });
+
+    it("C: a one-off with two dates keeps both when one is re-handed", async () => {
+      const two = verdict(
+        "Santa Visit",
+        "2026-12-05",
+        {},
+        {
+          series: false,
+          dates: [
+            { day: "2026-12-05", start: "10:30" },
+            { day: "2026-12-06", start: "10:30" },
+          ],
+        },
+      );
+      await store.upsertEvents([two], { network: true });
+      await store.upsertEvents(
+        [
+          verdict(
+            "Santa Visit",
+            "2026-12-05",
+            {},
+            { series: false, ages_text: "All ages" },
+          ),
+        ],
+        { network: true },
+      );
+      const rows = await pages();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].kind).toBe("one_off");
+      expect(rows[0].data.dates.map((d) => d.day)).toEqual([
+        "2026-12-05",
+        "2026-12-06",
+      ]);
+    });
+
+    it("C2: re-handing a one-off's second date (or no series flag) makes no duplicate page", async () => {
+      const two = verdict(
+        "Santa Visit",
+        "2026-12-05",
+        {},
+        {
+          series: false,
+          dates: [
+            { day: "2026-12-05", start: "10:30" },
+            { day: "2026-12-06", start: "10:30" },
+          ],
+        },
+      );
+      await store.upsertEvents([two], { network: true });
+      await store.upsertEvents(
+        [verdict("Santa Visit", "2026-12-06", {}, { series: false })],
+        { network: true },
+      );
+      await store.upsertEvents([verdict("Santa Visit", "2026-12-06")], {
+        network: true,
+      });
+      const rows = await pages();
+      expect(rows).toHaveLength(1);
+      expect(rows[0].series_key).toMatch(/^one:.*2026-12-05$/);
+      expect(rows[0].data.dates.map((d) => d.day)).toEqual([
+        "2026-12-05",
+        "2026-12-06",
+      ]);
+    });
+
+    it("keeps the venue pin and the page's url on the same site", async () => {
+      await store.upsertEvents(
+        [
+          verdict(
+            "Lego Club",
+            "2026-11-21",
+            {},
+            {
+              venue: {
+                name: "Downtown Bend Library",
+                town: "Bend",
+                lat: 44.06,
+                lng: -121.31,
+              },
+            },
+          ),
+        ],
+        { network: true },
+      );
+      const again = verdict(
+        "Lego Club",
+        "2026-11-28",
+        {},
+        {
+          url: "https://www.deschuteslibrary.org/other",
+        },
+      );
+      await store.upsertEvents([again], { network: true });
+      const [row] = await pages();
+      expect(row.data).toMatchObject({
+        url: PAGE,
+        venue: { lat: 44.06, lng: -121.31 },
+      });
+    });
   });
 
   it("keeps two showtimes on one day as two dates", async () => {

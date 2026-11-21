@@ -110,7 +110,8 @@ export const COPY = {
   eventsDetails: "Details and more at parkroulette.quest/events",
   eventsDetailsLine: "Details and more at",
   eventsUrl: "parkroulette.quest/events",
-  eventsFine: "Each event is run by its host. Check times before you go.",
+  eventsFine:
+    "Each event is run by its host. Check times and prices before you go.",
   /** The label over an idea's payoff, on the slide and in the caption. */
   payoffLabel: "The best part",
   /** The "at home" caption's save prompt (saves drive reach on idea posts). */
@@ -534,8 +535,17 @@ export type SlideSpec =
 /** The facts a post leans on: re-checked just before it goes out. */
 export type PostFacts = {
   parks: string[];
-  /** start: the time the post printed (a change redraws or skips it). */
-  events: { slug: string; day: string; start?: string }[];
+  /**
+   * start: the time the post printed; ages and cost: the chips it printed
+   * (null: no price shown). A change redraws or skips it.
+   */
+  events: {
+    slug: string;
+    day: string;
+    start?: string;
+    ages?: string[];
+    cost?: string | null;
+  }[];
   venues: string[];
   issue: string | null;
   /** An "at home" post's idea titles (the 12-week cooldown). */
