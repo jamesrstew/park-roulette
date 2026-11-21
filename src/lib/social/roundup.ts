@@ -8,11 +8,15 @@ import {
   statusOn,
   upcomingDates,
 } from "@/lib/events/model";
-import { ALL_AGES, AGE_BRACKETS } from "@/lib/events/ages";
+import { ALL_AGES } from "@/lib/events/ages";
 import { listed } from "@/lib/events/state";
 import { addDays, weekdayOf } from "@/lib/news/time";
 import type { WeekEvent } from "./compose";
 import { DATED_LEAD_HOURS, EVENTS_MAX, EVENTS_MIN } from "./model";
+import { eventTextProblem } from "./validate";
+
+/** ageTags' open top ("6 and up" reads as [6, 99]). */
+const OPEN_TOP = 99;
 
 /**
  * Tuesday's "Family events this week": which kids' events go in, made by
@@ -37,30 +41,40 @@ export function timeLine(d: Pick<EventDate, "start" | "end">): string {
   return m && b.endsWith(` ${m[2]}`) ? `${m[1]} to ${b}` : `${a} to ${b}`;
 }
 
+/** The oldest youngest-age a roundup event may print (a family event, not a teen one). */
+export const ROUNDUP_MAX_YOUNGEST = 10;
+
 /**
- * The ages chip: the printed range when code read one ("Ages 3 to 8",
- * "Ages 6 and up"), so a chip is never wider than the page says; else the
- * tags, touching brackets merged ("Ages 0-3", "Ages 4-7" → "Ages 0 to 7").
- * "All ages" stays as it is.
+ * The ages chip: exactly the printed range code read, never a wider one
+ * ("Ages 3 to 8", "Ages 10 to 18", "Ages 6 and up", "All ages"). Null
+ * when there's no range to print (then the event isn't in the roundup).
  */
 export function ageChips(
   tags: readonly string[],
   range: readonly [number, number] | null = null,
-): string[] {
+): string[] | null {
   if (tags.includes(ALL_AGES)) return [ALL_AGES];
-  if (range) {
-    const [lo, hi] = range;
-    if (hi > 12) return [`Ages ${lo} and up`];
-    return [lo === hi ? `Age ${lo}` : `Ages ${lo} to ${hi}`];
-  }
-  const spans: [number, number][] = [];
-  for (const b of AGE_BRACKETS)
-    if (tags.includes(b.tag)) {
-      const last = spans[spans.length - 1];
-      if (last && last[1] + 1 === b.lo) last[1] = b.hi;
-      else spans.push([b.lo, b.hi]);
-    }
-  return spans.map(([lo, hi]) => `Ages ${lo} to ${hi}`);
+  if (!range) return null;
+  const [lo, hi] = range;
+  if (hi >= OPEN_TOP) return [`Ages ${lo} and up`];
+  return [lo === hi ? `Age ${lo}` : `Ages ${lo} to ${hi}`];
+}
+
+/** Printed ages a family roundup takes: kids, youngest 10 or under, not teen-only. */
+export function roundupAges(
+  ages:
+    | { tags: readonly string[]; kids: boolean; range: [number, number] | null }
+    | null
+    | undefined,
+): { chips: string[] } | { why: string } {
+  if (!ages || !ages.tags.length) return { why: "no printed ages" };
+  if (ages.kids === false) return { why: "not a kids' event" };
+  if (ages.range && ages.range[0] > ROUNDUP_MAX_YOUNGEST)
+    return {
+      why: `youngest age ${ages.range[0]} (a family roundup needs ${ROUNDUP_MAX_YOUNGEST} or under)`,
+    };
+  const chips = ageChips(ages.tags, ages.range);
+  return chips ? { chips } : { why: "no printed age range" };
 }
 
 /** The window: from the slot plus 12 hours to the end of the 7th day (Monday). */
@@ -89,21 +103,23 @@ export type RoundupPick = {
 
 /**
  * The events for the roundup, or the reason there's no roundup this week.
- * `titleOk` runs the text rules on a title (null: fine).
+ * `screen` checks an event's title, venue and host names (default: the
+ * text rules, and no bars, breweries or wineries); null is fine.
  */
 export function pickWeekEvents(
   rows: Iterable<EventRow>,
   window: ReturnType<typeof roundupWindow>,
   now: Date,
-  titleOk: (title: string) => string | null = () => null,
+  screen: (e: EventRow["data"]) => string | null = (e) =>
+    eventTextProblem(e, Number(window.firstDay.slice(5, 7))),
 ): RoundupPick & { skip: string | null } {
   const left: string[] = [];
   const candidates: (WeekEvent & { at: number })[] = [];
   for (const e of rows) {
     if (!listed(e, now)) continue;
-    const ages = e.data.ages;
-    if (!ages || ages.kids === false || !ages.tags.length) {
-      left.push(`${e.slug}: no printed ages`);
+    const ages = roundupAges(e.data.ages);
+    if ("why" in ages) {
+      left.push(`${e.slug}: ${ages.why}`);
       continue;
     }
     const cost = costChip(e.data);
@@ -111,7 +127,7 @@ export function pickWeekEvents(
       left.push(`${e.slug}: no printed cost`);
       continue;
     }
-    const bad = titleOk(e.data.title);
+    const bad = screen(e.data);
     if (bad) {
       left.push(`${e.slug}: ${bad}`);
       continue;
@@ -143,7 +159,7 @@ export function pickWeekEvents(
       time: timeLine(first),
       venue: e.data.venue.name,
       town: e.data.venue.town,
-      ages: ageChips(ages.tags, ages.range),
+      ages: ages.chips,
       cost,
       host:
         e.data.organizer &&

@@ -308,6 +308,22 @@ function HeadlineWords({
   );
 }
 
+/**
+ * Town names in lines we break ourselves (about 30 characters each, the
+ * width of the card at 50 px), joined by " · " inside a line only, so no
+ * line starts or ends on a dot and no town splits.
+ */
+export function townLines(towns: readonly string[], max = 30): string[] {
+  const lines: string[] = [];
+  for (const t of towns) {
+    const last = lines[lines.length - 1];
+    if (last != null && `${last} · ${t}`.length <= max)
+      lines[lines.length - 1] = `${last} · ${t}`;
+    else lines.push(t);
+  }
+  return lines;
+}
+
 /** Headline size by length: as big as fits in the safe width. */
 function headlineSize(words: string): number {
   const n = words.length;
@@ -473,16 +489,15 @@ function HeadlineSlide({
           <div
             style={{
               display: "flex",
-              flexWrap: "wrap",
+              flexDirection: "column",
               fontSize: 50,
               color: SOFT,
               marginTop: 30,
               lineHeight: 1.25,
-              columnGap: 14,
             }}
           >
-            {s.sub.map((town, i) => (
-              <span key={town}>{i ? `·\u00a0${town}` : town}</span>
+            {townLines(s.sub).map((line) => (
+              <span key={line}>{line}</span>
             ))}
           </div>
         ) : null}

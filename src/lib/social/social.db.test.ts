@@ -698,6 +698,49 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(calls).toEqual([]);
   });
 
+  it("a start time that moved before publishing redraws the roundup with the new time", async () => {
+    await fourEvents();
+    await store.runSocial(TUE_0645, { fetchImpl });
+    await q(
+      `update kid_events set data = jsonb_set(jsonb_set(data, '{dates,0,start}', '"14:00"'), '{dates,0,end}', '"15:00"') where slug = 'b'`,
+    );
+    const r = await store.runSocial(TUE_0715, { fetchImpl });
+    expect(r.notes.join(" ")).toMatch(
+      /now starts at 14:00, not 10:00\. Roundup: remade/,
+    );
+    const [row] = await q(
+      `select caption from social_posts where kind = 'events_week' and status = 'queued'`,
+    );
+    expect(String(row.caption)).toContain("Thu, Nov 26 · 2 to 3 pm");
+  });
+
+  /** Each idea its own words (identical steps would be a repeat in the post). */
+  const STEPS: Record<string, string[]> = {
+    "Snow paint": [
+      "Fill spray bottles with water and a little food coloring",
+      "Spray stripes and letters on clean snow outside",
+    ],
+    "Hand turkeys": [
+      "Trace a hand on paper with the fingers spread wide",
+      "Color each finger as a feather, then add a beak",
+    ],
+    "Paper chain": [
+      "Tear paper into long strips, one for each person",
+      "Loop and tape the strips into a chain for the table",
+    ],
+    "Painting the snow": [
+      "Fill spray bottles with water and a little food coloring",
+      "Spray pictures on fresh snow in the yard",
+    ],
+    "Hallway bowling": [
+      "Line up empty plastic bottles at the end of the hall",
+      "Roll a soft ball to knock them down, then reset",
+    ],
+    "Sock puppets": [
+      "Draw faces on old socks with markers",
+      "Put on a puppet show from behind the couch",
+    ],
+  };
   const atHomeDraft = (week: string, titles: string[]) => ({
     week_of: week,
     posts: [
@@ -710,10 +753,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
           title,
           ages: { from: 3, to: 8 },
           need: ["paper", "crayons", "tape"],
-          steps: [
-            "Set out paper and crayons on the table",
-            "Draw, color and tape the pages up on the wall",
-          ],
+          steps: STEPS[title],
         })),
       },
     ],

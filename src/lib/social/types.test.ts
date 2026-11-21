@@ -296,10 +296,12 @@ describe("at home: the 12-week idea cooldown by title", () => {
     expect(titleSimilarity("Pumpkin bowling", "Pumpkin painting")).toBeLessThan(
       0.6,
     );
-    expect(repeatOf("Snow paint", ["Leaf rubbings", "Painting the snow"])).toBe(
-      "Painting the snow",
-    );
-    expect(repeatOf("Hallway bowling", ["Leaf rubbings"])).toBeNull();
+    expect(
+      repeatOf({ title: "Snow paint" }, ["Leaf rubbings", "Painting the snow"]),
+    ).toBe("Painting the snow");
+    expect(
+      repeatOf({ title: "Hallway bowling" }, ["Leaf rubbings"]),
+    ).toBeNull();
   });
 });
 
@@ -348,12 +350,19 @@ describe("validateAtHome", () => {
     const r = await validateAtHome(
       d,
       WEEK,
-      ctx({ recentIdeas: ["Paper chain of thanks", "Thankful chain"] }),
+      ctx({
+        recentIdeas: [
+          { title: "Paper chain of thanks", text: "Paper chain of thanks" },
+          { title: "Thankful chain", text: "Thankful chain" },
+        ],
+      }),
     );
     const all = r.errors.join(" ");
     expect(all).toMatch(/scissors for toddlers/);
     expect(all).toMatch(/glue guns/);
-    expect(all).toMatch(/too close to "Thankful chain"/);
+    expect(all).toMatch(
+      /too close to "(Paper chain of thanks|Thankful chain)"/,
+    );
     expect(all).toMatch(/repeats "Hand turkeys"/);
     expect(all).toMatch(/says 5, but there are 3/);
     expect(r.ok).toBe(false);
@@ -477,18 +486,15 @@ describe("the roundup's window and wording", () => {
     );
   });
 
-  it("short times and merged age chips", () => {
+  it("short times and exact age chips", () => {
     expect(timeLine({ start: "13:00", end: "15:00" })).toBe("1 to 3 pm");
     expect(timeLine({ start: "11:00", end: "12:00" })).toBe("11 am to noon");
     expect(timeLine({ start: "18:00" })).toBe("Starts 6 pm");
-    expect(ageChips(["Ages 0-3", "Ages 4-7", "Ages 8-12"])).toEqual([
-      "Ages 0 to 12",
-    ]);
-    expect(ageChips(["Ages 0-3", "Ages 8-12"])).toEqual([
-      "Ages 0 to 3",
-      "Ages 8 to 12",
-    ]);
+    // No printed range: no chip (never a bracket guess wider than the page).
+    expect(ageChips(["Ages 0-3", "Ages 4-7", "Ages 8-12"])).toBeNull();
     expect(ageChips(["All ages"])).toEqual(["All ages"]);
+    expect(ageChips(["Ages 8-12"], [10, 18])).toEqual(["Ages 10 to 18"]);
+    expect(ageChips(["Ages 0-3"], [2, 2])).toEqual(["Age 2"]);
     // The printed range wins: a chip is never wider than the page says.
     expect(ageChips(["Ages 0-3", "Ages 4-7", "Ages 8-12"], [3, 8])).toEqual([
       "Ages 3 to 8",
@@ -604,8 +610,8 @@ describe("pickWeekEvents", () => {
     const rows = ["a", "b", "c", "d", "e"].map((s, i) =>
       ev({ slug: s, day: `2026-11-2${5 + (i % 3)}` }),
     );
-    const r = pickWeekEvents(rows, w, now, (t) =>
-      t.endsWith(" e") ? "profanity" : null,
+    const r = pickWeekEvents(rows, w, now, (e) =>
+      e.title.endsWith(" e") ? "profanity" : null,
     );
     expect(r.events.map((e) => e.slug)).not.toContain("e");
     expect(r.left.join(" ")).toMatch(/e: profanity/);
@@ -671,7 +677,349 @@ describe("composeEventsWeek", () => {
     expect(spec.caption).toContain(COPY.eventsFine);
     expect(spec.caption).not.toMatch(/\b(we|our|us)\b/i);
     expect(spec.facts.events).toEqual(
-      pick.events.map((e) => ({ slug: e.slug, day: e.day })),
+      pick.events.map((e) => ({ slug: e.slug, day: e.day, start: e.start })),
+    );
+  });
+});
+
+// --- Review fixes (after 3ad7000) ---------------------------------------------
+
+describe("at home: the widened hazard list (one case per review example)", () => {
+  const out = (text: string, youngest = 8) =>
+    expect(hazardsIn(text, youngest), text).not.toEqual([]);
+  const fine = (text: string, youngest = 2) =>
+    expect(hazardsIn(text, youngest), text).toEqual([]);
+
+  it("snow tunnels, and snow forts dug or crawled into", () => {
+    out("Dig a snow tunnel through the drift");
+    out("Build a snow cave in the yard");
+    out("Make a snow fort and crawl inside");
+    out("Dig into the snow bank to make a cave");
+    fine("Pat snow into a low wall for a snowball target", 4);
+  });
+
+  it("frozen ponds, lakes, ice and thin ice", () => {
+    out("Slide across the frozen pond");
+    out("Look for animal tracks by the lake");
+    out("Test the thin ice with a stick");
+    out("Walk on the ice in boots");
+    fine("Paint on the ice cubes with watercolors", 3);
+  });
+
+  it("trampolines", () => out("Bounce on the trampoline in socks"));
+
+  it("standing on chairs, counters or tables", () => {
+    out("Stand on a chair to reach the window");
+    out("Climb onto the counter to help");
+    out("Jump off the table into pillows");
+    fine("Sit at the table and draw", 2);
+  });
+
+  it("street and driveway play", () => {
+    out("Draw a hopscotch in the driveway");
+    out("Race the boxes down the street");
+    fine("Draw a hopscotch on the patio", 3);
+  });
+
+  it("kettles and anything heated, warm or cooked", () => {
+    out("Fill a mug from the kettle");
+    out("Use heated water for the paint");
+    out("Warm the milk for cocoa");
+    out("Use cooked pasta for the art");
+    fine("Beat the heat with a cool towel race", 3);
+    fine("Set up a pretend cooking station with pots", 3);
+  });
+
+  it("hydrogen peroxide, alcohol, glow sticks and sanitizer", () => {
+    out("Mix hydrogen peroxide and soap for foam");
+    out("Dab rubbing alcohol on the paper");
+    out("Snap glow sticks for a dance party");
+    out("Squirt hand sanitizer for slime");
+  });
+
+  it("pipe cleaners are not a chemical", () => {
+    fine("Twist pipe cleaners into stars", 4);
+    fine("Bend the pipe-cleaners into rings", 4);
+  });
+
+  it("glass and jars under 8", () => {
+    out("Fill a jar with water", 5);
+    out("Look through a glass of water", 5);
+    fine("Fill a jar with water", 8);
+  });
+
+  it("toothpicks, skewers, needles, pins and tacks under 6", () => {
+    for (const t of [
+      "Poke holes with a toothpick",
+      "Thread fruit on a skewer",
+      "Sew with a needle and thread",
+      "Hold the paper with pins",
+      "Tack it up with a thumbtack",
+    ])
+      out(t, 5);
+    fine("Thread pasta-free shapes with a toothpick", 6);
+    fine("Glue pine needles onto paper", 4);
+    fine("Set up bowling pins in the hall", 3);
+  });
+
+  it("choking items under 3", () => {
+    for (const t of [
+      "Count pennies into a cup",
+      "Sort the coins by size",
+      "Pour lentils into the bowl",
+      "Fill the shaker with beans",
+      "Roll chickpeas down the ramp",
+      "Plant seeds in a cup",
+      "Shake the bells to the music",
+      "Stretch rubber bands over the box",
+      "Clip paper clips into a chain",
+      "Glue dry pasta onto the card",
+      "Thread beads onto the string",
+    ]) {
+      out(t, 2);
+      expect(
+        hazardsIn(t, 3).filter((h) => /under 3/.test(h)),
+        t,
+      ).toEqual([]);
+    }
+  });
+
+  it("freeze and freezer count as overnight prep, not freeze dance", () => {
+    out("Freeze the toys in a muffin tin", 4);
+    out("Take the ice tray out of the freezer", 4);
+    fine("Play freeze dance in the kitchen", 2);
+  });
+});
+
+describe("at home: the headline and caption are checked too", () => {
+  it("a hazard or brand in the headline is refused", async () => {
+    const r = await validateAtHome(
+      atHome({ headline: "Jenga and glue gun fun: 3 ideas", highlight: "fun" }),
+      WEEK,
+      ctx(),
+    );
+    const all = r.errors.join(" ");
+    expect(all).toMatch(/headline: not safe for these ages \(glue guns\)/);
+    expect(all).toMatch(/headline: no brands or products \("Jenga"\)/);
+  });
+
+  it("brands as the first word of a sentence and the wider not-household list", () => {
+    for (const first of [
+      "Jenga blocks make a tall tower",
+      "Twister dots go on the floor",
+      "LEGO bricks build a bridge",
+      "Play-Doh shapes make snowmen",
+      "Crayola markers color the card",
+      "Disney songs play while you dance",
+    ])
+      expect(
+        ideaProblems(idea({ steps: [first, "Take turns and try again"] })).join(
+          " ",
+        ),
+        first,
+      ).toMatch(/no brands/);
+    for (const step of [
+      "Watch a short movie together",
+      "Put a show on the tv",
+      "Open the app on a screen",
+      "Order a craft set to arrive",
+      "Pick up paper at the store",
+      "Visit the shop for supplies",
+    ])
+      expect(
+        ideaProblems(idea({ steps: [step, "Take turns and try again"] })).join(
+          " ",
+        ),
+        step,
+      ).toMatch(/buy, print or watch/);
+    expect(
+      ideaProblems(
+        idea({
+          steps: ["Line the crayons up in order", "Count them out loud"],
+        }),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("at home: the cooldown catches rephrased repeats", () => {
+  it("title containment and the whole idea's words", () => {
+    expect(titleSimilarity("Snow paint", "Painting the snow with colors")).toBe(
+      1,
+    );
+    expect(
+      repeatOf(
+        {
+          title: "Colored snow spray",
+          text: "Colored snow spray. spray bottles. food coloring. Mix food coloring into the spray bottles. Spray colorful designs onto the snow",
+        },
+        [
+          {
+            title: "Snow paint",
+            text: "Snow paint. spray bottles. water. food coloring. Fill each bottle with water and food coloring. Spray stripes and designs on clean snow",
+          },
+        ],
+      ),
+    ).toBe("Snow paint");
+    // Two different ideas that share paper and crayons are not repeats.
+    expect(
+      repeatOf(
+        {
+          title: "Hand turkeys",
+          text: "Hand turkeys. paper. crayons. Trace a hand with fingers spread. Color each finger as a feather",
+        },
+        [
+          {
+            title: "Thankful chain",
+            text: "Thankful chain. paper. crayons. tape. Tear strips and draw something thankful. Loop the strips into a chain",
+          },
+        ],
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("the roundup: ages, venues and hosts", () => {
+  const tue = slotFor("events_week", WEEK);
+  const w = roundupWindow(tue.date, tue.publishAt);
+  const now = new Date(tue.publishAt.getTime() - 30 * 60_000);
+  const base = [
+    ev({ slug: "a", day: "2026-11-25" }),
+    ev({ slug: "b", day: "2026-11-26" }),
+    ev({ slug: "c", day: "2026-11-27" }),
+    ev({ slug: "d", day: "2026-11-28" }),
+  ];
+
+  it("needs the youngest printed age 10 or under, never teen-only, and prints the exact range", () => {
+    const r = pickWeekEvents(
+      [
+        ...base,
+        ev({ slug: "tweens", day: "2026-11-29", ages: "Ages 10 to 18" }),
+        ev({ slug: "middle", day: "2026-11-29", ages: "Ages 11 to 14" }),
+        ev({ slug: "grades", day: "2026-11-29", ages: "Grades 6-12" }),
+        ev({ slug: "teens", day: "2026-11-29", ages: "Teens 13 to 17" }),
+      ],
+      w,
+      now,
+    );
+    const slugs = r.events.map((e) => e.slug);
+    expect(slugs).toContain("tweens");
+    expect(slugs).not.toContain("middle");
+    expect(slugs).not.toContain("grades");
+    expect(slugs).not.toContain("teens");
+    expect(r.events.find((e) => e.slug === "tweens")!.ages).toEqual([
+      "Ages 10 to 18",
+    ]);
+    expect(r.events.find((e) => e.slug === "a")!.ages).toEqual(["Ages 3 to 6"]);
+    expect(r.left.join(" ")).toMatch(/middle: youngest age 11/);
+  });
+
+  it("leaves out bars, breweries, taprooms, wineries and the like, as venue or host", () => {
+    const adult = [
+      "Bend Brewing Company",
+      "Crux Fermentation Project Taproom",
+      "The Tap House",
+      "Silver Moon Brewery",
+      "Pine Tavern",
+      "Volcanic Wine Bar",
+      "Faith Hope and Charity Winery",
+      "Oregon Spirit Distillery",
+      "Astro Lounge",
+      "Old Mill Pub",
+      "Sisters Saloon",
+    ];
+    const rows = [
+      ...base,
+      ...adult.map((venue, i) =>
+        ev({ slug: `adult-${i}`, day: "2026-11-29", venue }),
+      ),
+      ev({
+        slug: "hosted",
+        day: "2026-11-29",
+        venue: "Fir Street Park",
+        host: "Deschutes Brewery",
+      }),
+    ];
+    const r = pickWeekEvents(rows, w, now);
+    expect(r.events.map((e) => e.slug).sort()).toEqual(["a", "b", "c", "d"]);
+    expect(r.left.filter((l) => /bar, brewery or winery/.test(l))).toHaveLength(
+      adult.length + 1,
+    );
+  });
+
+  it("runs the competitor, link and unsafe rules on venue and host names", () => {
+    const r = pickWeekEvents(
+      [
+        ...base,
+        ev({ slug: "comp", day: "2026-11-29", host: "Bend Family Loop" }),
+        ev({ slug: "link", day: "2026-11-29", venue: "kidsfun.com hall" }),
+        ev({ slug: "pol", day: "2026-11-29", host: "Vote Yes Campaign" }),
+      ],
+      w,
+      now,
+    );
+    expect(r.events.map((e) => e.slug).sort()).toEqual(["a", "b", "c", "d"]);
+    expect(r.left.join(" ")).toMatch(/comp: .*another newsletter/);
+    expect(r.left.join(" ")).toMatch(/link: .*no links/);
+    expect(r.left.join(" ")).toMatch(/pol: .*politics/);
+  });
+
+  it("an Unpack item at a brewery is cut too", async () => {
+    const { venueProblem } = await import("./validate");
+    expect(venueProblem("Bend Brewing", { month: 11, label: "venue" })).toMatch(
+      /brewery/,
+    );
+    expect(
+      venueProblem("Downtown Bend Library", { month: 11, label: "venue" }),
+    ).toBeNull();
+  });
+});
+
+describe("stillTrue compares the start time", () => {
+  it("a moved start time breaks the post's facts", async () => {
+    const { stillTrue } = await import("./validate");
+    const e = ev({ slug: "moved", day: "2026-11-25", start: "11:00" });
+    const facts = {
+      parks: [],
+      events: [{ slug: "moved", day: "2026-11-25", start: "10:00" }],
+      venues: [],
+      issue: null,
+    };
+    const c = {
+      now: new Date("2026-11-24T15:00:00Z"),
+      catalog: CATALOG,
+      parks: new Map(),
+      events: new Map([["moved", e]]),
+    };
+    expect(stillTrue(facts, c)).toMatch(/now starts at 11:00, not 10:00/);
+    expect(
+      stillTrue(
+        { ...facts, events: [{ ...facts.events[0], start: "11:00" }] },
+        c,
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("the towns line never starts or ends on a dot", () => {
+  it("breaks between towns, joining with dots inside a line only", async () => {
+    const { townLines } = await import("@/components/social/Slides");
+    const lines = townLines([
+      "Bend",
+      "Madras",
+      "Sisters",
+      "La Pine",
+      "Redmond",
+      "Prineville",
+    ]);
+    expect(lines.length).toBeGreaterThan(1);
+    for (const l of lines) {
+      expect(l.startsWith("·")).toBe(false);
+      expect(l.endsWith("·")).toBe(false);
+      expect(l.length).toBeLessThanOrEqual(30);
+    }
+    expect(lines.join(" · ")).toBe(
+      "Bend · Madras · Sisters · La Pine · Redmond · Prineville",
     );
   });
 });

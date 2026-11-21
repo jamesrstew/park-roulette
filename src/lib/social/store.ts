@@ -20,7 +20,7 @@ import { IssueSchema, type Issue } from "@/lib/news/issue";
 import { addDays, pacific } from "@/lib/news/time";
 import { normalizeText, type Fetcher } from "@/lib/news/validate";
 import { SITE_URL } from "@/lib/site";
-import { themesFor } from "./at-home";
+import { type RecentIdea, themesFor } from "./at-home";
 import {
   composeEventsWeek,
   composeStory,
@@ -157,8 +157,11 @@ async function coolingParks(
   );
 }
 
-/** "At home" idea titles in the 12-week cooldown, not counting one slot (a re-draft). */
-async function recentIdeas(day: string, exceptSlot: string): Promise<string[]> {
+/** "At home" ideas in the 12-week cooldown, not counting one slot (a re-draft). */
+async function recentIdeas(
+  day: string,
+  exceptSlot: string,
+): Promise<RecentIdea[]> {
   const rows = await db
     .select({ slotDate: socialPosts.slotDate, spec: socialPosts.spec })
     .from(socialPosts)
@@ -171,7 +174,13 @@ async function recentIdeas(day: string, exceptSlot: string): Promise<string[]> {
     );
   return rows
     .filter((r) => r.slotDate !== exceptSlot)
-    .flatMap((r) => (r.spec as PostSpec).facts.ideas ?? []);
+    .flatMap((r) => {
+      const f = (r.spec as PostSpec).facts;
+      return (f.ideas ?? []).map((title, i) => ({
+        title,
+        text: f.ideaTexts?.[i] ?? title,
+      }));
+    });
 }
 
 type Verdicts = Map<
@@ -458,7 +467,7 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
     at_home: {
       day: sat.date,
       themes: themesFor(sat.date, CATALOG.season_themes),
-      recent_ideas: ctx.recentIdeas ?? [],
+      recent_ideas: (ctx.recentIdeas ?? []).map((i) => i.title),
       icons: IDEA_ICONS,
     },
     season_themes: CATALOG.season_themes,
@@ -904,19 +913,8 @@ export async function ensureEventsWeek(
   };
   if (now.getTime() > publishAt.getTime() + LATE_LIMIT_MIN * 60_000)
     return skip("Over 2 hours late.");
-  const month = Number(date.slice(5, 7));
   const window = roundupWindow(date, publishAt);
-  // An organizer's title isn't our words: first person is fine there.
-  const titleProblem = (title: string) =>
-    textProblems(title, { month, label: "title" })
-      .filter((p) => !/first person/.test(p))
-      .join(" ") || null;
-  const pick = pickWeekEvents(
-    (await eventRows()).values(),
-    window,
-    now,
-    titleProblem,
-  );
+  const pick = pickWeekEvents((await eventRows()).values(), window, now);
   if (pick.skip) return skip(pick.skip);
   const spec = composeEventsWeek(pick.events, window, dmsOn());
   const R = await render();

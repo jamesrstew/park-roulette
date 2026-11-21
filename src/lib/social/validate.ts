@@ -10,7 +10,16 @@ import {
   whenLine,
 } from "@/lib/events/model";
 import { listed } from "@/lib/events/state";
-import { ideaProblems, repeatOf, themesFor, titleSimilarity } from "./at-home";
+import {
+  ideaOverlap,
+  ideaProblems,
+  ideaText,
+  postTextProblems,
+  type RecentIdea,
+  repeatOf,
+  themesFor,
+  titleSimilarity,
+} from "./at-home";
 import {
   composeAtHome,
   composeParkPost,
@@ -28,6 +37,7 @@ import {
   HEADLINE_MAX_WORDS,
   HEADLINE_MIN_WORDS,
   IDEA_SIMILAR,
+  IDEA_TEXT_SIMILAR,
   type ItemIcon,
   MAX_HASHTAGS,
   mondayOf,
@@ -73,8 +83,8 @@ export type SocialCtx = {
   photoFor: (slug: string) => PhotoRef | null;
   /** The keyword DM call to action (else "Link in bio"). */
   dms: boolean;
-  /** "At home" idea titles in the 12-week cooldown (other slots). */
-  recentIdeas?: readonly string[];
+  /** "At home" ideas in the 12-week cooldown (other slots). */
+  recentIdeas?: readonly RecentIdea[];
   /**
    * Does this page print this quote? (Holiday hours, fetched live from the
    * venue's own site.) Missing: the evidence can't be checked, and the
@@ -158,6 +168,48 @@ export function textProblems(
   const unsafe = unsafeText(t);
   if (unsafe) out.push(`${label}: ${unsafe} is out.`);
   return out;
+}
+
+/**
+ * Venues no family post names: bars, breweries, taprooms, wineries and the
+ * like, even when they host a kids' event.
+ */
+export const ADULT_VENUE =
+  /\b(bars?|brew(ery|eries|ing|pub|pubs|house)|taprooms?|tap ?house|pubs?|saloons?|winer(y|ies)|wines?|distiller(y|ies)|taverns?|lounges?|beer ?gardens?|cider ?house|ciderworks?)\b/i;
+
+/** Why a venue or host name is out of every social post, or null. */
+export function venueProblem(
+  name: string,
+  { month, label }: { month: number; label: string },
+): string | null {
+  if (ADULT_VENUE.test(norm(name)))
+    return `${label} "${name}" is a bar, brewery or winery: never in a family post.`;
+  // A name is a proper name, not our words: first person ("Our Lady
+  // of ...") is fine there; competitors, links and unsafe words are not.
+  const bad = textProblems(name, { month, label }).filter(
+    (p) => !/first person/.test(p),
+  );
+  return bad.length ? bad.join(" ") : null;
+}
+
+/**
+ * The roundup's screen for one event: its title (the text rules), and its
+ * venue and organizer names (the same rules, plus no bars or breweries).
+ */
+export function eventTextProblem(
+  e: Pick<EventRow["data"], "title" | "venue" | "organizer">,
+  month: number,
+): string | null {
+  const title = textProblems(e.title, { month, label: "title" })
+    .filter((p) => !/first person/.test(p))
+    .join(" ");
+  return (
+    title ||
+    venueProblem(e.venue.name, { month, label: "venue" }) ||
+    (e.organizer
+      ? venueProblem(e.organizer.name, { month, label: "host" })
+      : null)
+  );
 }
 
 /**
@@ -490,6 +542,8 @@ async function resolveItem(
       return { ok: false, cut: `${v.name}: not verified in the catalog.` };
     if (!v.months.includes(month))
       return { ok: false, cut: `${v.name}: not in season this month.` };
+    const vbad = venueProblem(v.name, { month, label: "venue" });
+    if (vbad) return { ok: false, cut: vbad };
     const grounded = ungrounded(it.what, `${v.name} ${v.kind} ${v.what}`);
     if (grounded.length)
       return {
@@ -561,6 +615,8 @@ async function resolveItem(
       };
     if (e.data.ages?.kids === false)
       return { ok: false, cut: `${it.ref}: not a kids' event.` };
+    const ebad = eventTextProblem(e.data, month);
+    if (ebad) return { ok: false, cut: `${it.ref}: ${ebad}` };
     const off = ungrounded(
       it.what,
       `${e.data.title} ${e.data.what} ${e.data.venue.name} ${e.data.cost?.text ?? ""}`,
@@ -584,7 +640,9 @@ async function resolveItem(
           e.data.venue.town,
         ].filter((x): x is string => !!x),
       },
-      fact: { events: [{ slug, day }] },
+      fact: {
+        events: [{ slug, day, ...(date.start ? { start: date.start } : {}) }],
+      },
     };
   }
   const p = ctx.parks.get(rest);
@@ -885,16 +943,29 @@ export async function validateAtHome(
         ...textProblems(text, { month, label: `${label} ${part}` }),
       );
     r.errors.push(...ideaProblems(idea));
-    const again = repeatOf(idea.title, ctx.recentIdeas ?? []);
+    const again = repeatOf(
+      { title: idea.title, text: ideaText(idea) },
+      ctx.recentIdeas ?? [],
+    );
     if (again)
       r.errors.push(
         `${label} is too close to "${again}", posted in the last 12 weeks. Pick another idea.`,
       );
     for (const other of d.ideas.slice(0, k))
-      if (titleSimilarity(idea.title, other.title) >= IDEA_SIMILAR)
+      if (
+        titleSimilarity(idea.title, other.title) >= IDEA_SIMILAR ||
+        ideaOverlap(ideaText(idea), ideaText(other)) >= IDEA_TEXT_SIMILAR
+      )
         r.errors.push(`${label} repeats "${other.title}" in this post.`);
   });
   const spec = composeAtHome(d, ctx.dms);
+  r.errors.push(
+    ...postTextProblems(
+      d.headline,
+      spec.caption ?? "",
+      Math.min(...d.ideas.map((i) => i.ages.from)),
+    ),
+  );
   common(r, spec, ctx, d.hashtags);
   r.spec = spec;
   r.ok = r.errors.length === 0;
@@ -925,11 +996,16 @@ export function stillTrue(
     if (!p || !p.approved || p.status !== "active")
       return `${slug} isn't open on the map any more.`;
   }
-  for (const { slug, day } of facts.events) {
+  for (const { slug, day, start } of facts.events) {
     const e = ctx.events.get(slug);
     if (!e || !listed(e, ctx.now)) return `${slug} is off the events listing.`;
     if (statusOn(e.data, day, e.status) !== "scheduled")
       return `${slug} isn't going ahead on ${day}.`;
+    if (start !== undefined) {
+      const now = e.data.dates.find((d) => d.day === day)?.start;
+      if (now !== start)
+        return `${slug} on ${day} now starts at ${now ?? "no stated time"}, not ${start}.`;
+    }
   }
   for (const id of facts.venues) {
     const v = ctx.catalog.venues.find((x) => x.id === id);

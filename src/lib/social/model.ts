@@ -62,8 +62,10 @@ export const DAILY_PUBLISH_LIMIT = 50;
 export const PARK_COOLDOWN_WEEKS = 8;
 /** An "at home" idea isn't repeated (by title similarity) for this many weeks. */
 export const IDEA_COOLDOWN_WEEKS = 12;
-/** Title similarity (stemmed content-word Jaccard) that counts as a repeat. */
+/** Title similarity (stemmed content-word containment) that counts as a repeat. */
 export const IDEA_SIMILAR = 0.6;
+/** Whole-idea word overlap (title, need, steps; Jaccard) that counts as a repeat. */
+export const IDEA_TEXT_SIMILAR = 0.4;
 /** The events roundup: at least this many events, or the week is skipped. */
 export const EVENTS_MIN = 4;
 export const EVENTS_MAX = 8;
@@ -485,11 +487,14 @@ export type SlideSpec =
 /** The facts a post leans on: re-checked just before it goes out. */
 export type PostFacts = {
   parks: string[];
-  events: { slug: string; day: string }[];
+  /** start: the time the post printed (a change redraws or skips it). */
+  events: { slug: string; day: string; start?: string }[];
   venues: string[];
   issue: string | null;
   /** An "at home" post's idea titles (the 12-week cooldown). */
   ideas?: string[];
+  /** The same ideas' whole text (title, need, steps), in the same order. */
+  ideaTexts?: string[];
 };
 
 export type PostSpec = {

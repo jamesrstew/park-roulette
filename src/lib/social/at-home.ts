@@ -1,6 +1,6 @@
 import type { SeasonThemes } from "@/lib/news/catalog";
 import { addDays, holidays } from "@/lib/news/time";
-import { IDEA_SIMILAR, type AtHomeIdea } from "./model";
+import { type AtHomeIdea, IDEA_SIMILAR, IDEA_TEXT_SIMILAR } from "./model";
 
 /**
  * Saturday's "at home" post: the season themes a Saturday may use, the
@@ -95,22 +95,71 @@ export function titleWords(title: string): Set<string> {
   );
 }
 
-/** Jaccard similarity of two titles' content words (0 to 1). */
+/**
+ * Two titles' similarity: the share of the shorter title's content words
+ * found in the other (containment, 0 to 1), so a rephrased or longer
+ * title ("Painting the snow with colors" after "Snow paint") still counts.
+ */
 export function titleSimilarity(a: string, b: string): number {
   const x = titleWords(a);
   const y = titleWords(b);
   if (!x.size || !y.size) return 0;
   let both = 0;
   for (const w of x) if (y.has(w)) both++;
+  return both / Math.min(x.size, y.size);
+}
+
+/** Words any idea may share without being the same idea. */
+const COMMON = new Set(
+  "each one two three all your kid kids little big grown up then them they it its this that with into onto from over under around out off put set add take give get let make made use the and for paper crayon tape water bowl cup spoon table floor room turn take".split(
+    " ",
+  ),
+);
+
+/** An idea's stemmed content words: title, what you need and the steps. */
+export function ideaWords(text: string): Set<string> {
+  return new Set(
+    [...titleWords(text)].filter((w) => w.length >= 3 && !COMMON.has(w)),
+  );
+}
+
+/** Jaccard of two ideas' whole words (title, need, steps), 0 to 1. */
+export function ideaOverlap(a: string, b: string): number {
+  const x = ideaWords(a);
+  const y = ideaWords(b);
+  if (x.size < 3 || y.size < 3) return 0;
+  let both = 0;
+  for (const w of x) if (y.has(w)) both++;
   return both / (x.size + y.size - both);
 }
 
-/** The recent title an idea repeats, or null. */
+/** A recent idea: its title, and its whole text (title, need, steps). */
+export type RecentIdea = { title: string; text: string };
+
+/** An idea as one text, for the overlap check. */
+export const ideaText = (i: {
+  title: string;
+  need: readonly string[];
+  steps: readonly string[];
+}) => [i.title, ...i.need, ...i.steps].join(". ");
+
+/**
+ * The recent idea this one repeats, or null: a title whose content words
+ * are mostly contained in the other's, or the same idea in other words
+ * (the whole text overlaps by IDEA_TEXT_SIMILAR or more).
+ */
 export function repeatOf(
-  title: string,
-  recent: readonly string[],
+  idea: { title: string; text?: string },
+  recent: readonly (RecentIdea | string)[],
 ): string | null {
-  return recent.find((r) => titleSimilarity(title, r) >= IDEA_SIMILAR) ?? null;
+  for (const r of recent) {
+    const old = typeof r === "string" ? { title: r, text: r } : r;
+    if (titleSimilarity(idea.title, old.title) >= IDEA_SIMILAR)
+      return old.title;
+    if (idea.text && ideaOverlap(idea.text, old.text) >= IDEA_TEXT_SIMILAR)
+      return old.title;
+  }
+  return null;
 }
 
 // --- Safety -------------------------------------------------------------------
@@ -132,15 +181,15 @@ const HAZARDS: Hazard[] = [
     what: "glue guns",
   },
   {
-    re: /\b(stoves?|stovetop|ovens?|burners?|bak(e|es|ed|ing)|boil(s|ed|ing)?|microwav\w*|toaster|griddle|grill(s|ed|ing)?|fry(ing)?|simmer\w*|melt(ed|ing)? (the |some )?(wax|crayons?|chocolate|butter)|hot (water|cocoa|chocolate|oil|pan|pot|plate|tea|wax)|irons?|ironing)\b/i,
-    what: "heat (stove, oven, hot water, irons)",
+    re: /\b(stoves?|stovetop|ovens?|burners?|bak(e|es|ed|ing)|boil(s|ed|ing)?|microwav\w*|toaster|griddle|grill(s|ed|ing)?|fry(ing)?|simmer\w*|melt(ed|ing)? (the |some )?(wax|crayons?|chocolate|butter)|hot (water|cocoa|chocolate|oil|pan|pot|plate|tea|wax)|irons?|ironing|kettles?|heated|heating|heaters?|heat (up|it|them|the|some)|warm(ed|ing)? (up )?(the |some |a )?(water|milk|cocoa|chocolate|tea|oil|wax|dough|soup|food|it|them)|warmed|(?<!pretend )(?<!play )cook(s|ed|ing)?|cooked|toast(ed|ing)?|steam(ed|ing)?|roast(ed|ing)?)\b/i,
+    what: "heat (stove, oven, kettle, anything heated, warmed or cooked)",
   },
   {
     re: /\b(candles?|matches|matchsticks?|lighters?|fires?|firepit|fire pit|campfires?|sparklers?|fireworks?|flames?|torch(es)?)\b/i,
     what: "fire and flames",
   },
   {
-    re: /\b(bleach|ammonia|cleaners?|cleaning (spray|products?)|detergents?|laundry pods?|dishwasher pods?|borax|solvents?|paint thinner|turpentine|acetone|nail polish( remover)?|super ?glue|spray ?paint|essential oils?|medicines?|pills?|chemicals?|drain cleaners?)\b/i,
+    re: /\b(bleach|ammonia|(?<!pipe[ -])cleaners?|cleaning (spray|products?)|hydrogen peroxide|peroxide|(rubbing )?alcohol|glow ?sticks?|(hand )?sanitizers?|detergents?|laundry pods?|dishwasher pods?|borax|solvents?|paint thinner|turpentine|acetone|nail polish( remover)?|super ?glue|spray ?paint|essential oils?|medicines?|pills?|chemicals?|drain cleaners?)\b/i,
     what: "chemicals and cleaners",
   },
   {
@@ -153,7 +202,24 @@ const HAZARDS: Hazard[] = [
   },
   { re: /\b(ladders?|roofs?|step ?stools?)\b/i, what: "climbing up high" },
   {
-    re: /\b(overnight|the night before|the day before|a day ahead|(let|leave)\b[^.]{0,30}\bfor (a few |several |two |three |\d+ )?(hours|a day)|freeze[^.]{0,30}\b(solid|hours))\b/i,
+    re: /\b(stand(s|ing)?|climb(s|ing)?|jump(s|ing)?|balanc(e|es|ing)) (up )?(on|onto|off) (a |the |your |some )?(chairs?|counters?|countertops?|tables?|furniture|couch(es)?|sofas?|beds?|desks?|stools?)\b/i,
+    what: "standing or jumping on furniture",
+  },
+  { re: /\btrampolines?\b/i, what: "trampolines" },
+  {
+    re: /\b(snow (tunnels?|caves?|holes?)|tunnel(s|ing)? (into|under|through) (the )?snow|(dig|digs|digging|crawl|crawls|crawling)\b[^.]{0,40}\b(snow|snow ?banks?|drifts?|piles? of snow)|snow ?forts?\b[^.]{0,60}\b(dig|digging|crawl|crawling|inside|tunnel)\w*|(dig|crawl|tunnel)\w*\b[^.]{0,60}\bsnow ?forts?)\b/i,
+    what: "snow tunnels or digging into snow (collapse)",
+  },
+  {
+    re: /\b(frozen (ponds?|lakes?|rivers?|creeks?|canals?|puddles? on the pond)|thin ice|(pond|lake|river|creek) ice|(walk|skat|slid|stand|play|step)\w* (on|across) (the )?ice|ice (on|over) the (pond|lake|river|creek)|ponds?|lakes?|rivers?|creeks?|canals?)\b/i,
+    what: "ponds, lakes, rivers or ice",
+  },
+  {
+    re: /\b(streets?|roads?|driveways?|curbs?|alleys?|parking lots?|cul-de-sacs?)\b/i,
+    what: "street or driveway play",
+  },
+  {
+    re: /\b(overnight|the night before|the day before|a day ahead|(let|leave)\b[^.]{0,30}\bfor (a few |several |two |three |\d+ )?(hours|a day)|freezers?|freez(e|es|ing)(?! (dance|tag|game))|frozen (overnight|solid))\b/i,
     what: "prep the night before (the post goes out Saturday morning)",
   },
   {
@@ -162,7 +228,7 @@ const HAZARDS: Hazard[] = [
     under: 4,
   },
   {
-    re: /\b(beads?|buttons?|coins?|marbles?|dried beans|beans|rice|uncooked pasta|dry pasta|macaroni|popcorn|nuts|peanuts|grapes|pom[- ]?poms?|googly eyes|sequins?|glitter|pebbles?|small (rocks?|stones?|toys?|pieces?|parts?)|bottle caps?|marshmallows?|hard candy|candies|gum|acorns?|pine nuts|cherry pits?|water beads?|bouncy balls?|crayon pieces|broken crayons)\b/i,
+    re: /\b(beads?|buttons?|coins?|penn(y|ies)|marbles?|dried beans|beans|lentils?|chickpeas?|peas|seeds?|bells?|jingle bells?|rubber bands?|hair ties?|paper ?clips?|binder clips?|rice|(uncooked|dry|dried) (pasta|noodles)|pasta shapes|penne|rigatoni|macaroni|popcorn|nuts|peanuts|grapes|pom[- ]?poms?|googly eyes|sequins?|glitter|pebbles?|small (rocks?|stones?|toys?|pieces?|parts?)|bottle caps?|marshmallows?|hard candy|candies|gum|acorns?|pine nuts|cherry pits?|water beads?|bouncy balls?|crayon pieces|broken crayons)\b/i,
     what: "small parts (a choking hazard under 3)",
     under: 3,
   },
@@ -170,6 +236,16 @@ const HAZARDS: Hazard[] = [
     re: /\b(strings?|yarn|ribbons?|cords?|rope|twine|shoelaces?)\b/i,
     what: "cords (a strangling hazard under 3)",
     under: 3,
+  },
+  {
+    re: /\b(glass(es)?|jars?|glass bottles?|mirrors?)\b/i,
+    what: "glass and jars (under 8)",
+    under: 8,
+  },
+  {
+    re: /\b(toothpicks?|skewers?|(?<!pine )needles?|(?<!bowling )(?<!rolling )pins?|push ?pins?|thumb ?tacks?|tacks?|safety pins?|nails)\b/i,
+    what: "sharp points: toothpicks, skewers, needles, pins or tacks (under 6)",
+    under: 6,
   },
   {
     re: /\bballoons?\b/i,
@@ -188,9 +264,13 @@ export function hazardsIn(text: string, youngest: number): string[] {
 
 // --- Brands and products --------------------------------------------------------
 
-/** Brands kids' activities lean on. "Household items only" means none of them. */
+/**
+ * Brands kids' activities lean on, matched anywhere: the first word of a
+ * sentence too, where the capital-letter rule can't see them ("Jenga
+ * blocks make a tower"). "Household items only" means none of them.
+ */
 const BRANDS =
-  /\b(play-?doh|lego|duplo|crayola|sharpie|velcro|ziploc|ziplock|q-?tips?|kleenex|post-?its?|elmer'?s|mod ?podge|magna-?tiles|hot wheels|barbie|nerf|jell-?o|popsicles?|cheerios|goldfish crackers|m&ms?|oreos?|tupperware|solo cups?|scotch tape|saran|styrofoam|pyrex|band-?aids?|kool-?aid|frisbees?|slinky|silly putty|etch a sketch|amazon|walmart|costco|dollar tree|hobby lobby|ikea|pinterest|youtube|netflix|disney|bluey|paw patrol|cricut|kinetic sand|orbeez|squishmallows?|playmobil|fisher-?price|melissa (and|&) doug|tonies|yoto|minecraft|roblox|pokemon|spotify|alexa)\b/i;
+  /\b(play-?doh|lego|duplo|crayola|sharpie|velcro|ziploc|ziplock|q-?tips?|kleenex|post-?its?|elmer'?s|mod ?podge|magna-?tiles|hot wheels|barbie|nerf|jell-?o|popsicles?|cheerios|goldfish crackers|m&ms?|oreos?|tupperware|solo cups?|scotch tape|saran|styrofoam|pyrex|band-?aids?|kool-?aid|frisbees?|slinky|silly putty|etch a sketch|amazon|walmart|costco|dollar tree|hobby lobby|ikea|pinterest|youtube|netflix|disney|bluey|paw patrol|cricut|kinetic sand|orbeez|squishmallows?|playmobil|fisher-?price|melissa (and|&) doug|tonies|yoto|minecraft|roblox|pokemon|spotify|alexa|jenga|twister|uno|candy ?land|chutes and ladders|connect (4|four)|monopoly|scrabble|operation|hungry hungry hippos|k'?nex|tinker ?toys?|lincoln logs|mega ?bloks|beyblades?|hatchimals|magformers|spirograph|lite-?brite|bristle blocks|perler|hama|mr\.? potato head|matchbox|tonka|little tikes|step2|cozy coupe|radio flyer|stomp rocket|crayola|sharpies?|dixie cups?|clorox|lysol|windex|elmer)\w*\b/i;
 
 /** Capitalized words allowed mid-sentence: holidays, months, days, places. */
 const PROPER_OK = new Set(
@@ -213,7 +293,38 @@ function properNouns(text: string): string[] {
 
 /** Things you'd buy, print or watch: not household items. */
 const NOT_HOUSEHOLD =
-  /\b(buy|bought|purchas\w*|online|store-bought|(from|at) (the|a) (store|shop)|craft stores?|kits?|printables?|printers?|print (it|them|this|out)|download\w*|apps?|videos?|tablets?|websites?|qr codes?|subscriptions?)\b/i;
+  /\b(buy|bought|purchas\w*|online|(?<!in )order(s|ed|ing)?|stores?|store-bought|shops?|shopping|kits?|printables?|printers?|print (it|them|this|out)|download\w*|apps?|videos?|movies?|tv|television|screens?|tablets?|websites?|qr codes?|subscriptions?)\b/i;
+
+/**
+ * The headline and the composed caption, held to the same hazard and
+ * brand rules. The caption mixes every idea's words, so only the
+ * any-age hazards apply to it (each idea's age rules ran on the idea).
+ */
+export function postTextProblems(
+  headline: string,
+  caption: string,
+  youngest: number,
+): string[] {
+  const out: string[] = [];
+  for (const h of hazardsIn(headline, youngest))
+    out.push(`headline: not safe for these ages (${h}).`);
+  for (const h of hazardsIn(caption, 99))
+    if (!out.some((o) => o.includes(h))) out.push(`caption: not safe (${h}).`);
+  for (const [label, text] of [
+    ["headline", headline],
+    ["caption", caption],
+  ] as const) {
+    const brand = BRANDS.exec(text);
+    if (brand) out.push(`${label}: no brands or products ("${brand[0]}").`);
+    if (/[™®©]/.test(text)) out.push(`${label}: no trademark signs.`);
+  }
+  const caps = properNouns(headline);
+  if (caps.length)
+    out.push(
+      `headline: "${caps.join(", ")}" reads like a brand or a name. Use plain words.`,
+    );
+  return out;
+}
 
 /** Every problem with one idea, or [] when it's fine. */
 export function ideaProblems(i: AtHomeIdea): string[] {

@@ -1,4 +1,5 @@
 import type { ForecastDay, Issue } from "@/lib/news/issue";
+import { ideaText } from "./at-home";
 import {
   type AtHomeDraft,
   bioLink,
@@ -239,6 +240,7 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
       venues: [],
       issue: null,
       ideas: ideas.map((i) => i.title),
+      ideaTexts: ideas.map(ideaText),
     },
   };
 }
@@ -338,7 +340,7 @@ export function composeEventsWeek(
     modelText: "",
     facts: {
       parks: [],
-      events: events.map((e) => ({ slug: e.slug, day: e.day })),
+      events: events.map((e) => ({ slug: e.slug, day: e.day, start: e.start })),
       venues: [],
       issue: null,
     },

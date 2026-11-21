@@ -75,8 +75,12 @@ Fun things to do with kids at home on a Saturday morning, not just crafts: games
   - `need`: 1 to 5 household items, lowercase, plain words ("paper", "crayons", "a big bowl"). Nothing to buy, print, download or watch.
   - `steps`: 2 or 3 plain steps, 8 to 80 characters each, telling a grown-up what to do.
   - `icon`: optional, from `at_home.icons`.
-- **Safety, always:** never knives or blades, glue guns, a stove, oven, baking, boiling, a microwave or anything hot, candles or fire, irons, cleaners or chemicals, batteries, magnets, plastic bags, ladders, or anything that needs prep overnight. Scissors only when `ages.from` is 4 or more. Small parts (beads, buttons, coins, rice, beans, dry pasta, popcorn, nuts, grapes, pom-poms, googly eyes, pebbles, marshmallows) and string, yarn or ribbon only from 3. Balloons only from 8. Code adds "Water play: stay within arm's reach." to water ideas for kids under 6.
-- **No brands or products**: plain words only ("play dough", not a brand name; "tape", not a brand of tape). A capitalized word in the middle of a step reads as a brand and is refused, unless it's a holiday, a month, a day or a Central Oregon place.
+- **Safety, always** (the checker refuses these in the ideas, the headline and the caption):
+  - **Never, at any age:** knives or blades, glue guns, a stove, oven, kettle, microwave, baking, boiling, or anything heated, warmed or cooked (pretend cooking is fine), candles or fire, irons, cleaners or chemicals (bleach, hydrogen peroxide, rubbing alcohol, sanitizer, glow sticks), batteries, magnets, plastic bags, ladders, standing or jumping on chairs, counters, tables or beds, trampolines, snow tunnels or digging and crawling into snow, ponds, lakes, rivers or ice, streets and driveways, and anything that needs the freezer or prep overnight ("freeze dance" is fine).
+  - **By the youngest age:** glass and jars only from 8; toothpicks, skewers, needles, pins and tacks only from 6; scissors only from 4; small parts (beads, buttons, coins, pennies, rice, beans, lentils, chickpeas, seeds, dry pasta, popcorn, nuts, grapes, pom-poms, googly eyes, pebbles, bells, rubber bands, paper clips, marshmallows) and string, yarn or ribbon only from 3; balloons only from 8.
+  - Code adds "Water play: stay within arm's reach." to water ideas for kids under 6.
+- **No brands or products**: plain words only ("play dough", not a brand name; "stacking blocks", not a game's name; "tape", not a brand of tape), including as the first word of a step. A capitalized word in the middle of a step reads as a brand and is refused, unless it's a holiday, a month, a day or a Central Oregon place. Nothing from a store or shop, and no screen, tv, movie or app ideas.
+- **Repeats:** an idea is refused when its title's words are mostly in a recent title, or its whole text (title, need, steps) is mostly the same as a recent idea, even reworded.
 
 ## 6. The rules every line follows
 
