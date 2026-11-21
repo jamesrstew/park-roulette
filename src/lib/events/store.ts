@@ -591,19 +591,24 @@ export async function recheckEvents(
       // Verified on a newsletter's listing: the organizer's page and the
       // listing both, a wall or a gone listing never a miss (judgeListing).
       const listing = (r.data as StoredEvent).verified_via === "listing";
-      const page = await fetcher(
-        target!.url,
-        listing ? [...domains, ...CATALOG.listing_domains] : domains,
-      ).catch(() => null);
       const organizerUrl = (r.data as StoredEvent).url;
+      // Both pages at once, so a listing check takes one fetch's time at
+      // most, as the cron budget (lib/cron-budget.ts) assumes.
+      const [page, organizer] = await Promise.all([
+        fetcher(
+          target!.url,
+          listing ? [...domains, ...CATALOG.listing_domains] : domains,
+        ).catch(() => null),
+        listing && target!.url !== organizerUrl
+          ? fetcher(organizerUrl, [
+              ...domains,
+              new URL(organizerUrl).hostname.replace(/^www\./, ""),
+            ]).catch(() => null)
+          : Promise.resolve(undefined),
+      ]);
       let outcome = listing
         ? judgeListing(
-            target!.url === organizerUrl
-              ? page
-              : await fetcher(organizerUrl, [
-                  ...domains,
-                  new URL(organizerUrl).hostname.replace(/^www\./, ""),
-                ]).catch(() => null),
+            organizer === undefined ? page : organizer,
             page,
             target!.quote,
             title,
