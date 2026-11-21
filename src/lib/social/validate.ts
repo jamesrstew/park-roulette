@@ -24,7 +24,9 @@ import {
   type TraitKind,
 } from "@/lib/park-profiles";
 import {
+  hazardsIn,
   ideaOverlap,
+  NOT_HOUSEHOLD,
   ideaProblems,
   ideaText,
   postTextProblems,
@@ -131,13 +133,20 @@ const norm = (s: string) => s.replace(/[‘’]/g, "'");
 // Any spacing or case, as the issue and events checkers.
 const COMPETITORS = /bend[\s_.-]*(family[\s_.-]*loop|buzz)/i;
 /**
- * No "I": Park Roulette speaks as "we", the publisher ("This week we're
- * featuring ..."). Plural first person is out only where the words aren't
- * ours (an event's own summary: "we'll paint" is the host talking).
+ * No "I". "We" is Park Roulette, the publisher, and only in a few fixed
+ * frames ("This week we're featuring ...", "we picked", "our pick"): any
+ * other we, our or us reads as a family that went, or a plan to meet, and
+ * is refused. Words that aren't ours (an event's own summary) take no
+ * "we" at all ("we'll paint" is the host talking).
  */
 const FIRST_PERSON = /\b(i|i'm|i've|i'd|i'll|me|my|mine|myself)\b/i;
 const FIRST_PERSON_PLURAL =
   /\b(we|we're|we've|we'd|we'll|us|our|ours|ourselves)\b/i;
+/** The only frames "we" and "our" may appear in (case-insensitive). */
+export const PUBLISHER_FRAMES =
+  /\b(?:this week we're featuring|we're featuring|we picked|our pick|this week's pick|we send|our free thursday email)\b/gi;
+/** Text with the publisher frames taken out (what's left may not say we). */
+const withoutFrames = (t: string) => t.replace(PUBLISHER_FRAMES, " ");
 /**
  * "We" never claims a visit, a kid or an invitation: we don't go, we
  * don't host, and we don't have kids in the post ("we went", "our kids
@@ -152,7 +161,8 @@ const EXPERIENCE =
  */
 const CLICHES: [RegExp, string][] = [
   [/\bmust[- ](see|visit|try|do|have)\b/i, '"must-see"'],
-  [/\ba must\b/i, '"a must"'],
+  // Promotional only: "it's a must", "a must for"; not "a must-have bowl".
+  [/\b(is|are|it's|that's) a must\b(?!-)|\ba must for\b/i, '"a must"'],
   [/\bbucket[- ]list\b/i, '"bucket list"'],
   [/\blook no further\b/i, '"look no further"'],
   [/\bbest[- ]kept secrets?\b/i, '"best-kept secret"'],
@@ -166,7 +176,11 @@ const CLICHES: [RegExp, string][] = [
   [/\bwill (absolutely |just )?love (it|this|these|them)\b/i, '"will love it"'],
   [/\badventure awaits\b/i, '"adventure awaits"'],
   [/\bfun[- ]filled\b/i, '"fun-filled"'],
-  [/\bdon'?t miss\b/i, '"don\'t miss"'],
+  // "Don't miss this", "don't miss out"; not "don't miss a corner".
+  [
+    /\bdon'?t miss (this|it|out|the (fun|chance|show|event))\b|\bnot to be missed\b/i,
+    '"don\'t miss"',
+  ],
   [/\btag (a friend|someone|your)\b/i, '"tag a friend"'],
   [/\bepic\b/i, '"epic"'],
   [/\bvibes?\b/i, '"vibes"'],
@@ -272,6 +286,10 @@ export function textProblems(
     out.push(
       `${label}: no first person ("we", "our", "us") in words that aren't ours.`,
     );
+  else if (plural && FIRST_PERSON_PLURAL.test(withoutFrames(t)))
+    out.push(
+      `${label}: first person "we", "our" and "us" only as the publisher ("we're featuring", "we picked", "our pick", "this week's pick", "we send", "our free Thursday email"). Never a family, a visit or a plan to meet.`,
+    );
   if (EXPERIENCE.test(t))
     out.push(
       `${label}: first person "we" never claims a visit, a kid or an invitation ("we went", "our kids", "join us"). Say what the place has.`,
@@ -285,6 +303,125 @@ export function textProblems(
     out.push(`${label}: no restroom claims from November to March.`);
   const unsafe = unsafeText(t);
   if (unsafe) out.push(`${label}: ${unsafe} is out.`);
+  if (ICE.test(t))
+    out.push(
+      `${label}: never send kids onto ice or frozen water ("${ICE.exec(t)![0]}").`,
+    );
+  return out;
+}
+
+/** Ice and frozen water: never a place to play ("skate on the pond"). */
+const ICE =
+  /\b(?:skat\w*|walk\w*|play\w*|slid\w*|stand\w*|run\w*|step\w*|go|get) (?:out )?on(?:to)? (?:the |a )?(?:frozen )?(?:pond|lake|river|creek|ice|reservoir|canal)\b|\bfrozen (?:pond|lake|river|creek|reservoir|canal)s?\b|\b(?:thin|pond|lake|river) ice\b|\bon the ice\b|\bice (?:skat\w*|fishing)\b/i;
+
+// --- Grounding: the park post's own words ----------------------------------
+
+const MONTH_NAMES =
+  /^(january|february|march|april|may|june|july|august|september|october|november|december)$/i;
+
+/**
+ * Capitalized words that aren't a sentence's first word, and aren't in
+ * `allowed` (lowercased) or a month: names the record doesn't back.
+ */
+export function strayNames(
+  text: string,
+  allowed: ReadonlySet<string>,
+): string[] {
+  const out = new Set<string>();
+  for (const sent of sentencesOf(norm(text)))
+    sent
+      .split(/\s+/)
+      .slice(1)
+      .forEach((raw) => {
+        const w = raw
+          .replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, "")
+          .replace(/'s$/, "");
+        if (!/^[A-Z]/.test(w) || w === "I") return;
+        if (MONTH_NAMES.test(w)) return;
+        if (w.split(/[-']/).every((part) => allowed.has(part.toLowerCase())))
+          return;
+        out.add(w);
+      });
+  return [...out];
+}
+
+/** Words of a text, lowercased, for the allowed-names set. */
+const wordsOf = (t: string) =>
+  norm(t)
+    .toLowerCase()
+    .split(/[^a-z']+/)
+    .flatMap((w) => [w, w.replace(/'s$/, "")])
+    .filter(Boolean);
+
+/**
+ * Facts a park post's words may not state: code and the record own them,
+ * and nothing in the record backs a day, a time, a price, hours, a
+ * superlative, a safety promise or an event.
+ */
+const UNGROUNDED_FACTS: [RegExp, string][] = [
+  [
+    /\b(mondays?|tuesdays?|wednesdays?|thursdays?|fridays?|saturdays?|sundays?|weekdays?)\b/i,
+    "a day of the week",
+  ],
+  [
+    /\b\d{1,2}(:\d{2})?\s*(am|pm|a\.m\.|p\.m\.)(?![a-z])|\b(noon|midnight|o'clock)\b/i,
+    "a time",
+  ],
+  [
+    /\$\s?\d|\b(dollars?|cents?|prices?|costs?|fees?|tickets?|admission|paid|pay)\b/i,
+    "a price",
+  ],
+  [/\bfree\b/i, '"free"'],
+  [/\b(open|opens|opened|opening|closed|closes|closing|hours)\b/i, "hours"],
+  [
+    /\b(only|first|best|biggest|largest|tallest|longest|oldest|newest)\b(?:\s+[\w'-]+){0,4}?\s+in\b/i,
+    'a superlative ("the only ... in")',
+  ],
+  [/\b(safe|safer|safest|safety|safely|secure)\b/i, "a safety promise"],
+  [
+    /\b(santa|visits?|visiting|rink|sold|sells?|selling|festival|parade|concert|market|events?|registration|register|lights display|tree lighting)\b/i,
+    "an event",
+  ],
+];
+
+/**
+ * The park post's grounding: no names but the park's own (its name, its
+ * town, and the words of its traits and keys, which hold the
+ * neighborhood), no other park or venue, and none of the facts above.
+ */
+export function parkGroundingProblems(
+  text: string,
+  label: string,
+  park: Pick<ParkInfo, "name" | "city" | "address">,
+  traits: readonly Pick<Trait, "text" | "keys">[],
+  others: readonly string[],
+): string[] {
+  const t = norm(text);
+  const out: string[] = [];
+  const allowed = new Set([
+    ...wordsOf(park.name),
+    ...wordsOf(park.city),
+    ...wordsOf(park.address ?? ""),
+    ...traits.flatMap((x) => [...wordsOf(x.text), ...x.keys.flatMap(wordsOf)]),
+  ]);
+  const names = strayNames(t, allowed);
+  if (names.length)
+    out.push(
+      `${label}: "${names.join(", ")}" isn't the park, its town or in its traits. Name nothing else.`,
+    );
+  const own = norm(park.name).toLowerCase();
+  const other = others.filter(
+    (n) =>
+      norm(n).toLowerCase() !== own &&
+      new RegExp(`\\b${escapeRe(norm(n))}\\b`, "i").test(t),
+  );
+  if (other.length)
+    out.push(`${label}: names another place (${other.join(", ")}).`);
+  const facts = UNGROUNDED_FACTS.filter(([re]) => re.test(t)).map(([, l]) => l);
+  if (facts.length)
+    out.push(
+      `${label}: ${facts.join(", ")} isn't in the park's record. The scene is the weather and the season; code adds the facts.`,
+    );
   return out;
 }
 
@@ -370,6 +507,8 @@ type Claim = {
   safety?: boolean;
   /** The trait must use the same word ("pond" needs a pond, not a river). */
   sameWord?: boolean;
+  /** Months the claim can hold at all (a splash pad runs May to September). */
+  months?: readonly number[];
 };
 
 const CLAIMS: Claim[] = [
@@ -402,6 +541,7 @@ const CLAIMS: Claim[] = [
     words: "a splash pad",
     features: ["splash_pad"],
     kinds: ["splash_pad"],
+    months: [5, 6, 7, 8, 9],
   },
   {
     re: /\bsand ?box(es)?\b/i,
@@ -514,13 +654,16 @@ export function unbackedClaims(
   text: string,
   features: readonly string[],
   traits: readonly BackingTrait[] = [],
+  /** The post's month: a seasonal claim out of season is never backed. */
+  month?: number,
 ): string[] {
   const has = new Set(features);
   return CLAIMS.filter(
     (c) =>
       c.re.test(text) &&
-      !c.features.some((f) => has.has(f)) &&
-      !traits.some((t) => traitBacks(c, t, text)),
+      ((month != null && c.months && !c.months.includes(month)) ||
+        (!c.features.some((f) => has.has(f)) &&
+          !traits.some((t) => traitBacks(c, t, text)))),
   ).map((c) => c.words);
 }
 
@@ -929,7 +1072,7 @@ async function resolveItem(
   if (!p || !p.approved || p.status !== "active")
     return { ok: false, cut: `${it.ref}: not an open park on the map.` };
   const traits = postTraits(ctx.profiles.get(p.slug), month);
-  const claims = unbackedClaims(it.what, p.features, traits);
+  const claims = unbackedClaims(it.what, p.features, traits, month);
   const off = ungrounded(
     it.what,
     `${p.name} ${featureChips(p.features, month, 99).join(" ")} ${traits.map((t) => `${t.text} ${t.keys.join(" ")}`).join(" ")} playground park`,
@@ -1028,29 +1171,69 @@ export function schoolOutProblem(
     : null;
 }
 
+/** Number words an intro may use only as the count ("These four are warm"). */
+const COUNTS =
+  /\b(\d{1,2}|one|two|three|four|five|six|seven|eight|nine|ten)\b/gi;
+
+/** Facts an intro may not state: the items (and code) carry them. */
+const INTRO_FACTS =
+  /\b(free|prices?|costs?|fees?|tickets?|admission|open|opens|closed|closes|hours|holidays?|christmas|thanksgiving|hanukkah|kwanzaa|halloween|easter|new year'?s|indoors?|heated)\b|\$\s?\d/i;
+
 /**
- * A carousel intro: 1 or 2 short sentences in our voice. An Unpack intro
- * claims nothing about places (the items carry the facts, each backed by
- * its own source), so a feature word there (slides, a splash pad, shade)
- * is refused.
+ * A carousel intro: 1 or 2 short sentences in our voice, setting the week
+ * or the morning. It names no place but a town, states no price, hours,
+ * holiday or indoor/heated claim, and any number is the count of items
+ * (after cuts) or ideas. An Unpack intro claims no feature either (each
+ * item says what its place has); an "at home" intro is held to the
+ * hazard rules for the youngest idea and to household items.
  */
 export function introProblems(
   intro: string | undefined,
   month: number,
-  noPlaceClaims: boolean,
+  o:
+    | { kind: "unpack"; count: number }
+    | { kind: "at_home"; count: number; youngest: number },
 ): string[] {
   if (!intro) return [];
+  const t = norm(intro);
   const out = [
     ...textProblems(intro, { month, label: "intro" }),
     ...voiceProblems(intro, "intro"),
     ...longSentences(intro, "intro"),
   ];
   if (sentencesOf(intro).length > 2) out.push("intro: 1 or 2 short sentences.");
-  if (noPlaceClaims) {
+  const towns = new Set(
+    [...TOWNS, "Central Oregon", "Oregon"].flatMap((x) => wordsOf(x)),
+  );
+  const names = strayNames(t, towns);
+  if (names.length)
+    out.push(
+      `intro: "${names.join(", ")}" names something; an intro names only a town.`,
+    );
+  const fact = INTRO_FACTS.exec(t);
+  if (fact)
+    out.push(
+      `intro: "${fact[0]}" is a fact the items carry (no price, hours, holiday or indoor claims here).`,
+    );
+  for (const m of t.matchAll(COUNTS)) {
+    const n = headlineCount(m[0]);
+    if (n !== o.count)
+      out.push(
+        `intro: says ${m[0]}, but the post has ${o.count} ${o.kind === "unpack" ? "items after cuts" : "ideas"} (leave numbers out but the count).`,
+      );
+  }
+  if (o.kind === "unpack") {
     const claims = unbackedClaims(intro, []);
     if (claims.length)
       out.push(
         `intro: no place claims here (${claims.join(", ")}); each item says what its place has.`,
+      );
+  } else {
+    for (const h of hazardsIn(intro, o.youngest))
+      out.push(`intro: not safe for these ages (${h}).`);
+    if (NOT_HOUSEHOLD.test(intro))
+      out.push(
+        `intro: "${NOT_HOUSEHOLD.exec(intro)![0]}" is something to buy, print or watch. Household things only.`,
       );
   }
   return out;
@@ -1077,9 +1260,12 @@ export async function validateParkPost(
     r.errors.push(`${d.park} was on Instagram in the last 8 weeks.`);
   const sentences = sentencesOf(d.story);
   const first = sentences[0] ?? "";
-  if (sentences.length > STORY_LIMITS.sentences)
+  if (
+    sentences.length > STORY_LIMITS.sentences ||
+    sentences.length < STORY_LIMITS.minSentences
+  )
     r.errors.push(
-      `story: ${sentences.length} sentences; ${STORY_LIMITS.sentences} at most (a short paragraph).`,
+      `story: ${sentences.length} sentence${sentences.length === 1 ? "" : "s"}; ${STORY_LIMITS.minSentences} to ${STORY_LIMITS.sentences} (a short paragraph).`,
     );
   if (first.length > STORY_LIMITS.first)
     r.errors.push(
@@ -1099,12 +1285,31 @@ export async function validateParkPost(
   if (bang) r.errors.push(bang);
   const profile = ctx.profiles.get(d.park) ?? null;
   if (park) {
-    if (!new RegExp(`\\b${escapeRe(park.name)}\\b`, "i").test(norm(first)))
+    if (
+      !new RegExp(`\\b${escapeRe(norm(park.name))}\\b`, "i").test(norm(first))
+    )
       r.errors.push(
-        `story: the first sentence must name the park (${park.name}), with its signature trait ("This week we're featuring ${park.name} ...").`,
+        `story: the first sentence must name the park exactly as post_parks[].name has it (${park.name}), with its signature trait ("This week we're featuring ${park.name} ...").`,
       );
     // In-season traits only; nearby and history traits can't lead.
     const traits = postTraits(profile, month);
+    // Every name and fact is the record's: the profile's own words (all
+    // its traits, for the neighborhood) back names; nothing backs a day,
+    // a time, a price, hours, a superlative, safety or an event.
+    const others = [
+      ...[...ctx.parks.values()].map((p) => p.name),
+      ...ctx.catalog.venues.map((v) => v.name),
+    ];
+    for (const [label, text] of parts)
+      r.errors.push(
+        ...parkGroundingProblems(
+          text,
+          label,
+          park,
+          [...(profile?.traits ?? []), ...traits],
+          others,
+        ),
+      );
     const leads = traits.filter((t) => !CONTEXT_KINDS.has(t.kind));
     const n = postKinds(profile, month);
     if (n < MIN_POST_TRAITS)
@@ -1119,6 +1324,7 @@ export async function validateParkPost(
       [d.story, d.who, d.bring].join(" "),
       park.features,
       traits,
+      month,
     );
     if (claims.length)
       r.errors.push(
@@ -1171,7 +1377,6 @@ export async function validateUnpack(
   )
     r.errors.push("highlight must be one word of the headline.");
   r.errors.push(...textProblems(d.headline, { month, label: "headline" }));
-  r.errors.push(...introProblems(d.intro, month, true));
   for (const [label, text] of [
     ["headline", d.headline],
     ...d.items.map((i) => [`item ${i.ref}`, i.what] as const),
@@ -1227,6 +1432,9 @@ export async function validateUnpack(
     r.errors.push(
       `Only ${items.length} items hold up after cuts: a carousel needs 3 to 5.`,
     );
+  r.errors.push(
+    ...introProblems(d.intro, month, { kind: "unpack", count: items.length }),
+  );
   const n = headlineCount(d.headline);
   if (n != null && n !== items.length)
     r.errors.push(
@@ -1280,7 +1488,13 @@ export async function validateAtHome(
       `Theme "${d.theme}" isn't offered for ${date} (pick one of ${themes.map((t) => t.id).join(", ")}).`,
     );
   r.errors.push(...textProblems(d.headline, { month, label: "headline" }));
-  r.errors.push(...introProblems(d.intro, month, false));
+  r.errors.push(
+    ...introProblems(d.intro, month, {
+      kind: "at_home",
+      count: d.ideas.length,
+      youngest: Math.min(...d.ideas.map((i) => i.ages.from)),
+    }),
+  );
   for (const [label, text] of [
     ["headline", d.headline],
     ...d.ideas.flatMap((i) => [

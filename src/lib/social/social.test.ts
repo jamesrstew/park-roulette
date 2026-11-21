@@ -264,27 +264,68 @@ const unpack = (over: Partial<UnpackDraft> = {}): UnpackDraft => ({
 });
 
 describe("carousel intros", () => {
+  const U = { kind: "unpack" as const, count: 4 };
+  const H = { kind: "at_home" as const, count: 4, youngest: 2 };
   it("allow a short scene in our voice, and no place claims in an Unpack intro", () => {
     expect(
       introProblems(
         "A cold week ahead. These are the warm ones we picked.",
         11,
-        true,
+        U,
       ),
     ).toEqual([]);
     expect(
-      introProblems("Slides and shade at every stop this week.", 11, true)[0],
+      introProblems("Slides and shade at every stop this week.", 11, U)[0],
     ).toMatch(/no place claims here \(slides, shade\)/);
     // At home: the same words are fine (no place to back).
     expect(
-      introProblems("Slides down the hallway, then a nap.", 11, false),
+      introProblems("Slides down the hallway, then a nap.", 11, H),
     ).toEqual([]);
-    expect(introProblems("One. Two. Three.", 11, false).join(" ")).toMatch(
+    expect(introProblems("One. Two. Three.", 11, H).join(" ")).toMatch(
       /1 or 2 short sentences/,
     );
-    expect(introProblems("I love a slow morning.", 11, false)[0]).toMatch(
+    expect(introProblems("I love a slow morning.", 11, H)[0]).toMatch(
       /first person singular/,
     );
+  });
+  it("name only a town, and state no price, hours, holiday or indoor claim", () => {
+    expect(
+      introProblems("A whole week off, and all of these are in Bend.", 11, U),
+    ).toEqual([]);
+    expect(
+      introProblems("Start at the High Desert Museum this week.", 11, U).join(
+        " ",
+      ),
+    ).toMatch(/"High, Desert, Museum" names something/);
+    for (const [line, word] of [
+      ["Most of these are free this week.", "free"],
+      ["Everything is open late this week.", "open"],
+      ["Holiday weeks fill up fast.", "Holiday"],
+      ["All of it is indoors and out of the wind.", "indoors"],
+      ["The pool is heated, so pack a towel.", "heated"],
+    ])
+      expect(introProblems(line, 11, U).join(" "), line).toContain(
+        `"${word}" is a fact the items carry`,
+      );
+  });
+  it("hold any number to the count after cuts", () => {
+    expect(
+      introProblems("These four are warm, and close to home.", 11, U),
+    ).toEqual([]);
+    expect(
+      introProblems("These five are warm, and close to home.", 11, U)[0],
+    ).toMatch(/says five, but the post has 4 items after cuts/);
+    expect(
+      introProblems("Pick 3 for the morning and save the rest.", 11, H)[0],
+    ).toMatch(/says 3, but the post has 4 ideas/);
+  });
+  it("hold an at home intro to the hazard and household rules for the youngest idea", () => {
+    expect(
+      introProblems("Start with the scissors while it snows.", 11, H).join(" "),
+    ).toMatch(/not safe for these ages/);
+    expect(
+      introProblems("Skip the videos and start with paper.", 11, H).join(" "),
+    ).toMatch(/something to buy, print or watch/);
   });
 });
 
@@ -330,7 +371,10 @@ describe("text rules", () => {
   });
   it("lets Park Roulette say we, never I, and never claim a visit, a kid or an invitation", () => {
     expect(t("This week we're featuring Compass Park.")).toEqual([]);
-    expect(t("Our park this week has a fort zone.")).toEqual([]);
+    expect(t("Our pick this week has a fort zone.")).toEqual([]);
+    expect(t("This week's pick is Compass Park.")).toEqual([]);
+    expect(t("Every Thursday we send one plan.")).toEqual([]);
+    expect(t("It's in our free Thursday email.")).toEqual([]);
     expect(t("We picked a warm one for the cold week.")).toEqual([]);
     expect(t("I love this park")[0]).toMatch(/first person singular/);
     expect(t("Ask me about it")[0]).toMatch(/first person singular/);
@@ -343,6 +387,27 @@ describe("text rules", () => {
       "See you there",
     ])
       expect(t(claim).join(" "), claim).toMatch(/never claims a visit/);
+    // Any other we, our or us is refused: only the publisher frames pass.
+    for (const line of [
+      "We love this park in the snow",
+      "We've been coming here for years",
+      "We usually go on Saturday mornings",
+      "Last time we were there",
+      "We sledded here last winter",
+      "We saw an owl",
+      "Our 4-year-old calls it the castle park",
+      "Our kiddo never wants to leave",
+      "Our favorite sledding hill",
+      "Meet us at the fort",
+      "Come say hi, we'll be at the hill Saturday",
+      "We're headed there Saturday",
+      "We always bring cocoa",
+      "We have kids who climb everything",
+      "we have snacks for everyone at the fort",
+    ])
+      expect(t(line).join(" "), line).toMatch(
+        /first person "we", "our" and "us" only as the publisher/,
+      );
     // Words that aren't ours (an event's own summary): no "we" either.
     expect(
       textProblems("We'll paint ornaments", {
@@ -360,7 +425,8 @@ describe("text rules", () => {
       ["A magical place to make memories", "magical"],
       ["Nestled by the river, it boasts amenities", "nestled"],
       ["Tag a friend who needs this", "tag a friend"],
-      ["Don't miss the fort zone", "don't miss"],
+      ["Don't miss this one", "don't miss"],
+      ["Warm boots are a must for this hill", "a must"],
       ["A hidden gem with something for everyone", "hidden gem"],
     ])
       expect(voiceProblems(line, "story").join(" "), line).toContain(label);
@@ -370,6 +436,10 @@ describe("text rules", () => {
         "story",
       ),
     ).toEqual([]);
+    // Not promotional: a plain step passes.
+    expect(voiceProblems("Don't miss a corner of the room.", "step")).toEqual(
+      [],
+    );
     expect(
       longSentences(
         "Kids build forts. This sentence goes on and on with one more thing and then another thing and then a third thing after that one too.",
@@ -1111,7 +1181,7 @@ describe("signature traits lead the park post", () => {
       ctx(),
     );
     expect(unnamed.errors.join(" ")).toMatch(
-      /first sentence must name the park \(Larkspur Park\)/,
+      /first sentence must name the park exactly as post_parks\[\]\.name has it \(Larkspur Park\)/,
     );
   });
   it("refuses generic phrases anywhere", async () => {
@@ -1142,7 +1212,7 @@ describe("signature traits lead the park post", () => {
       ctx(),
     );
     const all = r.errors.join(" ");
-    expect(all).toMatch(/story: 5 sentences; 4 at most/);
+    expect(all).toMatch(/story: 5 sentences; 2 to 4/);
     expect(all).toMatch(/first sentence runs \d+ characters; 130 at most/);
     expect(all).toMatch(/runs \d+ words; keep each sentence to 22/);
     expect(all).toMatch(/"will love it"/);
@@ -1160,6 +1230,104 @@ describe("signature traits lead the park post", () => {
     const all = r.errors.join(" ");
     expect(all).toMatch(/never claims a visit/);
     expect(all).toMatch(/doesn't list a splash pad/);
+  });
+  it("grounds the story, who and bring: no other names, days, times, prices, hours, superlatives, safety or events", async () => {
+    // The reviewer's six: each states something the park's record doesn't.
+    const cases: [Partial<ParkPostDraft>, RegExp][] = [
+      [
+        { bring: "cocoa from Thump Coffee across the street" },
+        /"Thump, Coffee" isn't the park, its town or in its traits/,
+      ],
+      [
+        {
+          story:
+            "This week we're featuring Larkspur Park, a Bend playground for all abilities. Santa visits on Saturday at 10 am.",
+        },
+        /a day of the week, a time, an event isn't in the park's record/,
+      ],
+      [
+        { who: "every family, since parking is free and it opens early" },
+        /"free", hours isn't in the park's record/,
+      ],
+      [
+        {
+          story:
+            "This week we're featuring Larkspur Park, a Bend playground for all abilities. It's the only one like it in Central Oregon.",
+        },
+        /a superlative/,
+      ],
+      [
+        { who: "toddlers, since the whole space is safe for little ones" },
+        /a safety promise/,
+      ],
+      [
+        {
+          story:
+            "This week we're featuring Larkspur Park, a Bend playground for all abilities. Skate at the rink next door for $8 after.",
+        },
+        /a price, an event isn't in the park's record/,
+      ],
+    ];
+    for (const [over, re] of cases) {
+      const r = await validateParkPost(parkPost(over), WEEK, ctx());
+      expect(r.errors.join(" "), JSON.stringify(over)).toMatch(re);
+    }
+    // Another park on the map, by name.
+    const other = await validateParkPost(
+      parkPost({
+        story:
+          "This week we're featuring Larkspur Park, a Bend playground for all abilities. It sits across town from Pine Nursery Park.",
+      }),
+      WEEK,
+      ctx({
+        parks: new Map([
+          ["larkspur-park-bend", park()],
+          [
+            "pine-nursery-park-bend",
+            park({ slug: "pine-nursery-park-bend", name: "Pine Nursery Park" }),
+          ],
+        ]),
+      }),
+    );
+    expect(other.errors.join(" ")).toMatch(
+      /names another place \(Pine Nursery Park\)/,
+    );
+    // The park's own words (its name, town and traits) and months are fine.
+    const ok = await validateParkPost(
+      parkPost({
+        story:
+          "This week we're featuring Larkspur Park, a Bend playground for all abilities. A cold December afternoon suits it.",
+      }),
+      WEEK,
+      ctx(),
+    );
+    expect(ok.errors).toEqual([]);
+  });
+  it("never sends kids onto ice, and a splash pad is unbacked out of season", () => {
+    for (const line of [
+      "Skate on the pond after",
+      "Walk on the ice by the creek",
+      "The frozen pond is a sight",
+    ])
+      expect(
+        textProblems(line, { month: 1, label: "story" }).join(" "),
+        line,
+      ).toMatch(/never send kids onto ice/);
+    expect(
+      textProblems("Bring skates for the rink-free hill", {
+        month: 1,
+        label: "x",
+      }),
+    ).toEqual([]);
+    expect(
+      unbackedClaims("Swimsuits for the splash pad", ["splash_pad"]),
+    ).toEqual([]);
+    expect(
+      unbackedClaims("Swimsuits for the splash pad", ["splash_pad"], [], 7),
+    ).toEqual([]);
+    expect(
+      unbackedClaims("Swimsuits for the splash pad", ["splash_pad"], [], 11),
+    ).toEqual(["a splash pad"]);
   });
   it("refuses a park with fewer than 2 traits", async () => {
     const r = await validateParkPost(

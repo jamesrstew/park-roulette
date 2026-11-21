@@ -54,8 +54,16 @@ const sentence = (s: string) => {
 
 /** The Facebook caption: the same words, with the live link (no bio there). */
 function forFacebook(caption: string, ctaText: string): string {
-  return caption.replace(ctaText, `${COPY.fbSignup} ${bioLink("fb")}`);
+  let fb = caption.replace(ctaText, `${COPY.fbSignup} ${bioLink("fb")}`);
+  // "Sign up free:" says free; the closing line doesn't say it again.
+  for (const close of [...Object.values(COPY.captionClose), COPY.teaserClose])
+    fb = fb.replace(close, unfree(close));
+  return fb;
 }
+
+/** A closing line without its "free" (Facebook's call to action says it). */
+export const unfree = (close: string) =>
+  close.replace(/ It's free\.$/, "").replace(/\bour free /, "our ");
 
 /** A model fragment as a labeled line ("Bring: warm layers"): no end period. */
 const fragment = (s: string) => s.trim().replace(/[\s.;,]+$/u, "");
@@ -367,24 +375,34 @@ const WEEKDAYS: Record<string, string> = {
   Sat: "Saturday",
 };
 
-/** The youngest age the events' chips print, or null ("All ages" anywhere). */
-function youngest(events: Pick<WeekEvent, "ages">[]): number | null {
-  let lo: number | null = null;
+/**
+ * The events' printed ages as one clause: "for ages 5 and up" when some
+ * chip is open-ended, else the overall range ("for ages 2 to 10"), and
+ * nothing when any event is for all ages or a chip doesn't read.
+ */
+function agesClause(events: Pick<WeekEvent, "ages">[]): string {
+  let lo = Infinity;
+  let hi = -Infinity;
+  let open = false;
   for (const e of events)
     for (const chip of e.ages) {
-      const m = /^Ages? (\d+)/.exec(chip);
-      if (!m) return null;
-      lo = lo == null ? Number(m[1]) : Math.min(lo, Number(m[1]));
+      const m = /^Ages? (\d+)(?: to (\d+)| (and up))?$/.exec(chip);
+      if (!m) return "";
+      lo = Math.min(lo, Number(m[1]));
+      if (m[3]) open = true;
+      else hi = Math.max(hi, Number(m[2] ?? m[1]));
     }
-  return lo;
+  if (!Number.isFinite(lo)) return "";
+  if (open) return `, for ages ${lo} and up`;
+  return lo === hi ? `, for age ${lo}` : `, for ages ${lo} to ${hi}`;
 }
 
 /**
  * The roundup caption's opening, from the events alone: how many, where
- * (one venue, one town, or the towns, Bend first), the youngest printed
- * age and how many are free. "Four events, all at TEAL Tea + Art Lounge
- * in Bend, for ages 5 and up." No prices beyond "free": the chips carry
- * them, and an event with no printed cost never reads as free.
+ * (one venue, one town, or the towns, Bend first), the printed ages and
+ * how many are free. "Four events, all at TEAL Tea + Art Lounge in Bend,
+ * for ages 5 and up." No prices beyond "free": the chips carry them, and
+ * an event with no printed cost never reads as free.
  */
 export function eventsIntro(
   events: Pick<WeekEvent, "venue" | "town" | "cost" | "ages">[],
@@ -394,16 +412,16 @@ export function eventsIntro(
   const towns = [...new Set(events.map((e) => e.town))].sort(
     (a, b) => Number(b === "Bend") - Number(a === "Bend"),
   );
+  // "at Redmond Library" when the venue names its town, else "at X in Bend".
+  const at = (v: string, t: string) =>
+    placeLine(v, t) === `At ${v}` ? `at ${v}` : `at ${v} in ${t}`;
   const where =
     venues.length === 1 && towns.length === 1 && n > 1
-      ? `, all ${placeLine(venues[0], towns[0])
-          .replace(/^At /, "at ")
-          .replace(/, ([^,]+)$/, " in $1")}`
+      ? `, all ${at(venues[0], towns[0])}`
       : towns.length === 1
         ? `, all in ${towns[0]}`
         : ` in ${andList(towns)}`;
-  const lo = youngest(events);
-  const ages = lo != null && lo > 0 ? `, for ages ${lo} and up` : "";
+  const ages = agesClause(events);
   const free = events.filter((e) => e.cost === "Free").length;
   const freeLine =
     free === 0

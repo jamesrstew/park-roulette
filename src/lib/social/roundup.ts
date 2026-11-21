@@ -11,8 +11,14 @@ import {
 import { ALL_AGES } from "@/lib/events/ages";
 import { listed } from "@/lib/events/state";
 import { addDays, weekdayOf } from "@/lib/news/time";
-import { placeLine, type WeekEvent } from "./compose";
-import { DATED_LEAD_HOURS, EVENTS_MAX, EVENTS_MIN } from "./model";
+import { composeEventsWeek, placeLine, type WeekEvent } from "./compose";
+import {
+  CAPTION_MAX,
+  DATED_LEAD_HOURS,
+  EVENTS_MAX,
+  EVENTS_MIN,
+  type PostSpec,
+} from "./model";
 import { eventFit } from "@/components/social/fit";
 import { eventTextProblem, textProblems } from "./validate";
 
@@ -327,4 +333,41 @@ export function pickWeekEvents(
     left,
     skip: null,
   };
+}
+
+/**
+ * The roundup, cut to Instagram's 2,200-character caption: descriptors
+ * go first (the latest event's first), then the "Also ..." lines, then
+ * the latest events, down to 4. Still too long: no roundup (the caller
+ * skips the slot and tells James). The slides lose the same words, so
+ * the caption and the slides always agree.
+ */
+export function fitRoundup(
+  events: WeekEvent[],
+  window: { label: string; caption: string },
+  dms: boolean,
+  max = CAPTION_MAX,
+): { spec: PostSpec; events: WeekEvent[]; cut: string[] } | { skip: string } {
+  let es = events.map((e) => ({ ...e }));
+  const cut: string[] = [];
+  const make = () => composeEventsWeek(es, window, dms);
+  const fits = () => (make().caption ?? "").length <= max;
+  for (const field of ["desc", "also"] as const)
+    for (let i = es.length - 1; i >= 0 && !fits(); i--)
+      if (es[i][field]) {
+        es[i][field] = null;
+        cut.push(
+          `${es[i].slug}: ${field === "desc" ? "descriptor" : "also line"} cut for caption length`,
+        );
+      }
+  while (!fits() && es.length > EVENTS_MIN) {
+    const last = es[es.length - 1];
+    es = es.slice(0, -1);
+    cut.push(`${last.slug}: left out for caption length`);
+  }
+  if (!fits())
+    return {
+      skip: `The roundup's caption runs over ${max} characters even with ${es.length} events and no descriptors.`,
+    };
+  return { spec: make(), events: es, cut };
 }

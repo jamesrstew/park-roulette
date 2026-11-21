@@ -314,7 +314,7 @@ describe("validateAtHome", () => {
   it("an intro sits under the headline, in our voice; a cliche or a second exclamation is refused", async () => {
     const ok = await validateAtHome(
       atHome({
-        intro: "A slow, gray morning. We like it for paper and crayons.",
+        intro: "A slow, gray morning. Paper and crayons suit it.",
       }),
       WEEK,
       ctx(),
@@ -323,7 +323,7 @@ describe("validateAtHome", () => {
     expect(ok.spec!.caption!.split("\n").slice(0, 3)).toEqual([
       ok.spec!.headline,
       "",
-      "A slow, gray morning. We like it for paper and crayons.",
+      "A slow, gray morning. Paper and crayons suit it.",
     ]);
     const bad = await validateAtHome(
       atHome({ intro: "So magical! Your kids will love it!" }),
@@ -351,6 +351,11 @@ describe("validateAtHome", () => {
     expect(r.spec!.caption).toContain("1. Hand turkeys (ages 2 to 6)");
     expect(r.spec!.caption).toContain("You need paper and crayons.");
     expect(r.spec!.caption).toContain(COPY.captionClose.at_home);
+    // Facebook's call to action says free; the close doesn't say it again.
+    expect(r.spec!.fbCaption).toContain(
+      "When you're ready to get out, our Thursday email has a plan.\nSign up free: https://parkroulette.quest/ig?from=fb",
+    );
+    expect(r.spec!.fbCaption!.match(/free/gi)).toHaveLength(1);
     expect(r.warnings.join(" ")).toMatch(/No intro/);
     expect(r.spec!.caption).toContain(COPY.save);
     expect(r.spec!.caption).toContain("Link in bio.");
@@ -667,7 +672,7 @@ describe("the roundup caption's own words", () => {
         e("Downtown Library", "Bend", "Free"),
         e("Pine Nursery Park", "Bend", null, ["Ages 2 to 5"]),
       ]),
-    ).toBe("Two events, all in Bend, for ages 2 and up. One is free.");
+    ).toBe("Two events, all in Bend, for ages 2 to 10. One is free.");
     expect(
       eventsIntro([
         e("Redmond Library", "Redmond", "Free"),
@@ -681,7 +686,93 @@ describe("the roundup caption's own words", () => {
         e("Redmond Library", "Redmond", null),
         e("Redmond Library", "Redmond", null),
       ]),
-    ).toBe("Two events, all at Redmond Library, for ages 5 and up.");
+    ).toBe("Two events, all at Redmond Library, for ages 5 to 10.");
+    // "and up" only when some chip is open-ended; all ages: no age clause.
+    expect(
+      eventsIntro([
+        e("Downtown Library", "Bend", null, ["Ages 3 to 5"]),
+        e("Downtown Library", "Bend", null, ["Ages 6 and up"]),
+      ]),
+    ).toBe("Two events, all at Downtown Library in Bend, for ages 3 and up.");
+    expect(
+      eventsIntro([
+        e("Downtown Library", "Bend", null, ["Age 4"]),
+        e("Downtown Library", "Bend", null, ["Age 4"]),
+      ]),
+    ).toBe("Two events, all at Downtown Library in Bend, for age 4.");
+    expect(
+      eventsIntro([
+        e("Downtown Library", "Bend", null, ["All ages"]),
+        e("Downtown Library", "Bend", null, ["Ages 6 and up"]),
+      ]),
+    ).toBe("Two events, all at Downtown Library in Bend.");
+    // A venue name with a comma keeps it: the town is added, not swapped in.
+    expect(
+      eventsIntro([
+        e("Art, Tea and Play", "Bend", null),
+        e("Art, Tea and Play", "Bend", null),
+      ]),
+    ).toBe("Two events, all at Art, Tea and Play in Bend, for ages 5 to 10.");
+  });
+  it("fits the caption to 2,200 characters: descriptors, then also lines, then the latest events", async () => {
+    const { fitRoundup } = await import("./roundup");
+    const { CAPTION_MAX } = await import("./model");
+    const long = (i: number) => ({
+      slug: `e${i}`,
+      day: `2026-11-${String(24 + (i % 7)).padStart(2, "0")}`,
+      start: "10:00",
+      title: `A Very Long Family Event Title Number ${i} With Many Words In It`,
+      weekday: "Wed",
+      date: `Nov ${24 + (i % 7)}`,
+      time: "10:30 am to 12:30 pm",
+      venue: `The Longest Venue Name In Central Oregon ${i}`,
+      town: ["Bend", "Redmond", "Sisters", "La Pine"][i % 4],
+      ages: ["Ages 3 to 10"],
+      desc: "Kids paint, glue, stack, build and sculpt a whole lot of things",
+      cost: "$15 to $25 kids",
+      host: `The Central Oregon Family Arts Collective Number ${i}`,
+      also: "Also Thu, Fri, Sat, Sun",
+    });
+    const eight = Array.from({ length: 8 }, (_, i) => long(i));
+    const win = {
+      label: "Tue, Nov 24 to Mon, Nov 30",
+      caption: "Nov 24 to 30",
+    };
+    const full = await import("./compose").then((c) =>
+      c.composeEventsWeek(eight, win, false),
+    );
+    expect(full.caption!.length).toBeGreaterThan(CAPTION_MAX);
+    const fit = fitRoundup(eight, win, false);
+    if ("skip" in fit) throw new Error(fit.skip);
+    expect(fit.spec.caption!.length).toBeLessThanOrEqual(CAPTION_MAX);
+    // Descriptors went first, from the latest event back.
+    expect(fit.cut[0]).toBe("e7: descriptor cut for caption length");
+    // Then also lines, then events: never an event before every descriptor.
+    const rank = (c: string) =>
+      /descriptor/.test(c) ? 0 : /also line/.test(c) ? 1 : 2;
+    expect(fit.cut.map(rank)).toEqual([...fit.cut.map(rank)].sort());
+    const firstOut = fit.cut.findIndex((c) => rank(c) === 2);
+    if (firstOut >= 0)
+      expect(fit.cut.filter((c) => rank(c) === 0)).toHaveLength(8);
+    expect(fit.events.length).toBeGreaterThanOrEqual(4);
+    // The slides lose the same words as the caption.
+    const slides = fit.spec.slides.filter((x) => x.t === "event");
+    expect(slides).toHaveLength(fit.events.length);
+    fit.events.forEach((e, i) =>
+      expect(slides[i]).toMatchObject({ desc: e.desc, also: e.also }),
+    );
+    // A tighter limit takes the also lines, then the latest events, down to 4.
+    const tight = fitRoundup(eight, win, false, 1500);
+    if ("skip" in tight) throw new Error(tight.skip);
+    expect(tight.events.every((e) => !e.desc && !e.also)).toBe(true);
+    expect(tight.events.length).toBeGreaterThanOrEqual(4);
+    expect(tight.events.length).toBeLessThan(8);
+    expect(tight.cut.at(-1)).toMatch(/left out for caption length/);
+    expect(tight.spec.caption!.length).toBeLessThanOrEqual(1500);
+    // Too long even at 4 events with nothing extra: no roundup.
+    expect(fitRoundup(eight, win, false, 400)).toMatchObject({
+      skip: expect.stringMatching(/over 400 characters even with 4 events/),
+    });
   });
 });
 
@@ -788,7 +879,7 @@ describe("composeEventsWeek", () => {
     expect(spec.caption).not.toMatch(/\b(i|me|my)\b/i);
     const lines = spec.caption!.split("\n");
     expect(lines[2]).toBe(
-      "Four events in Bend, Redmond, Sisters and La Pine, for ages 3 and up. All are free.",
+      "Four events in Bend, Redmond, Sisters and La Pine, for ages 3 to 6. All are free.",
     );
     // Day headings, then one line per event, with where (venues differ).
     expect(lines).toContain("Wednesday, Nov 25");

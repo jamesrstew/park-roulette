@@ -294,7 +294,7 @@ function properNouns(text: string): string[] {
 }
 
 /** Things you'd buy, print or watch: not household items. */
-const NOT_HOUSEHOLD =
+export const NOT_HOUSEHOLD =
   /\b(buy|bought|purchas\w*|online|(?<!in )order(s|ed|ing)?|stores?|store-bought|shops?|shopping|kits?|printables?|printers?|print (it|them|this|out)|download\w*|apps?|videos?|movies?|tv|television|screens?|tablets?|websites?|qr codes?|subscriptions?)\b/i;
 
 /**

@@ -264,6 +264,7 @@ export const STORY_LIMITS = {
   max: 420,
   /** The first sentence (Instagram shows about 125 characters). */
   first: 130,
+  minSentences: 2,
   sentences: 4,
 } as const;
 /** No sentence of a story or an intro runs longer than this. */

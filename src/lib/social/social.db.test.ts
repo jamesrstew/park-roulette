@@ -81,6 +81,9 @@ const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
     return Response.json({ id: "IGMEDIA1" });
   }
   if (path.endsWith("/media")) return Response.json({ id: `C${calls.length}` });
+  if (path.endsWith("/photos"))
+    return Response.json({ id: `P${calls.length}` });
+  if (path.endsWith("/feed")) return Response.json({ id: "FBPOST1" });
   if (path.endsWith("/comments")) return Response.json({ data: comments });
   if (path.endsWith("/conversations")) return Response.json({ data: [] });
   if (path.endsWith("/messages")) return Response.json({ recipient_id: "x" });
@@ -234,6 +237,59 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       `select status, ig_media_id from social_posts where id = ${id}`,
     );
     expect(row).toMatchObject({ status: "published", ig_media_id: "IGMEDIA1" });
+  });
+
+  it("a queued park post stored in the old shape (hook and what) still publishes, Facebook too", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    process.env.SOCIAL_FACEBOOK = "on";
+    process.env.FB_PAGE_ID = "1234567890";
+    vi.stubGlobal("fetch", fetchImpl);
+    try {
+      const id = await draftPost();
+      // What a post queued before the voice change looks like.
+      const oldCaption =
+        "A Bend playground for all abilities: Larkspur Park\n\nThree play zones for all abilities, plus picnic tables.\nUniversal-design play for every ability.\nMittens and a snack.\n\n1600 SE Reed Market Rd, Bend, OR 97701\n\nLink in bio.\n\n#BendOregon #CentralOregon #BendKids";
+      const oldFb = oldCaption.replace(
+        "Link in bio.",
+        "Free park picks every Thursday: https://parkroulette.quest/ig?from=fb",
+      );
+      const old = {
+        type: "park_post",
+        park: "larkspur-park-bend",
+        hook: "A Bend playground for all abilities",
+        who: "Universal-design play for every ability.",
+        what: "Three play zones for all abilities, plus picnic tables.",
+        bring: "Mittens and a snack.",
+        hashtags: ["#BendOregon", "#CentralOregon", "#BendKids"],
+      };
+      const lit = (x: unknown) => `'${JSON.stringify(x).replace(/'/g, "''")}'`;
+      await q(
+        `update social_posts set body = ${lit(old)}::jsonb,
+          spec = jsonb_set(jsonb_set(jsonb_set(spec, '{caption}', ${lit(oldCaption)}::jsonb), '{fbCaption}', ${lit(oldFb)}::jsonb), '{headline}', '"A Bend playground for all abilities"'::jsonb)
+          where id = ${id}`,
+      );
+      await q(
+        `update social_posts set caption = spec->>'caption' where id = ${id}`,
+      );
+      await store.runSocial(MON_1150, { fetchImpl });
+      await store.runSocial(MON_1215, { fetchImpl });
+      const create = calls.find(
+        (c) => c.method === "POST" && c.path.endsWith("/media"),
+      );
+      expect(create?.body.get("caption")).toBe(oldCaption);
+      expect(
+        calls.filter((c) => c.path.endsWith("/media_publish")),
+      ).toHaveLength(1);
+      const feed = calls.find((c) => c.path.endsWith("/feed"));
+      expect(feed?.body.get("message")).toBe(oldFb);
+      const [row] = await q(
+        `select status, fb_post_id from social_posts where id = ${id}`,
+      );
+      expect(row).toMatchObject({ status: "published", fb_post_id: "FBPOST1" });
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.SOCIAL_FACEBOOK;
+    }
   });
 
   it("two runs at once: one takes the lease, the other stands down", async () => {
