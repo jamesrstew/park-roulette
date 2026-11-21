@@ -35,9 +35,12 @@ import {
   cancellationOf,
   checkTarget,
   judge,
+  issueDay,
   judgeListing,
+  listingUnseenDays,
 } from "./state";
-import { eventDomains } from "./validate";
+import { eventDomains, HOST_GAP_MS, pagePool } from "./validate";
+import { siteOf } from "@/lib/news/validate";
 
 export {
   afterCheck,
@@ -474,6 +477,10 @@ export async function knownEvents(
     kind: string;
     confirm: string;
     status: string;
+    /** False when its printed ages aren't kids' (coverage skips it). */
+    kids: boolean;
+    /** Dates that aren't scheduled (canceled, postponed, rescheduled). */
+    statusByDay?: Record<string, string>;
     /**
      * The page's stored facts, for the harvest to hand them in again (a
      * hand-in replaces them) and to see which pages lack printed ages or
@@ -515,6 +522,8 @@ export async function knownEvents(
       kind: r.kind,
       confirm: r.confirm,
       status: r.status,
+      kids: e.ages?.kids !== false,
+      ...(e.statusByDay ? { statusByDay: e.statusByDay } : {}),
       title: e.title,
       url: e.url,
       venue: { name: e.venue.name, town: e.venue.town },
@@ -568,7 +577,7 @@ export const CHECK_BUDGET_MS = 240_000;
 export async function recheckEvents(
   now = new Date(),
   fetcher = fetchPage,
-  opts: { budgetMs?: number; concurrency?: number } = {},
+  opts: { budgetMs?: number; concurrency?: number; gapMs?: number } = {},
 ): Promise<{ checked: number; changed: string[]; left: number }> {
   const started = Date.now();
   const rows = await db
@@ -582,7 +591,13 @@ export async function recheckEvents(
   const changed: string[] = [];
   let checked = 0;
   let i = 0;
-  const domains = eventDomains(CATALOG.link_domains);
+  const domains = [
+    ...eventDomains(CATALOG.link_domains),
+    ...CATALOG.evidence_domains,
+  ];
+  // At most 2 fetches at a time per host, 500 ms apart (one page cache
+  // for the night: a shared listing page is fetched once).
+  const get = pagePool(fetcher, 2, opts.gapMs ?? HOST_GAP_MS);
   const worker = async () => {
     while (i < due.length) {
       if (Date.now() - started > (opts.budgetMs ?? CHECK_BUDGET_MS)) return;
@@ -595,15 +610,12 @@ export async function recheckEvents(
       // Both pages at once, so a listing check takes one fetch's time at
       // most, as the cron budget (lib/cron-budget.ts) assumes.
       const [page, organizer] = await Promise.all([
-        fetcher(
+        get(
           target!.url,
           listing ? [...domains, ...CATALOG.listing_domains] : domains,
-        ).catch(() => null),
+        ),
         listing && target!.url !== organizerUrl
-          ? fetcher(organizerUrl, [
-              ...domains,
-              new URL(organizerUrl).hostname.replace(/^www\./, ""),
-            ]).catch(() => null)
+          ? get(organizerUrl, [...domains, siteOf(organizerUrl, domains)])
           : Promise.resolve(undefined),
       ]);
       let outcome = listing
@@ -612,6 +624,7 @@ export async function recheckEvents(
             page,
             target!.quote,
             title,
+            target!.next.day,
           )
         : judge(page, target!.quote, {
             walled: !!onList(target!.url, CATALOG.walled_hosts),
@@ -620,6 +633,8 @@ export async function recheckEvents(
       // A non-scheduled event whose page is gone stays as it is.
       if (target!.status !== "scheduled" && outcome === "miss")
         outcome = "unknown";
+      const unseen =
+        (now.getTime() - (r.lastSeenAt ?? r.createdAt).getTime()) / 86_400_000;
       const next = afterCheck(
         {
           confirm: r.confirm as "ok" | "unconfirmed",
@@ -627,12 +642,15 @@ export async function recheckEvents(
           seenStreak: r.seenStreak,
         },
         outcome,
-        // A listing event whose pages are walled or gone stays as it is
-        // until its date: unknown never takes it off the listing.
+        // A listing event whose pages are walled or gone stays listed for
+        // 14 days unknown, while its issue is under 8 weeks old.
         listing
-          ? 0
-          : (now.getTime() - (r.lastSeenAt ?? r.createdAt).getTime()) /
-              86_400_000,
+          ? listingUnseenDays(
+              unseen,
+              page?.status === 200 ? issueDay(page.text) : null,
+              pacificToday(now),
+            )
+          : unseen,
       );
       const flipped = next.confirm !== r.confirm;
       // The page says it's canceled: that date's status changes (the

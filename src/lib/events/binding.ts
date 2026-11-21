@@ -29,6 +29,13 @@ const MINOR = new Set([
   "with",
 ]);
 
+/** The title, or its stem, as a phrase in the text (never scattered words). */
+export function namesByPhrase(text: string, title: string): boolean {
+  const l = ` ${flat(text)} `;
+  const stem = flat(title.split(/[:(|]| - | – /)[0]);
+  return !!stem && (l.includes(` ${flat(title)} `) || l.includes(` ${stem} `));
+}
+
 /**
  * Does this data line name the event? It holds the title, or the title's
  * stem (the part before a colon or dash), or every word of the stem.
@@ -37,7 +44,7 @@ export function lineNamesEvent(lineText: string, title: string): boolean {
   const l = ` ${flat(lineText)} `;
   const stem = flat(title.split(/[:(|]| - | – /)[0]);
   if (!stem) return false;
-  if (l.includes(` ${flat(title)} `) || l.includes(` ${stem} `)) return true;
+  if (namesByPhrase(lineText, title)) return true;
   const words = stem.split(" ").filter((w) => w.length > 1 && !MINOR.has(w));
   return words.length > 0 && words.every((w) => l.includes(` ${w} `));
 }

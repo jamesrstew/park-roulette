@@ -16,15 +16,8 @@ import { pageText, type Fetcher } from "./validate";
  * are capped at 2 MB, and the whole fetch at 15 seconds.
  */
 
-/**
- * Who we are, plainly: our name, our site and an address to write to. No
- * "Mozilla/5.0 (compatible; ...)" prefix: we aren't a browser, and some
- * firewalls (Old Mill District's, November 2026) drop that prefix on
- * non-browsers as a fake browser, resetting the connection, while they
- * answer an honest bot name with the page.
- */
-export const UA =
-  "ParkRouletteNews/1.0 (+https://parkroulette.quest; hello@parkroulette.quest)";
+export { UA } from "./ua";
+import { UA } from "./ua";
 const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_HOPS = 3;
 
@@ -118,11 +111,31 @@ export function privateAddress(ip: string): boolean {
   return true;
 }
 
+/** At most this long for one DNS lookup (the fetch's own timeout doesn't cover it). */
+export const DNS_TIMEOUT_MS = 5_000;
+
+/** A DNS lookup that gives up after DNS_TIMEOUT_MS. */
+function lookupAll(hostname: string, options: LookupOptions = {}) {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    lookup(hostname, { ...options, all: true }),
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        const err = new Error(
+          `${hostname} lookup timed out`,
+        ) as NodeJS.ErrnoException;
+        err.code = "ETIMEDOUT";
+        reject(err);
+      }, DNS_TIMEOUT_MS);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 async function publicHost(hostname: string): Promise<boolean> {
   const h = hostname.replace(/^\[|\]$/g, "");
   if (isIP(h)) return !privateAddress(h);
   try {
-    const all = await lookup(h, { all: true });
+    const all = await lookupAll(h);
     return all.length > 0 && all.every((a) => !privateAddress(a.address));
   } catch {
     return false;
@@ -144,7 +157,7 @@ export function pinnedLookup(
     family?: number,
   ) => void,
 ): void {
-  lookup(hostname, { ...options, all: true })
+  lookupAll(hostname, options)
     .then((all) => {
       if (!all.length || all.some((a) => privateAddress(a.address))) {
         const err = new Error(

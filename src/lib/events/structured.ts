@@ -113,9 +113,14 @@ export function jsonLdText(html: string): string {
  * Bookkeeping times (when a record was edited, not when the event is), and
  * other dates that aren't the event's: how far a booking calendar is
  * filled in (availabilityCoveredTo), when a listing expires, a cutoff or
- * deadline.
+ * deadline, blackout, sold-out, closed or excluded dates.
  */
-const DROP_KEY = /modif|updat|creat|publish|covered|expir|cutoff|deadline/i;
+const DROP_KEY =
+  /modif|updat|creat|publish|covered|expir|cutoff|deadline|blackout|unavailable|sold_?out|closed|exclud/i;
+/** A link or path ("https://…/2026-12-24/…", "/events/2026-12-23/"). */
+const URLISH = /^(https?:\/\/|\/)\S*$/i;
+/** Labels on a record (Sunriver's "kouto.vibe" tags). */
+const TAG_KEY = /^(tags|categories|labels|vibes|badges)$/;
 /** A record's own name. */
 const TITLE_KEY = /^(title|name|eventname|summary|heading)$/;
 /** Machine dates in a value ("2026-11-21", "20261121T1000"). */
@@ -157,27 +162,46 @@ export function jsonText(body: string): string {
 const scalar = (v: unknown): v is string | number =>
   typeof v === "string" || typeof v === "number";
 
-/** One line per record of a parsed JSON tree (see jsonText). */
-function jsonLines(parsed: unknown, maxDepth = 10): string[] {
+/**
+ * One line per record of a parsed JSON tree (see jsonText). A date inside
+ * a link or path value is never one of the record's dates. With `oneLevel`
+ * (a page's own render data, where records nest in layout), a record
+ * passes its title to the records directly inside it, no deeper.
+ */
+function jsonLines(parsed: unknown, maxDepth = 10, oneLevel = false): string[] {
   const out: string[] = [];
-  const walk = (node: unknown, depth: number, parentTitle?: string) => {
+  const walk = (
+    node: unknown,
+    depth: number,
+    parentTitle?: string,
+    tag = false,
+  ) => {
     if (depth > maxDepth || node === null || typeof node !== "object") return;
     if (Array.isArray(node)) {
-      for (const n of node) walk(n, depth + 1, parentTitle);
+      for (const n of node) walk(n, depth + 1, parentTitle, tag);
       return;
     }
     const entries = Object.entries(node as Record<string, unknown>).filter(
       ([k]) => !DROP_KEY.test(k),
     );
     // A list of plain values (availableDates: ["2026-11-21"]) is one value.
-    const scalars = entries.flatMap(([k, v]): [string, string | number][] =>
-      scalar(v)
-        ? [[k, v]]
-        : Array.isArray(v) && v.length > 0 && v.length <= 60 && v.every(scalar)
-          ? [[k, v.join(", ")]]
-          : [],
-    );
-    const title = scalars.find(([k]) => TITLE_KEY.test(bare(k)))?.[1];
+    const scalars = entries
+      .flatMap(([k, v]): [string, string | number][] =>
+        scalar(v)
+          ? [[k, v]]
+          : Array.isArray(v) &&
+              v.length > 0 &&
+              v.length <= 60 &&
+              v.every(scalar)
+            ? [[k, v.join(", ")]]
+            : [],
+      )
+      .filter(([, v]) => !(URLISH.test(String(v)) && MACHINE.test(String(v))));
+    // A tag's name ("Exclusive to Resort Guests & Members") is a value of
+    // the record it labels, not a record of its own.
+    const title = tag
+      ? undefined
+      : scalars.find(([k]) => TITLE_KEY.test(bare(k)))?.[1];
     const hasWhen = scalars.some(([k]) => whenKey(k));
     const kept = scalars.filter(
       ([k, v]) => !hasWhen || whenKey(k) || !MACHINE.test(String(v)),
@@ -186,14 +210,16 @@ function jsonLines(parsed: unknown, maxDepth = 10): string[] {
       title ?? parentTitle,
       ...kept.filter(([k]) => whenKey(k)).map(([, v]) => v),
       ...kept
-        .filter(([k]) => !whenKey(k) && !TITLE_KEY.test(bare(k)))
+        .filter(([k]) => !whenKey(k) && (tag || !TITLE_KEY.test(bare(k))))
         .map(([, v]) => v),
     ]);
-    const hasOwn = kept.some(([k]) => !TITLE_KEY.test(bare(k)));
+    const hasOwn = kept.some(([k]) => tag || !TITLE_KEY.test(bare(k)));
     if (own && hasOwn) out.push(own);
-    const next = typeof title === "string" ? title : parentTitle;
-    for (const [, v] of entries)
-      if (v && typeof v === "object") walk(v, depth + 1, next);
+    const next =
+      typeof title === "string" ? title : oneLevel ? undefined : parentTitle;
+    for (const [k, v] of entries)
+      if (v && typeof v === "object")
+        walk(v, depth + 1, next, TAG_KEY.test(bare(k)));
   };
   walk(parsed, 0);
   return out;
@@ -260,7 +286,7 @@ export function nextDataText(html: string): string {
     if (!/^[[{]/.test(row)) continue;
     try {
       // React trees nest deep: allow more depth than a CMS record.
-      out.push(...jsonLines(JSON.parse(row), 60));
+      out.push(...jsonLines(JSON.parse(row), 60, true));
     } catch {
       continue;
     }
@@ -270,7 +296,7 @@ export function nextDataText(html: string): string {
   );
   if (nd)
     try {
-      out.push(...jsonLines(JSON.parse(nd[1]), 40));
+      out.push(...jsonLines(JSON.parse(nd[1]), 40, true));
     } catch {
       // not evidence
     }

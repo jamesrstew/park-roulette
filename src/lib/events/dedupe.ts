@@ -93,23 +93,26 @@ function closeInTime(a: EventDate[], b: EventDate[]): string | null {
 const norm = (u: string) => u.replace(/#.*$/, "").replace(/\/$/, "");
 
 /**
- * Do two events share an official page? When both have per-date pages
- * (targets), those decide: the library links every program to one
- * calendar page (deschuteslibrary.org/calendar/) but checks each date on
- * its own occurrence page (dpl.libnet.info/event/{id}), so two programs
- * at one branch and time are two pages, not one (lessons 33 and 47).
- * Otherwise the link counts too. A newsletter issue is never one event's
- * page (it lists dozens), so listing evidence pages don't count.
+ * Do two events share an official page? A known multi-program calendar
+ * page (catalog shared_calendar_pages: the library links every program
+ * to deschuteslibrary.org/calendar/) doesn't count when both events have
+ * per-date pages of their own (dpl.libnet.info/event/{id}), so two programs
+ * at one branch and time are two pages (lessons 33 and 47). Any other
+ * shared link does. A newsletter issue is never one event's page (it
+ * lists dozens), so listing evidence pages don't count either.
  */
 export function samePage(
   a: Pick<KnownEvent, "url" | "targetUrls">,
   b: Pick<KnownEvent, "url" | "targetUrls">,
   listingDomains: readonly string[] = CATALOG.listing_domains,
+  calendars: readonly string[] = CATALOG.shared_calendar_pages,
 ): boolean {
+  const shared = new Set(calendars.map(norm));
   const own = (k: typeof a) =>
     k.targetUrls.filter((u) => !onList(u, listingDomains));
   const both = own(a).length > 0 && own(b).length > 0;
-  const pages = (k: typeof a) => (both ? own(k) : [k.url, ...own(k)]).map(norm);
+  const pages = (k: typeof a) =>
+    [...(both && shared.has(norm(k.url)) ? [] : [k.url]), ...own(k)].map(norm);
   const mine = new Set(pages(a));
   return pages(b).some((u) => mine.has(u));
 }

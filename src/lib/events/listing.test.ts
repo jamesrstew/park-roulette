@@ -73,7 +73,7 @@ const swim = (over: Partial<EventInput> = {}): EventInput => ({
 });
 
 const listingPage = page(ISSUE, {
-  text: `Bend Family Loop weekend ... ${LISTING} ... more events`,
+  text: `Bend Family Loop weekend Nov 19, 2026 ... ${LISTING} ... more events`,
 });
 const one = async (e: EventInput, pages: Pages) =>
   (await validateEvents({ events: [e] }, ctx(pages))).events[0];
@@ -127,7 +127,7 @@ describe("verified on a newsletter's listing", () => {
       [SHARC]: page(SHARC, {
         text:
           "Winter events at SHARC. ".repeat(10) +
-          "Holiday Lights Swim returns!",
+          "Holiday Lights Swim returns Saturday, Nov 28.",
       }),
     });
     expect(names.problems).toEqual([]);
@@ -215,15 +215,15 @@ describe("a listing's date belongs to its event", () => {
 
 describe("the organizer's page, judged", () => {
   it("reads walls as trust and dead links as cuts", () => {
-    expect(organizerVerdict(null, "X Y").trusted).toBeTruthy();
-    expect(
-      organizerVerdict(page(SHARC, { status: 410 }), "Holiday Lights Swim").cut,
-    ).toMatch(/410/);
-    // A client-rendered page with nothing to read: unknown, trusted.
-    expect(
-      organizerVerdict(page(SHARC, { text: "Loading" }), "Holiday Lights Swim")
-        .trusted,
-    ).toMatch(/no text/);
+    const ev = { title: "Holiday Lights Swim", dates: [{ day: "2026-11-28" }] };
+    expect(organizerVerdict(null, ev).cut).toBeTruthy();
+    expect(organizerVerdict(page(SHARC, { status: 410 }), ev).cut).toMatch(
+      /410/,
+    );
+    // A client-rendered page with nothing to read: cut (review item 1).
+    expect(organizerVerdict(page(SHARC, { text: "Loading" }), ev).cut).toMatch(
+      /nothing we can read/,
+    );
   });
 });
 
@@ -232,39 +232,48 @@ describe("the nightly check for a listing event", () => {
   const t = "Holiday Lights Swim";
   const wall = page(SHARC, { status: 403, blocked: "an Akamai firewall" });
   it("a wall at the organizer is never a miss", () => {
-    expect(judgeListing(wall, listingPage, q, t)).toBe("seen");
-    expect(judgeListing(wall, page(ISSUE, { status: 503 }), q, t)).toBe(
-      "unknown",
-    );
+    expect(judgeListing(wall, listingPage, q, t, "2026-11-28")).toBe("seen");
+    expect(
+      judgeListing(wall, page(ISSUE, { status: 503 }), q, t, "2026-11-28"),
+    ).toBe("unknown");
   });
   it("a listing that's gone is unknown, not a miss", () => {
-    expect(judgeListing(wall, page(ISSUE, { status: 404 }), q, t)).toBe(
-      "unknown",
-    );
-    expect(judgeListing(wall, page(ISSUE, { status: 410 }), q, t)).toBe(
-      "unknown",
-    );
+    expect(
+      judgeListing(wall, page(ISSUE, { status: 404 }), q, t, "2026-11-28"),
+    ).toBe("unknown");
+    expect(
+      judgeListing(wall, page(ISSUE, { status: 410 }), q, t, "2026-11-28"),
+    ).toBe("unknown");
   });
   it("a dead organizer link, or a loaded listing without the quote, is a miss", () => {
-    expect(judgeListing(page(SHARC, { status: 404 }), listingPage, q, t)).toBe(
-      "miss",
-    );
+    expect(
+      judgeListing(
+        page(SHARC, { status: 404 }),
+        listingPage,
+        q,
+        t,
+        "2026-11-28",
+      ),
+    ).toBe("miss");
     expect(
       judgeListing(
         wall,
         page(ISSUE, { text: "This weekend: crafts and cocoa, and more." }),
         q,
         t,
+        "2026-11-28",
       ),
     ).toBe("miss");
   });
   it("an organizer page that names the event is seen even when the listing is gone", () => {
     const named = page(SHARC, {
-      text: "Winter at SHARC. ".repeat(20) + "Holiday Lights Swim returns!",
+      text:
+        "Winter at SHARC. ".repeat(20) +
+        "Holiday Lights Swim returns Saturday, Nov 28.",
     });
-    expect(judgeListing(named, page(ISSUE, { status: 404 }), q, t)).toBe(
-      "seen",
-    );
+    expect(
+      judgeListing(named, page(ISSUE, { status: 404 }), q, t, "2026-11-28"),
+    ).toBe("seen");
   });
 });
 

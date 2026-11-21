@@ -41,19 +41,34 @@ export type Coverage = {
 
 export function coverage(
   events: readonly {
+    slug?: string;
     kind: string;
     confirm: string;
     url: string;
     dates: readonly EventDate[];
+    /** False when the printed ages aren't kids' (never counted). */
+    kids?: boolean;
+    /** A date's status when it isn't scheduled (canceled, postponed...). */
+    statusByDay?: Readonly<Record<string, string>>;
   }[],
   today: string,
 ): Coverage {
   const until = addDays(today, COMMUNITY_TARGET.days);
-  const inWindow = events.filter(
-    (e) =>
-      e.confirm === "ok" &&
-      e.dates.some((d) => (d.end_day ?? d.day) >= today && d.day <= until),
-  );
+  const seen = new Set<string>();
+  const inWindow = events.filter((e, i) => {
+    if (e.confirm !== "ok" || e.kids === false) return false;
+    // One page counts once.
+    const id = e.slug ?? `#${i}`;
+    if (seen.has(id)) return false;
+    const live = e.dates.some(
+      (d) =>
+        (d.end_day ?? d.day) >= today &&
+        d.day <= until &&
+        (e.statusByDay?.[d.day] ?? "scheduled") === "scheduled",
+    );
+    if (live) seen.add(id);
+    return live;
+  });
   const community = inWindow.filter(
     (e) => e.kind === "one_off" || e.kind === "annual",
   ).length;

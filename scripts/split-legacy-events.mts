@@ -14,6 +14,7 @@
  */
 import { asc, sql } from "drizzle-orm";
 import { isLocalDb } from "../src/lib/local-db";
+import { UA } from "../src/lib/news/ua";
 
 const url = process.env.DATABASE_URL ?? "";
 if (!isLocalDb(url)) {
@@ -33,9 +34,6 @@ const { rowKey, splitEvent } = await import("../src/lib/events/store");
 const { eq } = await import("drizzle-orm");
 type Resolved = import("../src/lib/events/legacy-split").Resolved;
 type StoredEvent = import("../src/lib/events/model").StoredEvent;
-
-const UA =
-  "ParkRouletteNews/1.0 (+https://parkroulette.quest; hello@parkroulette.quest)";
 
 async function resolve(u: string): Promise<Resolved | null> {
   try {

@@ -223,6 +223,19 @@ export const CatalogSchema = z.object({
     .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
     .default([]),
   /**
+   * Data hosts that are evidence only (never a link): an organizer's page
+   * loads its facts from them (Sunriver Resort's experience catalog). Each
+   * is a site_aliases entry, and usually an alias_paths one.
+   */
+  evidence_domains: z
+    .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
+    .default([]),
+  /**
+   * Calendar pages that link many programs (the library's): two events
+   * sharing one of these as their link are not the same page.
+   */
+  shared_calendar_pages: z.array(z.string().url()).default([]),
+  /**
    * The two local family newsletters' own pages (issues and web calendar):
    * a discovery source, and, for an event whose organizer's site keeps the
    * checker out, its evidence (verified_via "listing"). Never an event's
@@ -257,10 +270,10 @@ export const CatalogSchema = z.object({
     .record(z.string(), z.record(z.string(), z.string()))
     .default({}),
   /**
-   * Path prefixes an alias host's evidence URL must start with, when the
-   * host serves many organizations by path (Sunriver Resort's experience
-   * catalogs on api.live.onaws.letsway.com, its things-to-do page's own
-   * data: /v1/catalogs/<one of the resort's catalog ids>).
+   * The organizer's own paths on an alias host that serves many
+   * organizations by path (Sunriver Resort's experience catalogs on
+   * api.live.onaws.letsway.com: /v1/catalogs/<one of the resort's ids>/).
+   * Evidence must be exactly <prefix>items (aliasPathProblem).
    */
   alias_paths: z
     .record(z.string(), z.array(z.string().regex(/^\//)).min(1))
@@ -365,4 +378,28 @@ export function seasonalDefault(
           d.with.some((w) => t.includes(w.toLowerCase()))),
     ) ?? null
   );
+}
+
+/**
+ * Evidence on an alias host that serves many organizations by path: only
+ * exactly <allowed prefix>items (a query is fine), and never an encoded
+ * slash, backslash or dot, or "..", in the raw URL. Null when fine, or
+ * when the host has no path rule. Returns the allowed catalog id too.
+ */
+export function aliasPathProblem(
+  url: string,
+  aliasPaths: Readonly<Record<string, readonly string[]>> = {},
+): { problem: string | null; prefix?: string } {
+  const a = onList(url, Object.keys(aliasPaths));
+  if (!a) return { problem: null };
+  const fail = {
+    problem: `Evidence on ${a} must be the organizer's own data: ${aliasPaths[a].map((x) => `${x}items`).join(" or ")}.`,
+  };
+  const raw = url.split(/[?#]/)[0];
+  if (/%2f|%5c|%2e|\.\.|\\/i.test(raw)) return fail;
+  const path = new URL(url).pathname;
+  const prefix = aliasPaths[a].find(
+    (x) => path === `${x}items` || path === `${x}items/`,
+  );
+  return prefix ? { problem: null, prefix } : fail;
 }

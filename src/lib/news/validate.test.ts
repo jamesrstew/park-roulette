@@ -39,6 +39,8 @@ const catalog: Catalog = {
   alias_paths: {},
   listing_domains: [],
   not_organizer_domains: [],
+  evidence_domains: [],
+  shared_calendar_pages: [],
   venue_aliases: [],
   walled_hosts: [],
   skip_dates: [{ date: "2026-12-24", reason: "Christmas Eve" }],

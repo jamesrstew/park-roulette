@@ -76,9 +76,10 @@ export function judge(
 /**
  * One night's look at an event verified on a newsletter's listing (the
  * organizer's site keeps the checker out). The organizer's page decides
- * only when it answers: a dead link (404, 410) or a loaded page that
- * clearly lacks the event is a miss, and a loaded page that names it is
- * seen. A wall there is unknown, never a miss. Then the listing is
+ * when it answers (organizerVerdict): canceled when it says so, a miss
+ * when it's gone, lacks the event or prints another date, seen when it
+ * names the event on its date. A wall there (403, 429, 5xx, a bot check,
+ * a reset, a timeout) is unknown, never a miss. Then the listing is
  * judged like any page, except that a listing that's gone (an archived
  * issue taken down) is unknown too, not a miss.
  */
@@ -87,28 +88,54 @@ export function judgeListing(
   listing: Parameters<typeof judge>[0],
   quote: string,
   title: string,
+  day: string,
 ): CheckOutcome {
-  const org = organizerVerdict(organizer, title);
+  if (organizer?.status === 200 && !organizer.blocked) {
+    const r = { text: organizer.text ?? "", data: organizer.data };
+    if (pageNamesEvent(r, title) && cancellationOf(r, title)) return "canceled";
+  }
+  const org = organizerVerdict(organizer, {
+    title,
+    dates: [{ day }],
+    recurring: true,
+  });
   if (org.cut) return "miss";
+  if (!org.trusted) return "seen";
   const l = judge(listing, quote, { title });
   if (
     l === "miss" &&
     listing &&
     (listing.status === 404 || listing.status === 410)
   )
-    return organizerSeen(organizer, title) ? "seen" : "unknown";
-  if (l === "unknown" && organizerSeen(organizer, title)) return "seen";
+    return "unknown";
   return l;
 }
 
-const organizerSeen = (
-  r: Parameters<typeof organizerVerdict>[0],
-  title: string,
-) =>
-  !!r &&
-  r.status === 200 &&
-  !r.blocked &&
-  pageNamesEvent({ text: r.text ?? "", data: r.data }, title);
+/** Days unknown before a listing event leaves the listing. */
+export const LISTING_UNKNOWN_DAYS = 14;
+/** An issue older than this (days) no longer holds a listing event up. */
+export const LISTING_ISSUE_MAX_AGE = 56;
+
+/**
+ * The "days unseen" a listing event's unknown night counts as: none
+ * until it has been unknown for 14 days or its issue is older than 8
+ * weeks, then past any limit (it leaves the listing until it's seen).
+ */
+export function listingUnseenDays(
+  unseenDays: number,
+  issued: string | null,
+  today: string,
+): number {
+  const age = issued
+    ? (Date.parse(`${today}T12:00:00Z`) - Date.parse(`${issued}T12:00:00Z`)) /
+      86_400_000
+    : 0;
+  return unseenDays >= LISTING_UNKNOWN_DAYS || age > LISTING_ISSUE_MAX_AGE
+    ? Number.POSITIVE_INFINITY
+    : 0;
+}
+
+export { issueDay } from "./validate";
 
 const CANCELED = /\bcancell?ed\b/i;
 const NOT_CANCELED =

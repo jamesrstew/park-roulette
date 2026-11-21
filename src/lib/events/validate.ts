@@ -15,9 +15,10 @@ import {
   venueKey,
 } from "./model";
 import { machinePrintsDay, machinePrintsTime } from "./machine-time";
-import { lineNamesEvent } from "./binding";
+import { lineNamesEvent, namesByPhrase } from "./binding";
 import { onPage } from "./structured";
 import {
+  aliasPathProblem,
   aliasSite,
   allowedLink,
   type Catalog,
@@ -58,6 +59,8 @@ export type EventsContext = {
         | "alias_paths"
         | "listing_domains"
         | "not_organizer_domains"
+        | "evidence_domains"
+        | "shared_calendar_pages"
       >
     >;
   /** Public parks on our map, by slug (a venue at a park uses its pin). */
@@ -334,8 +337,66 @@ export function datePrinted(
   });
 }
 
-/** Naming another newsletter (even "via Bend Family Loop") is out. */
-export const COMPETITOR_NAMES = /bend[\s_.-]*(family[\s_.-]*loop|buzz)/i;
+/**
+ * Naming another newsletter (even "via Bend Family Loop", "the Family
+ * Loop", "The Buzz") is out (as lib/news/lessons.ts COMPETITOR_WORDS).
+ */
+export const COMPETITOR_NAMES =
+  /bend[\s_.-]*(family[\s_.-]*loop|buzz)|family[\s_.-]*loop|\bthe[\s_.-]*buzz\b/i;
+
+/** Tracking query keys we strip from a link before storing it. */
+const TRACKING =
+  /^(utm_.*|mc_.*|fbclid|gclid|dclid|msclkid|igshid|ref|_hs.*)$/i;
+
+/** A link without tracking parameters or a fragment. */
+export function cleanLink(u: string): string {
+  let url: URL;
+  try {
+    url = new URL(u);
+  } catch {
+    return u;
+  }
+  for (const k of [...url.searchParams.keys()])
+    if (TRACKING.test(k)) url.searchParams.delete(k);
+  url.hash = "";
+  return url.toString();
+}
+
+/** Weekday words in a quote ("Sat", "Saturday"), as 0 (Sunday) to 6. */
+function weekdaysIn(q: string): number[] {
+  const out: number[] = [];
+  const re =
+    /\b(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(day|nesday|rsday|urday|sday)?\b/gi;
+  for (const m of q.matchAll(re))
+    out.push(
+      ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].indexOf(
+        m[1].toLowerCase().slice(0, 3),
+      ),
+    );
+  return out;
+}
+
+/**
+ * The issue's date on a newsletter page: the first printed "Nov 19, 2026"
+ * (an issue's byline), as YYYY-MM-DD. Null when it prints none.
+ */
+export function issueDay(text: string): string | null {
+  const m = text.match(
+    /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+(\d{1,2}),?\s+(20\d{2})\b/i,
+  );
+  if (!m) return null;
+  const mm = MONTHS3.indexOf(m[1].toLowerCase()) + 1;
+  return `${m[3]}-${String(mm).padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+}
+
+const daysBetween = (a: string, b: string) =>
+  Math.round(
+    (Date.parse(`${b}T12:00:00Z`) - Date.parse(`${a}T12:00:00Z`)) / 86_400_000,
+  );
+
+/** Not open to the public: a resort's guests, owners or members only. */
+const EXCLUSIVE =
+  /\bexclusive experience\b|\bexclusive(ly)?\s+(to|for)\b[^|]{0,60}?\b(guests?|owners?|members?|residents?)\b|\b(guests?|owners?|members?|residents?)\s+only\b|\bavailable (only )?to (resort |registered |overnight )?guests\b|\bprivate event\b/i;
 
 const STOP = new Set([
   "a",
@@ -449,6 +510,16 @@ export function checkEvent(
   const own = ctx.ownHost ?? "parkroulette.quest";
   const domains = eventDomains(ctx.catalog.link_domains, own);
   const quotes = e.evidence.map((x) => x.quote);
+  const listing = e.verified_via === "listing";
+  const onListing = (u: string) =>
+    !!onList(u, ctx.catalog.listing_domains ?? []);
+  // A listing page lists dozens of events: its quotes prove a date, a
+  // weekly pattern or a time only next to the event's name.
+  const proof = e.evidence
+    .filter(
+      (x) => !(listing && onListing(x.url)) || lineNamesEvent(x.quote, e.title),
+    )
+    .map((x) => x.quote);
   const today = pacificToday(ctx.now);
   // Quotes under 12 characters only when they print a date and a time
   // ("Dec 6 · 10:30am"), or a price or "free" with a date or time.
@@ -546,22 +617,40 @@ export function checkEvent(
   }
   // A host serving many organizations by path: the organizer's own paths.
   for (const x of e.evidence) {
-    const paths = ctx.catalog.alias_paths ?? {};
-    const a = onList(x.url, Object.keys(paths));
-    if (!a) continue;
-    const path = new URL(x.url).pathname;
-    if (!paths[a].some((pre) => path.startsWith(pre)))
+    const a = aliasPathProblem(x.url, ctx.catalog.alias_paths);
+    if (a.problem) p.push(a.problem);
+  }
+  // A data host is evidence only.
+  for (const u of [e.url, ...(e.organizer ? [e.organizer.url] : [])]) {
+    const d = onList(u, ctx.catalog.evidence_domains ?? []);
+    if (d)
+      p.push(`${d} is a data host: evidence only. Link the organizer's page.`);
+  }
+  // A link never carries another newsletter, in its host, path, query or
+  // fragment ("?from=bendfamilyloop"): tracking is stripped before this.
+  const named = [
+    ...(ctx.catalog.listing_domains ?? []),
+    ...(ctx.catalog.lead_domains ?? []),
+  ];
+  for (const u of [e.url, ...(e.organizer ? [e.organizer.url] : [])]) {
+    let raw = u;
+    try {
+      raw = decodeURIComponent(u);
+    } catch {
+      // keep it encoded
+    }
+    if (
+      COMPETITOR_NAMES.test(raw) ||
+      named.some((d) => raw.toLowerCase().includes(d))
+    )
       p.push(
-        `Evidence on ${a} must be the organizer's own data (${paths[a].join(" or ")}).`,
+        "A link can't carry another newsletter's name or address. Link the organizer's own page.",
       );
   }
   // Verified on a newsletter's listing (the organizer's site keeps the
   // checker out): its evidence is the listing; its link is the
   // organizer's page, on the allowlist or not ("assume the links they
   // give are good"), but never the newsletter, an aggregator or a reseller.
-  const listing = e.verified_via === "listing";
-  const onListing = (u: string) =>
-    !!onList(u, ctx.catalog.listing_domains ?? []);
   if (listing && !e.evidence.some((x) => onListing(x.url)))
     p.push(
       'verified_via "listing" needs the newsletter\'s own listing of the event as evidence.',
@@ -580,6 +669,21 @@ export function checkEvent(
         p.push(
           `The listing quote "${x.quote.slice(0, 60)}" prints a date but not the event's name: quote the date with the title.`,
         );
+  // A printed weekday must be the date's own.
+  if (listing)
+    for (const x of e.evidence) {
+      if (!onListing(x.url)) continue;
+      const wds = weekdaysIn(x.quote);
+      if (!wds.length) continue;
+      for (const d of e.dates)
+        if (
+          quotePrintsDate(x.quote, d.day) &&
+          !wds.includes(new Date(`${d.day}T12:00:00Z`).getUTCDay())
+        )
+          p.push(
+            `The listing quote "${x.quote.slice(0, 60)}" prints a weekday that isn't ${d.day}'s.`,
+          );
+    }
   if (!listing && e.evidence.some((x) => onListing(x.url)))
     p.push(
       "A newsletter's listing is evidence only with verified_via \"listing\", when the organizer's own page keeps the checker out.",
@@ -595,6 +699,7 @@ export function checkEvent(
     e.url,
     ...(e.organizer ? [e.organizer.url] : []),
   ]);
+  const evDomains = [...domains, ...(ctx.catalog.evidence_domains ?? [])];
   for (const u of new Set(links)) {
     // The listing itself: its checks are above.
     if (listing && onListing(u) && !organizerLinks.has(u)) continue;
@@ -610,13 +715,13 @@ export function checkEvent(
     else if (blockedLink(u))
       p.push(`${host(u)} is another newsletter. Link the primary source.`);
     else if (
-      !allowedLink(u, domains) &&
+      !allowedLink(u, organizerLinks.has(u) ? domains : evDomains) &&
       !(listing && organizerLinks.has(u) && /^https:/.test(u))
     )
       p.push(`${host(u)} isn't on the link allowlist.`);
   }
   const org = (u: string) =>
-    aliasSite(siteOf(u, domains), ctx.catalog.site_aliases);
+    aliasSite(siteOf(u, evDomains), ctx.catalog.site_aliases);
   const site = org(e.url);
   for (const x of e.evidence)
     if (!(listing && onListing(x.url)) && org(x.url) !== site)
@@ -635,15 +740,15 @@ export function checkEvent(
     if (d.start && d.end && !d.end_day && d.end <= d.start)
       p.push(`${d.day}: the end time is before the start.`);
     const recurring = kindOf(e) === "series" || !!e.series_id;
-    if (!datePrinted(quotes, d.day, recurring))
+    if (!datePrinted(proof, d.day, recurring))
       p.push(
         `No evidence quote prints ${d.day} (its month and day, or a weekly pattern within a printed span).`,
       );
-    if (d.end_day && !datePrinted(quotes, d.end_day, false))
+    if (d.end_day && !datePrinted(proof, d.end_day, false))
       p.push(`No evidence quote prints the end date ${d.end_day}.`);
-    if (d.start && !quotes.some((q) => quotePrintsTime(q, d.start!, "start")))
+    if (d.start && !proof.some((q) => quotePrintsTime(q, d.start!, "start")))
       p.push(`No evidence quote prints the start time ${clock(d.start)}.`);
-    if (d.end && !quotes.some((q) => quotePrintsTime(q, d.end!, "end")))
+    if (d.end && !proof.some((q) => quotePrintsTime(q, d.end!, "end")))
       p.push(`No evidence quote prints the end time ${clock(d.end)}.`);
   }
   if (!e.dates.some((d) => d.day >= today || (d.end_day ?? d.day) >= today))
@@ -795,9 +900,29 @@ export async function validateEvents(
             (i) => `${i.path.join(".") || "(event)"}: ${i.message}`,
           ),
         };
-      const e = parsed.data;
+      const warn: string[] = [];
+      const e = {
+        ...parsed.data,
+        url: cleanLink(parsed.data.url),
+        ...(parsed.data.organizer
+          ? {
+              organizer: {
+                ...parsed.data.organizer,
+                url: cleanLink(parsed.data.organizer.url),
+              },
+            }
+          : {}),
+      };
+      // A listing event's link is the organizer's page; a second
+      // organizer link would go unchecked.
+      if (e.verified_via === "listing" && e.organizer) {
+        delete e.organizer;
+        warn.push(
+          "Left out organizer: a listing event's url is the organizer's page.",
+        );
+      }
       const { problems, checkQuote, targets } = checkEvent(e, ctx);
-      const warnings: string[] = [];
+      const warnings: string[] = [...warn];
       const blocked =
         pool && !problems.length
           ? await networkChecks(e, ctx, pool, problems, warnings)
@@ -879,36 +1004,66 @@ export async function validateEvents(
 }
 
 /**
- * A listing event's organizer page (verified_via "listing"): a page that
- * loaded and clearly lacks the event, or answers 404 or 410, cuts it;
- * a wall (a bot check, 403, 429, 5xx, a reset, a timeout, a redirect we
- * won't follow) means we trust the newsletter's listing. We never try to
- * get past the wall.
+ * A listing event's organizer page (verified_via "listing"). We trust the
+ * newsletter's listing only when the organizer's site keeps us out: a bot
+ * check, 403, 429, a 5xx, a reset or a timeout. Everything else decides:
+ * a host that won't resolve, a redirect off its site, any other error
+ * status (400, 401, 404, 405, 410, 451...), a page we can't read, or one
+ * that doesn't name the event is cut; a page that names it must print
+ * its dates too. We never try to get past a wall.
  */
 export function organizerVerdict(
   r: Page,
-  title: string,
+  ev: {
+    title: string;
+    dates: readonly { day: string; end_day?: string }[];
+    url?: string;
+    recurring?: boolean;
+  },
 ): { cut?: string; trusted?: string } {
-  if (!r) return { trusted: "didn't answer" };
+  const cut = (why: string) => ({ cut: `The organizer's page ${why}.` });
+  if (!r) return cut("didn't answer");
   if (r.blocked) return { trusted: `shows ${r.blocked}` };
-  if (r.unreachable) return { trusted: `didn't answer (${r.unreachable})` };
+  if (r.unreachable)
+    return /connection reset|timed out/.test(r.unreachable)
+      ? { trusted: `didn't answer (${r.unreachable})` }
+      : cut(`didn't answer (${r.unreachable})`);
+  if (r.status === 0) {
+    const to = host(r.finalUrl);
+    return ev.url && to && to !== host(ev.url)
+      ? cut(
+          `redirects off its site to ${to}: link the page it lands on, if it's the organizer's`,
+        )
+      : cut("didn't resolve to a public address, or was refused");
+  }
+  if (r.status === 310) return cut("redirects too many times");
+  if (
+    r.status === 403 ||
+    r.status === 429 ||
+    (r.status >= 500 && r.status < 600)
+  )
+    return { trusted: `answered ${r.status}` };
   if (r.status === 404 || r.status === 410)
-    return {
-      cut: `The organizer's page ${r.finalUrl} answered ${r.status}: a dead link. Find the event's live page.`,
-    };
-  if (r.status !== 200)
-    return {
-      trusted: r.status ? `answered ${r.status}` : "sent us off its site",
-    };
+    return cut(
+      `${r.finalUrl} answered ${r.status}: a dead link. Find the event's live page`,
+    );
+  if (r.status !== 200) return cut(`answered ${r.status}`);
   const text = r.text ?? "";
-  if (looksWalled(text)) return { trusted: "shows a wall instead of the page" };
-  // Nothing to read without JavaScript: unknown, so trust the listing.
-  if (text.length < 200 && !r.data)
-    return { trusted: "prints no text without JavaScript" };
-  if (pageNamesEvent(r, title)) return {};
-  return {
-    cut: `The organizer's page loaded and doesn't name "${title}". Link the event's own page, or leave it out.`,
-  };
+  if (looksWalled(text)) return { trusted: "shows a bot check" };
+  if (!pageNamesEvent(r, ev.title))
+    return cut(
+      text.length < 40 && !r.data
+        ? "prints nothing we can read without JavaScript. Quote its own data (JSON-LD, CMS), or leave it out"
+        : `loaded and doesn't name "${ev.title}". Link the event's own page, or leave it out`,
+    );
+  // It names the event: its dates must be the page's too.
+  const chunks = pageChunks(r);
+  for (const d of ev.dates)
+    if (!datePrinted(chunks, d.day, !!ev.recurring))
+      return cut(
+        `names "${ev.title}" but doesn't print ${d.day}. Check the date`,
+      );
+  return {};
 }
 
 /** A challenge or firewall page's words (served with any status). */
@@ -916,13 +1071,26 @@ const WALL =
   /just a moment|checking (your|if the site connection is) (browser|secure)|verify (that )?you are (a )?human|attention required|access denied|request blocked|enable javascript and cookies|ddos protection/i;
 const looksWalled = (text: string) => text.length < 3000 && WALL.test(text);
 
-/** Does a loaded page name the event (its title, stem or the stem's words)? */
+/** A page's sentences and data lines (a record or a sentence each). */
+export function pageChunks(r: { text: string; data?: string }): string[] {
+  return [
+    ...(r.text ?? "").split(/(?<=[.!?])\s+|\s+\|\s+|\n/),
+    ...(r.data ? r.data.split("\n") : []),
+  ].filter(Boolean);
+}
+
+/**
+ * Does a loaded page name the event? Within one sentence or one data
+ * record (never words scattered across the page); a long run without
+ * sentence breaks (a menu, a heading block) only by the title as a phrase.
+ */
 export function pageNamesEvent(
   r: { text: string; data?: string },
   title: string,
 ): boolean {
-  if (lineNamesEvent(r.text, title)) return true;
-  return (r.data ?? "").split("\n").some((l) => lineNamesEvent(l, title));
+  return pageChunks(r).some((c) =>
+    c.length <= 300 ? lineNamesEvent(c, title) : namesByPhrase(c, title),
+  );
 }
 
 /** Why a page that didn't answer 200 was cut, and how the host kept us out. */
@@ -962,17 +1130,31 @@ async function networkChecks(
   warnings: string[],
 ): Promise<EventVerdict["blocked"]> {
   const domains = eventDomains(ctx.catalog.link_domains, ctx.ownHost);
+  const evDomains = [...domains, ...(ctx.catalog.evidence_domains ?? [])];
   const listingHosts = ctx.catalog.listing_domains ?? [];
   const listing = e.verified_via === "listing";
   let blocked: EventVerdict["blocked"];
-  // A listing event's link may be off the allowlist: fetch it on its own
-  // host (redirects elsewhere are refused, which reads as unreachable).
+  // A listing event's link may be off the allowlist: fetch it within its
+  // own registrable domain (a redirect elsewhere is refused, and cut).
   const main = await get(
     e.url,
-    listing ? [...domains, host(e.url).replace(/^www\./, "")] : domains,
+    listing ? [...domains, siteOf(e.url, domains)] : domains,
   );
+  // Where it lands must be the organizer's too, never a reseller.
+  const landed =
+    main?.finalUrl &&
+    onList(main.finalUrl, ctx.catalog.not_organizer_domains ?? []);
+  if (landed)
+    problems.push(
+      `${e.url} lands on ${landed}, which sells tickets or lists other people's events. Link the organizer's own page.`,
+    );
   if (listing) {
-    const why = organizerVerdict(main, e.title);
+    const why = organizerVerdict(main, {
+      title: e.title,
+      dates: e.dates,
+      url: e.url,
+      recurring: kindOf(e) === "series" || !!e.series_id,
+    });
     if (why.cut) problems.push(why.cut);
     else if (why.trusted)
       warnings.push(
@@ -984,11 +1166,10 @@ async function networkChecks(
     blocked ??= u.blocked;
   }
   for (const x of e.evidence) {
+    const onListing = listing && !!onList(x.url, listingHosts);
     const r = await get(
       x.url,
-      listing && onList(x.url, listingHosts)
-        ? [...domains, ...listingHosts]
-        : domains,
+      onListing ? [...evDomains, ...listingHosts] : evDomains,
     );
     if (!r || r.status !== 200) {
       const u = unreadable(x.url, r, "quote");
@@ -996,14 +1177,63 @@ async function networkChecks(
       blocked ??= u.blocked;
       continue;
     }
-    if (!onPage(r, x.quote, e.title))
+    if (!onPage(r, x.quote, e.title)) {
       problems.push(`The quote "${x.quote.slice(0, 60)}" isn't on ${x.url}.`);
+      continue;
+    }
+    const q = normalizeText(x.quote);
+    const lines = (r.data ?? "")
+      .split("\n")
+      .filter((l) => l.includes(q) && lineNamesEvent(l, e.title));
+    // Not open to the public (a resort's guests, owners or members only).
+    if (
+      EXCLUSIVE.test(x.quote) ||
+      (r.data ?? "")
+        .split("\n")
+        .some((l) => lineNamesEvent(l, e.title) && EXCLUSIVE.test(l))
+    )
+      problems.push(
+        `${host(x.url)} says "${e.title}" is for guests, owners or members only. Leave it out.`,
+      );
+    // A catalog by path: the record must be that catalog's own.
+    const alias = aliasPathProblem(x.url, ctx.catalog.alias_paths);
+    if (alias.prefix && !r.text.includes(q)) {
+      const id = alias.prefix.split("/").filter(Boolean).pop()!;
+      if (!lines.some((l) => l.includes(id)))
+        problems.push(
+          `The record quoted on ${host(x.url)} isn't in catalog ${id}.`,
+        );
+    }
+    // A listing's year-less date: only from an issue dated within 6
+    // weeks before the event.
+    if (onListing) {
+      const printed = e.dates.filter((d) => quotePrintsDate(x.quote, d.day));
+      const yearless =
+        printed.length > 0 &&
+        !/\b20\d{2}\b/.test(x.quote) &&
+        !printed.some((d) => machinePrintsDay(x.quote.toLowerCase(), d.day));
+      if (yearless) {
+        const issued = issueDay(r.text);
+        if (!issued)
+          problems.push(
+            `Can't tell the issue's date on ${x.url}, so "${x.quote.slice(0, 40)}" has no year. Quote a line with the year (a listing page's JSON-LD).`,
+          );
+        else
+          for (const d of printed) {
+            const ahead = daysBetween(issued, d.day);
+            if (ahead < 0 || ahead > 42)
+              problems.push(
+                `The issue (${issued}) isn't within 6 weeks before ${d.day}: its year-less date may be another year's.`,
+              );
+          }
+      }
+    }
   }
   // Our own words: never the listing's.
   if (listing)
     for (const x of e.evidence) {
       if (!onList(x.url, listingHosts)) continue;
-      const r = await get(x.url, [...domains, ...listingHosts]);
+      const r = await get(x.url, [...evDomains, ...listingHosts]);
       if (r?.text && containment(e.what, r.text) >= COPY_LIMIT.discovery)
         problems.push(
           "The what-kids-do line is too close to the listing. Say it in our own words.",

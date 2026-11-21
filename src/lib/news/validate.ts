@@ -1,4 +1,5 @@
 import {
+  aliasPathProblem,
   allowedLink,
   type Catalog,
   leadMessage,
@@ -1319,7 +1320,10 @@ export async function validateIssue(
   (issue.weekend ?? []).forEach((w, i) => {
     // dpl.libnet.info is the library, hdm.mux.earth the museum.
     const org = (u: string) => {
-      const s = siteOf(u, catalog.link_domains);
+      const s = siteOf(u, [
+        ...catalog.link_domains,
+        ...(catalog.evidence_domains ?? []),
+      ]);
       return catalog.site_aliases?.[s] ?? s;
     };
     const site = org(w.url);
@@ -1594,6 +1598,23 @@ export async function validateIssue(
           "evidence",
           "Our own site can't be evidence. Quote the organizer's page.",
         );
+    // A data host (the organizer's page loads its facts from it) is
+    // evidence only, on the organizer's own paths.
+    const evidenceOnly = catalog.evidence_domains ?? [];
+    for (const url of new Set(u.urls)) {
+      const d = onList(url, evidenceOnly);
+      if (d)
+        flag(
+          u.key,
+          "links",
+          `${d} is a data host: evidence only. Link the organizer's page.`,
+        );
+    }
+    for (const e of u.evidence) {
+      const a = aliasPathProblem(e.url, catalog.alias_paths);
+      if (a.problem) flag(u.key, "evidence", a.problem);
+    }
+    const evDomains = [...domains, ...evidenceOnly];
     for (const url of new Set(urls)) {
       if (codeLink(url)) continue;
       const lead = onList(url, catalog.lead_domains ?? []);
@@ -1601,7 +1622,10 @@ export async function validateIssue(
         flag(u.key, "links", leadMessage(lead));
         continue;
       }
-      if (!ours(url) && !allowedLink(url, domains)) {
+      if (
+        !ours(url) &&
+        !allowedLink(url, u.urls.includes(url) ? domains : evDomains)
+      ) {
         flag(
           u.key,
           "links",
@@ -1613,7 +1637,7 @@ export async function validateIssue(
       checks.push(
         fetchOnce(
           url,
-          ours(url) ? [siteHost, "parkroulette.quest"] : domains,
+          ours(url) ? [siteHost, "parkroulette.quest"] : evDomains,
         ).then((r) => {
           if (!r) flag(u.key, "links", `${url} didn't answer.`);
           else if (r.status !== 200)
@@ -1626,16 +1650,16 @@ export async function validateIssue(
                   ? `${host(url)} didn't answer (${r.unreachable}).`
                   : `${url} answered ${r.status}, not 200.`,
             );
-          else if (!ours(r.finalUrl) && !allowedLink(r.finalUrl, domains))
+          else if (!ours(r.finalUrl) && !allowedLink(r.finalUrl, evDomains))
             flag(u.key, "links", `${url} redirects off the allowlist.`);
         }),
       );
     }
     if (!ctx.fetcher) continue;
     for (const e of u.evidence) {
-      if (ours(e.url) || !allowedLink(e.url, domains)) continue;
+      if (ours(e.url) || !allowedLink(e.url, evDomains)) continue;
       checks.push(
-        fetchOnce(e.url, domains).then((r) => {
+        fetchOnce(e.url, evDomains).then((r) => {
           if (r?.status !== 200) return; // already flagged as a link
           const q = normalizeText(e.quote);
           // Page text, or the organizer's structured data (JSON-LD, JSON, .ics).
