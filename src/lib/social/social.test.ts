@@ -100,10 +100,16 @@ function event(over: Partial<EventRow["data"]> = {}): EventRow {
   };
 }
 
-const trait = (text: string, kind: ParkProfile["traits"][number]["kind"]) => ({
+const trait = (
+  text: string,
+  kind: ParkProfile["traits"][number]["kind"],
+  keys: string[],
+  source: ParkProfile["traits"][number]["source"] = "official",
+) => ({
   text,
+  keys,
   kind,
-  source: "official" as const,
+  source,
   evidence: [
     {
       url: "https://www.bendparksandrec.org/park/larkspur-park/",
@@ -123,8 +129,12 @@ const PROFILES_FIXTURE = new Map<string, ParkProfile>([
         trait(
           "An all-children's playground with three zones for all abilities",
           "all_abilities",
+          ["all abilities", "three zones"],
         ),
-        trait("Trailhead for the Larkspur Trail", "trail"),
+        trait("Trailhead for the Larkspur Trail", "trail", [
+          "larkspur trail",
+          "trailhead",
+        ]),
       ],
       one_liner:
         "An all-children's playground for all abilities, at the Larkspur Trail.",
@@ -135,8 +145,42 @@ const PROFILES_FIXTURE = new Map<string, ParkProfile>([
     "pine-nursery-park-bend",
     {
       place_id: null,
-      traits: [trait("A stocked fishing pond", "water")],
+      traits: [trait("A stocked fishing pond", "water", ["fishing pond"])],
       one_liner: "A stocked fishing pond by the playground.",
+      facts: {},
+    },
+  ],
+  [
+    "blakely-park-bend",
+    {
+      place_id: null,
+      traits: [
+        trait(
+          "A mostly fenced playground",
+          "fenced",
+          ["fenced"],
+          "google_places",
+        ),
+        trait("Big lawns under shade trees", "shade", ["shade trees"]),
+        trait("Near the Deschutes River Trail", "nearby", ["river trail"]),
+      ],
+      one_liner: "A mostly fenced playground with big shady lawns.",
+      facts: {},
+    },
+  ],
+  [
+    "harmon-park-bend",
+    {
+      place_id: null,
+      traits: [
+        trait("A small river access gate behind the Boat House", "water", [
+          "river access",
+        ]),
+        trait("Big shade trees across the river from Drake Park", "shade", [
+          "shade trees",
+        ]),
+      ],
+      one_liner: "A river access gate and big shade trees.",
       facts: {},
     },
   ],
@@ -965,13 +1009,70 @@ describe("signature traits lead the park post", () => {
       ctx({ planParks: ["pine-nursery-park-bend"] }),
     );
     expect(r.errors.join(" ")).toMatch(
-      /1 verified signature trait; a park post needs 2/,
+      /signature traits of 1 kind this month; a park post needs 2/,
     );
   });
-  it("lets a verified trait back a claim the feature list lacks", () => {
+  it("lets a verified trait of the right kind back a claim the feature list lacks", () => {
+    const creek = trait("Shady spot on Ochoco Creek", "water", [
+      "ochoco creek",
+    ]);
     expect(unbackedClaims("Right by the creek", [])).toEqual(["water"]);
+    expect(unbackedClaims("Right by the creek", [], [creek])).toEqual([]);
+    // The wrong kind, or a nearby/history trait, backs nothing.
     expect(
-      unbackedClaims("Right by the creek", [], ["Shady spot on Ochoco Creek"]),
+      unbackedClaims(
+        "Right by the creek",
+        [],
+        [
+          { ...creek, kind: "nearby" },
+          { ...creek, kind: "history" },
+          { ...creek, kind: "view" },
+        ],
+      ),
+    ).toEqual(["water"]);
+  });
+  it("Blakely: a Google trait never backs a fence, and no water trait means no creek", () => {
+    const blakely = PROFILES_FIXTURE.get("blakely-park-bend")!.traits;
+    const feats = ["restrooms", "sports_courts", "shade", "parking"];
+    expect(unbackedClaims("Fully fenced for runners", feats, blakely)).toEqual([
+      "a fence",
+    ]);
+    expect(unbackedClaims("Wade in the creek", feats, blakely)).toEqual([
+      "water",
+    ]);
+    expect(unbackedClaims("Big shade trees", feats, blakely)).toEqual([]);
+  });
+  it("Harmon: a river trait doesn't back a pond", () => {
+    const harmon = PROFILES_FIXTURE.get("harmon-park-bend")!.traits;
+    expect(unbackedClaims("Feed the ducks at the pond", [], harmon)).toEqual([
+      "water",
+    ]);
+    expect(unbackedClaims("A gate down to the river", [], harmon)).toEqual([]);
+  });
+  it("a Google trait never backs accessible play either", () => {
+    const g = trait(
+      "An inclusive playground",
+      "all_abilities",
+      ["inclusive"],
+      "google_places",
+    );
+    expect(unbackedClaims("Inclusive play for every kid", [], [g])).toEqual([
+      "accessible play",
+    ]);
+    expect(
+      unbackedClaims(
+        "Inclusive play for every kid",
+        [],
+        [{ ...g, source: "official" }],
+      ),
     ).toEqual([]);
+  });
+  it("a splash claim matches spray park and sprayground", () => {
+    expect(unbackedClaims("A sprayground for summer", [])).toEqual([
+      "a splash pad",
+    ]);
+    expect(unbackedClaims("The spray park opens soon", [])).toEqual([
+      "a splash pad",
+    ]);
   });
 });

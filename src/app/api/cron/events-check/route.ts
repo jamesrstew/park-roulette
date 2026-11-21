@@ -13,14 +13,29 @@ import { SITE_URL } from "@/lib/site";
  * off the listing, noindex, no Event markup. Timeouts, 5xx and bot walls
  * count as unknown and change nothing.
  *
- * Also the monthly re-check of park signature-trait evidence, a few pages
- * a night over days 1 to 28 (lib/park-profiles-check.ts).
+ * First, the monthly re-check of park signature-trait evidence: at most
+ * 5 pages a night over days 1 to 28, fetched in parallel and cut off at
+ * PROFILE_BUDGET_MS, so the events check always keeps most of the run
+ * (lib/park-profiles-check.ts).
  */
 export const maxDuration = 300;
+const PROFILE_BUDGET_MS = 45_000;
 
 export async function GET(req: Request) {
   if (!bearerOk(req, process.env.CRON_SECRET))
     return new Response("Nope", { status: 401 });
+  // Never let the trait check fail (or starve) the events check.
+  const profiles = await recheckProfiles(
+    Number(pacific(new Date()).date.slice(8, 10)),
+    { deadline: Date.now() + PROFILE_BUDGET_MS },
+  ).catch((e) => {
+    console.error("[profiles] re-check failed", (e as Error)?.message);
+    return null;
+  });
+  if (profiles)
+    console.info(
+      `[profiles] checked ${profiles.checked}, missing ${profiles.missing.length}, unknown ${profiles.unknown.length}`,
+    );
   try {
     const r = await recheckEvents();
     console.info(`[events] checked ${r.checked}, changed ${r.changed.length}`);
@@ -29,17 +44,6 @@ export async function GET(req: Request) {
         `${SITE_URL}/events`,
         ...r.changed.map((s) => `${SITE_URL}/events/${s}`),
       ]);
-    // Never let the trait check fail the events check.
-    const profiles = await recheckProfiles(
-      Number(pacific(new Date()).date.slice(8, 10)),
-    ).catch((e) => {
-      console.error("[profiles] re-check failed", (e as Error)?.message);
-      return null;
-    });
-    if (profiles)
-      console.info(
-        `[profiles] checked ${profiles.checked}, missing ${profiles.missing.length}, unknown ${profiles.unknown.length}`,
-      );
     return Response.json({ ...r, profiles });
   } catch (e) {
     console.error("[events] re-check failed", (e as Error)?.message);

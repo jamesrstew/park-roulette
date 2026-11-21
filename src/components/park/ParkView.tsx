@@ -14,7 +14,6 @@ import { ReportButton } from "./ReportButton";
 import { JoinNudge } from "./JoinNudge";
 import { AboutPark } from "./AboutPark";
 import { parkFacts } from "@/lib/park-facts";
-import { PROFILES } from "@/lib/park-profiles";
 
 type Detail = NonNullable<Awaited<ReturnType<typeof getParkDetail>>>;
 
@@ -25,6 +24,7 @@ export function ParkView({
   townLink,
   justAdded,
   weekendPick = null,
+  oneLiner = null,
 }: {
   detail: Detail;
   fixes: PendingFix[];
@@ -34,6 +34,8 @@ export function ParkView({
   justAdded: boolean;
   /** This weekend's issue featured this park: its date, for the sticker. */
   weekendPick?: string | null;
+  /** The park's signature one-liner this month (data/park-profiles.json). */
+  oneLiner?: string | null;
 }) {
   const { park, reviews, myVisits, stats, unseen, otherRatings } = detail;
   /** Park fixes and reports count from grown-ups who sign in with a number. */
@@ -89,10 +91,8 @@ export function ParkView({
         weekendPick={weekendPick}
       />
 
-      {!crossedOff && PROFILES.get(park.slug)?.one_liner ? (
-        <p className="mt-2 px-1 font-body text-sm text-ink-soft">
-          {PROFILES.get(park.slug)!.one_liner}
-        </p>
+      {!crossedOff && oneLiner ? (
+        <p className="mt-2 px-1 font-body text-sm text-ink-soft">{oneLiner}</p>
       ) : null}
 
       {!park.approved && (

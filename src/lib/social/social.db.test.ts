@@ -152,7 +152,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
         type: "park_post",
         park: "larkspur-park-bend",
         hook: "A Bend playground for all abilities",
-        who: "Universal-design play for all ages.",
+        who: "Universal-design play for every ability.",
         what: "Three play zones for all abilities, plus picnic tables.",
         bring: "Mittens and a snack.",
       },

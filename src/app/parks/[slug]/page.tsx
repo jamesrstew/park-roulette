@@ -1,3 +1,6 @@
+import { oneLinerFor } from "@/lib/park-profiles";
+import { currentProfiles } from "@/lib/park-profiles-check";
+import { pacific } from "@/lib/news/time";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -56,11 +59,17 @@ async function ParkLoader({ params, searchParams }: Props) {
   const me = await getMe();
   const detail = await getParkDetail(slug, me);
   if (!detail) notFound();
-  const [fixes, all, featured] = await Promise.all([
+  const now = new Date();
+  const [fixes, all, featured, profiles] = await Promise.all([
     pendingFixes(detail.park.id, me?.crew.id ?? null),
     publicParks(),
     featuredIn(slug),
+    currentProfiles(now),
   ]);
+  const oneLiner = oneLinerFor(
+    profiles.get(detail.park.slug),
+    Number(pacific(now).date.slice(5, 7)),
+  );
   const town = townsOf(all).find((t) => t.slug === townSlug(detail.park.city));
   const townLink = town ? townPageHref(town) : "/towns";
   return (
@@ -84,6 +93,7 @@ async function ParkLoader({ params, searchParams }: Props) {
         townLink={townLink}
         justAdded={sp.added === "1"}
         weekendPick={isThisWeekendsPick(featured, new Date()) ? featured : null}
+        oneLiner={oneLiner}
       />
       <HappeningNearby park={detail.park} />
       {featured ? (

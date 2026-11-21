@@ -3,13 +3,14 @@ import { CATALOG } from "@/lib/news/catalog";
 import {
   MIN_POST_TRAITS,
   type ParkProfile,
-  PROFILES,
+  postKinds,
 } from "@/lib/park-profiles";
 import type { ParkInfo } from "./compose";
 
 /**
- * Up to 3 park-post parks, code-picked: open, outside cooldowns, with at
- * least 2 verified signature traits, checked photo first.
+ * Up to 3 park-post parks, code-picked: open, outside cooldowns, with
+ * live, in-season signature traits of at least 2 kinds (nearby and
+ * history aside) for the post's month, checked photo first.
  */
 export function postCandidates(
   all: ReadonlyMap<string, ParkInfo>,
@@ -17,8 +18,10 @@ export function postCandidates(
   exclude: ReadonlySet<string>,
   hasPhoto: (slug: string) => boolean,
   seed: string,
-  profiles: ReadonlyMap<string, ParkProfile> = PROFILES,
+  profiles: ReadonlyMap<string, ParkProfile>,
+  month: number,
 ): string[] {
+  const kinds = (slug: string) => postKinds(profiles.get(slug), month);
   const noPick = new Set(
     CATALOG.parks.filter((p) => p.no_pick).map((p) => p.slug),
   );
@@ -33,13 +36,12 @@ export function postCandidates(
         !noPick.has(p.slug) &&
         !cooling.has(p.slug) &&
         !exclude.has(p.slug) &&
-        (profiles.get(p.slug)?.traits.length ?? 0) >= MIN_POST_TRAITS,
+        kinds(p.slug) >= MIN_POST_TRAITS,
     )
     .sort(
       (a, b) =>
         Number(hasPhoto(b.slug)) - Number(hasPhoto(a.slug)) ||
-        (profiles.get(b.slug)?.traits.length ?? 0) -
-          (profiles.get(a.slug)?.traits.length ?? 0) ||
+        kinds(b.slug) - kinds(a.slug) ||
         b.features.length - a.features.length ||
         score(a.slug) - score(b.slug),
     )

@@ -20,7 +20,8 @@ import {
 } from "./data";
 import type { Plan } from "./plan-types";
 import { SITE_URL } from "@/lib/site";
-import { planProfile, PROFILES } from "@/lib/park-profiles";
+import { planProfile } from "@/lib/park-profiles";
+import { currentProfiles } from "@/lib/park-profiles-check";
 import { addDays, calendarFlags, weekendOf } from "./time";
 import { LIMITS } from "./validate";
 import {
@@ -223,7 +224,10 @@ async function buildPlan(
           url: `${SITE_URL}/parks/${pick.park.slug}`,
           features: pick.park.features,
           // Lead with the signature trait (data/park-profiles.json).
-          profile: planProfile(PROFILES.get(pick.park.slug)),
+          profile: planProfile(
+            (await currentProfiles(new Date())).get(pick.park.slug),
+            month,
+          ),
           reasons: pick.reasons,
           eligible_count: pick.eligible,
           photo:

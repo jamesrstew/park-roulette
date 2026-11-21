@@ -4,6 +4,7 @@
     "traits": [
       {
         "text": "Tree-house play garden and a train engine for preschoolers",
+        "keys": ["tree house", "treehouse", "train engine", "play garden"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -16,8 +17,10 @@
       },
       {
         "text": "A winter sledding area",
+        "keys": ["sledding", "sled"],
         "kind": "sledding",
         "source": "official",
+        "season": [12, 1, 2, 3],
         "evidence": [
           {
             "url": "https://www.bendparksandrec.org/park/al-moody/",
@@ -28,6 +31,7 @@
       },
       {
         "text": "A Wildside zone where kids build their own forts",
+        "keys": ["wildside", "build forts", "fort building", "forts"],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -44,6 +48,7 @@
       },
       {
         "text": "A protected rock ridge with quail and rockchucks",
+        "keys": ["rock ridge", "rockchucks", "quail", "marmots"],
         "kind": "nature",
         "source": "official",
         "evidence": [
@@ -68,6 +73,12 @@
     "traits": [
       {
         "text": "Bend's first park bouldering area, with routes for adaptive climbers",
+        "keys": [
+          "bouldering",
+          "boulders",
+          "adaptive climbing",
+          "climbing boulders"
+        ],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -84,8 +95,10 @@
       },
       {
         "text": "A seasonal sprayground (summer only)",
+        "keys": ["sprayground", "spray park", "splash pad"],
         "kind": "splash_pad",
         "source": "official",
+        "season": [5, 6, 7, 8, 9],
         "evidence": [
           {
             "url": "https://www.bendparksandrec.org/park/alpenglow-park/",
@@ -96,6 +109,7 @@
       },
       {
         "text": "A 0.9-mile paved perimeter loop",
+        "keys": ["paved loop", "perimeter loop", "0.9-mile loop"],
         "kind": "paved_loop",
         "source": "official",
         "evidence": [
@@ -108,6 +122,7 @@
       },
       {
         "text": "Cascade views over ponderosa and juniper",
+        "keys": ["cascade views", "cascades", "mountain views"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -143,6 +158,7 @@
     "traits": [
       {
         "text": "Regional views to the south and east",
+        "keys": ["regional views", "views south"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -178,6 +194,7 @@
     "traits": [
       {
         "text": "Big Sky Bike Park: pump track, skills course and BMX track",
+        "keys": ["bike park", "pump track", "bmx", "skills course"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -190,6 +207,7 @@
       },
       {
         "text": "A perimeter trail around the whole park",
+        "keys": ["perimeter trail", "trail around"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -215,6 +233,7 @@
     "traits": [
       {
         "text": "A mostly fenced playground",
+        "keys": ["fenced", "fence"],
         "kind": "fenced",
         "source": "google_places",
         "evidence": [],
@@ -222,6 +241,7 @@
       },
       {
         "text": "Near the Deschutes River Trail and the canal trail",
+        "keys": ["deschutes river trail", "canal trail"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -234,6 +254,7 @@
       },
       {
         "text": "Big lawns under shade trees",
+        "keys": ["shade trees", "shady lawns"],
         "kind": "shade",
         "source": "official",
         "evidence": [
@@ -258,6 +279,7 @@
     "traits": [
       {
         "text": "Trails through rock outcroppings with mountain and desert views",
+        "keys": ["rock outcroppings", "desert views", "mountain views"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -270,6 +292,7 @@
       },
       {
         "text": "Named for the family who homesteaded the area",
+        "keys": ["homestead", "homesteaded"],
         "kind": "history",
         "source": "official",
         "evidence": [
@@ -305,6 +328,7 @@
     "traits": [
       {
         "text": "A water trough kids can route, in a nature play area",
+        "keys": ["water trough", "route water", "nature play"],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -317,6 +341,7 @@
       },
       {
         "text": "Rushing canal water beside the lawn",
+        "keys": ["canal", "rushing water"],
         "kind": "water",
         "source": "official",
         "evidence": [
@@ -329,6 +354,7 @@
       },
       {
         "text": "Easy access to the canal trail",
+        "keys": ["canal trail"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -363,22 +389,15 @@
     "place_id": "ChIJmx2cNdXHuFQRPnb8xUBWumY",
     "traits": [
       {
-        "text": "The SS Columbia pirate ship play structure",
+        "text": "The SS Columbia, a pirate ship to climb aboard",
+        "keys": ["pirate ship", "ss columbia", "pirate"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
           {
             "url": "https://www.bendparksandrec.org/park/columbia-park/",
             "quote": "a playground featuring the \"SS Columbia\" ship-like structure"
-          }
-        ],
-        "verified_on": "2026-11-21"
-      },
-      {
-        "text": "Known around town as Pirate Ship Park",
-        "kind": "history",
-        "source": "official",
-        "evidence": [
+          },
           {
             "url": "https://www.bendparksandrec.org/park/columbia-park/",
             "quote": "is known as the \"Pirate Ship Park\" by many in the community"
@@ -387,7 +406,8 @@
         "verified_on": "2026-11-21"
       },
       {
-        "text": "A slide built into the hillside",
+        "text": "A hillside slide set into the slope",
+        "keys": ["hillside slide", "hill slide", "slide in the hill"],
         "kind": "signature_structure",
         "source": "google_places",
         "evidence": [],
@@ -395,6 +415,7 @@
       },
       {
         "text": "River views from benches along the trail",
+        "keys": ["river views", "deschutes views"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -419,6 +440,7 @@
     "traits": [
       {
         "text": "A Wildside zone where kids build their own forts",
+        "keys": ["wildside", "build forts", "fort building", "forts"],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -435,6 +457,7 @@
       },
       {
         "text": "A unique circular park in NorthWest Crossing",
+        "keys": ["circular", "round park"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -489,6 +512,12 @@
     "traits": [
       {
         "text": "A frisbee climber and basket swings for free-form play",
+        "keys": [
+          "frisbee climber",
+          "basket swings",
+          "basket swing",
+          "free-form play"
+        ],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -501,6 +530,7 @@
       },
       {
         "text": "Cascade views over juniper, sage and lava rock",
+        "keys": ["cascade views", "lava rock", "mountain views"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -525,6 +555,7 @@
     "traits": [
       {
         "text": "A two-tiered play area built into the hillside",
+        "keys": ["two-tiered", "two tiers", "tiered", "hillside play"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -537,6 +568,7 @@
       },
       {
         "text": "A paved accessible path to the playground",
+        "keys": ["accessible path", "paved path"],
         "kind": "all_abilities",
         "source": "official",
         "evidence": [
@@ -560,7 +592,8 @@
     "place_id": "ChIJN3EwHM_HuFQRRx83nLsT2SQ",
     "traits": [
       {
-        "text": "A lumber mill themed playground",
+        "text": "A playground themed on the city's lumber mill days",
+        "keys": ["lumber mill", "mill playground", "sawmill"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -573,6 +606,7 @@
       },
       {
         "text": "A small river beach for play",
+        "keys": ["river beach", "beach"],
         "kind": "water",
         "source": "official",
         "evidence": [
@@ -585,6 +619,7 @@
       },
       {
         "text": "A boardwalk along the Deschutes River",
+        "keys": ["boardwalk"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -597,6 +632,7 @@
       },
       {
         "text": "A bouldering and climbing area by the playground",
+        "keys": ["bouldering", "climbing", "climb"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -623,6 +659,7 @@
     "traits": [
       {
         "text": "A bike skills area beside a shaded playground",
+        "keys": ["bike skills", "shaded playground"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -635,6 +672,7 @@
       },
       {
         "text": "Mountain views from the park and its trails",
+        "keys": ["mountain views"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -692,6 +730,7 @@
     "traits": [
       {
         "text": "Towering old-growth ponderosa pines",
+        "keys": ["ponderosa", "ponderosas", "old-growth", "old growth"],
         "kind": "shade",
         "source": "official",
         "evidence": [
@@ -704,6 +743,7 @@
       },
       {
         "text": "Exploratory play areas and a demonstration garden",
+        "keys": ["exploratory play", "demonstration garden"],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -716,6 +756,7 @@
       },
       {
         "text": "A family pasture since the 1940s",
+        "keys": ["pasture", "1940s"],
         "kind": "history",
         "source": "official",
         "evidence": [
@@ -739,23 +780,8 @@
     "place_id": "ChIJd6PKi4PIuFQR0TfrNG9Eu6s",
     "traits": [
       {
-        "text": "The old tugboat is gone; a new boat play structure is planned for summer 2027",
-        "kind": "history",
-        "source": "news",
-        "evidence": [
-          {
-            "url": "https://ktvz.com/community/2026/11/16/work-begins-to-replace-boat-at-harmon-park",
-            "quote": "BPRD tentatively plans to install the new boat play feature in summer 2027."
-          },
-          {
-            "url": "https://ktvz.com/community/2026/11/16/work-begins-to-replace-boat-at-harmon-park",
-            "quote": "earned Harmon Park the nickname \"the boat park\""
-          }
-        ],
-        "verified_on": "2026-11-21"
-      },
-      {
         "text": "A small river access gate behind the Boat House",
+        "keys": ["river access", "boat house", "river gate"],
         "kind": "water",
         "source": "official",
         "evidence": [
@@ -768,6 +794,7 @@
       },
       {
         "text": "Big shade trees across the river from Drake Park",
+        "keys": ["shade trees", "drake park", "mirror pond"],
         "kind": "shade",
         "source": "official",
         "evidence": [
@@ -783,7 +810,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Bend's boat park by the river: a new boat play structure is planned for summer 2027",
+    "one_liner": "Big shade trees and a small river access gate, across the Deschutes from Drake Park",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -809,6 +836,7 @@
     "traits": [
       {
         "text": "Panoramic views from the side of Awbrey Butte",
+        "keys": ["panoramic views", "awbrey butte", "panoramic"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -821,6 +849,7 @@
       },
       {
         "text": "One of Bend's designated natural play areas",
+        "keys": ["natural play", "nature play"],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -833,6 +862,7 @@
       },
       {
         "text": "An off-leash dog area next door",
+        "keys": ["off-leash", "dog area"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -885,6 +915,7 @@
     "traits": [
       {
         "text": "Paths to the River Canyon Natural Area",
+        "keys": ["river canyon", "natural area"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -909,6 +940,7 @@
     "traits": [
       {
         "text": "Started in 1969 as Railroad Park, next to the tracks",
+        "keys": ["railroad park", "railroad", "1969"],
         "kind": "history",
         "source": "official",
         "evidence": [
@@ -933,6 +965,7 @@
     "traits": [
       {
         "text": "Sound, tactile, spinning and balance play pieces",
+        "keys": ["sound play", "musical", "tactile", "spinning"],
         "kind": "signature_structure",
         "source": "news",
         "evidence": [
@@ -945,6 +978,7 @@
       },
       {
         "text": "Rebuilt in 2020 for kids of all abilities",
+        "keys": ["all abilities", "all-abilities", "accessible"],
         "kind": "all_abilities",
         "source": "news",
         "evidence": [
@@ -957,6 +991,7 @@
       },
       {
         "text": "A shade structure and wide paths at the playground",
+        "keys": ["shade structure", "wide paths"],
         "kind": "shade",
         "source": "official",
         "evidence": [
@@ -969,6 +1004,7 @@
       },
       {
         "text": "Right next to Juniper Swim & Fitness Center",
+        "keys": ["juniper swim", "pool", "swim center"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -993,6 +1029,7 @@
     "traits": [
       {
         "text": "A Pilot Butte view, a July 4th fireworks favorite",
+        "keys": ["pilot butte", "fireworks", "july 4th"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -1017,6 +1054,7 @@
     "traits": [
       {
         "text": "An all-children's playground with three zones for all abilities",
+        "keys": ["all abilities", "all-abilities", "three zones"],
         "kind": "all_abilities",
         "source": "official",
         "evidence": [
@@ -1033,6 +1071,7 @@
       },
       {
         "text": "Trailhead for the Larkspur Trail",
+        "keys": ["larkspur trail", "trailhead"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -1045,6 +1084,7 @@
       },
       {
         "text": "Next to the Larkspur Community Center",
+        "keys": ["community center"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -1056,7 +1096,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "An all-children's playground with three play zones, at the Larkspur Trail trailhead",
+    "one_liner": "An all-children's playground with three zones for all abilities, at the Larkspur Trail",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1069,6 +1109,7 @@
     "traits": [
       {
         "text": "A shady perimeter sidewalk loop",
+        "keys": ["sidewalk loop", "perimeter path", "shady loop"],
         "kind": "paved_loop",
         "source": "official",
         "evidence": [
@@ -1093,6 +1134,7 @@
     "traits": [
       {
         "text": "Named for the deer herd that calls it home",
+        "keys": ["deer", "fawn", "deer herd"],
         "kind": "nature",
         "source": "official",
         "evidence": [
@@ -1105,6 +1147,7 @@
       },
       {
         "text": "Rocky, up-and-down terrain with rock outcroppings",
+        "keys": ["rock outcroppings", "rocky", "rocks to scramble"],
         "kind": "nature",
         "source": "official",
         "evidence": [
@@ -1129,6 +1172,7 @@
     "traits": [
       {
         "text": "A giant beaver play structure made of logs",
+        "keys": ["beaver", "giant beaver", "log beaver"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -1141,6 +1185,7 @@
       },
       {
         "text": "A connector trail to the Manzanita Trail and Shevlin Park",
+        "keys": ["manzanita trail", "shevlin park", "shevlin"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -1187,6 +1232,7 @@
     "traits": [
       {
         "text": "Mountain and Pilot Butte views",
+        "keys": ["pilot butte", "mountain views"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -1199,6 +1245,7 @@
       },
       {
         "text": "Fully accessible walking trails",
+        "keys": ["accessible trails", "accessible paths", "accessible walking"],
         "kind": "all_abilities",
         "source": "official",
         "evidence": [
@@ -1225,6 +1272,7 @@
     "traits": [
       {
         "text": "Musical instruments and a sensory discovery area",
+        "keys": ["musical instruments", "instruments", "sensory", "music"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -1237,6 +1285,7 @@
       },
       {
         "text": "A small skate spot for beginners",
+        "keys": ["skate spot", "skate", "beginner skaters"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -1249,6 +1298,7 @@
       },
       {
         "text": "A paved loop path",
+        "keys": ["paved loop", "loop path"],
         "kind": "paved_loop",
         "source": "official",
         "evidence": [
@@ -1273,6 +1323,7 @@
     "traits": [
       {
         "text": "A hummingbird garden by the play area",
+        "keys": ["hummingbird", "hummingbirds"],
         "kind": "nature",
         "source": "official",
         "evidence": [
@@ -1285,6 +1336,7 @@
       },
       {
         "text": "A giant sequoia grove, an oak forest and an orchard",
+        "keys": ["sequoia", "sequoias", "oak forest", "orchard"],
         "kind": "nature",
         "source": "official",
         "evidence": [
@@ -1310,6 +1362,7 @@
     "traits": [
       {
         "text": "A trail to the Overturf Butte off-leash dog area",
+        "keys": ["overturf butte", "off-leash", "dog area"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -1322,6 +1375,7 @@
       },
       {
         "text": "A trail link to the Cascade Highlands Trail",
+        "keys": ["cascade highlands"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -1377,6 +1431,7 @@
     "traits": [
       {
         "text": "At the foot of the Pilot Butte scenic viewpoint",
+        "keys": ["pilot butte", "scenic viewpoint"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -1389,6 +1444,7 @@
       },
       {
         "text": "Trailhead for the Larkspur Trail",
+        "keys": ["larkspur trail", "trailhead"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -1414,6 +1470,7 @@
     "traits": [
       {
         "text": "An all-abilities playground",
+        "keys": ["all abilities", "all-abilities", "inclusive", "accessible"],
         "kind": "all_abilities",
         "source": "official",
         "evidence": [
@@ -1425,7 +1482,8 @@
         "verified_on": "2026-11-21"
       },
       {
-        "text": "A stocked fishing pond open to all ages",
+        "text": "A pond stocked with fish, open to anglers of every age",
+        "keys": ["fishing pond", "fishing", "pond", "stocked pond"],
         "kind": "water",
         "source": "official",
         "evidence": [
@@ -1438,6 +1496,7 @@
       },
       {
         "text": "A Wildside zone where kids build their own forts",
+        "keys": ["wildside", "build forts", "fort building", "forts"],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -1454,6 +1513,7 @@
       },
       {
         "text": "A 14-acre off-leash dog area",
+        "keys": ["off-leash", "dog park"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -1465,7 +1525,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "An all-abilities playground beside a stocked fishing pond open to every age",
+    "one_liner": "An all-abilities playground beside a pond stocked with fish",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1479,6 +1539,7 @@
     "traits": [
       {
         "text": "A play garden for kids",
+        "keys": ["play garden"],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -1513,19 +1574,8 @@
     "place_id": "ChIJ38pHDEDGuFQRzNHOjYv_Uxw",
     "traits": [
       {
-        "text": "A small sledding hill for little kids",
-        "kind": "sledding",
-        "source": "official",
-        "evidence": [
-          {
-            "url": "https://www.bendparksandrec.org/park/ponderosa-park/",
-            "quote": "the hill next to the ball field is a small but fun sledding hill that's perfect for small children"
-          }
-        ],
-        "verified_on": "2026-11-21"
-      },
-      {
         "text": "Two popular skateparks",
+        "keys": ["skatepark", "skate park", "skateparks"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -1537,7 +1587,22 @@
         "verified_on": "2026-11-21"
       },
       {
+        "text": "A small sledding hill for little kids",
+        "keys": ["sledding hill", "sledding", "sled"],
+        "kind": "sledding",
+        "source": "official",
+        "season": [12, 1, 2, 3],
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/ponderosa-park/",
+            "quote": "the hill next to the ball field is a small but fun sledding hill that's perfect for small children"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
         "text": "The Coyner Trail to Juniper Park",
+        "keys": ["coyner trail"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -1549,7 +1614,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A little-kid sledding hill on snow days, two skateparks and the Coyner Trail",
+    "one_liner": "Two skateparks, the Coyner Trail and a little-kid sledding hill on snow days",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1574,6 +1639,7 @@
     "traits": [
       {
         "text": "Half the park kept as native conifer forest",
+        "keys": ["conifer forest", "conifers", "native conifer"],
         "kind": "nature",
         "source": "official",
         "evidence": [
@@ -1649,6 +1715,12 @@
     "traits": [
       {
         "text": "A juniper log forest, boulder scrambles and a climbing tree",
+        "keys": [
+          "log forest",
+          "boulder scramble",
+          "climbing tree",
+          "juniper logs"
+        ],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -1665,6 +1737,7 @@
       },
       {
         "text": "A second playground with a tree house",
+        "keys": ["tree house", "treehouse"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -1677,6 +1750,7 @@
       },
       {
         "text": "A lunar-scape skatepark and a bike skills course",
+        "keys": ["skatepark", "skate park", "lunar", "bike skills"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -1689,6 +1763,7 @@
       },
       {
         "text": "Old juniper and lava rock that feel miles from town",
+        "keys": ["lava rock", "old juniper", "junipers"],
         "kind": "nature",
         "source": "official",
         "evidence": [
@@ -1725,6 +1800,7 @@
     "traits": [
       {
         "text": "A trail down to the Deschutes River Trail",
+        "keys": ["deschutes river trail", "river trail"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -1737,6 +1813,7 @@
       },
       {
         "text": "Canyon walls and a steep ravine",
+        "keys": ["canyon", "ravine", "canyon rim"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -1773,19 +1850,8 @@
     "place_id": "ChIJIaGvDgDHuFQRYvf9_vBnahE",
     "traits": [
       {
-        "text": "Groomed cross-country ski tracks on snowy days",
-        "kind": "other",
-        "source": "official",
-        "evidence": [
-          {
-            "url": "https://www.bendparksandrec.org/park/skyline-sports-complex/",
-            "quote": "During cold, snowy weather, cross-country ski grooming at Skyline Sports Complex is done by community volunteers"
-          }
-        ],
-        "verified_on": "2026-11-21"
-      },
-      {
         "text": "Mountain views",
+        "keys": ["mountain views"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -1795,9 +1861,23 @@
           }
         ],
         "verified_on": "2026-11-21"
+      },
+      {
+        "text": "Groomed cross-country ski tracks on snowy days",
+        "keys": ["cross-country ski", "ski tracks", "skiing"],
+        "kind": "other",
+        "source": "official",
+        "season": [12, 1, 2, 3],
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/skyline-sports-complex/",
+            "quote": "During cold, snowy weather, cross-country ski grooming at Skyline Sports Complex is done by community volunteers"
+          }
+        ],
+        "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Groomed cross-country ski tracks in snowy weather, and mountain views",
+    "one_liner": "Mountain views, plus groomed cross-country ski tracks in snowy weather",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1811,6 +1891,7 @@
     "traits": [
       {
         "text": "A mini excavator, sandboxes, log steppers and a water trough",
+        "keys": ["excavator", "digger", "sandbox", "log steppers"],
         "kind": "nature_play",
         "source": "official",
         "evidence": [
@@ -1823,6 +1904,7 @@
       },
       {
         "text": "Views to China Hat Butte and Newberry",
+        "keys": ["china hat", "newberry", "butte views"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -1835,6 +1917,7 @@
       },
       {
         "text": "A small bike pump track and skate spot",
+        "keys": ["pump track", "skate spot"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -1859,6 +1942,7 @@
     "traits": [
       {
         "text": "Good shade trees over the playground",
+        "keys": ["shade trees", "shady playground"],
         "kind": "shade",
         "source": "official",
         "evidence": [
@@ -1871,6 +1955,7 @@
       },
       {
         "text": "A Kiwanis park from 1972, honoring Dutch Stover",
+        "keys": ["dutch stover", "1972"],
         "kind": "history",
         "source": "official",
         "evidence": [
@@ -1926,6 +2011,7 @@
     "traits": [
       {
         "text": "Bend's highest-elevation park, atop Awbrey Butte",
+        "keys": ["highest", "awbrey butte", "highest park"],
         "kind": "view",
         "source": "official",
         "evidence": [
@@ -1938,6 +2024,7 @@
       },
       {
         "text": "A woods trail to Summit Park",
+        "keys": ["summit park", "woods trail"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -1963,6 +2050,7 @@
     "traits": [
       {
         "text": "A railroad-themed playground for young kids",
+        "keys": ["railroad", "train playground", "railroad-themed"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -1975,6 +2063,7 @@
       },
       {
         "text": "Paved paths toward Shevlin Park",
+        "keys": ["shevlin park", "shevlin"],
         "kind": "trail",
         "source": "official",
         "evidence": [
@@ -2007,6 +2096,7 @@
     "traits": [
       {
         "text": "Separate playgrounds for younger and older kids",
+        "keys": ["separate playgrounds", "younger and older"],
         "kind": "toddler",
         "source": "official",
         "evidence": [
@@ -2030,6 +2120,7 @@
     "traits": [
       {
         "text": "A short walk to the Cedarwood riverfront trailhead",
+        "keys": ["cedarwood", "riverfront trailhead"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -2065,6 +2156,7 @@
     "traits": [
       {
         "text": "A new skate park and pump track (opened 2025)",
+        "keys": ["skate park", "skatepark", "pump track"],
         "kind": "other",
         "source": "news",
         "evidence": [
@@ -2100,6 +2192,7 @@
     "traits": [
       {
         "text": "Next to the La Pine Community Center",
+        "keys": ["community center"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -2123,6 +2216,7 @@
     "traits": [
       {
         "text": "Views of Mount Jefferson, Mount Hood and the train trestle",
+        "keys": ["mount jefferson", "mount hood", "train trestle", "trestle"],
         "kind": "view",
         "source": "news",
         "evidence": [
@@ -2135,6 +2229,7 @@
       },
       {
         "text": "A big structure with a spiral slide, plus a little-kid area",
+        "keys": ["spiral slide"],
         "kind": "signature_structure",
         "source": "news",
         "evidence": [
@@ -2147,6 +2242,7 @@
       },
       {
         "text": "A long paved path for strollers and skates",
+        "keys": ["paved path", "roller skating", "stroller path"],
         "kind": "paved_loop",
         "source": "news",
         "evidence": [
@@ -2171,8 +2267,10 @@
     "traits": [
       {
         "text": "Water play features next to the playground",
+        "keys": ["water play", "splash pad", "sprinklers"],
         "kind": "splash_pad",
         "source": "google_places",
+        "season": [5, 6, 7, 8, 9],
         "evidence": [],
         "verified_on": "2026-11-21"
       }
@@ -2190,6 +2288,7 @@
     "traits": [
       {
         "text": "Access to the Crooked River",
+        "keys": ["river access"],
         "kind": "water",
         "source": "official",
         "evidence": [
@@ -2201,19 +2300,8 @@
         "verified_on": "2026-11-21"
       },
       {
-        "text": "Two children's playground areas",
-        "kind": "signature_structure",
-        "source": "official",
-        "evidence": [
-          {
-            "url": "https://www.ccprd.org/crooked-river-park",
-            "quote": "and two children's playground areas"
-          }
-        ],
-        "verified_on": "2026-11-21"
-      },
-      {
         "text": "A covered outdoor amphitheater",
+        "keys": ["amphitheater"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -2225,7 +2313,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Crooked River access and two play areas at Prineville's largest park",
+    "one_liner": "Crooked River access and a covered amphitheater at Prineville's largest park",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2238,6 +2326,7 @@
     "traits": [
       {
         "text": "On the Crooked River, next to the library",
+        "keys": ["library", "riverside nature"],
         "kind": "water",
         "source": "official",
         "evidence": [
@@ -2250,6 +2339,7 @@
       },
       {
         "text": "Nature trails with learning signs",
+        "keys": ["nature trails", "learning signs", "nature trail"],
         "kind": "nature",
         "source": "official",
         "evidence": [
@@ -2274,6 +2364,7 @@
     "traits": [
       {
         "text": "Right on Ochoco Creek",
+        "keys": ["ochoco creek", "creek"],
         "kind": "water",
         "source": "official",
         "evidence": [
@@ -2286,6 +2377,7 @@
       },
       {
         "text": "Shaded areas around a 2019 playground",
+        "keys": ["shaded areas", "shady"],
         "kind": "shade",
         "source": "official",
         "evidence": [
@@ -2310,6 +2402,7 @@
     "traits": [
       {
         "text": "Castle Park playground, in the district's most popular park",
+        "keys": ["castle park", "castle"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -2326,6 +2419,7 @@
       },
       {
         "text": "Along Ochoco Creek, with a paved walking path",
+        "keys": ["ochoco creek", "creek", "creekside"],
         "kind": "water",
         "source": "official",
         "evidence": [
@@ -2338,6 +2432,7 @@
       },
       {
         "text": "An outdoor amphitheater",
+        "keys": ["amphitheater"],
         "kind": "other",
         "source": "official",
         "evidence": [
@@ -2363,6 +2458,7 @@
     "traits": [
       {
         "text": "A toddler playground",
+        "keys": ["toddler", "toddlers"],
         "kind": "toddler",
         "source": "official",
         "evidence": [
@@ -2375,6 +2471,7 @@
       },
       {
         "text": "A log cabin museum on site",
+        "keys": ["log cabin", "cabin museum"],
         "kind": "history",
         "source": "official",
         "evidence": [
@@ -2387,6 +2484,7 @@
       },
       {
         "text": "Prineville's oldest park, by the courthouse",
+        "keys": ["oldest park", "courthouse"],
         "kind": "history",
         "source": "official",
         "evidence": [
@@ -2398,7 +2496,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A toddler playground and a log cabin museum in Prineville's oldest park",
+    "one_liner": "Toddler-sized play and a log cabin museum in Prineville's oldest park",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2410,9 +2508,24 @@
     "place_id": "ChIJH2qjyUEyuVQRQ8VOTf2WIQw",
     "traits": [
       {
+        "text": "An inclusive playground added in 2024",
+        "keys": ["inclusive", "all abilities", "all-abilities"],
+        "kind": "all_abilities",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.ccprd.org/styrker-park",
+            "quote": "In 2024 the Inclusive Playground area was installed."
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
         "text": "Kiwanis Splash Park",
+        "keys": ["splash park", "splash pad", "kiwanis splash"],
         "kind": "splash_pad",
         "source": "official",
+        "season": [5, 6, 7, 8, 9],
         "evidence": [
           {
             "url": "https://www.ccprd.org/styrker-park",
@@ -2423,6 +2536,7 @@
       },
       {
         "text": "A toddler playground for ages 2 to 5",
+        "keys": ["toddler", "toddlers", "ages 2 to 5"],
         "kind": "toddler",
         "source": "official",
         "evidence": [
@@ -2432,21 +2546,9 @@
           }
         ],
         "verified_on": "2026-11-21"
-      },
-      {
-        "text": "An inclusive playground added in 2024",
-        "kind": "all_abilities",
-        "source": "official",
-        "evidence": [
-          {
-            "url": "https://www.ccprd.org/styrker-park",
-            "quote": "In 2024 the Inclusive Playground area was installed."
-          }
-        ],
-        "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Kiwanis Splash Park, a 2-to-5 playground and a 2024 inclusive play area",
+    "one_liner": "A 2024 inclusive play area, a toddler playground and the Kiwanis Splash Park",
     "facts": {}
   },
   "yellowpine-park-prineville": {
@@ -2465,6 +2567,7 @@
     "traits": [
       {
         "text": "530 veterans' names engraved in the pavement",
+        "keys": ["veterans", "veterans' names"],
         "kind": "history",
         "source": "news",
         "evidence": [
@@ -2562,6 +2665,7 @@
     "traits": [
       {
         "text": "Skate dots and horseshoe pits",
+        "keys": ["skate dots", "horseshoes"],
         "kind": "other",
         "source": "news",
         "evidence": [
@@ -2574,6 +2678,7 @@
       },
       {
         "text": "Climbing areas for both little and big kids",
+        "keys": ["climbing", "climb", "climbers"],
         "kind": "signature_structure",
         "source": "google_places",
         "evidence": [],
@@ -2592,27 +2697,30 @@
     "traits": [
       {
         "text": "A forest-themed play area built from concrete",
+        "keys": ["concrete forest", "forest-themed", "forest theme"],
         "kind": "signature_structure",
         "source": "google_places",
         "evidence": [],
         "verified_on": "2026-11-21"
       },
       {
-        "text": "Fully fenced, with a separate little-kid area",
+        "text": "Fenced play areas, one just for little kids",
+        "keys": ["fenced", "fence"],
         "kind": "fenced",
         "source": "google_places",
         "evidence": [],
         "verified_on": "2026-11-21"
       },
       {
-        "text": "A flat path for strolling or biking",
+        "text": "A level path for bikes and strollers",
+        "keys": ["level path", "flat path"],
         "kind": "paved_loop",
         "source": "google_places",
         "evidence": [],
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A forest-themed play area built from concrete, plus a fenced little-kid zone",
+    "one_liner": "A forest-themed play area built from concrete, with a fenced spot for little kids",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2625,6 +2733,7 @@
     "traits": [
       {
         "text": "Hope Playground, Oregon's largest inclusive playground",
+        "keys": ["hope playground", "inclusive", "all abilities"],
         "kind": "all_abilities",
         "source": "news",
         "evidence": [
@@ -2637,6 +2746,7 @@
       },
       {
         "text": "A dual zipline for all abilities",
+        "keys": ["zipline", "zip line", "ziplines", "zip lines"],
         "kind": "signature_structure",
         "source": "news",
         "evidence": [
@@ -2649,6 +2759,7 @@
       },
       {
         "text": "A climbing wall modeled on Smith Rock, with a Monkeyface",
+        "keys": ["climbing wall", "smith rock", "monkeyface", "monkey face"],
         "kind": "signature_structure",
         "source": "news",
         "evidence": [
@@ -2661,6 +2772,7 @@
       },
       {
         "text": "A dedicated area for babies and toddlers",
+        "keys": ["babies", "baby area", "toddlers"],
         "kind": "toddler",
         "source": "google_places",
         "evidence": [],
@@ -2711,6 +2823,7 @@
     "traits": [
       {
         "text": "The first swing set ever in a Sisters city park",
+        "keys": ["first swing set", "swing set"],
         "kind": "history",
         "source": "news",
         "evidence": [
@@ -2723,6 +2836,7 @@
       },
       {
         "text": "Rotating cups and a climbing structure",
+        "keys": ["rotating cups", "spinning cups", "spinners"],
         "kind": "signature_structure",
         "source": "news",
         "evidence": [
@@ -2753,6 +2867,7 @@
     "traits": [
       {
         "text": "Climbing rocks, slides and traverse equipment",
+        "keys": ["climbing rocks", "traverse"],
         "kind": "signature_structure",
         "source": "news",
         "evidence": [
@@ -2772,6 +2887,7 @@
     "traits": [
       {
         "text": "In the heart of Sunriver",
+        "keys": ["circles 4 and 11", "heart of the village"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -2796,6 +2912,7 @@
     "traits": [
       {
         "text": "A rock climbing wall by the playground",
+        "keys": ["climbing wall", "rock wall", "rock climbing"],
         "kind": "signature_structure",
         "source": "official",
         "evidence": [
@@ -2808,6 +2925,7 @@
       },
       {
         "text": "Right at the SHARC",
+        "keys": ["sharc"],
         "kind": "nearby",
         "source": "official",
         "evidence": [
@@ -2833,6 +2951,7 @@
     "traits": [
       {
         "text": "Opened in fall 2025 on the old Sisters Elementary site",
+        "keys": ["elementary school site", "old school site"],
         "kind": "history",
         "source": "official",
         "evidence": [

@@ -20,7 +20,8 @@ import { IssueSchema, type Issue } from "@/lib/news/issue";
 import { addDays, pacific } from "@/lib/news/time";
 import { normalizeText, type Fetcher } from "@/lib/news/validate";
 import { SITE_URL } from "@/lib/site";
-import { planProfile, PROFILES } from "@/lib/park-profiles";
+import { oneLinerFor, planProfile, postTraits } from "@/lib/park-profiles";
+import { currentProfiles } from "@/lib/park-profiles-check";
 import { type RecentIdea, themesFor } from "./at-home";
 import { postCandidates } from "./candidates";
 import {
@@ -280,6 +281,7 @@ export async function socialCtx(
   const photoFor = (slug: string) => clearedFor(verdicts, slug);
   const sat = slotFor("at_home", weekOf).date;
   const ideas = await recentIdeas(sat, sat);
+  const profiles = await currentProfiles(now);
   return {
     now,
     catalog: CATALOG,
@@ -290,14 +292,15 @@ export async function socialCtx(
       slotDate: r.slotDate,
       modelText: (r.spec as PostSpec).modelText,
     })),
-    profiles: PROFILES,
+    profiles,
     planParks: postCandidates(
       all,
       cooling,
       new Set(featured ? [featured] : []),
       (s) => !!photoFor(s),
       weekOf,
-      PROFILES,
+      profiles,
+      Number(postSlot.date.slice(5, 7)),
     ),
     cooling,
     photoFor,
@@ -375,7 +378,10 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
       town: p.city,
       address: p.address,
       features: p.features,
-      profile: planProfile(ctx.profiles.get(slug)),
+      profile: planProfile(
+        ctx.profiles.get(slug),
+        Number(mon.date.slice(5, 7)),
+      ),
       photo: photo ? { src: photo.src, check: photoState(photo.src) } : null,
     };
   };
@@ -435,7 +441,12 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
         name: p.name,
         town: p.city,
         features: p.features,
-        signature: ctx.profiles.get(p.slug)?.one_liner ?? null,
+        signature: oneLinerFor(ctx.profiles.get(p.slug), month),
+        traits: postTraits(ctx.profiles.get(p.slug), month).map((t) => ({
+          text: t.text,
+          keys: t.keys,
+          kind: t.kind,
+        })),
       })),
     at_home: {
       day: sat.date,
