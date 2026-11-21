@@ -223,6 +223,22 @@ export const CatalogSchema = z.object({
     .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
     .default([]),
   /**
+   * The two local family newsletters' own pages (issues and web calendar):
+   * a discovery source, and, for an event whose organizer's site keeps the
+   * checker out, its evidence (verified_via "listing"). Never an event's
+   * link, never shown, never named.
+   */
+  listing_domains: z
+    .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
+    .default([]),
+  /**
+   * Ticket resellers and booking platforms: never an event's link, even
+   * when a newsletter links one. Use the organizer's own page.
+   */
+  not_organizer_domains: z
+    .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
+    .default([]),
+  /**
    * A host that is the same organization as an allowlisted site (the
    * library's calendar on dpl.libnet.info is deschuteslibrary.org): a link
    * and its evidence on either count as one site.

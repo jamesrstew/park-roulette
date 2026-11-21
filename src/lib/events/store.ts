@@ -30,7 +30,13 @@ import {
   venueKey,
 } from "./model";
 import { addDays } from "@/lib/news/time";
-import { afterCheck, cancellationOf, checkTarget, judge } from "./state";
+import {
+  afterCheck,
+  cancellationOf,
+  checkTarget,
+  judge,
+  judgeListing,
+} from "./state";
 import { eventDomains } from "./validate";
 
 export {
@@ -486,6 +492,7 @@ export async function knownEvents(
       | "annual"
       | "series"
       | "what"
+      | "verified_via"
     >;
   })[]
 > {
@@ -530,6 +537,7 @@ export async function knownEvents(
         ...(e.organizer ? { organizer: e.organizer } : {}),
         ...(e.annual !== undefined ? { annual: e.annual } : {}),
         ...(e.series !== undefined ? { series: e.series } : {}),
+        ...(e.verified_via ? { verified_via: e.verified_via } : {}),
         ...(e.setting ? { setting: e.setting } : {}),
         ...(e.cost ? { cost: e.cost } : {}),
         ...(e.ages_text ? { ages_text: e.ages_text } : {}),
@@ -579,12 +587,31 @@ export async function recheckEvents(
     while (i < due.length) {
       if (Date.now() - started > (opts.budgetMs ?? CHECK_BUDGET_MS)) return;
       const { r, target } = due[i++];
-      const page = await fetcher(target!.url, domains).catch(() => null);
       const title = (r.data as StoredEvent).title;
-      let outcome = judge(page, target!.quote, {
-        walled: !!onList(target!.url, CATALOG.walled_hosts),
-        title,
-      });
+      // Verified on a newsletter's listing: the organizer's page and the
+      // listing both, a wall or a gone listing never a miss (judgeListing).
+      const listing = (r.data as StoredEvent).verified_via === "listing";
+      const page = await fetcher(
+        target!.url,
+        listing ? [...domains, ...CATALOG.listing_domains] : domains,
+      ).catch(() => null);
+      const organizerUrl = (r.data as StoredEvent).url;
+      let outcome = listing
+        ? judgeListing(
+            target!.url === organizerUrl
+              ? page
+              : await fetcher(organizerUrl, [
+                  ...domains,
+                  new URL(organizerUrl).hostname.replace(/^www\./, ""),
+                ]).catch(() => null),
+            page,
+            target!.quote,
+            title,
+          )
+        : judge(page, target!.quote, {
+            walled: !!onList(target!.url, CATALOG.walled_hosts),
+            title,
+          });
       // A non-scheduled event whose page is gone stays as it is.
       if (target!.status !== "scheduled" && outcome === "miss")
         outcome = "unknown";
@@ -595,7 +622,12 @@ export async function recheckEvents(
           seenStreak: r.seenStreak,
         },
         outcome,
-        (now.getTime() - (r.lastSeenAt ?? r.createdAt).getTime()) / 86_400_000,
+        // A listing event whose pages are walled or gone stays as it is
+        // until its date: unknown never takes it off the listing.
+        listing
+          ? 0
+          : (now.getTime() - (r.lastSeenAt ?? r.createdAt).getTime()) /
+              86_400_000,
       );
       const flipped = next.confirm !== r.confirm;
       // The page says it's canceled: that date's status changes (the

@@ -52,7 +52,12 @@ export type EventsContext = {
     Partial<
       Pick<
         Catalog,
-        "lead_domains" | "site_aliases" | "alias_pins" | "alias_paths"
+        | "lead_domains"
+        | "site_aliases"
+        | "alias_pins"
+        | "alias_paths"
+        | "listing_domains"
+        | "not_organizer_domains"
       >
     >;
   /** Public parks on our map, by slug (a venue at a park uses its pin). */
@@ -550,7 +555,49 @@ export function checkEvent(
         `Evidence on ${a} must be the organizer's own data (${paths[a].join(" or ")}).`,
       );
   }
+  // Verified on a newsletter's listing (the organizer's site keeps the
+  // checker out): its evidence is the listing; its link is the
+  // organizer's page, on the allowlist or not ("assume the links they
+  // give are good"), but never the newsletter, an aggregator or a reseller.
+  const listing = e.verified_via === "listing";
+  const onListing = (u: string) =>
+    !!onList(u, ctx.catalog.listing_domains ?? []);
+  if (listing && !e.evidence.some((x) => onListing(x.url)))
+    p.push(
+      'verified_via "listing" needs the newsletter\'s own listing of the event as evidence.',
+    );
+  // A newsletter page lists dozens of events: a date from it proves this
+  // event's date only next to its name (a listing event page's JSON-LD or
+  // its "Title When Saturday, Nov 28 · 4pm", an issue's day line through
+  // the event's line).
+  if (listing)
+    for (const x of e.evidence)
+      if (
+        onListing(x.url) &&
+        e.dates.some((d) => quotePrintsDate(x.quote, d.day)) &&
+        !lineNamesEvent(x.quote, e.title)
+      )
+        p.push(
+          `The listing quote "${x.quote.slice(0, 60)}" prints a date but not the event's name: quote the date with the title.`,
+        );
+  if (!listing && e.evidence.some((x) => onListing(x.url)))
+    p.push(
+      "A newsletter's listing is evidence only with verified_via \"listing\", when the organizer's own page keeps the checker out.",
+    );
+  for (const u of [e.url, ...(e.organizer ? [e.organizer.url] : [])]) {
+    const r = onList(u, ctx.catalog.not_organizer_domains ?? []);
+    if (r)
+      p.push(
+        `${r} sells tickets or lists other people's events: link the organizer's own page.`,
+      );
+  }
+  const organizerLinks = new Set([
+    e.url,
+    ...(e.organizer ? [e.organizer.url] : []),
+  ]);
   for (const u of new Set(links)) {
+    // The listing itself: its checks are above.
+    if (listing && onListing(u) && !organizerLinks.has(u)) continue;
     const h = host(u).replace(/^www\./, "");
     const lead = onList(u, ctx.catalog.lead_domains ?? []);
     if (lead) p.push(leadMessage(lead));
@@ -562,14 +609,17 @@ export function checkEvent(
       p.push("Our own site is never an event's page or evidence.");
     else if (blockedLink(u))
       p.push(`${host(u)} is another newsletter. Link the primary source.`);
-    else if (!allowedLink(u, domains))
+    else if (
+      !allowedLink(u, domains) &&
+      !(listing && organizerLinks.has(u) && /^https:/.test(u))
+    )
       p.push(`${host(u)} isn't on the link allowlist.`);
   }
   const org = (u: string) =>
     aliasSite(siteOf(u, domains), ctx.catalog.site_aliases);
   const site = org(e.url);
   for (const x of e.evidence)
-    if (org(x.url) !== site)
+    if (!(listing && onListing(x.url)) && org(x.url) !== site)
       p.push(
         `The evidence (${host(x.url)}) must come from the same site as the link (${host(e.url)}).`,
       );
@@ -698,7 +748,9 @@ export function checkEvent(
     p.push("Give both lat and lng, or neither.");
 
   const first = [...e.dates].sort((a, b) => a.day.localeCompare(b.day))[0];
-  const mine = e.evidence.filter((x) => org(x.url) === site);
+  const mine = listing
+    ? e.evidence
+    : e.evidence.filter((x) => org(x.url) === site);
   const target = (day: string) =>
     mine.find((x) => quotePrintsDate(x.quote, day)) ??
     mine.find((x) => datePrinted([x.quote], day, true)) ??
@@ -748,7 +800,7 @@ export async function validateEvents(
       const warnings: string[] = [];
       const blocked =
         pool && !problems.length
-          ? await networkChecks(e, ctx, pool, problems)
+          ? await networkChecks(e, ctx, pool, problems, warnings)
           : undefined;
       const park = e.venue.park ? ctx.parks.get(e.venue.park) : null;
       const point = park
@@ -826,6 +878,53 @@ export async function validateEvents(
   return { ok: verdicts.every((v) => v.ok), events: verdicts };
 }
 
+/**
+ * A listing event's organizer page (verified_via "listing"): a page that
+ * loaded and clearly lacks the event, or answers 404 or 410, cuts it;
+ * a wall (a bot check, 403, 429, 5xx, a reset, a timeout, a redirect we
+ * won't follow) means we trust the newsletter's listing. We never try to
+ * get past the wall.
+ */
+export function organizerVerdict(
+  r: Page,
+  title: string,
+): { cut?: string; trusted?: string } {
+  if (!r) return { trusted: "didn't answer" };
+  if (r.blocked) return { trusted: `shows ${r.blocked}` };
+  if (r.unreachable) return { trusted: `didn't answer (${r.unreachable})` };
+  if (r.status === 404 || r.status === 410)
+    return {
+      cut: `The organizer's page ${r.finalUrl} answered ${r.status}: a dead link. Find the event's live page.`,
+    };
+  if (r.status !== 200)
+    return {
+      trusted: r.status ? `answered ${r.status}` : "sent us off its site",
+    };
+  const text = r.text ?? "";
+  if (looksWalled(text)) return { trusted: "shows a wall instead of the page" };
+  // Nothing to read without JavaScript: unknown, so trust the listing.
+  if (text.length < 200 && !r.data)
+    return { trusted: "prints no text without JavaScript" };
+  if (pageNamesEvent(r, title)) return {};
+  return {
+    cut: `The organizer's page loaded and doesn't name "${title}". Link the event's own page, or leave it out.`,
+  };
+}
+
+/** A challenge or firewall page's words (served with any status). */
+const WALL =
+  /just a moment|checking (your|if the site connection is) (browser|secure)|verify (that )?you are (a )?human|attention required|access denied|request blocked|enable javascript and cookies|ddos protection/i;
+const looksWalled = (text: string) => text.length < 3000 && WALL.test(text);
+
+/** Does a loaded page name the event (its title, stem or the stem's words)? */
+export function pageNamesEvent(
+  r: { text: string; data?: string },
+  title: string,
+): boolean {
+  if (lineNamesEvent(r.text, title)) return true;
+  return (r.data ?? "").split("\n").some((l) => lineNamesEvent(l, title));
+}
+
 /** Why a page that didn't answer 200 was cut, and how the host kept us out. */
 export function unreadable(
   url: string,
@@ -860,17 +959,37 @@ async function networkChecks(
   ctx: EventsContext,
   get: ReturnType<typeof pagePool>,
   problems: string[],
+  warnings: string[],
 ): Promise<EventVerdict["blocked"]> {
   const domains = eventDomains(ctx.catalog.link_domains, ctx.ownHost);
+  const listingHosts = ctx.catalog.listing_domains ?? [];
+  const listing = e.verified_via === "listing";
   let blocked: EventVerdict["blocked"];
-  const main = await get(e.url, domains);
-  if (!main || main.status !== 200) {
+  // A listing event's link may be off the allowlist: fetch it on its own
+  // host (redirects elsewhere are refused, which reads as unreachable).
+  const main = await get(
+    e.url,
+    listing ? [...domains, host(e.url).replace(/^www\./, "")] : domains,
+  );
+  if (listing) {
+    const why = organizerVerdict(main, e.title);
+    if (why.cut) problems.push(why.cut);
+    else if (why.trusted)
+      warnings.push(
+        `Trusted the listing: ${host(e.url)} ${why.trusted}. The nightly check keeps watching the listing.`,
+      );
+  } else if (!main || main.status !== 200) {
     const u = unreadable(e.url, main, "page");
     problems.push(u.problem);
     blocked ??= u.blocked;
   }
   for (const x of e.evidence) {
-    const r = await get(x.url, domains);
+    const r = await get(
+      x.url,
+      listing && onList(x.url, listingHosts)
+        ? [...domains, ...listingHosts]
+        : domains,
+    );
     if (!r || r.status !== 200) {
       const u = unreadable(x.url, r, "quote");
       problems.push(u.problem);
@@ -880,8 +999,21 @@ async function networkChecks(
     if (!onPage(r, x.quote, e.title))
       problems.push(`The quote "${x.quote.slice(0, 60)}" isn't on ${x.url}.`);
   }
+  // Our own words: never the listing's.
+  if (listing)
+    for (const x of e.evidence) {
+      if (!onList(x.url, listingHosts)) continue;
+      const r = await get(x.url, [...domains, ...listingHosts]);
+      if (r?.text && containment(e.what, r.text) >= COPY_LIMIT.discovery)
+        problems.push(
+          "The what-kids-do line is too close to the listing. Say it in our own words.",
+        );
+    }
   // Our own words: never the official page's, never the roundup's.
-  const mainText = [main?.text, main?.data].filter(Boolean).join(" ");
+  const mainText =
+    main?.status === 200 && !main.blocked
+      ? [main.text, main.data].filter(Boolean).join(" ")
+      : "";
   if (mainText && containment(e.what, mainText) >= COPY_LIMIT.primary)
     problems.push(
       "The what-kids-do line copies the official page. Say it in our own words.",

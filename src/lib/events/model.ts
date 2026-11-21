@@ -108,6 +108,13 @@ export const EventInput = z.strictObject({
   evidence: z.array(EventEvidence).min(1).max(30),
   /** Where the writer found it (a roundup): never shown or linked. */
   discovery_url: Https.optional(),
+  /**
+   * "listing": the organizer's site keeps our checker out (a bot wall, a
+   * reset, a timeout), so the event stands on a local newsletter's own
+   * listing of it (its evidence), with the organizer's link as `url`.
+   * Never shown; the newsletter is never named or linked.
+   */
+  verified_via: z.enum(["listing"]).optional(),
   status: z
     .strictObject({
       kind: z.enum(["canceled", "postponed", "rescheduled"]),

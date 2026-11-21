@@ -49,10 +49,27 @@
   ],
   "lead_domains": [
     "bendbuzz.com",
+    "bendbuzz.beehiiv.com",
     "bendfamilyloop.com",
     "bendfamilyloop.beehiiv.com",
     "visitbend.com",
     "visitcentraloregon.com"
+  ],
+  "listing_domains": [
+    "bendbuzz.com",
+    "bendbuzz.beehiiv.com",
+    "bendfamilyloop.com",
+    "bendfamilyloop.beehiiv.com"
+  ],
+  "not_organizer_domains": [
+    "eventbrite.com",
+    "hisawyer.com",
+    "allevents.in",
+    "evvnt.com",
+    "ticketmaster.com",
+    "tixr.com",
+    "ticketweb.com",
+    "bendticket.com"
   ],
   "site_aliases": {
     "dpl.libnet.info": "deschuteslibrary.org",

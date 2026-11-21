@@ -37,6 +37,8 @@ const catalog: Catalog = {
   site_aliases: {},
   alias_pins: {},
   alias_paths: {},
+  listing_domains: [],
+  not_organizer_domains: [],
   venue_aliases: [],
   walled_hosts: [],
   skip_dates: [{ date: "2026-12-24", reason: "Christmas Eve" }],

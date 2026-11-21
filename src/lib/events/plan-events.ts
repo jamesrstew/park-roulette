@@ -33,6 +33,7 @@ export type PlanEvent = {
  * plan.events: listed events (confirmed, kids', within 60 days) with a
  * scheduled date from the issue date through 14 days out, soonest first.
  * The writer picks outings from these instead of discovering events.
+ * Events verified only on a newsletter's listing are left out.
  */
 export function planEvents(
   rows: readonly EventRow[],
@@ -44,6 +45,10 @@ export function planEvents(
   const out: PlanEvent[] = [];
   for (const e of rows) {
     if (!listed(e, now)) continue;
+    // Verified on a newsletter's listing: its evidence can't go in an
+    // issue (the issue checker refuses newsletters), so the writer can't
+    // reuse it. It stays on /events.
+    if (e.data.verified_via === "listing") continue;
     const dates = [...e.data.dates]
       .filter(
         (d) =>

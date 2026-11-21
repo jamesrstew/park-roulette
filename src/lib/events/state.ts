@@ -1,6 +1,7 @@
 import { addDays, pacific } from "@/lib/news/time";
 import { lineNamesEvent } from "./binding";
 import { onPage } from "./structured";
+import { organizerVerdict, pageNamesEvent } from "./validate";
 import {
   type EventDate,
   type EventRow,
@@ -71,6 +72,43 @@ export function judge(
   if (opts.walled && r.text.length < 3000) return "unknown";
   return "miss";
 }
+
+/**
+ * One night's look at an event verified on a newsletter's listing (the
+ * organizer's site keeps the checker out). The organizer's page decides
+ * only when it answers: a dead link (404, 410) or a loaded page that
+ * clearly lacks the event is a miss, and a loaded page that names it is
+ * seen. A wall there is unknown, never a miss. Then the listing is
+ * judged like any page, except that a listing that's gone (an archived
+ * issue taken down) is unknown too, not a miss.
+ */
+export function judgeListing(
+  organizer: Parameters<typeof organizerVerdict>[0],
+  listing: Parameters<typeof judge>[0],
+  quote: string,
+  title: string,
+): CheckOutcome {
+  const org = organizerVerdict(organizer, title);
+  if (org.cut) return "miss";
+  const l = judge(listing, quote, { title });
+  if (
+    l === "miss" &&
+    listing &&
+    (listing.status === 404 || listing.status === 410)
+  )
+    return organizerSeen(organizer, title) ? "seen" : "unknown";
+  if (l === "unknown" && organizerSeen(organizer, title)) return "seen";
+  return l;
+}
+
+const organizerSeen = (
+  r: Parameters<typeof organizerVerdict>[0],
+  title: string,
+) =>
+  !!r &&
+  r.status === 200 &&
+  !r.blocked &&
+  pageNamesEvent({ text: r.text ?? "", data: r.data }, title);
 
 const CANCELED = /\bcancell?ed\b/i;
 const NOT_CANCELED =

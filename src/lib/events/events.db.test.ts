@@ -412,6 +412,62 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
     );
   });
 
+  it("a listing event: a wall or a gone listing is unknown, a dead organizer link a miss (events-coverage)", async () => {
+    const ISSUE = "https://bendfamilyloop.beehiiv.com/p/weekend-of-nov-20-22";
+    const ORG = "https://www.sunriversharc.com/events/holiday-swim";
+    const quote = "Saturday 11/21 Holiday Swim 10:30am";
+    const v = verdict(
+      "Holiday Swim",
+      "2026-11-21",
+      {},
+      {
+        url: ORG,
+        verified_via: "listing",
+        evidence: [{ url: ISSUE, quote }],
+      },
+    );
+    v.event!.targets = { "2026-11-21": { url: ISSUE, quote } };
+    await store.upsertEvents([v], { network: true });
+    const now = new Date("2026-11-10T12:00:00Z");
+    const seenUrls: string[][] = [];
+    const night =
+      (
+        org: { status: number; text?: string; blocked?: string },
+        listing: number,
+      ) =>
+      async (u: string, domains: readonly string[]) => {
+        seenUrls.push([...domains]);
+        return u === ORG
+          ? { finalUrl: u, text: "", ...org }
+          : {
+              status: listing,
+              finalUrl: u,
+              text: listing === 200 ? quote : "",
+            };
+      };
+    // The organizer's wall and a listing that's gone: unknown, for weeks.
+    const later = new Date("2026-11-19T12:00:00Z");
+    await store.recheckEvents(
+      later,
+      night({ status: 403, blocked: "a firewall" }, 404),
+    );
+    expect(
+      (await q("select confirm, misses from kid_events"))[0],
+    ).toMatchObject({ confirm: "ok", misses: 0 });
+    // The listing is fetched on the newsletter's host.
+    expect(seenUrls.some((d) => d.includes("bendfamilyloop.beehiiv.com"))).toBe(
+      true,
+    );
+    // The wall and the listing still there: seen.
+    await store.recheckEvents(now, night({ status: 403 }, 200));
+    expect(
+      (await q("select misses, seen_streak from kid_events"))[0],
+    ).toMatchObject({ misses: 0, seen_streak: 1 });
+    // A dead organizer link: a miss.
+    await store.recheckEvents(now, night({ status: 404 }, 200));
+    expect((await q("select misses from kid_events"))[0].misses).toBe(1);
+  });
+
   it("stops starting checks when the time budget runs out (M8)", async () => {
     await store.upsertEvents(
       [verdict("A one", "2026-11-21"), verdict("B two", "2026-11-21")],
