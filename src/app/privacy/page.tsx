@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <LegalPage
-      updated="November 19, 2026"
+      updated="November 20, 2026"
       lead="Privacy"
       accent="Policy"
       intro={
@@ -146,8 +146,9 @@ export default function PrivacyPage() {
 
       <Section title="Cookies and storage on your phone">
         <p>
-          We use three cookies, all just to make signing in work. No
-          advertising, analytics or tracking cookies.
+          We use four cookies: three to make signing in work, and one so we stop
+          offering what you already get. No advertising, analytics or tracking
+          cookies.
         </p>
         <ul>
           <li>
@@ -161,6 +162,13 @@ export default function PrivacyPage() {
           <li>
             <b>pr_grownup</b> lets a grown-up who handed the phone to a kid
             switch back without a new code. It lasts 30 days.
+          </li>
+          <li>
+            <b>pr_on</b> remembers that this browser already gets the Thursday
+            email, the Weekend Pick texts, or both, so we don&apos;t ask again.
+            It&apos;s set when you sign up here or tap a link in one of our
+            emails, cleared when you stop here, and holds only that (no address
+            or number). It lasts 180 days.
           </li>
         </ul>
         <p>
@@ -310,6 +318,18 @@ export default function PrivacyPage() {
             (Instagram&apos;s privacy policy covers that). Our emails never load
             anything from Instagram.
           </li>
+          <li>
+            <b>Our Instagram account</b> (@park_roulette): when we offer it, if
+            you comment PARK on one of our posts or reply PICK to our Story, we
+            send you one direct message with a link to sign up. To do that we
+            read comments on our own posts and replies to our own Stories
+            through Instagram&apos;s tools, and we keep only Instagram&apos;s id
+            for the comment or message (so we never send two), never your
+            username, your name or what you wrote. We never post anything from
+            comments or messages, and we never ask for photos of kids. Our posts
+            use only our own drawings and Bend Park &amp; Recreation District
+            photos in which no person is visible.
+          </li>
         </ul>
         <p>
           Our fonts and pictures come from our own site. There are no
@@ -335,8 +355,10 @@ export default function PrivacyPage() {
           <li>
             <b>What we keep</b>: your email, that you said yes, when, and where
             (in the app or on our website) you said it, and which version of the
-            words you saw. If you confirmed an older sign-up by link, when you
-            tapped it.
+            words you saw. When you sign up on the welcome screen after joining,
+            we also keep the page you were on and that the box was already
+            checked when you saw it. If you confirmed an older sign-up by link,
+            when you tapped it.
           </li>
           <li>
             <b>If you said yes before November 2026</b>: your yes carried over

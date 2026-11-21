@@ -12,23 +12,33 @@ import {
   smsProgramSends,
 } from "@/db/schema";
 import { alertLater } from "./alerts";
+import { sentPreview } from "./news/preview-store";
+import { SITE_URL } from "./site";
+import { conditionFromNws } from "@/components/news/WeatherCard";
+import { airQuality } from "./news/airnow";
 import { IssueSchema } from "./news/issue";
+import { indoorVenue, planTiers } from "./news/issue-preview";
+import type { Plan } from "./news/plan-types";
+import { dayTier, type Tier } from "./news/tiers";
 import { addDays, pacific } from "./news/time";
-import { fetchForecast, labelPeriod } from "./news/weather";
+import { fetchAlerts, fetchForecast } from "./news/weather";
 import {
   confirmedForTexts,
   sendingEnabled,
   sendProgramText,
-  sendText,
+  sendWithFallback,
 } from "./texts-store";
 import {
   beforeWindow,
   dryRunText,
   guardrailTrips,
-  hookFor,
   MONTHLY_CAP,
-  SITE,
+  type SendStops,
   stopRate,
+  type TextDay,
+  weatherWord,
+  type WeekInput,
+  type WeekText,
   weekendText,
   windowMissed,
   windowOpen,
@@ -92,12 +102,23 @@ async function releaseLease(owner: string) {
 async function sentIssueFor(friday: string) {
   const thursday = addDays(friday, -1);
   const [r] = await db
-    .select({ body: newsIssues.sentBody, status: newsIssues.status })
+    .select({
+      body: newsIssues.sentBody,
+      status: newsIssues.status,
+      plan: newsIssues.plan,
+    })
     .from(newsIssues)
     .where(eq(newsIssues.issueDate, thursday));
   if (!r || r.status !== "sent") return null;
   const body = IssueSchema.safeParse(r.body);
-  return body.success ? { date: thursday, issue: body.data } : null;
+  return body.success
+    ? {
+        date: thursday,
+        issue: body.data,
+        plan: r.plan as Plan | null,
+        sent: true,
+      }
+    : null;
 }
 
 /**
@@ -108,7 +129,11 @@ async function sentIssueFor(friday: string) {
 async function draftIssueFor(friday: string) {
   const thursday = addDays(friday, -1);
   const rows = await db
-    .select({ date: newsIssues.issueDate, body: newsIssues.body })
+    .select({
+      date: newsIssues.issueDate,
+      body: newsIssues.body,
+      plan: newsIssues.plan,
+    })
     .from(newsIssues)
     .where(
       and(
@@ -123,27 +148,62 @@ async function draftIssueFor(friday: string) {
     );
   for (const r of rows) {
     const body = IssueSchema.safeParse(r.body);
-    if (body.success) return { date: thursday, issue: body.data };
+    // The draft's own week's tiers only fit its own dates.
+    if (body.success)
+      return {
+        date: thursday,
+        issue: body.data,
+        plan: r.date === thursday ? (r.plan as Plan | null) : null,
+        sent: false,
+      };
   }
   return null;
 }
 
+/** Friday's fresh forecast for the weekend, as the text says it. */
+export type Fresh = NonNullable<WeekInput["fresh"]>;
+
 /**
- * Saturday's fresh forecast for the park's town (Bend when NWS has none
- * for it), or null.
+ * Friday's fresh forecast for Bend: the weekend's words and highs, and
+ * each day's tier (the same rules as the issue's plan: NWS text, alerts,
+ * AirNow). A day NWS has no daytime period for is left out, so missing
+ * data never changes the text.
  */
-async function freshSaturday(saturday: string, town: string) {
-  const f = await fetchForecast().catch(() => ({}) as Record<string, never>);
-  const all = f as Record<string, Parameters<typeof labelPeriod>[0][]>;
-  const periods = all[town] ?? all.Bend;
-  const p = periods?.find(
-    (x) => x.isDaytime && x.startTime.slice(0, 10) === saturday,
-  );
-  if (!p) return null;
-  return { short: p.shortForecast, labels: labelPeriod(p) };
+export async function freshWeekend(issueDate: string): Promise<Fresh | null> {
+  const [forecast, alerts, air] = await Promise.all([
+    fetchForecast().catch(() => ({}) as Record<string, never>),
+    fetchAlerts().catch(() => ({}) as Record<string, never>),
+    airQuality(issueDate).catch(() => null),
+  ]);
+  const periods = forecast.Bend;
+  if (!periods?.length) return null;
+  const days: TextDay[] = [];
+  const tiers: Partial<Record<string, Tier>> = {};
+  for (const date of [addDays(issueDate, 2), addDays(issueDate, 3)]) {
+    const p = periods.find(
+      (x) => x.isDaytime && x.startTime.slice(0, 10) === date,
+    );
+    if (!p) continue;
+    const pop = p.probabilityOfPrecipitation?.value ?? null;
+    days.push({
+      date,
+      word: weatherWord(conditionFromNws(p.shortForecast, pop).condition),
+      high: Math.round(p.temperature),
+    });
+    tiers[date] = dayTier({
+      date,
+      periods,
+      alerts: alerts.Bend ?? [],
+      aqi: {
+        forecast: air?.forecast[date] ?? null,
+        observed: air?.observed ?? null,
+      },
+    }).tier;
+  }
+  return days.length ? { days, tiers } : null;
 }
 
-/** Does the park page answer 200? Checked in production only. */
+/** Does the issue page answer 200? Checked in production only. */
 async function linkOk(url: string): Promise<boolean> {
   if (process.env.VERCEL_ENV !== "production") return true;
   try {
@@ -159,11 +219,67 @@ async function linkOk(url: string): Promise<boolean> {
   }
 }
 
+/** Over this, WhatsApp and some phones drop a link preview's image. */
+const PREVIEW_MAX_BYTES = 600 * 1024;
+
+/** The issue's 1200x630 preview picture (og:image and the MMS media). */
+export function previewImageUrl(issueDate: string): string {
+  return `${SITE_URL}/newsletter/${issueDate}/preview.jpg`;
+}
+
+/**
+ * The issue page's link preview: the page names it as its og:image, and
+ * it loads as a JPEG under 600 KB. Production only; a problem alerts
+ * James and the text goes without its picture (never held).
+ */
+export async function previewProblem(page: string): Promise<string | null> {
+  if (process.env.VERCEL_ENV !== "production") return null;
+  const date = page.split("/").pop()!;
+  const img = previewImageUrl(date);
+  try {
+    const html = await fetch(page, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(8_000),
+    }).then((r) => r.text());
+    if (!html.includes(`content="${img}"`))
+      return "The issue page doesn't name its preview image as og:image.";
+    const r = await fetch(img, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(15_000),
+    });
+    const bytes = (await r.arrayBuffer()).byteLength;
+    if (!r.ok) return `Its preview image answered ${r.status}.`;
+    if (r.headers.get("content-type") !== "image/jpeg")
+      return "Its preview image isn't a JPEG.";
+    if (bytes > PREVIEW_MAX_BYTES)
+      return `Its preview image is ${Math.round(bytes / 1024)} KB (over 600).`;
+    return null;
+  } catch (e) {
+    return `The preview check failed (${(e as Error)?.name}).`;
+  }
+}
+
 /** The week's text, or null with why (closed park, nothing fits...). */
 export async function weekText(
   friday: string,
-  { dryRun = false }: { dryRun?: boolean } = {},
-): Promise<{ issueDate: string; text: string } | { why: string }> {
+  {
+    dryRun = false,
+    fresh = freshWeekend,
+  }: {
+    dryRun?: boolean;
+    /** Friday's forecast (tests pass their own). */
+    fresh?: (issueDate: string) => Promise<Fresh | null>;
+  } = {},
+): Promise<
+  | {
+      issueDate: string;
+      text: string;
+      update: string | null;
+      plan: WeekText["plan"];
+      sent: boolean;
+    }
+  | { why: string }
+> {
   // A real run needs the sent issue; a dry run may test on a draft.
   const sent =
     (await sentIssueFor(friday)) ??
@@ -186,21 +302,34 @@ export async function weekText(
     })
     .from(parks)
     .where(and(eq(parks.slug, slug), isNotNull(parks.approvedAt)));
-  if (!park) return { why: `The featured park ${slug} isn't on the map.` };
-  const saturday = addDays(friday, 1);
-  const issueSat =
-    sent.issue.weekend_ahead?.days?.find((d) => d.date === saturday) ?? null;
-  const hook = hookFor(issueSat, await freshSaturday(saturday, park.city));
-  const text = weekendText(park, hook, Number(friday.slice(5, 7)));
-  if (!text)
+  const week = weekendText({
+    issueDate: sent.date,
+    days: sent.issue.weekend_ahead?.days,
+    tiers: planTiers(sent.plan),
+    park: park ?? null,
+    indoor: (() => {
+      const v = indoorVenue(sent.issue);
+      return v ? { name: v.short, city: v.city } : null;
+    })(),
+    fresh: await fresh(sent.date).catch(() => null),
+  });
+  if (!week)
     return {
-      why: `No text fits for ${park.name}, this week's featured park (closed, or no kid-fit words fit in 160 characters).`,
+      why: park
+        ? `No text fits for ${park.name}, this week's featured park (closed, or the text won't fit in 160 characters).`
+        : `The featured park ${slug} isn't on the map, and there's no Indoor pick to text.`,
     };
-  // The final page the short link lands on, not /w/ itself (a 302).
-  const url = `${SITE}/parks/${park.slug}`;
-  if (!(await linkOk(url)))
-    return { why: `The park page ${url} didn't answer 200.` };
-  return { issueDate: sent.date, text };
+  // The page the short link lands on (a dry run's draft has none yet).
+  const url = `${SITE_URL}/newsletter/${sent.date}`;
+  if (sent.sent && !(await linkOk(url)))
+    return { why: `The issue page ${url} didn't answer 200.` };
+  return {
+    issueDate: sent.date,
+    text: week.text,
+    update: week.update,
+    plan: week.plan,
+    sent: sent.sent,
+  };
 }
 
 /** Numbers that are on and have had their confirmation text. */
@@ -267,7 +396,7 @@ const NOT_A_STOP = [
 export async function recentStopRates(
   before: string,
   since: Date | null = null,
-): Promise<number[]> {
+): Promise<SendStops[]> {
   const after = since
     ? sql`and ${smsProgramSends.sentAt} > ${since.toISOString()}`
     : sql``;
@@ -278,7 +407,7 @@ export async function recentStopRates(
       and ${smsProgramSends.issueDate} < ${before} ${after}
     order by d desc
     limit 2`);
-  const rates: number[] = [];
+  const rates: SendStops[] = [];
   for (const { d } of weeks) {
     const [r] = await db.execute<{ sent: number; stops: number }>(sql`
       select count(*)::int as sent,
@@ -295,9 +424,56 @@ export async function recentStopRates(
         ))::int as stops
       from ${smsProgramSends} s
       where s.issue_date = ${d} and s.status = 'sent' ${since ? sql`and s.sent_at > ${since.toISOString()}` : sql``}`);
-    rates.push(stopRate(r.sent, r.stops));
+    rates.push({ sent: r.sent, stops: r.stops });
   }
   return rates;
+}
+
+/** The words already sent this week (real or dry run), if any. */
+async function textSoFar(
+  issueDate: string,
+  dryRun: boolean,
+): Promise<string | null> {
+  const [r] = await db
+    .select({ body: smsProgramSends.body })
+    .from(smsProgramSends)
+    .where(
+      and(
+        eq(smsProgramSends.issueDate, issueDate),
+        isNotNull(smsProgramSends.body),
+        inArray(
+          smsProgramSends.status,
+          dryRun
+            ? ["dry_run", "logged"]
+            : ["sending", "sent", "failed", "logged"],
+        ),
+      ),
+    )
+    .orderBy(smsProgramSends.id)
+    .limit(1);
+  return r?.body ?? null;
+}
+
+/**
+ * Friday's forecast changed the plan: the issue page shows a "Friday
+ * update" line (stored once, on the issue's plan, by a real run only).
+ */
+async function noteFridayUpdate(
+  issueDate: string,
+  words: string,
+  plan: WeekText["plan"],
+) {
+  await db
+    .update(newsIssues)
+    .set({
+      plan: sql`jsonb_set(coalesce(${newsIssues.plan}, '{}'::jsonb), '{friday_update}', ${JSON.stringify({ words, plan, at: new Date().toISOString() })}::jsonb)`,
+    })
+    .where(
+      and(
+        eq(newsIssues.issueDate, issueDate),
+        sql`${newsIssues.plan}->'friday_update' is null`,
+      ),
+    );
 }
 
 /**
@@ -307,7 +483,11 @@ export async function recentStopRates(
  */
 export async function runWeekendPick(
   now = new Date(),
-  opts: { budgetMs?: number } = {},
+  opts: {
+    budgetMs?: number;
+    /** Friday's forecast (tests pass their own). */
+    fresh?: (issueDate: string) => Promise<Fresh | null>;
+  } = {},
 ): Promise<PickResult> {
   const p = pacific(now);
   if (p.weekday !== 5)
@@ -327,7 +507,7 @@ export async function runWeekendPick(
   if (!(await takeLease(owner)))
     return { action: "idle", why: "Another run has the lease." };
   try {
-    return await run(p.date, now, s, opts.budgetMs ?? BUDGET_MS);
+    return await run(p.date, now, s, opts.budgetMs ?? BUDGET_MS, opts.fresh);
   } finally {
     await releaseLease(owner);
   }
@@ -341,30 +521,48 @@ async function run(
   now: Date,
   s: Awaited<ReturnType<typeof settings>>,
   budgetMs: number,
+  fresh?: (issueDate: string) => Promise<Fresh | null>,
 ): Promise<PickResult> {
   const { dryRun } = s;
   const started = Date.now();
   /** The run's clock: `now`, moving with real time. */
   const clock = () => new Date(now.getTime() + (Date.now() - started));
-  // The guardrail: two sends in a row above 1% STOP pause the texts.
-  const rates = await recentStopRates(addDays(friday, -1), s.clearedAt);
-  if (guardrailTrips(rates)) {
+  // The guardrail: two sends in a row at 1% STOP or more (3 STOPs at
+  // least) pause the texts.
+  const sends = await recentStopRates(addDays(friday, -1), s.clearedAt);
+  if (guardrailTrips(sends)) {
+    const said = sends
+      .slice(0, 2)
+      .map(
+        (r) =>
+          `${(stopRate(r.sent, r.stops) * 100).toFixed(1)}% (${r.stops} of ${r.sent})`,
+      )
+      .join(" and ");
     await db
       .update(newsSettings)
       .set({
         textsPaused: true,
-        textsPausedReason: `STOP rate ${rates.map((r) => `${(r * 100).toFixed(1)}%`).join(" and ")} on the last two sends.`,
+        textsPausedReason: `STOP rate ${said} on the last two sends.`,
       })
       .where(eq(newsSettings.id, 1));
     alertLater({
       key: `texts:guardrail:${friday}`,
-      subject: "Weekend Pick paused: STOP rate over 1% twice",
-      text: `The last two Weekend Picks had STOP rates of ${rates.map((r) => `${(r * 100).toFixed(1)}%`).join(" and ")}, so texts are paused (news_settings.texts_paused). Look at the texts before turning them back on in /admin.`,
+      subject: "Weekend Pick paused: 3+ STOPs and over 1%, twice",
+      text: `The last two Weekend Picks had STOP rates of ${said}, so texts are paused (news_settings.texts_paused). Look at the texts before turning them back on in /admin.`,
       everyMinutes: 7 * 24 * 60,
     });
     return { action: "paused", why: "STOP-rate guardrail tripped." };
   }
-  const week = await weekText(friday, { dryRun });
+  const made = await weekText(friday, { dryRun, fresh });
+  // Once a text has gone this week, every later run sends the same words
+  // (a forecast that changes mid-window never splits the list).
+  const week =
+    "why" in made
+      ? made
+      : {
+          ...made,
+          text: (await textSoFar(made.issueDate, dryRun)) ?? made.text,
+        };
   if ("why" in week) {
     alertLater({
       key: `texts:skip:${friday}`,
@@ -373,6 +571,33 @@ async function run(
       everyMinutes: 7 * 24 * 60,
     });
     return { action: "skipped", why: week.why };
+  }
+  // An Update week goes as plain SMS: the picture shows Thursday's card,
+  // which Friday's forecast just changed.
+  const isUpdate = week.text.includes(" Update: ");
+  if (!dryRun && week.update && isUpdate)
+    await noteFridayUpdate(week.issueDate, week.update, week.plan);
+  // The MMS picture: the issue's preview, rendered once and stored before
+  // the first text goes (a dry run's draft has no public picture). Any
+  // problem alerts, and that week goes as plain SMS.
+  let mediaUrl: string | undefined;
+  if (week.sent && !isUpdate) {
+    const kept = await sentPreview(week.issueDate).catch(() => null);
+    const problem = !kept
+      ? "The preview picture didn't render."
+      : !kept.stored && process.env.VERCEL === "1"
+        ? "The preview picture isn't stored in Blob (the park photo didn't load, or Blob failed)."
+        : kept.jpeg.byteLength > PREVIEW_MAX_BYTES
+          ? `The preview picture is ${Math.round(kept.jpeg.byteLength / 1024)} KB (over 600).`
+          : await previewProblem(`${SITE_URL}/newsletter/${week.issueDate}`);
+    if (problem)
+      alertLater({
+        key: `texts:preview:${week.issueDate}`,
+        subject: "Weekend Pick: the link preview has a problem",
+        text: `${problem} The texts still go, as plain SMS; families just won't see the picture until it's fixed.`,
+        everyMinutes: 24 * 60,
+      });
+    else mediaUrl = previewImageUrl(week.issueDate);
   }
   const numbers = dryRun ? await adminNumbers() : await audience();
   if (dryRun && !numbers.length) {
@@ -439,10 +664,11 @@ async function run(
       .returning({ id: smsProgramSends.id });
     if (!claimed.length) continue;
     const r = dryRun
-      ? await sendText(phone, dryRunText(week.text), {
+      ? await sendWithFallback(phone, dryRunText(week.text), {
           enabled: sendingEnabled(),
+          mediaUrl,
         })
-      : await sendProgramText(phone, week.text);
+      : await sendProgramText(phone, week.text, { mediaUrl });
     const status = !r.ok
       ? "failed"
       : r.logged

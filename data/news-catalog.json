@@ -1,39 +1,138 @@
 {
   "version": 1,
   "link_domains": [
+    "2ndstreettheater.com",
+    "beatchildrenstheatre.org",
     "bendoregon.gov",
     "bendparksandrec.org",
     "bendrockgym.com",
+    "bendteal.com",
     "bowmanmuseum.org",
     "cascadeindoorsports.com",
     "ccprd.org",
     "ci.sisters.or.us",
+    "cocc.edu",
     "crookcountyhistorycenter.org",
     "crooklibraryor.gov",
     "deschuteshistory.org",
     "deschuteslibrary.org",
+    "downtownbend.org",
     "dpl.libnet.info",
+    "envirocenter.org",
     "freespirityoganinjaplay.com",
     "fs.usda.gov",
+    "hdm.mux.earth",
     "highdesertmuseum.org",
     "jcld.org",
     "littlebugplayhub.com",
     "macrecdistrict.com",
+    "mountainairbend.com",
+    "mtbachelor.com",
     "oldmilldistrict.com",
     "parkroulette.quest",
     "raprd.org",
     "redmondoregon.gov",
+    "ruckusmuseum.org",
+    "sistersmoviehouse.com",
     "snco.org",
     "stateparks.oregon.gov",
     "sunmountainfun.com",
     "sunriverowners.org",
+    "sunriverresort.com",
     "sunriversharc.com",
     "thecircuitgym.com",
+    "towertheatre.org",
     "tripcheck.com",
     "tzbend.com",
-    "visitbend.com",
-    "visitcentraloregon.com",
     "weather.gov"
+  ],
+  "lead_domains": [
+    "bendbuzz.com",
+    "bendfamilyloop.com",
+    "bendfamilyloop.beehiiv.com",
+    "visitbend.com",
+    "visitcentraloregon.com"
+  ],
+  "site_aliases": {
+    "dpl.libnet.info": "deschuteslibrary.org",
+    "hdm.mux.earth": "highdesertmuseum.org"
+  },
+  "alias_pins": {
+    "hdm.mux.earth": {
+      "site": "www.highdesertmuseum.org"
+    }
+  },
+  "venue_aliases": [
+    {
+      "id": "venue-central-library",
+      "town": "Bend",
+      "names": [
+        "Central Library",
+        "Deschutes Public Library Central Library",
+        "DPL Central Library",
+        "Central Library Bend"
+      ]
+    },
+    {
+      "id": "dpl-downtown-bend",
+      "town": "Bend",
+      "names": [
+        "Downtown Bend Library",
+        "Bend Downtown Library",
+        "Downtown Library",
+        "Downtown Bend Public Library"
+      ]
+    },
+    {
+      "id": "dpl-east-bend",
+      "town": "Bend",
+      "names": [
+        "East Bend Library",
+        "Bend East Library",
+        "East Bend Public Library"
+      ]
+    },
+    {
+      "id": "venue-redmond-library",
+      "town": "Redmond",
+      "names": ["Redmond Library", "Redmond Public Library"]
+    },
+    {
+      "id": "venue-sisters-library",
+      "town": "Sisters",
+      "names": ["Sisters Library", "Sisters Public Library"]
+    },
+    {
+      "id": "venue-sunriver-library",
+      "town": "Sunriver",
+      "names": ["Sunriver Library", "Sunriver Area Public Library"]
+    },
+    {
+      "id": "venue-la-pine-library",
+      "town": "La Pine",
+      "names": ["La Pine Library", "La Pine Public Library"]
+    },
+    {
+      "id": "venue-the-pavilion",
+      "town": "Bend",
+      "names": [
+        "The Pavilion",
+        "The Pavilion - Bend Park and Recreation District",
+        "Pavilion",
+        "BPRD Pavilion"
+      ]
+    }
+  ],
+  "walled_hosts": [
+    "bendoregon.gov",
+    "redmondoregon.gov",
+    "ci.sisters.or.us",
+    "visitcentraloregon.com",
+    "visitbend.com",
+    "sunriverowners.org",
+    "sunriversharc.com",
+    "oldmilldistrict.com",
+    "bowmanmuseum.org"
   ],
   "skip_dates": [
     {
@@ -938,6 +1037,7 @@
     {
       "id": "venue-high-desert-museum",
       "name": "High Desert Museum",
+      "short_name": "High Desert Museum",
       "town": "Bend",
       "address": "59800 South Highway 97, Bend, OR 97702",
       "kind": "museum",
@@ -963,6 +1063,7 @@
     {
       "id": "venue-juniper-swim-fitness",
       "name": "Juniper Swim & Fitness Center",
+      "short_name": "Juniper Swim & Fitness",
       "town": "Bend",
       "address": "800 NE 6th St, Bend, OR 97701",
       "kind": "pool",
@@ -988,6 +1089,7 @@
     {
       "id": "venue-the-pavilion",
       "name": "The Pavilion",
+      "short_name": "The Pavilion",
       "town": "Bend",
       "address": "1001 SW Bradbury Way, Bend, OR",
       "kind": "skating",
@@ -1013,6 +1115,7 @@
     {
       "id": "venue-central-library",
       "name": "Central Library (Deschutes Public Library)",
+      "short_name": "Central Library",
       "town": "Bend",
       "address": "61956 SE Santorini St, Bend, OR 97702",
       "kind": "library",
@@ -1038,6 +1141,7 @@
     {
       "id": "venue-deschutes-historical-museum",
       "name": "Deschutes Historical Museum",
+      "short_name": "Historical Museum",
       "town": "Bend",
       "address": "129 NW Idaho Ave, Bend, OR 97703",
       "kind": "museum",
@@ -1063,6 +1167,7 @@
     {
       "id": "venue-bend-rock-gym",
       "name": "Bend Rock Gym",
+      "short_name": "Bend Rock Gym",
       "town": "Bend",
       "address": "1182 SE Centennial Ct, Bend, OR 97702",
       "kind": "climbing",
@@ -1088,6 +1193,7 @@
     {
       "id": "venue-circuit-bouldering-bend",
       "name": "The Circuit Bouldering Gym (Bend)",
+      "short_name": "The Circuit Bouldering Gym",
       "town": "Bend",
       "address": "63051 NE Corporate Pl, Bend, OR",
       "kind": "climbing",
@@ -1113,6 +1219,7 @@
     {
       "id": "venue-trampoline-zone",
       "name": "Trampoline Zone & Adventure Park",
+      "short_name": "Trampoline Zone",
       "town": "Bend",
       "address": "63040 NE 18th St, Bend, OR 97701",
       "kind": "trampoline",
@@ -1138,6 +1245,7 @@
     {
       "id": "venue-cascade-indoor-sports",
       "name": "Cascade Indoor Sports",
+      "short_name": "Cascade Indoor Sports",
       "town": "Bend",
       "address": "20775 High Desert Lane, Bend, OR 97701",
       "kind": "indoor_play",
@@ -1163,6 +1271,7 @@
     {
       "id": "venue-free-spirit-bend",
       "name": "Free Spirit",
+      "short_name": "Free Spirit",
       "town": "Bend",
       "address": "320 SW Powerhouse Dr, Suite 150, Bend, OR 97702",
       "kind": "indoor_play",
@@ -1189,6 +1298,7 @@
     {
       "id": "venue-sun-mountain-fun-center",
       "name": "Sun Mountain Fun Center",
+      "short_name": "Sun Mountain Fun Center",
       "town": "Bend",
       "address": "300 NE Bend River Mall Dr, Bend, OR 97703",
       "kind": "other",
@@ -1214,6 +1324,7 @@
     {
       "id": "venue-the-hub-redmond",
       "name": "The Hub Aquatic and Recreation Center",
+      "short_name": "The Hub",
       "town": "Redmond",
       "address": "3515 SW Lava Ave, Redmond, OR 97756",
       "kind": "pool",
@@ -1239,6 +1350,7 @@
     {
       "id": "venue-redmond-library",
       "name": "Redmond Library (Deschutes Public Library)",
+      "short_name": "Redmond Library",
       "town": "Redmond",
       "address": "827 SW Deschutes Ave, Redmond, OR 97756",
       "kind": "library",
@@ -1264,6 +1376,7 @@
     {
       "id": "venue-little-bug-play-hub",
       "name": "Little Bug Play Hub",
+      "short_name": "Little Bug Play Hub",
       "town": "Redmond",
       "address": null,
       "kind": "indoor_play",
@@ -1291,6 +1404,7 @@
     {
       "id": "venue-sisters-library",
       "name": "Sisters Library (Deschutes Public Library)",
+      "short_name": "Sisters Library",
       "town": "Sisters",
       "address": "110 N Cedar St, Sisters, OR 97759",
       "kind": "library",
@@ -1316,6 +1430,7 @@
     {
       "id": "venue-sharc",
       "name": "SHARC (Sunriver Homeowners Aquatic and Recreation Center)",
+      "short_name": "SHARC",
       "town": "Sunriver",
       "address": "57250 Overlook Road, Sunriver, OR",
       "kind": "pool",
@@ -1342,6 +1457,7 @@
     {
       "id": "venue-sunriver-nature-center",
       "name": "Sunriver Nature Center & Observatory",
+      "short_name": "Sunriver Nature Center",
       "town": "Sunriver",
       "address": "57245 River Rd, Sunriver, OR 97707",
       "kind": "nature_center",
@@ -1368,6 +1484,7 @@
     {
       "id": "venue-sunriver-library",
       "name": "Sunriver Library (Deschutes Public Library)",
+      "short_name": "Sunriver Library",
       "town": "Sunriver",
       "address": "56855 Venture Lane, Sunriver, OR 97707",
       "kind": "library",
@@ -1393,6 +1510,7 @@
     {
       "id": "venue-la-pine-library",
       "name": "La Pine Library (Deschutes Public Library)",
+      "short_name": "La Pine Library",
       "town": "La Pine",
       "address": "16425 1st St, La Pine, OR 97739",
       "kind": "library",
@@ -1418,6 +1536,7 @@
     {
       "id": "venue-bowman-museum",
       "name": "Bowman Museum",
+      "short_name": "Bowman Museum",
       "town": "Prineville",
       "address": "246 North Main Street, Prineville, OR 97754",
       "kind": "museum",
@@ -1444,6 +1563,7 @@
     {
       "id": "venue-crook-county-library",
       "name": "Crook County Library",
+      "short_name": "Crook County Library",
       "town": "Prineville",
       "address": "175 NW Meadow Lakes Dr, Prineville, OR 97754",
       "kind": "library",
@@ -1469,6 +1589,7 @@
     {
       "id": "venue-mac-madras",
       "name": "MAC Recreation District (Madras Aquatic Center)",
+      "short_name": "Madras Aquatic Center",
       "town": "Madras",
       "address": "1195 SE Kemper Way, Madras, OR 97741",
       "kind": "pool",
@@ -1494,6 +1615,7 @@
     {
       "id": "venue-jefferson-county-library",
       "name": "Jefferson County Library",
+      "short_name": "Jefferson County Library",
       "town": "Madras",
       "address": "241 SE 7th Street, Madras, OR 97741",
       "kind": "library",

@@ -1,59 +1,301 @@
 import { describe, expect, it } from "vitest";
+import type { ForecastDay } from "./news/issue";
 import { septets } from "./texts";
 import {
   beforeWindow,
+  betterDay,
   composeText,
   confirmWindowOpen,
+  dateCode,
+  dateFromCode,
   dryRunText,
   fitWords,
+  guardrailTrips,
+  issueLink,
   parkCode,
   parkIdFromCode,
-  shortLink,
-  guardrailTrips,
-  hookFor,
   SITE,
+  textDays,
   textProblems,
+  tierFlipped,
   US_ZONES,
+  weatherWords,
   weekendText,
+  type WeekInput,
   windowMissed,
   windowOpen,
   zonesFor,
 } from "./weekend-pick";
 
-const park = (over: Partial<Parameters<typeof composeText>[0]> = {}) => ({
+const park = (over: Partial<NonNullable<WeekInput["park"]>> = {}) => ({
   id: 1234,
   name: "Wildflower Park",
   city: "Bend",
   slug: "wildflower-park-bend",
-  features: ["toddler_area", "fenced"],
+  features: ["toddler_area", "fenced", "swings"],
   status: "active",
   ...over,
 });
 
-describe("the Weekend Pick text", () => {
-  it("follows the template, in GSM-7, 160 characters at most", () => {
-    const t = composeText(park(), null, 12)!;
-    expect(t).toBe(
-      "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/w/ya Reply STOP to opt out",
-    );
-    expect(textProblems(t)).toBeNull();
-    const snowy = composeText(
-      park({
+/** The card's three days: Friday to Sunday after the issue's Thursday. */
+function card(
+  thursday: string,
+  sat: [string, ForecastDay["icon"], number, number?],
+  sun: [string, ForecastDay["icon"], number, number?],
+): ForecastDay[] {
+  const d = (n: number) => {
+    const t = new Date(`${thursday}T12:00:00Z`);
+    t.setUTCDate(t.getUTCDate() + n);
+    return t.toISOString().slice(0, 10);
+  };
+  return [
+    {
+      date: d(1),
+      label: "Friday",
+      condition: "Sunny",
+      icon: "sun",
+      high: 50,
+      low: 30,
+      precip: 0,
+    },
+    {
+      date: d(2),
+      label: "Saturday",
+      condition: sat[0],
+      icon: sat[1],
+      high: sat[2],
+      low: 20,
+      precip: sat[3] ?? 0,
+    },
+    {
+      date: d(3),
+      label: "Sunday",
+      condition: sun[0],
+      icon: sun[1],
+      high: sun[2],
+      low: 20,
+      precip: sun[3] ?? 0,
+    },
+  ];
+}
+
+describe("the Weekend Pick text (batch 6 samples)", () => {
+  it("1. snowy: the better day, then the STOP line, then the link (147)", () => {
+    const w = weekendText({
+      issueDate: "2026-12-10",
+      days: card(
+        "2026-12-10",
+        ["Snow", "snow", 29, 80],
+        ["Mostly sunny", "sun", 36],
+      ),
+      tiers: { "2026-12-12": "disruptive", "2026-12-13": "plan_around" },
+      park: park({
         name: "Pine Nursery Park",
         slug: "pine-nursery-park-bend",
-        features: ["accessible", "restrooms", "swings", "slides"],
+        features: ["restrooms"],
       }),
-      "Snowy weekend?",
-      12,
-    )!;
+      indoor: { name: "High Desert Museum", city: "Bend" },
+    })!;
+    expect(w.text).toBe(
+      "Park Roulette: Snow Sat, 29. Sunny Sun, 36. Go Sunday: Pine Nursery Park, Bend. Restrooms. Reply STOP to opt out. https://parkroulette.quest/w/5lju",
+    );
+    expect(septets(w.text)).toBe(147);
+    expect(w.update).toBeNull();
+    expect(textProblems(w.text)).toBeNull();
+  });
+  it("2. sunny: one weather phrase for both days, Saturday on a tie (158)", () => {
+    const w = weekendText({
+      issueDate: "2026-12-03",
+      days: card(
+        "2026-12-03",
+        ["Sunny", "sun", 47],
+        ["Mostly sunny", "sun", 49],
+      ),
+      tiers: { "2026-12-05": "fine", "2026-12-06": "fine" },
+      park: park(),
+      indoor: null,
+    })!;
+    // Swings would make it 161: the fit words stop at what fits.
+    expect(w.text).toBe(
+      "Park Roulette: Sunny Sat and Sun, 47 and 49. Go Saturday: Wildflower Park, Bend. Fenced toddler area. Reply STOP to opt out. https://parkroulette.quest/w/5ljn",
+    );
+    expect(septets(w.text)).toBe(158);
+  });
+  it("3. smoky both days: the Indoor pick (140)", () => {
+    const w = weekendText({
+      issueDate: "2027-09-09",
+      days: card("2027-09-09", ["Smoky", "smoke", 81], ["Smoky", "smoke", 84]),
+      tiers: { "2027-09-11": "disruptive", "2027-09-12": "disruptive" },
+      park: park(),
+      indoor: { name: "High Desert Museum", city: "Bend" },
+    })!;
+    expect(w.text).toBe(
+      "Park Roulette: Smoky Sat and Sun, 81 and 84. Indoor pick: High Desert Museum, Bend. Reply STOP to opt out. https://parkroulette.quest/w/5t19",
+    );
+    expect(septets(w.text)).toBe(140);
+  });
+  it("4. no park and no Indoor pick: no text", () => {
+    const base = {
+      issueDate: "2026-12-03",
+      days: card("2026-12-03", ["Sunny", "sun", 47], ["Sunny", "sun", 49]),
+      tiers: null,
+      indoor: null,
+    };
+    expect(weekendText({ ...base, park: null })).toBeNull();
     expect(
-      snowy.startsWith(
-        "Park Roulette: Weekend Pick: Snowy weekend? Pine Nursery Park, Bend.",
+      weekendText({ ...base, park: park({ status: "closed" }) }),
+    ).toBeNull();
+  });
+});
+
+describe("the text's parts", () => {
+  it("says the weather long, or short when it has to", () => {
+    const days = textDays(
+      card(
+        "2026-12-10",
+        ["Rain and snow", "mixed", 33, 60],
+        ["Partly sunny", "partly", 41],
+      ),
+      "2026-12-10",
+    );
+    expect(weatherWords(days)).toBe(
+      "Rain and snow Sat, 33. Partly sunny Sun, 41",
+    );
+    expect(weatherWords(days, true)).toBe(
+      "Sat rain and snow 33, Sun partly sunny 41",
+    );
+    // A missing day is left out; no days, no weather.
+    const one = card("2026-12-10", ["Snow", "snow", 29], ["Sunny", "sun", 36]);
+    one[2] = { ...one[2], missing: true, high: null };
+    expect(weatherWords(textDays(one, "2026-12-10"))).toBe("Snow Sat, 29");
+    expect(weatherWords([])).toBeNull();
+  });
+  it("shortens in order: fit words, short weather, Go Sat, then the town; else nothing", () => {
+    const days = textDays(
+      card(
+        "2026-12-10",
+        ["Rain and snow", "mixed", 33, 60],
+        ["Partly sunny", "partly", 41],
+      ),
+      "2026-12-10",
+    );
+    const link = issueLink("2026-12-10");
+    const at = (name: string) =>
+      composeText({
+        update: true,
+        days,
+        plan: {
+          kind: "park",
+          date: "2026-12-13",
+          name,
+          city: "La Pine",
+          fit: ["Swings"],
+        },
+        link,
+      });
+    const a = at("Big")!;
+    expect(a).toBe(
+      "Park Roulette: Update: Rain and snow Sat, 33. Partly sunny Sun, 41. Go Sunday: Big, La Pine. Swings. Reply STOP to opt out. https://parkroulette.quest/w/5lju",
+    );
+    // Longer names step through each shortening.
+    const b = at("A".repeat(10))!;
+    expect(b).not.toContain("Swings");
+    expect(b).toContain(
+      "Rain and snow Sat, 33. Partly sunny Sun, 41. Go Sunday:",
+    );
+    const c = at("A".repeat(15))!;
+    expect(c).toContain(
+      "Sat rain and snow 33, Sun partly sunny 41. Go Sunday:",
+    );
+    const d = at("A".repeat(18))!;
+    expect(d).toContain(`Go Sun: ${"A".repeat(18)}, La Pine.`);
+    const e = at("A".repeat(24))!;
+    expect(e).toContain(`Go Sun: ${"A".repeat(24)}. Reply STOP`);
+    // Then the other day's weather, then all of it.
+    const f = at("A".repeat(30))!;
+    expect(f).toContain(
+      `Update: Sun partly sunny 41. Go Sun: ${"A".repeat(30)}.`,
+    );
+    const g = at("A".repeat(60))!;
+    expect(g).toContain(`Update: Go Sun: ${"A".repeat(60)}.`);
+    expect(at("A".repeat(90))).toBeNull();
+    for (const t of [a, b, c, d, e, f, g]) {
+      expect(septets(t)).toBeLessThanOrEqual(160);
+      expect(textProblems(t)).toBeNull();
+    }
+  });
+  it("picks the better day by tier, Saturday on a tie", () => {
+    expect(betterDay("2026-12-12", {})).toBe("2026-12-12");
+    expect(betterDay("2026-12-12", { "2026-12-12": "plan_around" })).toBe(
+      "2026-12-13",
+    );
+    expect(
+      betterDay("2026-12-12", {
+        "2026-12-12": "disruptive",
+        "2026-12-13": "disruptive",
+      }),
+    ).toBe("2026-12-12");
+  });
+  it("starts 'Update:' only when Friday flips a day into or out of disruptive", () => {
+    const days = ["2026-12-12", "2026-12-13"];
+    expect(
+      tierFlipped(
+        { "2026-12-12": "fine" },
+        { "2026-12-12": "plan_around" },
+        days,
+      ),
+    ).toBe(false);
+    expect(
+      tierFlipped(
+        { "2026-12-12": "fine" },
+        { "2026-12-12": "disruptive" },
+        days,
       ),
     ).toBe(true);
-    expect(snowy.length).toBeLessThanOrEqual(160);
+    expect(
+      tierFlipped(
+        { "2026-12-13": "disruptive" },
+        { "2026-12-13": "fine" },
+        days,
+      ),
+    ).toBe(true);
+    // Missing data never decides.
+    expect(tierFlipped({ "2026-12-12": "fine" }, {}, days)).toBe(false);
+    expect(tierFlipped(null, { "2026-12-12": "disruptive" }, days)).toBe(false);
+    const w = weekendText({
+      issueDate: "2026-12-10",
+      days: card("2026-12-10", ["Sunny", "sun", 40], ["Sunny", "sun", 41]),
+      tiers: { "2026-12-12": "fine", "2026-12-13": "fine" },
+      park: park({ features: [] }),
+      indoor: null,
+      fresh: {
+        days: [
+          { date: "2026-12-12", word: "Snow", high: 29 },
+          { date: "2026-12-13", word: "Sunny", high: 36 },
+        ],
+        tiers: { "2026-12-12": "disruptive", "2026-12-13": "fine" },
+      },
+    })!;
+    expect(w.text).toBe(
+      "Park Roulette: Update: Snow Sat, 29. Sunny Sun, 36. Go Sunday: Wildflower Park, Bend. Reply STOP to opt out. https://parkroulette.quest/w/5lju",
+    );
+    expect(w.update).toBe("Snow Sat, 29. Sunny Sun, 36");
   });
-  it("adds fit words in order while they fit, and skips when none do", () => {
+  it("never opens the Indoor pick on rough tiers (an issue with no stored tiers)", () => {
+    const w = weekendText({
+      issueDate: "2026-12-10",
+      days: card(
+        "2026-12-10",
+        ["Snow", "snow", 29, 90],
+        ["Rain", "rain", 36, 90],
+      ),
+      tiers: null,
+      park: park({ features: [] }),
+      indoor: { name: "High Desert Museum", city: "Bend" },
+    })!;
+    expect(w.text).toContain("Go Saturday: Wildflower Park, Bend.");
+  });
+  it("adds fit words in order while they fit", () => {
     expect(
       fitWords(
         ["restrooms", "swings", "spinny", "toddler_area", "splash_pad"],
@@ -61,120 +303,72 @@ describe("the Weekend Pick text", () => {
       ),
     ).toEqual(["Toddler area", "Swings", "Spinny things", "Restrooms"]);
     expect(fitWords(["splash_pad"], 7)).toEqual(["Splash pad"]);
-    expect(
-      composeText(
-        park({
-          features: ["swings", "spinny", "restrooms"],
-          name: "Juniper Park",
-          slug: "juniper-park-bend",
-        }),
-        null,
-        1,
-      ),
-    ).toContain("Swings, spinny things, restrooms.");
-    expect(composeText(park({ features: [] }), null, 1)).toBeNull();
-    expect(composeText(park({ status: "closed" }), null, 1)).toBeNull();
-    const long = composeText(
-      park({
-        name: "A Very Long Park Name That Goes On And On Memorial Grounds",
-        slug: "a-very-long-park-name-that-goes-on-and-on-memorial-grounds-bend",
-        features: ["toddler_area", "swings", "slides", "restrooms"],
-      }),
-      null,
-      1,
+  });
+  it("maps curly quotes and dashes in names to ASCII", () => {
+    const w = weekendText({
+      issueDate: "2026-12-03",
+      days: undefined,
+      tiers: null,
+      park: park({ name: "Kids’ Corner – North", features: ["swings"] }),
+      indoor: null,
+    })!;
+    expect(w.text).toBe(
+      "Park Roulette: Go Saturday: Kids' Corner - North, Bend. Swings. Reply STOP to opt out. https://parkroulette.quest/w/5ljn",
     );
-    expect(long === null || long.length <= 160).toBe(true);
   });
-  it("uses a weather word only when the issue and Friday's forecast agree", () => {
-    const snow = { short: "Snow Likely", labels: ["snow", "cold"] };
-    expect(hookFor({ icon: "snow" }, snow)).toBe("Snowy weekend?");
-    expect(
-      hookFor({ icon: "snow" }, { short: "Partly Cloudy", labels: [] }),
-    ).toBeNull();
-    expect(hookFor({ icon: "cloudy" }, snow)).toBeNull();
-    expect(hookFor({ icon: "sun" }, { short: "Sunny", labels: [] })).toBe(
-      "Sunny weekend?",
-    );
-    expect(
-      hookFor({ icon: "sun" }, { short: "Mostly Clear", labels: [] }),
-    ).toBe("Sunny weekend?");
-    expect(
-      hookFor({ icon: "sun" }, { short: "Chance Rain", labels: ["rain"] }),
-    ).toBeNull();
-    expect(hookFor(null, snow)).toBeNull();
+});
+
+describe("short links", () => {
+  it("codes the issue date as YYMMDD in base 36, always 4 characters", () => {
+    expect(dateCode("2026-12-10")).toBe("5lju");
+    expect(dateCode("2026-12-03")).toBe("5ljn");
+    expect(dateCode("2027-09-09")).toBe("5t19");
+    expect(dateCode("2010-01-01")).toHaveLength(4);
+    expect(dateCode("2099-12-31")).toHaveLength(4);
+    for (const d of ["2026-01-01", "2026-02-28", "2028-02-29", "2040-07-04"])
+      expect(dateFromCode(dateCode(d))).toBe(d);
+    for (const bad of ["", "5lj", "5ljuu", "5LJU", "zzzz", "1000", "../x"])
+      expect(dateFromCode(bad), bad).toBeNull();
+    for (const bad of ["", "2026-1-1", "26-12-10", "x2026-12-10", "1999-12-10"])
+      expect(() => dateCode(bad), bad).toThrow();
+    // Not a real day: February 30.
+    expect(dateFromCode(Number("260230").toString(36))).toBeNull();
+    expect(issueLink("2026-12-10")).toBe("https://parkroulette.quest/w/5lju");
   });
-  it("gives no sunny word for partly sunny, cold or smoke (L4)", () => {
-    expect(
-      hookFor({ icon: "sun" }, { short: "Partly Sunny", labels: [] }),
-    ).toBeNull();
-    expect(
-      hookFor({ icon: "sun" }, { short: "Sunny", labels: ["cold"] }),
-    ).toBeNull();
-    expect(
-      hookFor({ icon: "sun" }, { short: "Sunny", labels: ["smoke"] }),
-    ).toBeNull();
-  });
-  it("drops the weather word rather than the week (M1)", () => {
-    // 146 characters without the word, 161 with it.
-    const p = park({
-      name: "B".repeat(42),
-      slug: "b-bend",
-      features: ["toddler_area"],
-    });
-    expect(composeText(p, "Snowy weekend?", 1)).toBeNull();
-    const t = weekendText(p, "Snowy weekend?", 1);
-    expect(t).not.toBeNull();
-    expect(t).not.toContain("Snowy");
-    // With room, the word stays.
-    expect(
-      weekendText(
-        park({ name: "Pine Park", slug: "pine" }),
-        "Sunny weekend?",
-        1,
-      ),
-    ).toContain("Sunny weekend?");
-  });
-  it("links with our own short link, base 36 of the park id", () => {
+  it("keeps old park codes at 1 to 3 characters", () => {
     expect(parkCode(1234)).toBe("ya");
     expect(parkIdFromCode("ya")).toBe(1234);
-    expect(shortLink(1234)).toBe("https://parkroulette.quest/w/ya");
-    for (const bad of ["", "0", "00a", "YA", "abcde", "a-b", "../x"])
+    expect(parkIdFromCode("zzz")).toBe(46655);
+    for (const bad of ["", "0", "00a", "YA", "5lju", "abcd", "a-b", "../x"])
       expect(parkIdFromCode(bad), bad).toBeNull();
-    // The old long park link no longer passes the checks.
+  });
+  it("checks the text: STOP line, then our issue link, last", () => {
+    const ok = `Park Roulette: Go Saturday: X, Bend. Reply STOP to opt out. ${SITE}/w/5lju`;
+    expect(textProblems(ok)).toBeNull();
     expect(
       textProblems(
-        "Park Roulette: Weekend Pick: X, Bend. Swings. https://parkroulette.quest/parks/x Reply STOP to opt out",
+        `Park Roulette: Go Saturday: X, Bend. ${SITE}/w/5lju Reply STOP to opt out.`,
       ),
+    ).toMatch(/last/);
+    expect(
+      textProblems(`Park Roulette: Go Saturday: X, Bend. ${SITE}/w/5lju`),
+    ).toMatch(/STOP/);
+    // Old park links and long links no longer pass.
+    expect(
+      textProblems(`Park Roulette: X. Reply STOP to opt out. ${SITE}/w/ya`),
     ).toMatch(/short link/);
-  });
-  it("counts septets and maps curly quotes and dashes to ASCII (L2)", () => {
-    expect(septets("abc")).toBe(3);
-    expect(septets("a[b]~")).toBe(8);
+    expect(
+      textProblems(`Park Roulette: X. Reply STOP to opt out. ${SITE}/parks/x`),
+    ).toMatch(/short link/);
     // 160 characters, but "[" takes two septets: 161.
-    const t = `Park Roulette: [ ${SITE}/w/a ${"x".repeat(90)} Reply STOP to opt out`;
+    const t = `Park Roulette: [ ${"x".repeat(86)} Reply STOP to opt out. ${SITE}/w/5lju`;
     expect(t.length).toBe(160);
     expect(textProblems(t)).toBe("over 160 characters");
-    const curly = composeText(
-      park({ name: "Kids’ Corner – North", features: ["swings"] }),
-      null,
-      1,
-    );
-    expect(curly).toContain("Kids' Corner - North");
-    expect(textProblems(curly!)).toBeNull();
   });
-  it("marks a dry run only when the STOP line still fits (M4)", () => {
-    const short = composeText(park(), null, 1)!;
+  it("marks a dry run only when the whole still fits", () => {
+    const short = `Park Roulette: Go Saturday: X, Bend. Reply STOP to opt out. ${SITE}/w/5lju`;
     expect(dryRunText(short)).toBe(`[Dry run] ${short}`);
-    const long = composeText(
-      park({
-        name: "B".repeat(47),
-        slug: "b-bend",
-        features: ["toddler_area"],
-      }),
-      null,
-      1,
-    )!;
-    expect(long.length).toBe(151);
+    const long = `Park Roulette: ${"x".repeat(85)}. Reply STOP to opt out. ${SITE}/w/5lju`;
     expect(dryRunText(long)).toBe(long);
   });
 });
@@ -237,9 +431,27 @@ describe("when a number gets its text", () => {
     expect(confirmWindowOpen(HI, new Date("2027-06-03T18:17:00Z"))).toBe(true);
     expect(confirmWindowOpen(OR, new Date("2027-06-03T15:00:00Z"))).toBe(true); // 8 am PDT
   });
-  it("pauses after two sends above 1% STOP", () => {
-    expect(guardrailTrips([0.02, 0.015])).toBe(true);
-    expect(guardrailTrips([0.02, 0.005])).toBe(false);
-    expect(guardrailTrips([0.02])).toBe(false);
+  it("pauses only after two sends that EACH had at least 3 STOPs and over 1%", () => {
+    expect(
+      guardrailTrips([
+        { sent: 100, stops: 3 },
+        { sent: 200, stops: 3 },
+      ]),
+    ).toBe(true);
+    // 3 STOPs but exactly 1%: not over.
+    expect(
+      guardrailTrips([
+        { sent: 300, stops: 3 },
+        { sent: 100, stops: 5 },
+      ]),
+    ).toBe(false);
+    // Over 1%, but only 2 STOPs in one send (a small list).
+    expect(
+      guardrailTrips([
+        { sent: 50, stops: 2 },
+        { sent: 50, stops: 9 },
+      ]),
+    ).toBe(false);
+    expect(guardrailTrips([{ sent: 100, stops: 9 }])).toBe(false);
   });
 });

@@ -41,6 +41,11 @@ export type Weekday = (typeof WEEKDAYS)[number];
 const Venue = z.object({
   id: z.string().regex(/^venue-[a-z0-9-]+$/),
   name: z.string(),
+  /**
+   * What a 160-character text and the link-preview picture call it: no
+   * parenthetical, at most 26 characters ("SHARC", "Central Library").
+   */
+  short_name: z.string().min(2).max(26),
   town: z.string(),
   address: z.string().nullable().default(null),
   kind: z.string(),
@@ -85,6 +90,11 @@ const Series = z.object({
   months: z.array(Month),
   url: Url,
   source: Url.nullable().default(null),
+  /**
+   * The venues this series runs at (venue.name exactly). When present, a
+   * hand-in with this series_id at any other venue is refused.
+   */
+  venues: z.array(z.string()).optional(),
   verified: z.boolean(),
 });
 
@@ -172,6 +182,56 @@ const ParkHint = z.object({
 export const CatalogSchema = z.object({
   version: z.number().int(),
   link_domains: z.array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/)),
+  /**
+   * Leads only: listings sites (often behind a bot check) and other
+   * newsletters. Allowed as a discovery_url (never stored, shown or
+   * linked); refused as a link or evidence everywhere (issues and events).
+   * The organizer's own page is the primary source. Competitors' names are
+   * also refused in any text (COMPETITOR_NAMES, styleProblems).
+   */
+  lead_domains: z
+    .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
+    .default([]),
+  /**
+   * A host that is the same organization as an allowlisted site (the
+   * library's calendar on dpl.libnet.info is deschuteslibrary.org): a link
+   * and its evidence on either count as one site.
+   */
+  site_aliases: z
+    .record(
+      z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/),
+      z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/),
+    )
+    .default({}),
+  /**
+   * Query values an alias host's evidence URL must carry (hdm.mux.earth's
+   * CMS serves any site: site= pins it to the museum's).
+   */
+  alias_pins: z
+    .record(z.string(), z.record(z.string(), z.string()))
+    .default({}),
+  /**
+   * Other names for one venue (a library branch printed three ways), so a
+   * program there keys one page. Catalog venues match by their own name
+   * too.
+   */
+  venue_aliases: z
+    .array(
+      z.object({
+        id: z.string().regex(/^[a-z0-9-]+$/),
+        town: z.string(),
+        names: z.array(z.string()).min(1),
+      }),
+    )
+    .default([]),
+  /**
+   * Hosts behind a firewall or bot check (403, a challenge, a dropped
+   * connection). The nightly check treats their refusals as unknown, never
+   * a miss. We report walls; we never get past them.
+   */
+  walled_hosts: z
+    .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
+    .default([]),
   skip_dates: z.array(z.object({ date: Day, reason: z.string() })),
   breaks: z.array(Break),
   parks: z.array(ParkHint),
@@ -207,6 +267,29 @@ export function allowedLink(url: string, domains: readonly string[]): boolean {
     return false;
   const host = u.hostname.toLowerCase();
   return domains.some((d) => host === d || host.endsWith(`.${d}`));
+}
+
+/** The domain (or a parent) of this link on a list, or null. */
+export function onList(url: string, list: readonly string[]): string | null {
+  let h: string;
+  try {
+    h = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  return list.find((d) => h === d || h.endsWith(`.${d}`)) ?? null;
+}
+
+/** The refusal for a lead (listings site or newsletter) as a link or evidence. */
+export const leadMessage = (d: string) =>
+  `${d} is a lead only: never a link or evidence. Find the organizer's own page.`;
+
+/** A site, as the organization it belongs to (its alias, if any). */
+export function aliasSite(
+  site: string,
+  aliases: Readonly<Record<string, string>> = {},
+): string {
+  return aliases[site] ?? site;
 }
 
 /** Does Heads up text describe the expected seasonal state this month? */

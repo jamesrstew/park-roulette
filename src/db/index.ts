@@ -1,11 +1,12 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { isLocalDb } from "@/lib/local-db";
 
 function makeClient() {
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("DATABASE_URL is not set");
-  const local = /@(localhost|127\.0\.0\.1)[:/]/.test(url);
+  const local = isLocalDb(url);
   // Railway's public proxy uses a self-signed cert: encrypt, skip CA checks.
   return postgres(url, {
     max: 3,

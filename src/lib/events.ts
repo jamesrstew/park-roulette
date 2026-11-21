@@ -38,6 +38,17 @@ export const EVENTS = {
   askShown: "Ask shown",
   askOpened: "Ask opened",
   askDeclined: "Ask declined",
+  /**
+   * The welcome sheet's picks page, once per sheet, after the answers come
+   * back or on Not now: {email: yes | blank | unchecked | already | failed
+   * | closed, texts: yes | no | hidden | already | failed}.
+   */
+  signupPicks: "Signup picks",
+  /**
+   * The site footer's texts card for a signed-in grown-up with a fresh
+   * code, once a day: {state: rather | too} (kept out of Ask shown).
+   */
+  footerTextShown: "Footer text shown",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

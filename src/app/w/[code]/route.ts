@@ -1,15 +1,24 @@
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { newsClicks, parks } from "@/db/schema";
-import { featuredIn } from "@/lib/news/data";
+import { featuredIn, sentIssue } from "@/lib/news/data";
 import { SITE_URL } from "@/lib/site";
-import { parkIdFromCode, WEEKEND_PICK_CLICK } from "@/lib/weekend-pick";
+import {
+  dateFromCode,
+  parkIdFromCode,
+  WEEKEND_PICK_CLICK,
+} from "@/lib/weekend-pick";
 
 /**
- * /w/<code>: the Weekend Pick text's short link (the park's id in base
- * 36). Sends the tap to the park page, and adds one to that issue's
- * Weekend Pick total in news_clicks, like the email's /n/ links: no
- * cookie, no person, no IP. An unknown code goes home.
+ * /w/<code>: the Weekend Pick text's short link.
+ *
+ * - 4 characters: an issue date (YYMMDD in base 36). A sent issue goes to
+ *   /newsletter/{date}?src=text. Taps are counted by the page's beacon,
+ *   not here: link scanners and preview fetchers hit this redirect too.
+ * - 1 to 3 characters: a park id, from texts sent before batch 6. Goes to
+ *   the park page and adds one to that issue's total in news_clicks.
+ *
+ * No cookie, no person, no IP. An unknown code goes home.
  */
 export async function GET(
   _req: Request,
@@ -21,6 +30,14 @@ export async function GET(
       status: 302,
       headers: { location: to, "cache-control": "no-store" },
     });
+  const date = dateFromCode(code);
+  if (date) {
+    // The page exists exactly when the issue went out (the web's rule).
+    const issue = await sentIssue(date).catch(() => null);
+    return away(
+      issue ? `${SITE_URL}/newsletter/${date}?src=text` : `${SITE_URL}/`,
+    );
+  }
   const id = parkIdFromCode(code);
   if (!id) return away(`${SITE_URL}/`);
   const [park] = await db

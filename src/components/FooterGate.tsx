@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 /**
  * Where the site footer shows: reading pages only, as an allowlist, so a
@@ -30,16 +30,30 @@ export function footerFor(path: string): { show: boolean; signup: boolean } {
   return { show: reading, signup };
 }
 
-/** Picks the footer for this page: with the signup, without it, or none. */
+/**
+ * Picks the footer for this page: with the signup, without it, or none.
+ * The footer is kept as first drawn on each page: a yes sets pr_on, and
+ * the refresh that follows would otherwise swap the field or card out
+ * (the footer hides what you get) before its "You're in!" shows. The next
+ * page gets the new footer.
+ */
 export function FooterGate({
+  who,
   full,
   bare,
 }: {
+  /** Who's signed in ("" signed out): a sign-in or out redraws it. */
+  who: string;
   full: ReactNode;
   bare: ReactNode;
 }) {
-  const f = footerFor(usePathname());
-  return f.show ? (f.signup ? full : bare) : null;
+  const path = usePathname();
+  const key = `${who}|${path}`;
+  const [kept, setKept] = useState({ key, full, bare });
+  if (kept.key !== key) setKept({ key, full, bare });
+  const f = footerFor(path);
+  const now = kept.key === key ? kept : { full, bare };
+  return f.show ? (f.signup ? now.full : now.bare) : null;
 }
 
 /** A footer link that says when it's the page you're on (bold, aria-current). */

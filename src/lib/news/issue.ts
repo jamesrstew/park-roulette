@@ -18,6 +18,16 @@ export const Evidence = z.strictObject({
   quote: Text(300, 20),
 });
 
+/**
+ * An outing's quote: 20 characters, or as short as 8 when it prints a
+ * price or "free" with a date or time ("Free · Dec 6"); validate.ts
+ * enforces the short case, the same rule events use.
+ */
+export const OutingEvidence = z.strictObject({
+  url: Https,
+  quote: Text(300, 8),
+});
+
 const Outing = z.strictObject({
   name: Text(80),
   /** A catalog event series, when this is one (cooldown: 4 weeks). */
@@ -43,7 +53,11 @@ const Outing = z.strictObject({
   town: Text(40),
   what: Text(240),
   url: Https,
-  evidence: z.array(Evidence).min(1).max(3),
+  /**
+   * Quotes from the official page. May be left out when `event` names a
+   * stored, upcoming event: its verified quotes stand in (fetched again).
+   */
+  evidence: z.array(OutingEvidence).max(3).default([]),
 });
 
 /**

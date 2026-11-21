@@ -7,6 +7,7 @@ import {
   it,
   vi,
 } from "vitest";
+import { testDbOn } from "@/lib/local-db";
 
 /**
  * The Thursday sender against a real (local) Postgres. Opt-in, like the
@@ -23,7 +24,7 @@ import {
  * database, so it refuses anything that isn't on localhost.
  */
 const URL_ = process.env.TEST_DATABASE_URL ?? "";
-const local = /@(localhost|127\.0\.0\.1)[:/]/.test(URL_);
+const local = testDbOn(URL_);
 
 const DATE = "2026-12-03";
 /** Thursday, 7:30 Pacific. */
@@ -349,6 +350,39 @@ describe.skipIf(!local)("the sender, against Postgres", () => {
       `select count(*)::int as n from contact_consents where address = 'new@example.com' and action = 'opt_in'`,
     )) as unknown as { n: number }[];
     expect(c.n).toBe(1);
+  });
+
+  it("records the welcome sheet's pre-checked yes with its own version and details (batch 6)", async () => {
+    singles.length = 0;
+    await mods.subs.flush(
+      await mods.subs.subscribe({
+        email: "sheet@example.com",
+        source: "welcome_sheet",
+        ip: "1.2.3.5",
+        consentVersion: "email-2026-11-22-prechecked",
+        details: { prechecked: true, path: "/" },
+      }),
+    );
+    await mods.subs.flush(
+      await mods.subs.subscribe({
+        email: "plain@example.com",
+        source: "footer",
+        ip: "1.2.3.5",
+      }),
+    );
+    const rows = (await q(
+      `select address, consent_version as v, details from contact_consents where action = 'opt_in' order by id`,
+    )) as unknown as { address: string; v: string; details: unknown }[];
+    expect(rows).toEqual([
+      {
+        address: "sheet@example.com",
+        v: "email-2026-11-22-prechecked",
+        details: { prechecked: true, path: "/" },
+      },
+      { address: "plain@example.com", v: "email-2026-11-21", details: null },
+    ]);
+    // One welcome email each, the same as any sign-up.
+    expect(singles).toHaveLength(2);
   });
 
   it("joins an existing address to an account only on the tap; a new one is on at once", async () => {

@@ -5,6 +5,7 @@ import {
   discoverPage,
   IG_UNIVERSE,
   igCandidates,
+  igCandidatesWithStatus,
   igIneligible,
   type IgMedia,
   igLookup,
@@ -84,7 +85,7 @@ describe("Business Discovery (mocked)", () => {
     });
     expect(page?.media?.data).toHaveLength(1);
     const u = new URL(calls[0]);
-    expect(u.pathname).toBe("/v21.0/17841400000000000");
+    expect(u.pathname).toBe("/v23.0/17841400000000000");
     expect(u.searchParams.get("fields")).toContain(
       "business_discovery.username(thedumbdads)",
     );
@@ -409,5 +410,56 @@ describe("release 2 review: Instagram at send and storage", () => {
       "image/png",
     );
     expect(sniffImageType(new Uint8Array([0x3c, 0x68, 0x74, 0x6d]))).toBeNull();
+  });
+});
+
+describe("instagram_status (batch 6 item 8)", () => {
+  const keys = { token: "t", igUserId: "17841400000000000" };
+  it("says no_token without Meta keys, and calls nothing", async () => {
+    const { f, calls } = mockMeta({});
+    expect(await igCandidatesWithStatus({ now: NOW, fetchImpl: f })).toEqual({
+      candidates: [],
+      status: "no_token",
+    });
+    expect(calls).toEqual([]);
+  });
+  it("says api_error when every page call fails", async () => {
+    const f = (async () =>
+      Response.json(
+        { error: { message: "bad token" } },
+        { status: 400 },
+      )) as typeof fetch;
+    expect(
+      await igCandidatesWithStatus({ now: NOW, ...keys, fetchImpl: f }),
+    ).toEqual({ candidates: [], status: "api_error" });
+    const thrown = (async () => {
+      throw new TypeError("fetch failed");
+    }) as typeof fetch;
+    expect(
+      (await igCandidatesWithStatus({ now: NOW, ...keys, fetchImpl: thrown }))
+        .status,
+    ).toBe("api_error");
+  });
+  it("says none_passed when Meta answered but nothing cleared the bar, ok otherwise", async () => {
+    const { f } = mockMeta({});
+    expect(
+      await igCandidatesWithStatus({ now: NOW, ...keys, fetchImpl: f }),
+    ).toEqual({ candidates: [], status: "none_passed" });
+    const usual = Array.from({ length: 5 }, (_, i) =>
+      media(`u${i}`, {
+        like_count: 1000,
+        timestamp: "2026-11-01T00:00:00+0000",
+      }),
+    );
+    const good = mockMeta({
+      dudedad: [media("big", { like_count: 9000 }), ...usual],
+    });
+    const r = await igCandidatesWithStatus({
+      now: NOW,
+      ...keys,
+      fetchImpl: good.f,
+    });
+    expect(r.status).toBe("ok");
+    expect(r.candidates.map((c) => c.id)).toEqual(["big"]);
   });
 });

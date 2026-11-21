@@ -57,7 +57,7 @@ export function HelloToast() {
   useEffect(() => {
     let t: ReturnType<typeof setTimeout> | undefined;
     const show = (e: Event) => {
-      setMessage(String((e as CustomEvent).detail).slice(0, 80));
+      setMessage(String((e as CustomEvent).detail).slice(0, 120));
       clearTimeout(t);
       t = setTimeout(() => setMessage(null), 3500);
     };

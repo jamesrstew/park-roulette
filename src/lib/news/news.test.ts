@@ -33,6 +33,7 @@ import { labelPeriod, weekendForecast } from "./weather";
 const venue = (id: string, extra: Partial<Venue> = {}): Venue => ({
   id,
   name: id,
+  short_name: id,
   town: "Bend",
   address: null,
   kind: "indoor_play",
@@ -1264,5 +1265,52 @@ describe("quotes match pages whatever their entities", () => {
     expect(normalizeText("10 am – 2 pm")).toBe("10 am - 2 pm");
     expect(normalizeText("Kids&#x2019; day&nbsp;out")).toBe("Kids' day out");
     expect(normalizeText("R&amp;D &amp;ndash; text")).toBe("R&D &ndash; text");
+  });
+});
+
+describe("the writer's date rule (batch 6 item 2)", () => {
+  it("refuses today's draft once the 7:00 send window has started", async () => {
+    const { issueDateProblem, SEND_CUTOFF_MINUTES } = await import("./http");
+    const at = (iso: string) =>
+      issueDateProblem("2026-12-03", new Date(iso), {
+        cutoffMinutes: SEND_CUTOFF_MINUTES,
+        nextIssueDate: "2026-12-10",
+      });
+    expect(at("2026-12-03T14:59:00Z")).toBeNull(); // 6:59 am Pacific
+    expect(at("2026-12-03T15:00:00Z")).toBe(
+      "That Thursday's send window has started. Draft for next_issue_date (2026-12-10).",
+    ); // 7:00 am
+    expect(at("2026-12-04T02:23:00Z")).toMatch(/send window has started/); // 6:23 pm
+    // The next Thursday is fine at 6:23 pm.
+    expect(
+      issueDateProblem("2026-12-10", new Date("2026-12-04T02:23:00Z"), {
+        cutoffMinutes: SEND_CUTOFF_MINUTES,
+      }),
+    ).toBeNull();
+    // The plan route passes no cutoff: today stays readable.
+    expect(
+      issueDateProblem("2026-12-03", new Date("2026-12-04T02:23:00Z")),
+    ).toBeNull();
+  });
+
+  it("plans one week at a time (7 days, not 8)", async () => {
+    const { issueDateProblem } = await import("./http");
+    const now = new Date("2026-12-03T20:00:00Z");
+    expect(issueDateProblem("2026-12-10", now)).toBeNull();
+    expect(issueDateProblem("2026-12-17", now)).toMatch(/Too far ahead/);
+    expect(issueDateProblem("2026-11-26", now)).toMatch(/has passed/);
+    expect(issueDateProblem("2026-12-04", now)).toMatch(/Thursday/);
+  });
+});
+
+describe("the writer's date rule in daylight time (PDT)", () => {
+  it("cuts off at 7:00 PDT, not 7:00 PST", async () => {
+    const { issueDateProblem, SEND_CUTOFF_MINUTES } = await import("./http");
+    const at = (iso: string) =>
+      issueDateProblem("2027-06-03", new Date(iso), {
+        cutoffMinutes: SEND_CUTOFF_MINUTES,
+      });
+    expect(at("2027-06-03T13:59:00Z")).toBeNull(); // 6:59 am PDT
+    expect(at("2027-06-03T14:00:00Z")).toMatch(/send window has started/); // 7:00 am PDT
   });
 });

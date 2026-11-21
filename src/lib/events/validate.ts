@@ -7,13 +7,27 @@ import {
   kindOf,
   pacificToday,
   seriesKey,
+  keyStem,
+  slugify,
   type StoredEvent,
   storedFrom,
+  titleStem,
+  venueKey,
 } from "./model";
-import { allowedLink, type Catalog } from "@/lib/news/catalog";
+import { machinePrintsDay, machinePrintsTime } from "./machine-time";
+import { lineNamesEvent } from "./binding";
+import { onPage } from "./structured";
+import {
+  aliasSite,
+  allowedLink,
+  type Catalog,
+  leadMessage,
+  onList,
+} from "@/lib/news/catalog";
 import { addDays } from "@/lib/news/time";
 import {
   blockedLink,
+  type BlockedKind,
   type Fetcher,
   FREE_ADMISSION,
   normalizeText,
@@ -34,13 +48,16 @@ import {
  */
 
 export type EventsContext = {
-  catalog: Pick<Catalog, "link_domains" | "event_series">;
+  catalog: Pick<Catalog, "link_domains" | "event_series"> &
+    Partial<Pick<Catalog, "lead_domains" | "site_aliases" | "alias_pins">>;
   /** Public parks on our map, by slug (a venue at a park uses its pin). */
   parks: ReadonlyMap<string, { lat: number; lng: number; name: string }>;
   /** Omit for a quick check (no pages fetched). */
   fetcher?: Fetcher;
   /** Our own host (never an event's page). */
   ownHost?: string;
+  /** Gap between fetches on one host (tests set 0). */
+  fetchGapMs?: number;
   now: Date;
 };
 
@@ -57,13 +74,17 @@ export type EventVerdict = {
   event?: StoredEvent;
   /** Handed in as part of the series at this index (merged into it). */
   merged?: number;
+  /** Cut because a host kept us out (the retro reports it as blocked). */
+  blocked?: { host: string; kind: BlockedKind; url: string };
 };
 
 /** Dates one series may carry from one hand-in. */
 export const MAX_SERIES_DATES = 30;
 
 /** Events this far out at most (the listing shows 60 days). */
-export const MAX_DAYS_AHEAD = 120;
+export const MAX_DAYS_AHEAD = 60;
+/** Quotes a one-off may carry (a series or annual event: MAX_SERIES_DATES). */
+export const MAX_ONE_OFF_QUOTES = 8;
 /** Share of our line's word trigrams found in a source page: too close. */
 export const COPY_LIMIT = { primary: 0.5, discovery: 0.4 } as const;
 
@@ -94,20 +115,30 @@ function bigrams(text: string): Set<string> {
 
 type Page = Awaited<ReturnType<Fetcher>> | null;
 
+/** Milliseconds between two fetches from one host (politeness). */
+export const HOST_GAP_MS = 500;
+
 /**
  * One page cache for a whole hand-in, with at most 2 fetches at a time
- * per host (the same library page is often evidence for many events).
+ * per host (the same library page is often evidence for many events),
+ * and at least 500 ms between two fetches' starts on one host.
  */
-export function pagePool(fetcher: Fetcher, perHost = 2) {
+export function pagePool(fetcher: Fetcher, perHost = 2, gapMs = HOST_GAP_MS) {
   const pages = new Map<string, Promise<Page>>();
   const busy = new Map<string, number>();
   const queue = new Map<string, (() => void)[]>();
+  const nextStart = new Map<string, number>();
   const acquire = async (h: string) => {
     if ((busy.get(h) ?? 0) >= perHost)
       await new Promise<void>((r) =>
         queue.set(h, [...(queue.get(h) ?? []), r]),
       );
     busy.set(h, (busy.get(h) ?? 0) + 1);
+    // Reserve this host's next start slot, then wait for it.
+    const at = Math.max(Date.now(), nextStart.get(h) ?? 0);
+    nextStart.set(h, at + gapMs);
+    if (at > Date.now())
+      await new Promise((r) => setTimeout(r, at - Date.now()));
   };
   const release = (h: string) => {
     busy.set(h, (busy.get(h) ?? 1) - 1);
@@ -171,6 +202,9 @@ export function quotePrintsTime(
     /(?:-|\bto|\buntil)\s*$/.test(q.slice(Math.max(0, i - 8), i));
   const hits = (re: RegExp | null) =>
     re ? [...q.matchAll(re)].map((x) => x.index ?? 0) : [];
+  // Machine data, in Pacific time ("2026-11-22T01:00:00Z" is 5 pm on
+  // Nov 21): "2026-11-21T10:30", "2026-11-21 10:30:00", "20261121T103000".
+  if (machinePrintsTime(q, hhmm)) return true;
   if (role === "end") return hits(own).length > 0 || hits(noon).length > 0;
   return (
     opens.test(q) ||
@@ -220,7 +254,11 @@ export function quotePrintsDate(quote: string, day: string): boolean {
     `(?<!\\d)${m}/${d}(?!\\d)(?:/(\\d{4}|\\d{2})\\b)?`,
     "g",
   );
-  return [...q.matchAll(long), ...q.matchAll(short)].some((x) => yearOk(x[1]));
+  if ([...q.matchAll(long), ...q.matchAll(short)].some((x) => yearOk(x[1])))
+    return true;
+  // The organizer's machine data, as a Pacific day: "2026-11-21",
+  // "20261121T100000", "2026-11-22T01:00:00Z" (Nov 21 in Bend).
+  return machinePrintsDay(q, day);
 }
 
 /** A printed span in a quote ("Nov 4 to Dec 16", "Nov 4 - 25"), as dates. */
@@ -282,6 +320,81 @@ export function datePrinted(
   });
 }
 
+/** Naming another newsletter (even "via Bend Family Loop") is out. */
+export const COMPETITOR_NAMES = /bend[\s_.-]*(family[\s_.-]*loop|buzz)/i;
+
+const STOP = new Set([
+  "a",
+  "an",
+  "and",
+  "at",
+  "for",
+  "in",
+  "of",
+  "on",
+  "the",
+  "with",
+]);
+/** A title's words, lightly stemmed ("times" -> "time"), stop words out. */
+export function titleWords(title: string): Set<string> {
+  return new Set(
+    slugify(title)
+      .split("-")
+      .filter((w) => w && !STOP.has(w))
+      .map((w) =>
+        w.length > 4 && w.endsWith("ies")
+          ? `${w.slice(0, -3)}y`
+          : w.length > 3
+            ? w.replace(/s$/, "")
+            : w,
+      ),
+  );
+}
+
+/**
+ * Is this hand-in the catalog series? Same town, a venue on the series'
+ * list when it has one, and a word of the title stem in common with the
+ * series name ("Family Story Time" is DPL's story times; "Teen Gaming"
+ * isn't).
+ */
+export function seriesMatches(
+  e: Pick<EventInput, "title" | "venue">,
+  s: { name: string; town: string; venues?: string[] },
+): boolean {
+  const norm = (x: string) => slugify(x);
+  if (norm(s.town) !== norm(e.venue.town)) return false;
+  if (
+    s.venues &&
+    !s.venues.some(
+      (v) => venueKey({ name: v, town: s.town }) === venueKey(e.venue),
+    )
+  )
+    return false;
+  // The whole stem, or a distinctive word in common: "family", "kids",
+  // "story", "time" and "club" alone never make two programs one series.
+  if (keyStem(e.title) === keyStem(s.name)) return true;
+  const mine = titleWords(titleStem(e.title));
+  const theirs = titleWords(titleStem(s.name));
+  if ([...mine].every((w) => theirs.has(w)) && mine.size) return true;
+  return [...mine].some((w) => theirs.has(w) && !GENERIC_WORDS.has(w));
+}
+
+/** Words too common to tie a hand-in to a catalog series. */
+const GENERIC_WORDS = new Set([
+  "family",
+  "kid",
+  "kids",
+  "story",
+  "storytime",
+  "time",
+  "club",
+  "fun",
+  "day",
+  "night",
+  "event",
+  "program",
+]);
+
 /** Hosts that are never an event's page: our own site, roads, weather. */
 export const NOT_EVENT_DOMAINS = [
   "parkroulette.quest",
@@ -323,20 +436,38 @@ export function checkEvent(
   const domains = eventDomains(ctx.catalog.link_domains, own);
   const quotes = e.evidence.map((x) => x.quote);
   const today = pacificToday(ctx.now);
-  // Quotes under 12 characters only when they print a price or "free"
-  // with a date or time.
+  // Quotes under 12 characters only when they print a date and a time
+  // ("Dec 6 · 10:30am"), or a price or "free" with a date or time.
+  const TIMEISH = /\b\d{1,2}(:\d{2})?\s*(a\.?m|p\.?m)\b|\bnoon\b/i;
+  for (const x of e.evidence) {
+    if (x.quote.trim().length >= 12) continue;
+    const dated = e.dates.some((d) => quotePrintsDate(x.quote, d.day));
+    const timed =
+      TIMEISH.test(x.quote) ||
+      e.dates.some((d) => !!d.start && quotePrintsTime(x.quote, d.start));
+    const priced = /\$\s?\d|\bfree\b/i.test(x.quote);
+    if (!((dated && timed) || (priced && (dated || timed))))
+      p.push(
+        `The quote "${x.quote}" is too short: 12 characters, or 8 with a date and a time, or a price or "free" with a date or time.`,
+      );
+  }
+  // A bare date-and-time line ("Dec 6 · 10:30am") proves a date only on
+  // the event's own page, or next to its name: elsewhere it could be any
+  // event's.
   for (const x of e.evidence)
     if (
-      x.quote.trim().length < 12 &&
-      !(
-        /\$\s?\d|\bfree\b/i.test(x.quote) &&
-        (e.dates.some((d) => quotePrintsDate(x.quote, d.day)) ||
-          /\b\d{1,2}(:\d{2})?\s*(a\.?m|p\.?m)\b|\bnoon\b/i.test(x.quote))
-      )
+      x.quote.trim().length <= 12 &&
+      x.url !== e.url &&
+      !lineNamesEvent(x.quote, e.title) &&
+      e.dates.some((d) => quotePrintsDate(x.quote, d.day))
     )
       p.push(
-        `The quote "${x.quote}" is too short: 12 characters, or 8 with a price or "free" and a date or time.`,
+        `The short quote "${x.quote}" must come from the event's own page (${e.url}) or name the event.`,
       );
+  if (kindOf(e) === "one_off" && e.evidence.length > MAX_ONE_OFF_QUOTES)
+    p.push(
+      `A one-off takes at most ${MAX_ONE_OFF_QUOTES} quotes (a series up to ${MAX_SERIES_DATES}, one per date).`,
+    );
 
   for (const [name, text] of [
     ["title", e.title],
@@ -346,11 +477,32 @@ export function checkEvent(
     ["signup note", e.signup?.note ?? ""],
   ] as const)
     for (const s of styleProblems(text)) p.push(`${name}: ${s}`);
+  // Never a competitor's name (any spacing: "BendBuzz", "Bend-Buzz") in
+  // anything we keep or show.
+  for (const [name, text] of [
+    ["title", e.title],
+    ["what", e.what],
+    ["cost", e.cost?.text],
+    ...(e.cost?.prices ?? []).map((x) => ["cost", x.label] as const),
+    ["parking", e.parking],
+    ["signup note", e.signup?.note],
+    ["ages_text", e.ages_text],
+    ["venue", e.venue.name],
+    ["venue", e.venue.street],
+    ["organizer", e.organizer?.name],
+    ["status", e.status?.quote],
+  ] as const)
+    if (text && COMPETITOR_NAMES.test(text))
+      p.push(`${name}: never name another newsletter.`);
 
   if (e.series_id) {
     const s = ctx.catalog.event_series.find((x) => x.id === e.series_id);
     if (!s || !s.verified)
       p.push(`Unknown or unverified event series "${e.series_id}".`);
+    else if (!seriesMatches(e, s))
+      p.push(
+        `"${e.title}" at ${e.venue.name} isn't the catalog series "${s.name}". Leave series_id out.`,
+      );
   }
 
   // Primary sources only.
@@ -359,9 +511,30 @@ export function checkEvent(
     ...e.evidence.map((x) => x.url),
     ...(e.organizer ? [e.organizer.url] : []),
   ];
+  // An alias host (the library's calendar system, the museum's CMS) is
+  // evidence only: the event's link is the organization's own site.
+  const aliases = ctx.catalog.site_aliases ?? {};
+  for (const u of [e.url, ...(e.organizer ? [e.organizer.url] : [])]) {
+    const a = onList(u, Object.keys(aliases));
+    if (a)
+      p.push(
+        `${a} is ${aliases[a]}'s data host: evidence only. Link a page on ${aliases[a]}.`,
+      );
+  }
+  // An alias host's evidence carries its pinned values (hdm.mux.earth's
+  // CMS answers for any site: site= must be the museum's).
+  for (const x of e.evidence) {
+    const a = onList(x.url, Object.keys(ctx.catalog.alias_pins ?? {}));
+    if (!a) continue;
+    const q = new URL(x.url).searchParams;
+    for (const [k, want] of Object.entries(ctx.catalog.alias_pins![a]))
+      if (q.get(k) !== want) p.push(`Evidence on ${a} needs ${k}=${want}.`);
+  }
   for (const u of new Set(links)) {
     const h = host(u).replace(/^www\./, "");
-    if (
+    const lead = onList(u, ctx.catalog.lead_domains ?? []);
+    if (lead) p.push(leadMessage(lead));
+    else if (
       h === own ||
       h.endsWith(`.${own}`) ||
       /(^|\.)parkroulette\.quest$/.test(h)
@@ -372,9 +545,11 @@ export function checkEvent(
     else if (!allowedLink(u, domains))
       p.push(`${host(u)} isn't on the link allowlist.`);
   }
-  const site = siteOf(e.url, domains);
+  const org = (u: string) =>
+    aliasSite(siteOf(u, domains), ctx.catalog.site_aliases);
+  const site = org(e.url);
   for (const x of e.evidence)
-    if (siteOf(x.url, domains) !== site)
+    if (org(x.url) !== site)
       p.push(
         `The evidence (${host(x.url)}) must come from the same site as the link (${host(e.url)}).`,
       );
@@ -503,7 +678,7 @@ export function checkEvent(
     p.push("Give both lat and lng, or neither.");
 
   const first = [...e.dates].sort((a, b) => a.day.localeCompare(b.day))[0];
-  const mine = e.evidence.filter((x) => siteOf(x.url, domains) === site);
+  const mine = e.evidence.filter((x) => org(x.url) === site);
   const target = (day: string) =>
     mine.find((x) => quotePrintsDate(x.quote, day)) ??
     mine.find((x) => datePrinted([x.quote], day, true)) ??
@@ -531,7 +706,9 @@ export async function validateEvents(
   if (!Array.isArray(list) || !list.length || list.length > 60)
     return { ok: false, error: "Send {events: [...]} (1 to 60).", events: [] };
   const seen = new Map<string, number>();
-  const pool = ctx.fetcher ? pagePool(ctx.fetcher) : null;
+  const pool = ctx.fetcher
+    ? pagePool(ctx.fetcher, 2, ctx.fetchGapMs ?? HOST_GAP_MS)
+    : null;
   const verdicts = await Promise.all(
     list.map(async (raw, index): Promise<EventVerdict> => {
       const title = String((raw as { title?: unknown })?.title ?? `#${index}`);
@@ -549,7 +726,10 @@ export async function validateEvents(
       const e = parsed.data;
       const { problems, checkQuote, targets } = checkEvent(e, ctx);
       const warnings: string[] = [];
-      if (pool && !problems.length) await networkChecks(e, ctx, pool, problems);
+      const blocked =
+        pool && !problems.length
+          ? await networkChecks(e, ctx, pool, problems)
+          : undefined;
       const park = e.venue.park ? ctx.parks.get(e.venue.park) : null;
       const point = park
         ? { lat: park.lat, lng: park.lng }
@@ -564,7 +744,9 @@ export async function validateEvents(
         problems,
         warnings,
         ...(problems.length
-          ? {}
+          ? blocked
+            ? { blocked }
+            : {}
           : {
               slug: eventSlug(e),
               key: seriesKey(e),
@@ -624,35 +806,63 @@ export async function validateEvents(
   return { ok: verdicts.every((v) => v.ok), events: verdicts };
 }
 
+/** Why a page that didn't answer 200 was cut, and how the host kept us out. */
+export function unreadable(
+  url: string,
+  r: Page,
+  what: "page" | "quote",
+): { problem: string; blocked?: EventVerdict["blocked"] } {
+  const h = host(url);
+  if (r?.blocked)
+    return {
+      problem:
+        what === "page"
+          ? `${h} shows ${r.blocked} instead of the page, so it can't be checked. Use the organizer's own page.`
+          : `${h} shows ${r.blocked} instead of the page, so the quote can't be checked.`,
+      blocked: { host: h, kind: r.blockedKind ?? "bot_check", url },
+    };
+  if (r?.unreachable)
+    return {
+      problem: `${h} didn't answer (${r.unreachable}).`,
+      blocked: { host: h, kind: r.blockedKind ?? "reset", url },
+    };
+  return {
+    problem: `${url} answered ${r?.status ?? "nothing"}, not 200.`,
+    // A missing page (404, 410) is a dead link, not a host keeping us out.
+    ...(r && r.status >= 400 && r.status !== 404 && r.status !== 410
+      ? { blocked: { host: h, kind: "http_status" as const, url } }
+      : {}),
+  };
+}
+
 async function networkChecks(
   e: EventInput,
   ctx: EventsContext,
   get: ReturnType<typeof pagePool>,
   problems: string[],
-) {
+): Promise<EventVerdict["blocked"]> {
   const domains = eventDomains(ctx.catalog.link_domains, ctx.ownHost);
+  let blocked: EventVerdict["blocked"];
   const main = await get(e.url, domains);
-  if (!main || main.status !== 200)
-    problems.push(
-      main?.blocked
-        ? `${host(e.url)} shows ${main.blocked} instead of the page, so it can't be checked. Use the organizer's own page.`
-        : `${e.url} answered ${main?.status ?? "nothing"}, not 200.`,
-    );
+  if (!main || main.status !== 200) {
+    const u = unreadable(e.url, main, "page");
+    problems.push(u.problem);
+    blocked ??= u.blocked;
+  }
   for (const x of e.evidence) {
     const r = await get(x.url, domains);
     if (!r || r.status !== 200) {
-      problems.push(
-        r?.blocked
-          ? `${host(x.url)} shows ${r.blocked} instead of the page, so the quote can't be checked.`
-          : `${x.url} answered ${r?.status ?? "nothing"}, not 200.`,
-      );
+      const u = unreadable(x.url, r, "quote");
+      problems.push(u.problem);
+      blocked ??= u.blocked;
       continue;
     }
-    if (!r.text.includes(normalizeText(x.quote)))
+    if (!onPage(r, x.quote, e.title))
       problems.push(`The quote "${x.quote.slice(0, 60)}" isn't on ${x.url}.`);
   }
   // Our own words: never the official page's, never the roundup's.
-  if (main?.text && containment(e.what, main.text) >= COPY_LIMIT.primary)
+  const mainText = [main?.text, main?.data].filter(Boolean).join(" ");
+  if (mainText && containment(e.what, mainText) >= COPY_LIMIT.primary)
     problems.push(
       "The what-kids-do line copies the official page. Say it in our own words.",
     );
@@ -668,4 +878,5 @@ async function networkChecks(
         "The what-kids-do line is too close to where we found the event. Write it from the official page.",
       );
   }
+  return blocked;
 }

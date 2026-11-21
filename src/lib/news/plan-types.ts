@@ -1,3 +1,4 @@
+import type { PlanEvent } from "@/lib/events/plan-events";
 import type { SeasonalDefault, SeasonMonth, WeatherLabel } from "./catalog";
 import type { DayTier, Hazard } from "./tiers";
 import type { CooldownKind } from "./cooldowns";
@@ -82,6 +83,17 @@ export type Plan = {
     /** Disruptive weekends: when to go ("Sunday, 11 am to 2 pm"). */
     best_slot?: string | null;
   };
+  /**
+   * Written by the Friday Weekend Pick sender, never the plan: Friday's
+   * forecast flipped a weekend day into or out of disruptive, so the text
+   * started "Update:" and the issue page shows this line.
+   */
+  friday_update?: {
+    words: string;
+    /** The plan the text named: the page's plan and heading follow it. */
+    plan?: { kind: "park"; date: string } | { kind: "indoor" };
+    at: string;
+  };
   /** The week in one word: indoor (gate open), plan_around or fine. */
   weather_mode?: "indoor" | "plan_around" | "fine";
   /**
@@ -163,22 +175,43 @@ export type Plan = {
    * The writer may also name a TikTok video; code fetches it.
    */
   /**
-   * Kids' events on /events with a date this weekend: an outing that is one
-   * of them names it in weekend[].event (issue pages link its page).
+   * Kids' events on /events with a scheduled date from the issue date
+   * through 14 days out (lib/events/plan-events.ts), soonest first. The
+   * writer picks outings from these and names one in weekend[].event.
    */
-  events?: {
-    slug: string;
-    title: string;
-    days: string[];
-    url: string;
-    ages_text: string | null;
-  }[];
+  events?: PlanEvent[];
   parents_corner?: {
     candidates: Candidate[];
     /** Instagram candidates (Parents' corner v5); empty when Meta access fails. */
     instagram?: IgCandidate[];
+    /**
+     * Why instagram[] is what it is: ok, no_token (Meta keys missing),
+     * api_error (Meta failed) or none_passed (no post cleared the bar).
+     */
+    instagram_status?: "ok" | "no_token" | "api_error" | "none_passed";
     universe?: UniverseReport;
     rules: string;
   };
   rules: Record<string, unknown>;
+  /**
+   * Open lessons from earlier runs (the last 8 weeks, most seen first, 20
+   * at most). Read them first; cite one by id in the retro when you hit it
+   * again. Added on every read, never stored with the plan.
+   */
+  lessons?: {
+    id: number;
+    category: string;
+    title: string;
+    detail: string;
+    host: string | null;
+    status: string;
+    seen_count: number;
+    first_seen: string;
+    last_seen: string;
+    regressed: boolean;
+    compliance: boolean;
+    pr_url: string | null;
+    note: string | null;
+    examples: unknown[];
+  }[];
 };

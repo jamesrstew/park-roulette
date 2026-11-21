@@ -1,4 +1,5 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testDbOn } from "@/lib/local-db";
 import { twilioSignature } from "./twilio-signature";
 
 /**
@@ -7,7 +8,7 @@ import { twilioSignature } from "./twilio-signature";
  * text ever leaves.
  */
 const URL_ = process.env.TEST_DATABASE_URL ?? "";
-const local = /@(localhost|127\.0\.0\.1)[:/]/.test(URL_);
+const local = testDbOn(URL_);
 const A = "+15415550123";
 const B = "+15415550124";
 
@@ -168,7 +169,7 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
   });
 
   it("holds the confirmation while confirmations are off, sends it once on, and never texts an unconfirmed number (M3)", async () => {
-    await store.optIn(A, "texts_page", details, DAY);
+    await store.optIn(A, "texts_page", details);
     expect(await store.textsOn(A)).toBe(true);
     expect(await store.confirmedForTexts(A)).toBe(false);
     expect((await store.sendProgramText(A, "Weekend pick")).ok).toBe(false);
@@ -191,26 +192,98 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
     expect((await store.sendPendingConfirmations(DAY)).sent).toBe(0);
   });
 
-  it("holds a yes made at night until the morning (H3)", async () => {
+  it("confirms a yes at once, at any hour (decision 9); only the held backlog waits for daytime", async () => {
     twilio(ok);
     const night = new Date("2026-12-04T05:00:00Z"); // 9 pm Pacific
-    expect(await store.optIn(A, "texts_page", details, night)).toBe("on");
-    expect(sent).toEqual([]);
-    expect(await store.confirmedForTexts(A)).toBe(false);
-    expect((await store.sendPendingConfirmations(DAY)).sent).toBe(1);
+    expect(await store.optIn(A, "texts_page", details)).toBe("on");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toContain("Save this contact to see weekend previews.");
     expect(await store.confirmedForTexts(A)).toBe(true);
+    // Whatever the hour, here or in Hawaii: optIn has no window at all.
+    const HI = "+18085550123";
+    expect(await store.optIn(HI, "texts_page", details)).toBe("on");
+    expect(sent).toHaveLength(2);
+    expect(await store.confirmedForTexts(HI)).toBe(true);
+    // With confirmations off, the yes is held, and the backlog keeps the
+    // 8 am to 5 pm window once they're back on.
+    delete process.env.TEXTS_CONFIRMATIONS_ENABLED;
+    expect(await store.optIn(B, "texts_page", details)).toBe("on");
+    expect(sent).toHaveLength(2);
+    process.env.TEXTS_CONFIRMATIONS_ENABLED = "1";
+    expect(await store.sendPendingConfirmations(night)).toMatchObject({
+      sent: 0,
+      waiting: 1,
+    });
+    expect((await store.sendPendingConfirmations(DAY)).sent).toBe(1);
+    expect(await store.confirmedForTexts(B)).toBe(true);
+  });
+
+  it("marks a confirmation as sending before it goes; the backlog leaves a fresh one alone for 24 hours", async () => {
+    twilio(ok);
+    await store.optIn(A, "texts_page", details);
+    const steps = await q(
+      `select action from contact_consents where address = '${A}' order by id`,
+    );
+    expect((steps as { action: string }[]).map((r) => r.action)).toEqual([
+      "requested",
+      "opt_in",
+      "confirmation_sending",
+      "confirmation_sent",
+    ]);
+    expect(await store.confirmedForTexts(A)).toBe(true);
+    // A crash mid-send leaves only "sending": not confirmed, and not
+    // re-sent by the backlog for a day (it may have gone).
+    await q(`insert into contact_consents (channel, action, address, consent_version, source)
+      values ('sms', 'opt_in', '${B}', 'sms-2026-11-21', 'texts_page'),
+             ('sms', 'confirmation_sending', '${B}', 'sms-2026-11-21', 'texts_page')`);
+    expect(await store.confirmedForTexts(B)).toBe(false);
+    expect((await store.sendPendingConfirmations(DAY)).sent).toBe(0);
+    expect(sent).toHaveLength(1);
+    // A day later with no answer: the backlog sends it.
+    await q(
+      `update contact_consents set created_at = now() - interval '25 hours' where address = '${B}' and action = 'confirmation_sending'`,
+    );
+    expect((await store.sendPendingConfirmations(DAY)).sent).toBe(1);
+    expect(await store.confirmedForTexts(B)).toBe(true);
+  });
+
+  it("records the surface's own consent version on every step of a yes (batch 6)", async () => {
+    twilio(ok);
+    await store.optIn(A, "welcome_sheet", details, "sms-2026-11-22-sheet");
+    await store.optIn(B, "site_footer", details, "sms-2026-11-22-footer");
+    const rows = (await q(
+      "select address, action, consent_version as v, source from contact_consents order by id",
+    )) as { address: string; action: string; v: string; source: string }[];
+    expect(rows.filter((r) => r.address === A).map((r) => r.v)).toEqual([
+      "sms-2026-11-22-sheet",
+      "sms-2026-11-22-sheet",
+      "sms-2026-11-22-sheet",
+      "sms-2026-11-22-sheet",
+    ]);
+    expect(rows.filter((r) => r.address === A).map((r) => r.action)).toEqual([
+      "requested",
+      "opt_in",
+      "confirmation_sending",
+      "confirmation_sent",
+    ]);
+    const b = rows.filter((r) => r.address === B);
+    expect(b).toHaveLength(4);
+    expect(
+      b.every(
+        (r) => r.v === "sms-2026-11-22-footer" && r.source === "site_footer",
+      ),
+    ).toBe(true);
+    expect(rows).toHaveLength(8);
   });
 
   it("acts on Twilio's answers: 21610 lists the number, a 5xx retries, a hard refusal turns it off (H1)", async () => {
     twilio(() => Response.json({ code: 21610 }, { status: 400 }));
-    expect(await store.optIn(A, "texts_page", details, DAY)).toBe(
-      "needs_start",
-    );
+    expect(await store.optIn(A, "texts_page", details)).toBe("needs_start");
     expect(await store.textedStop(A)).toBe(true);
     expect(await store.textsOn(A)).toBe(false);
 
     twilio(() => new Response("down", { status: 503 }));
-    expect(await store.optIn(B, "texts_page", details, DAY)).toBe("on");
+    expect(await store.optIn(B, "texts_page", details)).toBe("on");
     expect(await store.textsOn(B)).toBe(true);
     expect(await store.confirmedForTexts(B)).toBe(false);
     expect(await store.sendPendingConfirmations(DAY)).toMatchObject({
@@ -223,7 +296,7 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
 
     await q("truncate contact_consents, sms_opt_outs restart identity");
     twilio(() => Response.json({ code: 21211 }, { status: 400 }));
-    expect(await store.optIn(B, "texts_page", details, DAY)).toBe("failed");
+    expect(await store.optIn(B, "texts_page", details)).toBe("failed");
     expect(await store.textsOn(B)).toBe(false);
     expect(await store.textedStop(B)).toBe(false);
   });
@@ -261,12 +334,14 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
         ? Response.json({ code: 21620 }, { status: 400 })
         : Response.json({ sid: "SMsms" }, { status: 201 });
     }) as typeof fetch;
-    expect(await store.optIn(A, "texts_page", details, DAY)).toBe("on");
+    expect(await store.optIn(A, "texts_page", details)).toBe("on");
     expect(calls).toHaveLength(2);
     expect(calls[0].get("MediaUrl")).toBe(
       "https://parkroulette.quest/park-roulette.vcf",
     );
-    expect(calls[0].get("Body")).toContain("Tap the card to save us");
+    expect(calls[0].get("Body")).toContain(
+      "Save this contact to see weekend previews.",
+    );
     expect(calls[1].get("MediaUrl")).toBeNull();
     expect(calls[1].get("Body")).toBe(
       "Park Roulette: You're in! 1 weekend playground pick a week, Fridays (up to 5/mo). Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
@@ -279,7 +354,7 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
       calls.push(new URLSearchParams(String(init?.body)));
       return Response.json({ sid: "SMmms" }, { status: 201 });
     }) as typeof fetch;
-    expect(await store.optIn(B, "texts_page", details, DAY)).toBe("on");
+    expect(await store.optIn(B, "texts_page", details)).toBe("on");
     expect(calls).toHaveLength(1);
     expect(calls[0].get("MediaUrl")).toContain("/park-roulette.vcf");
 
@@ -290,9 +365,7 @@ describe.skipIf(!local)("Weekend texts, against Postgres", () => {
       calls.push(new URLSearchParams(String(init?.body)));
       return Response.json({ code: 21610 }, { status: 400 });
     }) as typeof fetch;
-    expect(await store.optIn(A, "texts_page", details, DAY)).toBe(
-      "needs_start",
-    );
+    expect(await store.optIn(A, "texts_page", details)).toBe("needs_start");
     expect(calls).toHaveLength(1);
   });
 

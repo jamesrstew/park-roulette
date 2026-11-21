@@ -1,6 +1,7 @@
 /**
  * Design: /tmp/pr-news/weather-graphic (final, critiqued 2026-11-19). Kept
- * as delivered; only lint comments added.
+ * as delivered; only lint comments added, and Scribble and Temp exported
+ * for the issue's link preview (newsletter/[date]/preview.jpg).
  *
  * "The weekend ahead": a 3-day crayon forecast card for the Bend Playground
  * Passport email. Pure JSX + inline styles + inline SVG, so it drops straight
@@ -460,7 +461,7 @@ export function WeatherGlyph({
 /* ------------------------------------------------------------------ */
 
 /** A two-pass crayon scribble under the day name, like <PageTitle>. */
-function Scribble({ color, width }: { color: string; width: number }) {
+export function Scribble({ color, width }: { color: string; width: number }) {
   return (
     <svg
       width={width}
@@ -504,7 +505,7 @@ function Divider() {
 }
 
 /** A number with a hand-drawn degree ring. */
-function Temp({
+export function Temp({
   value,
   size,
   color,

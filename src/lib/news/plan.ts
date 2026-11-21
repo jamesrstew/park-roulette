@@ -29,10 +29,12 @@ import {
   weekendForecast,
 } from "./weather";
 import { discoverCandidates } from "./universe-store";
-import { igCandidates } from "./igapi";
+import { igCandidatesWithStatus } from "./igapi";
+import { type PlanLesson, planLessons } from "./lessons-store";
 import { blockedAccounts, blockedIds, takenDown } from "./takedowns";
 import { igCooling } from "./universe";
-import { allEvents, listed } from "@/lib/events/store";
+import { allEvents } from "@/lib/events/store";
+import { planEvents } from "@/lib/events/plan-events";
 import { eventDomains } from "@/lib/events/validate";
 
 /**
@@ -44,17 +46,24 @@ export async function getPlan(
   issueDate: string,
   opts: { fresh?: boolean; now?: Date; picks?: string[] } = {},
 ): Promise<Plan> {
-  if (!opts.fresh) {
-    const stored = await getStoredPlan(issueDate);
-    if (stored) return stored;
+  const now = opts.now ?? new Date();
+  let plan = opts.fresh ? null : await getStoredPlan(issueDate);
+  if (!plan) {
+    plan = await buildPlan(issueDate, now, opts.picks ?? []);
+    await storePlan(plan);
   }
-  const plan = await buildPlan(
-    issueDate,
-    opts.now ?? new Date(),
-    opts.picks ?? [],
-  );
-  await storePlan(plan);
-  return plan;
+  // The open lessons ride along live, never frozen into the stored plan.
+  return { ...plan, lessons: await lessonsForPlan(now) };
+}
+
+/** The plan's lessons; a failure here never costs the writer its plan. */
+async function lessonsForPlan(now: Date): Promise<PlanLesson[]> {
+  try {
+    return await planLessons(now);
+  } catch (e) {
+    console.error("[news] lessons failed", (e as Error).message);
+    return [];
+  }
 }
 
 async function buildPlan(
@@ -79,31 +88,19 @@ async function buildPlan(
       !xIds.has(c.authorId) &&
       !takenDown("x", c.id),
   );
-  const instagram = await igCandidates({
+  const ig = await igCandidatesWithStatus({
     now,
     token: process.env.IG_ACCESS_TOKEN,
     igUserId: process.env.IG_USER_ID,
     appSecret: process.env.IG_APP_SECRET || undefined,
     blocked: blockedAccounts("instagram"),
     cooling: igCooling(history, issueDate),
-  }).catch(() => []);
+  });
+  const instagram = ig.candidates;
   const wkEnd = weekendOf(issueDate);
-  const weekendEvents = (await allEvents())
-    .filter((e) => listed(e, now))
-    .map((e) => ({
-      e,
-      days: e.data.dates
-        .map((d) => d.day)
-        .filter((d) => d >= wkEnd.from && d <= wkEnd.to),
-    }))
-    .filter((x) => x.days.length)
-    .map(({ e, days }) => ({
-      slug: e.slug,
-      title: e.data.title,
-      days,
-      url: e.data.url,
-      ages_text: e.data.ages_text ?? null,
-    }));
+  // The next 14 days of stored events: the writer picks outings from
+  // these (it no longer discovers events; the daily harvest does).
+  const upcomingEvents = planEvents(await allEvents(), issueDate, wkEnd, now);
   const deltas = await loadDeltas(
     since ?? new Date(now.getTime() - 14 * 86_400_000),
   );
@@ -262,10 +259,11 @@ async function buildPlan(
       "series",
     ).map(({ id, name, town, what, url }) => ({ id, name, town, what, url })),
     seasonal_defaults: CATALOG.seasonal_defaults,
-    events: weekendEvents,
+    events: upcomingEvents,
     parents_corner: {
       candidates: xCandidates,
       instagram,
+      instagram_status: ig.status,
       universe: corner.report,
       rules:
         'Candidates come from our universe of parent-humor accounts, best first by how far each post beats its author\'s usual numbers (score), plus any roundup picks you passed as ?picks=. Pick at most one, or none: kind, no identifiable child in a humiliating spot, nothing political, sexual, medical-scare, brand-run or cruel. Look at the media too. Send {platform: "x", url, postId}; code fetches and draws it. A TikTok video may be sent as {platform: "tiktok", url, postId}. Nothing clears the bar: leave the section out. Report accounts that turned political, commercial or adult to POST /api/news/universe. Instagram candidates (instagram[]) are scored the same way against each page\'s median likes, and only original posts are offered: when an Instagram and an X post are about as good, pick Instagram; with no Instagram candidates, use X. Send an Instagram pick as {platform: "instagram", url: permalink, postId: id, account: username}.',
@@ -277,6 +275,9 @@ async function buildPlan(
       exclamation_points_max: LIMITS.exclamations,
       weekend_dates: wk,
       link_domains: CATALOG.link_domains,
+      // Leads (listings sites, other newsletters): a discovery_url only,
+      // never a link or evidence.
+      lead_domains: CATALOG.lead_domains,
       // Kids' events: never our own site, TripCheck or the weather service.
       event_domains: eventDomains(CATALOG.link_domains),
       evidence:

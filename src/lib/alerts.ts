@@ -45,7 +45,13 @@ const MAX_PER_HOUR = 15;
 /** Per-server memory, used only when the database can't be reached. */
 const memory = new Map<string, number>();
 
-export async function sendAlert(a: Alert): Promise<void> {
+/**
+ * What happened to one alert: emailed (or logged with no RESEND_API_KEY),
+ * suppressed by its key's window or the hourly budget, or failed.
+ */
+export type AlertOutcome = "sent" | "suppressed" | "failed";
+
+export async function sendAlert(a: Alert): Promise<AlertOutcome> {
   const every = a.everyMinutes ?? 60;
   let repeats = 0;
   try {
@@ -67,7 +73,7 @@ export async function sendAlert(a: Alert): Promise<void> {
       select (up.sent_at = now()) as claimed,
              coalesce((select suppressed from prev), 0)::int as repeats
       from up`);
-    if (!rows[0]?.claimed) return;
+    if (!rows[0]?.claimed) return "suppressed";
     repeats = Number(rows[0].repeats);
     // One budget for every kind, so a bad deploy can't flood the inbox.
     const [g] = await db.execute<{ n: number }>(sql`
@@ -92,7 +98,7 @@ export async function sendAlert(a: Alert): Promise<void> {
           subject: "Lots of alerts this hour",
           text: `More than ${MAX_PER_HOUR} alerts in the last hour, so the rest wait until the hour is up. Something may be badly wrong: check /admin and the Vercel logs.`,
         }).catch(() => false);
-      return;
+      return "suppressed";
     }
   } catch (e) {
     // No database (the outage that matters most): still tell James, at
@@ -102,12 +108,11 @@ export async function sendAlert(a: Alert): Promise<void> {
       (e as Error)?.name,
     );
     const last = memory.get(a.key) ?? 0;
-    if (Date.now() - last < every * 60_000) return;
+    if (Date.now() - last < every * 60_000) return "suppressed";
     memory.set(a.key, Date.now());
-    await deliver(a).catch(() => {});
-    return;
+    return (await deliver(a).catch(() => false)) ? "sent" : "failed";
   }
-  await deliverOrRelease(
+  return deliverOrRelease(
     repeats > 0
       ? {
           ...a,
@@ -118,14 +123,15 @@ export async function sendAlert(a: Alert): Promise<void> {
 }
 
 /** Deliver; if it didn't go out, free the slot so the next one can try. */
-async function deliverOrRelease(a: Alert): Promise<void> {
+async function deliverOrRelease(a: Alert): Promise<AlertOutcome> {
   const ok = await deliver(a).catch(() => false);
-  if (ok) return;
+  if (ok) return "sent";
   await db
     .execute(
       sql`update ${alertLog} set sent_at = now() - interval '10 years' where key = ${a.key}`,
     )
     .catch(() => {});
+  return "failed";
 }
 
 /** True if Resend took it (or there's no key: log-only, nothing to retry). */

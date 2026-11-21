@@ -1,7 +1,12 @@
 "use client";
 
+import { toastNow } from "./HelloToast";
 import { InstallSheet } from "./InstallSheet";
 import { PhoneCode } from "./PhoneCode";
+import { type PicksOutcome, SignupPicks } from "./SignupPicks";
+import { loadPicks } from "@/lib/client-actions";
+import type { PicksFacts } from "@/lib/texts-actions";
+import { dropWelcome } from "@/lib/welcome-url";
 import { shouldOfferInstall } from "@/lib/install";
 import confetti from "canvas-confetti";
 import { useSearchParams } from "next/navigation";
@@ -14,10 +19,11 @@ import { PHONE_NUDGE_KEY } from "./PhoneNudge";
 
 /**
  * Shown once on /?welcome=1 right after joining. Page 1 greets the new
- * explorer with confetti and a 3-line how-to; page 2 (if they have no number
- * yet) asks for their phone, which is how they'll sign in anywhere later.
- * Then "Make it an app!". (The weekly picks ask moved to after a first
- * outing: "You stamped {Park}!" above the wheel, lib/asks.ts.)
+ * explorer with confetti and a 3-line how-to; then (if they have no number
+ * yet) "Add your number", which is how they'll sign in anywhere later;
+ * then "picks", the weekly email (pre-checked) and the Weekend Pick (an
+ * unchecked box), skipped for anyone who already gets both. Then "Make it
+ * an app!". Never for kids or "That's me!" claims (they don't land here).
  */
 export function WelcomeSheet({
   name,
@@ -35,7 +41,9 @@ export function WelcomeSheet({
   crewLink: string;
   hasPhone: boolean;
 }) {
-  const [page, setPage] = useState<"hello" | "phone">("hello");
+  const [page, setPage] = useState<"hello" | "phone" | "picks">("hello");
+  /** The picks page's facts: undefined while loading, null if they failed. */
+  const [facts, setFacts] = useState<PicksFacts | null | undefined>();
   const [phoneAdded, setPhoneAdded] = useState(false);
   const [phoneSkipped, setPhoneSkipped] = useState(false);
   const params = useSearchParams();
@@ -50,16 +58,42 @@ export function WelcomeSheet({
     () => false,
   );
   const [installOpen, setInstallOpen] = useState(false);
-  const finish = () => {
+  const finish = (o?: PicksOutcome) => {
     // Leaving the phone page without a number (backdrop, Escape, Skip) is a
     // skip: don't ask again in the install sheet a second later.
     if (page === "phone" && !phoneAdded) setPhoneSkipped(true);
     setClosed(true);
-    if (offerInstall) setInstallOpen(true);
+    // A refresh() from the phone or picks page can put ?welcome=1 back
+    // (the router's copy of the address): drop it again, so a reload
+    // never greets twice.
+    dropWelcome();
+    if (o?.toast) toastNow(o.toast);
+    // After a texts yes, let "Watch for a hello text" land first.
+    if (offerInstall)
+      setTimeout(() => setInstallOpen(true), o?.textsYes ? 2500 : 0);
+  };
+  /** The next page after hello or the phone: picks when there's one. */
+  const afterPhone = (f: PicksFacts | null | undefined = facts) => {
+    // Tapped before the facts came back: wait for them.
+    if (f === undefined) {
+      void loadPicks().then((x) => {
+        setFacts(x);
+        afterPhoneRef.current(x);
+      });
+      return;
+    }
+    if (f?.show) {
+      confetti.reset();
+      setPage("picks");
+    } else finish();
   };
   const finishRef = useRef(finish);
+  const pageRef = useRef(page);
+  const afterPhoneRef = useRef(afterPhone);
   useEffect(() => {
     finishRef.current = finish;
+    pageRef.current = page;
+    afterPhoneRef.current = afterPhone;
   });
 
   useEffect(() => {
@@ -68,9 +102,7 @@ export function WelcomeSheet({
     // nudge is never needed on this phone.
     storage.set(PHONE_NUDGE_KEY, String(Date.now()));
     // Drop ?welcome=1 so a refresh or share doesn't greet again.
-    const url = new URL(window.location.href);
-    url.searchParams.delete("welcome");
-    window.history.replaceState(window.history.state, "", url);
+    dropWelcome();
     const t = setTimeout(() => {
       sfx.tada();
       confetti({
@@ -86,10 +118,23 @@ export function WelcomeSheet({
     return () => clearTimeout(t);
   }, [open]);
 
+  // The picks page's facts, read as the sheet opens (kids and borrowed
+  // links get show: false).
   useEffect(() => {
     if (!open) return;
+    let live = true;
+    void loadPicks().then((f) => live && setFacts(f));
+    return () => {
+      live = false;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    // Escape closes, like Not now (it records nothing on the account).
+    // The picks page handles its own (it reports "closed").
     const onKey = (e: KeyboardEvent) =>
-      e.key === "Escape" && finishRef.current();
+      e.key === "Escape" && pageRef.current !== "picks" && finishRef.current();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open]);
@@ -114,7 +159,9 @@ export function WelcomeSheet({
         type="button"
         aria-hidden
         tabIndex={-1}
-        onClick={finish}
+        // The picks page has its own Not now: a stray tap outside it does
+        // nothing (it would lose a typed address).
+        onClick={page === "picks" ? undefined : () => finish()}
         className="absolute inset-0 bg-ink/40 backdrop-blur-[2px]"
       />
       <div
@@ -128,10 +175,16 @@ export function WelcomeSheet({
             : "mb-[max(env(safe-area-inset-bottom),0.75rem)] pt-14"
         }`}
       >
-        {page === "phone" ? (
+        {page === "picks" && facts ? (
+          <SignupPicks
+            facts={facts}
+            headingId="welcome-h"
+            onFinish={(o) => finish(o)}
+          />
+        ) : page === "phone" ? (
           <>
             <h2 id="welcome-h" className="font-hand text-4xl leading-tight">
-              One more thing!
+              Add your number
             </h2>
             <p className="mt-1 mb-3 leading-snug">
               Add your number and you can sign in on any phone with a quick
@@ -142,9 +195,18 @@ export function WelcomeSheet({
               autoFocus
               onDone={() => {
                 setPhoneAdded(true);
-                setTimeout(() => finishRef.current(), 900);
+                // The number just passed a code: the picks page can offer
+                // the Weekend Pick to it.
+                const t0 = Date.now();
+                void loadPicks().then((f) => {
+                  setFacts(f);
+                  setTimeout(
+                    () => afterPhoneRef.current(f),
+                    Math.max(0, 900 - (Date.now() - t0)),
+                  );
+                });
               }}
-              onSkip={finish}
+              onSkip={() => afterPhone()}
               skipLabel="Skip for now"
             />
           </>
@@ -201,14 +263,21 @@ export function WelcomeSheet({
             <button
               type="button"
               onClick={() => {
-                if (hasPhone) return finish();
+                if (hasPhone) return afterPhone();
                 confetti.reset(); // don't rain on the number field
                 setPage("phone");
               }}
               autoFocus
               className="crayon-btn wax mt-5 w-full bg-crayon-yellow py-3.5 text-3xl"
             >
-              {hasPhone ? "Let's spin!" : "Next"}
+              {/* "Next" only when another page follows. With a number, that
+                  waits for the picks facts (a beat): the words are held back
+                  until they're known, so the label never flips. */}
+              <span
+                className={!hasPhone || facts !== undefined ? "" : "invisible"}
+              >
+                {!hasPhone || facts?.show ? "Next" : "Let's spin!"}
+              </span>
             </button>
           </>
         )}

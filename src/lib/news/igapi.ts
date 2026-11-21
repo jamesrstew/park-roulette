@@ -14,7 +14,7 @@ import { median } from "./xapi";
  * our account id and fetch are passed in, so tests mock Meta.
  */
 
-export const IG_GRAPH = "https://graph.facebook.com/v21.0";
+export const IG_GRAPH = "https://graph.facebook.com/v23.0";
 /** Recent media read per page (enough for a median). */
 export const IG_MEDIA_LIMIT = 25;
 export const IG_LIKES_FLOOR = 1000;
@@ -259,6 +259,41 @@ export function scorePage(
         ) / 100,
       baseline: base,
     }));
+}
+
+/**
+ * Why the Instagram list looks the way it does, so an empty one can be
+ * explained: ok (candidates), no_token (IG_ACCESS_TOKEN or IG_USER_ID
+ * missing), api_error (every page call failed) or none_passed (Meta
+ * answered, but no post cleared the bar).
+ */
+export type IgStatus = "ok" | "no_token" | "api_error" | "none_passed";
+
+/** Candidates plus their status (the plan's parents_corner.instagram_status). */
+export async function igCandidatesWithStatus(
+  opts: Parameters<typeof igCandidates>[0],
+): Promise<{ candidates: IgCandidate[]; status: IgStatus }> {
+  if (!opts.token || !opts.igUserId)
+    return { candidates: [], status: "no_token" };
+  let answered = 0;
+  let asked = 0;
+  const counting: typeof fetch = async (...a) => {
+    asked++;
+    const res = await (opts.fetchImpl ?? fetch)(...a);
+    if (res.ok) answered++;
+    return res;
+  };
+  try {
+    const candidates = await igCandidates({ ...opts, fetchImpl: counting });
+    if (asked > 0 && answered === 0)
+      return { candidates: [], status: "api_error" };
+    return {
+      candidates,
+      status: candidates.length ? "ok" : "none_passed",
+    };
+  } catch {
+    return { candidates: [], status: "api_error" };
+  }
 }
 
 /**

@@ -17,6 +17,8 @@ import {
   weatherNumberProblems,
   quoteHasHoursFor,
   styleProblems,
+  outingEventEvidence,
+  type StoredEventRef,
 } from "./validate";
 
 // --- Fixtures: one good issue for Thursday, Dec 3, 2026 --------------------
@@ -31,6 +33,11 @@ const catalog: Catalog = {
     "downtownbend.org",
     "deschuteslibrary.org",
   ],
+  lead_domains: ["visitbend.com"],
+  site_aliases: {},
+  alias_pins: {},
+  venue_aliases: [],
+  walled_hosts: [],
   skip_dates: [{ date: "2026-12-24", reason: "Christmas Eve" }],
   breaks: [],
   parks: [],
@@ -38,6 +45,7 @@ const catalog: Catalog = {
     {
       id: "venue-pavilion",
       name: "The Pavilion",
+      short_name: "The Pavilion",
       town: "Bend",
       address: "1001 SW Bradbury Way, Bend",
       kind: "skating",
@@ -63,6 +71,7 @@ const catalog: Catalog = {
     {
       id: "venue-library",
       name: "Central Library",
+      short_name: "Central Library",
       town: "Bend",
       address: null,
       kind: "library",
@@ -88,6 +97,7 @@ const catalog: Catalog = {
     {
       id: "venue-unverified",
       name: "Mystery Gym",
+      short_name: "Mystery Gym",
       town: "Bend",
       address: null,
       kind: "open_gym",
@@ -642,6 +652,46 @@ describe("validateIssue", () => {
     expect(dead.ok).toBe(true);
   });
 
+  it("links: a listings site (visitbend.com) is discovery only, with its own reason", async () => {
+    const i = good();
+    i.weekend![0].url =
+      "https://www.visitbend.com/event/bend-christmas-parade/";
+    const r = await validateIssue(i, ctx());
+    expect(rules(r.dropped)).toContain("weekend.0:links");
+    expect(
+      r.dropped.some((d) =>
+        /visitbend\.com is a lead only: never a link or evidence\. Find the organizer's own page\./.test(
+          d.message,
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it("links: a site that resets the connection says so", async () => {
+    const r = await validateIssue(
+      good(),
+      ctx({
+        fetcher: async (url) =>
+          url === PARADE
+            ? {
+                status: 0,
+                finalUrl: url,
+                text: "",
+                unreachable: "connection reset",
+                blockedKind: "reset",
+              }
+            : (pages[url] ?? { status: 404, finalUrl: url, text: "" }),
+      }),
+    );
+    expect(
+      r.dropped.some(
+        (d) =>
+          d.message ===
+          "www.downtownbend.org didn't answer (connection reset).",
+      ),
+    ).toBe(true);
+  });
+
   it("evidence: a quote no longer on the page cuts just that item", async () => {
     const r = await validateIssue(
       good(),
@@ -1190,10 +1240,90 @@ describe("validateIssue", () => {
     expect(quoteHasTime("11 a.m.", "1 pm")).toBe(false);
   });
 
-  it("evidence quotes are at least 20 characters", async () => {
+  it("evidence quotes are at least 20 characters, or 8 with a price and a date or time", async () => {
     const i = good();
     i.weekend![0].evidence = [{ url: PARADE, quote: "Dec. 6, noon" }];
-    expect((await validateIssue(i, ctx())).errors[0].rule).toBe("schema");
+    const r = await validateIssue(i, ctx());
+    expect(rules(r.dropped)).toContain("weekend.0:evidence");
+    expect(r.dropped.some((d) => /is too short/.test(d.message))).toBe(true);
+    const tiny = good();
+    tiny.weekend![0].evidence = [{ url: PARADE, quote: "Free" }];
+    expect((await validateIssue(tiny, ctx())).errors[0].rule).toBe("schema");
+  });
+
+  it("an outing from a stored event may leave evidence out (batch 6 item 5)", async () => {
+    const quote = "Free · Dec 6";
+    const noon = "Sunday, Dec. 6 at noon on Harmon Blvd.";
+    const event = (over: Partial<StoredEventRef> = {}): StoredEventRef => ({
+      status: "scheduled",
+      confirm: "ok",
+      ...over,
+      data: {
+        title: "Bend Christmas Parade",
+        dates: [{ day: "2026-12-06", start: "12:00" }],
+        venue: { name: "Downtown", town: "Bend" },
+        what: "Floats and candy downtown.",
+        url: PARADE,
+        evidence: [
+          { url: PARADE, quote: noon },
+          { url: PARADE, quote },
+          { url: PARADE, quote: "All ages." },
+        ],
+        ages: null,
+        point: null,
+        checkQuote: noon,
+        targets: { "2026-12-06": { url: PARADE, quote: noon } },
+        ...over.data,
+      },
+    });
+    const fetcher = async (url: string) =>
+      url === PARADE
+        ? {
+            status: 200,
+            finalUrl: url,
+            text: `Bend Christmas Parade. ${noon} ${quote}. All ages.`,
+          }
+        : (pages[url] ?? { status: 404, finalUrl: url, text: "" });
+    const i = () => {
+      const g = good();
+      g.weekend![0] = { ...g.weekend![0], event: "bend-christmas-parade" };
+      g.weekend![0].evidence = [];
+      return g;
+    };
+    const run = (e: StoredEventRef) =>
+      validateIssue(
+        i(),
+        ctx({
+          fetcher,
+          events: new Set(["bend-christmas-parade"]),
+          eventData: new Map([["bend-christmas-parade", e]]),
+        }),
+      );
+    const ok = await run(event());
+    expect(ok.dropped).toEqual([]);
+    expect(ok.issue?.weekend?.[0].evidence.map((e) => e.quote)).toEqual([
+      noon,
+      quote,
+      "All ages.",
+    ]);
+    // Canceled that day, passed, or not confirmed: the outing goes.
+    for (const bad of [
+      event({ status: "canceled" }),
+      event({ confirm: "unconfirmed" }),
+      event({
+        data: { dates: [{ day: "2026-11-29", start: "12:00" }] } as never,
+      }),
+    ]) {
+      const r = await run(bad);
+      expect(rules(r.dropped)).toContain("weekend.0:evidence");
+    }
+    // No event and no evidence: cut, with the reason.
+    const g = good();
+    g.weekend![0].evidence = [];
+    const none = await validateIssue(g, ctx());
+    expect(
+      none.dropped.some((d) => /name a stored, upcoming event/.test(d.message)),
+    ).toBe(true);
   });
 
   it("heads up: only changes on our map (closure pages are gone)", async () => {
@@ -1550,5 +1680,114 @@ describe("release 5 review: Indoor pick and wording rules", () => {
     );
     expect(r.dropped).toEqual([]);
     expect(r.issue?.plan_b?.short).toBe(true);
+  });
+});
+
+describe("guardrails end to end: validateIssue (review M6)", () => {
+  const msgs = (r: { dropped: { message: string }[] }) =>
+    r.dropped.map((d) => d.message);
+
+  it("cuts a competitor link", async () => {
+    const i = good();
+    i.weekend![0].url = "https://bendfamilyloop.beehiiv.com/p/weekend";
+    const r = await validateIssue(i, ctx());
+    expect(msgs(r)).toContain(
+      "bendfamilyloop.beehiiv.com is another newsletter. Link the primary source.",
+    );
+  });
+
+  it("cuts a visitbend link and visitbend evidence", async () => {
+    const want =
+      "visitbend.com is a lead only: never a link or evidence. Find the organizer's own page.";
+    const link = good();
+    link.weekend![0].url = "https://www.visitbend.com/event/parade/";
+    expect(msgs(await validateIssue(link, ctx()))).toContain(want);
+    const ev = good();
+    ev.weekend![0].evidence = [
+      {
+        url: "https://www.visitbend.com/event/parade/",
+        quote: "Sunday, Dec. 6 at noon on Harmon Blvd. Free for everyone.",
+      },
+    ];
+    expect(msgs(await validateIssue(ev, ctx()))).toContain(want);
+  });
+
+  it("refuses a 7-character outing quote outright", async () => {
+    const i = good();
+    i.weekend![0].evidence = [{ url: PARADE, quote: "Free $5" }];
+    const r = await validateIssue(i, ctx());
+    expect(r.ok).toBe(false);
+    expect(r.errors[0]).toMatchObject({
+      rule: "schema",
+      path: "weekend.0.evidence.0.quote",
+    });
+  });
+
+  it("cuts evidence from a different host than the link", async () => {
+    const i = good();
+    i.weekend![0].evidence = [
+      {
+        url: SKATE,
+        quote: "Sunday, Dec. 6 at noon on Harmon Blvd. Free for everyone.",
+      },
+    ];
+    const r = await validateIssue(i, ctx());
+    expect(msgs(r)).toContain(
+      "The evidence (www.bendparksandrec.org) must come from the same site as the link (www.downtownbend.org).",
+    );
+  });
+});
+
+describe("an outing borrowing its event's evidence: edge cases", () => {
+  const ev = (
+    dates: { day: string; start?: string; end?: string }[],
+    ages: { tags: never[]; kids: boolean; range: null } | null = null,
+  ): StoredEventRef => ({
+    status: "scheduled",
+    confirm: "ok",
+    data: {
+      title: "Story Time",
+      dates,
+      venue: { name: "Library", town: "Bend" },
+      what: "Songs and a picture book for little ones.",
+      url: LIB,
+      evidence: [
+        { url: LIB, quote: "Saturday 10 am. Free. Story time at 10." },
+      ],
+      ages,
+      point: null,
+      checkQuote: "Saturday 10 am.",
+    },
+  });
+
+  it("refuses an event that ended earlier today", () => {
+    const e = ev([{ day: "2026-12-05", start: "10:00", end: "11:00" }]);
+    const map = new Map([["story-time", e]]);
+    const w = { event: "story-time", day: "2026-12-05" };
+    // 11:30 am Pacific on Dec 5: over.
+    expect(
+      outingEventEvidence(w, map, new Date("2026-12-05T19:30:00Z")),
+    ).toMatch(/has passed/);
+    // 10:30 am: still on.
+    expect(
+      Array.isArray(
+        outingEventEvidence(w, map, new Date("2026-12-05T18:30:00Z")),
+      ),
+    ).toBe(true);
+  });
+
+  it("refuses a grown-up event", () => {
+    const e = ev([{ day: "2026-12-05", start: "10:00" }], {
+      tags: [],
+      kids: false,
+      range: null,
+    });
+    expect(
+      outingEventEvidence(
+        { event: "story-time", day: "2026-12-05" },
+        new Map([["story-time", e]]),
+        new Date("2026-12-03T15:00:00Z"),
+      ),
+    ).toMatch(/isn't a kids' event/);
   });
 });

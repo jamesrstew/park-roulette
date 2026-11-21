@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useId, useRef, useState, useTransition } from "react";
 import { flushSync } from "react-dom";
 import { joinWithCode, startClaim, startFamily } from "@/lib/client-actions";
 import { CodeSheet, focusClaimCode } from "@/components/CodeSheet";
@@ -13,7 +13,8 @@ import { AVATARS, CRAYON_NAMES, crayon } from "@/lib/crayons";
 import { AvatarPicker } from "./AvatarPicker";
 import { CrayonPicker } from "./CrayonPicker";
 import { PartyDoodles } from "./Doodles";
-import { AvatarBlob, NameTag } from "./NameTag";
+import { AvatarBlob } from "./NameTag";
+import { familyDefault, NameTagField } from "./NameTagField";
 
 type Member = {
   id: number;
@@ -64,6 +65,14 @@ export function JoinScreen({
   const [confirmFor, setConfirmFor] = useState<Member | null>(null);
   const [usePhone, setUsePhone] = useState(true);
   const [agreed, setAgreed] = useState(false);
+  // The form's own checks (noValidate): the empty tag wiggles and its line
+  // turns red; focus goes to the first problem.
+  const [nameMissing, setNameMissing] = useState(false);
+  const [agreeMissing, setAgreeMissing] = useState(false);
+  const [shake, setShake] = useState(0);
+  const nameRef = useRef<HTMLTextAreaElement>(null);
+  const agreeRef = useRef<HTMLInputElement>(null);
+  const hintId = useId();
   // Signed in and holding a friend's link: you probably don't want to leave
   // your crew. Show "you're all set" first; the form is one tap away.
   const [startAnyway, setStartAnyway] = useState(false);
@@ -76,6 +85,17 @@ export function JoinScreen({
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const noName = !name.trim();
+    setNameMissing(noName);
+    setAgreeMissing(!agreed);
+    if (noName) {
+      setShake((n) => n + 1);
+      nameRef.current?.focus();
+      return;
+    }
+    if (!agreed) return agreeRef.current?.focus();
+    // An empty family line saves what it showed: "Sam's Family".
+    const crewName = newCrew.trim() || familyDefault(name);
     start(async () => {
       if (isStart) {
         const r = await startFamily({
@@ -83,7 +103,7 @@ export function JoinScreen({
           name,
           color,
           avatar,
-          crewName: newCrew,
+          crewName,
         });
         if (r && !r.ok) setError(r.error);
         return;
@@ -94,7 +114,7 @@ export function JoinScreen({
         name,
         color,
         avatar,
-        crewName: isFriend ? newCrew : undefined,
+        crewName: isFriend ? crewName : undefined,
         usePhone: !!provedPhone && usePhone,
       });
       if (res && !res.ok) setError(res.error);
@@ -313,53 +333,31 @@ export function JoinScreen({
       ) : null}
 
       {/* ---- make your explorer ---- */}
-      <form onSubmit={submit} className="flex flex-col gap-6">
+      <form onSubmit={submit} noValidate className="flex flex-col gap-6">
         <h2 className="-mb-2 text-center text-3xl">Make your explorer</h2>
 
-        <NameTag
-          name={name}
-          color={color}
-          avatar={avatar}
-          crewName={isFriend ? newCrew.trim() || undefined : crewName}
-        />
-
-        <label className="flex flex-col gap-1.5">
-          <span className="font-hand text-2xl">What should we call you?</span>
-          <input
-            className="field font-hand text-2xl"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your name"
-            maxLength={40}
-            autoComplete="given-name"
-            enterKeyHint="next"
-            required
+        <div className="flex flex-col gap-2">
+          <NameTagField
+            name={name}
+            onName={(v) => (setName(v), v.trim() && setNameMissing(false))}
+            color={color}
+            avatar={avatar}
+            family={
+              isFriend
+                ? { kind: "write", value: newCrew, onChange: setNewCrew }
+                : { kind: "read", name: crewName }
+            }
+            nameRef={nameRef}
+            error={nameMissing}
+            shake={shake}
+            nameHintId={hintId}
           />
-          <span className="text-sm text-ink-soft">
-            What your family calls you, like “Mom” or “Sam”. Other families see
-            it with your family name.
-          </span>
-        </label>
-
-        {isFriend ? (
-          <label className="flex flex-col gap-1.5">
-            <span className="font-hand text-2xl">
-              What&apos;s your family called?
-            </span>
-            <input
-              className="field font-hand text-2xl"
-              value={newCrew}
-              onChange={(e) => setNewCrew(e.target.value)}
-              placeholder="The Wild Rumpuses"
-              maxLength={40}
-              enterKeyHint="done"
-            />
-            <span className="text-sm text-ink-soft">
-              Like “Team Taco” or “The Park Pirates.” It shows on your reviews.
-              You can change it later.
-            </span>
-          </label>
-        ) : null}
+          {nameMissing ? (
+            <div className="flex justify-center">
+              <ErrorLine>Write your name on the tag first.</ErrorLine>
+            </div>
+          ) : null}
+        </div>
 
         <fieldset>
           <legend className="mb-1 font-hand text-2xl">Pick your crayon</legend>
@@ -396,11 +394,16 @@ export function JoinScreen({
 
         <label className="flex min-h-11 items-start gap-3 px-1">
           <input
+            ref={agreeRef}
             type="checkbox"
             checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-            className="mt-0.5 size-6 shrink-0 accent-crayon-green"
-            required
+            onChange={(e) => (
+              setAgreed(e.target.checked),
+              e.target.checked && setAgreeMissing(false)
+            )}
+            aria-invalid={agreeMissing || undefined}
+            aria-describedby={agreeMissing ? `${hintId}-agree` : undefined}
+            className={`mt-0.5 size-6 shrink-0 accent-crayon-green ${agreeMissing ? "rounded outline-[2.5px] outline-offset-2 outline-crayon-red outline-solid" : ""}`}
           />
           <span className="text-sm leading-snug">
             I&apos;m 18 or older and I agree to the{" "}
@@ -415,11 +418,17 @@ export function JoinScreen({
           </span>
         </label>
 
+        {agreeMissing ? (
+          <ErrorLine id={`${hintId}-agree`}>
+            Check the box to agree first.
+          </ErrorLine>
+        ) : null}
+
         {error ? <ErrorLine>{error}</ErrorLine> : null}
 
         <button
           type="submit"
-          disabled={pending || !name.trim() || !agreed}
+          disabled={pending}
           className="crayon-btn wax w-full bg-crayon-yellow py-4 text-3xl"
         >
           {pending && claiming === null ? (

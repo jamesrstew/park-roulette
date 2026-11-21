@@ -1,11 +1,12 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { testDbOn } from "@/lib/local-db";
 
 /**
  * The ask moments' server facts against a real (local) Postgres. Opt-in:
  * set TEST_DATABASE_URL (see news/sender.db.test.ts).
  */
 const URL_ = process.env.TEST_DATABASE_URL ?? "";
-const local = /@(localhost|127\.0\.0\.1)[:/]/.test(URL_);
+const local = testDbOn(URL_);
 
 vi.mock("./session", () => ({
   readSession: async () => null,

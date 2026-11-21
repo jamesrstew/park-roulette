@@ -1,13 +1,14 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { newsIssues } from "@/db/schema";
-import { validateContext } from "@/lib/news/data";
+import { nextDraftDate, validateContext } from "@/lib/news/data";
 import {
   ingestOk,
   issueDateProblem,
   json,
   nope,
   readJson,
+  SEND_CUTOFF_MINUTES,
 } from "@/lib/news/http";
 import { validateIssue } from "@/lib/news/validate";
 
@@ -28,7 +29,11 @@ export async function POST(req: Request) {
   if (body == null)
     return json({ error: "Send the issue as JSON (64 KB max)." }, 400);
   const date = (body as { issue_date?: unknown }).issue_date;
-  const problem = issueDateProblem(date);
+  // A draft for today after 7:00 could never go out: refuse it.
+  const problem = issueDateProblem(date, new Date(), {
+    cutoffMinutes: SEND_CUTOFF_MINUTES,
+    nextIssueDate: await nextDraftDate(),
+  });
   if (problem) return json({ error: problem }, 400);
   // A draft stores its Parents' corner card (content-addressed, once).
   const ctx = await validateContext(date as string, {

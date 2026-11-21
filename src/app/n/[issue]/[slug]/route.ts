@@ -5,15 +5,18 @@ import { CATALOG } from "@/lib/news/catalog";
 import { startedIssue } from "@/lib/news/data";
 import { issueLinks } from "@/lib/news/issue";
 import { isIsoDate } from "@/lib/news/time";
+import { formatOn, ON_COOKIE, ON_COOKIE_DAYS, parseOn } from "@/lib/on-cookie";
 import { SITE_URL } from "@/lib/site";
 
 /**
  * /n/<issue>/<slug>: a link in an issue, the same for every reader.
- * We add one to that link's total and send them on. No cookie, no person,
- * no IP: just "the Featured park link in the Dec 3 issue got 41 taps".
+ * We add one to that link's total and send them on. No person and no IP:
+ * just "the Featured park link in the Dec 3 issue got 41 taps". The only
+ * cookie is pr_on's "e" (lib/on-cookie.ts): this browser gets the email,
+ * so the site stops offering it.
  */
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ issue: string; slug: string }> },
 ) {
   const { issue, slug } = await params;
@@ -37,7 +40,9 @@ export async function GET(
       set: { clicks: sql`${newsClicks.clicks} + 1` },
     })
     .catch((e) => console.error("[news] click count failed", e?.name));
-  return away(viaEmail(link.url));
+  const res = away(viaEmail(link.url));
+  res.headers.append("set-cookie", onCookie(req));
+  return res;
 }
 
 /**
@@ -54,4 +59,12 @@ function viaEmail(to: string): string {
   } catch {
     return to;
   }
+}
+
+/** pr_on with "e" added to whatever this browser had. */
+function onCookie(req: Request): string {
+  const had = /(?:^|;\s*)pr_on=([^;]*)/.exec(req.headers.get("cookie") ?? "");
+  const v = formatOn({ ...parseOn(had?.[1]), email: true });
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  return `${ON_COOKIE}=${v}; Path=/; Max-Age=${ON_COOKIE_DAYS * 86_400}; HttpOnly; SameSite=Lax${secure}`;
 }

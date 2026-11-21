@@ -29,6 +29,8 @@ const FROM = [
   "rainy_spin",
   "weekend_spin",
   "email_footer",
+  "issue_text",
+  "issue_page",
 ] as const;
 type Props = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

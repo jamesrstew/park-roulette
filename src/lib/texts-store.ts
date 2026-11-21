@@ -46,6 +46,8 @@ export type ConsentDetails = {
   agreed?: boolean;
   disclosureShown?: string;
   checkboxShown?: string;
+  /** The button they pressed, from the frozen words of their version. */
+  buttonShown?: string;
 };
 
 /** Weekend Picks go out (TEXTS_SENDING_ENABLED). */
@@ -68,9 +70,14 @@ export function confirmationsEnabled(): boolean {
 export const TWILIO_STOPPED = 21610;
 /** Delivery errors that mean the number can't get texts (off, not listed). */
 export const UNREACHABLE = new Set([30003, 30005, 30006]);
-/** Delivery errors James hears about (carrier filtering, unknown, and the
- * contact card failing to fetch or deliver as MMS). */
-export const ALERT_CODES = new Set([30007, 30008, 11200, 12300, 30019]);
+/**
+ * Delivery errors James hears about: carrier filtering, unknown, and media
+ * (the contact card or the Weekend Pick's picture) failing to fetch,
+ * failing as an image, or too big for the carrier.
+ */
+export const ALERT_CODES = new Set([
+  30007, 30008, 11200, 11205, 11206, 11210, 11751, 12300, 30019,
+]);
 
 export type SendResult =
   | { ok: true; sid?: string; logged?: boolean }
@@ -139,15 +146,19 @@ export type OptInResult =
   | "failed"; // the confirmation text failed: off
 
 /**
- * Record a yes and send the one confirmation text. Idempotent per number
- * (a double tap or two devices send one text). The caller has checked the
- * 30-day code rule.
+ * Record a yes and send the one confirmation text, right away at any hour
+ * (James, November 20: it answers their own tap). Quiet hours are for
+ * program texts and for the backlog held while confirmations were off
+ * (sendPendingConfirmations). Idempotent per number (a double tap or two
+ * devices send one text). The caller has checked the 30-day code rule.
+ * `version` is the consent wording they saw (lib/texts.ts, per surface),
+ * recorded on every step: requested, opt_in and the confirmation's.
  */
 export async function optIn(
   phone: string,
   source: string,
   details: ConsentDetails,
-  now = new Date(),
+  version: string = TEXTS_CONSENT_VERSION,
 ): Promise<OptInResult> {
   const result = await db.transaction(async (tx) => {
     await tx.execute(
@@ -157,7 +168,7 @@ export async function optIn(
       channel: "sms",
       action: "requested",
       address: phone,
-      consentVersion: TEXTS_CONSENT_VERSION,
+      consentVersion: version,
       source,
       details,
     });
@@ -184,34 +195,46 @@ export async function optIn(
       channel: "sms",
       action: "opt_in",
       address: phone,
-      consentVersion: TEXTS_CONSENT_VERSION,
+      consentVersion: version,
+      source,
+      details,
+    });
+    // A confirmation answering the yes goes at once, at any hour (James,
+    // November 20: the person just asked for it). It's marked as sending
+    // in the same transaction, before it goes, so a crash mid-send leaves
+    // a trace the backlog can see (and leaves alone for 24 hours). With
+    // confirmations off it's held; that backlog goes out in the daytime
+    // window (sendPendingConfirmations). No Weekend Pick goes to a number
+    // before its confirmation.
+    await tx.insert(contactConsents).values({
+      channel: "sms",
+      action: confirmationsEnabled()
+        ? "confirmation_sending"
+        : "confirmation_pending",
+      address: phone,
+      consentVersion: version,
       source,
       details,
     });
     return "on" as const;
   });
   if (result !== "on") return result;
-  // Confirmations off (until the carrier campaign clears), or outside
-  // 8 am to 5 pm Pacific (and the number's own 8 am to 8 pm): hold it.
-  // sendPendingConfirmations sends it in the window; no Weekend Pick goes
-  // to a number before its confirmation.
-  if (!confirmationsEnabled() || !confirmWindowOpen(phone, now)) {
-    await note(phone, "confirmation_pending", source, details);
-    return "on";
-  }
+  if (!confirmationsEnabled()) return "on";
   const sent = await sendConfirmation(phone);
   if (sent.ok) {
-    await note(phone, "confirmation_sent", source, {
-      ...details,
-      twilioSid: sent.sid ?? null,
-    });
+    await noteSent(
+      phone,
+      source,
+      { ...details, twilioSid: sent.sid ?? null },
+      version,
+    );
     return "on";
   }
   // Twilio has this number's STOP (sendText listed it): START from the phone.
   if (sent.code === TWILIO_STOPPED) return "needs_start";
   // Twilio down or slow: the yes stands, the confirmation is retried.
   if (sent.temporary) {
-    await note(phone, "confirmation_pending", source, details);
+    await note(phone, "confirmation_pending", source, details, version);
     return "on";
   }
   // Never show On for a number we can't reach.
@@ -221,18 +244,41 @@ export async function optIn(
   return "failed";
 }
 
+/**
+ * The confirmation went: record it, and tell James if the record fails
+ * (the text went, but the number would never get a Weekend Pick).
+ */
+async function noteSent(
+  phone: string,
+  source: string,
+  details: ConsentDetails,
+  version: string = TEXTS_CONSENT_VERSION,
+) {
+  try {
+    await note(phone, "confirmation_sent", source, details, version);
+  } catch (e) {
+    alertLater({
+      key: `texts:confirmation-record:${phone.slice(-4)}`,
+      subject: "Weekend Pick: a confirmation went but wasn't recorded",
+      text: `The confirmation to …${phone.slice(-4)} went (Twilio ${details.twilioSid ?? "?"}), but saving confirmation_sent failed (${(e as Error)?.name}). Add the row by hand, or that number never gets a Weekend Pick.`,
+      everyMinutes: 60,
+    });
+  }
+}
+
 /** A step in a number's confirmation (no effect on on or off). */
 async function note(
   phone: string,
-  action: "confirmation_pending" | "confirmation_sent",
+  action: "confirmation_pending" | "confirmation_sending" | "confirmation_sent",
   source: string,
   details: ConsentDetails,
+  version: string = TEXTS_CONSENT_VERSION,
 ) {
   await db.insert(contactConsents).values({
     channel: "sms",
     action,
     address: phone,
-    consentVersion: TEXTS_CONSENT_VERSION,
+    consentVersion: version,
     source,
     details,
   });
@@ -243,6 +289,7 @@ const STEPS = [
   "opt_in",
   "opt_out",
   "confirmation_pending",
+  "confirmation_sending",
   "confirmation_sent",
 ] as const;
 
@@ -271,14 +318,33 @@ export async function confirmedForTexts(phone: string): Promise<boolean> {
   return false;
 }
 
-/** A weekend pick: never to a number that hasn't had its confirmation. */
+/**
+ * A weekend pick: never to a number that hasn't had its confirmation.
+ * With `mediaUrl` it goes as MMS (the issue's preview picture); if Twilio
+ * refuses the media (anything but 21610, a 5xx or a timeout), the same
+ * body goes as plain SMS, like the confirmation.
+ */
 export async function sendProgramText(
   to: string,
   body: string,
+  { mediaUrl }: { mediaUrl?: string } = {},
 ): Promise<SendResult> {
   if (!(await confirmedForTexts(to)))
     return { ok: false, why: "not confirmed", temporary: false };
-  return sendText(to, body, { enabled: sendingEnabled() });
+  return sendWithFallback(to, body, { enabled: sendingEnabled(), mediaUrl });
+}
+
+/** MMS, then plain SMS with the same body if Twilio refuses the media. */
+export async function sendWithFallback(
+  to: string,
+  body: string,
+  { enabled, mediaUrl }: { enabled: boolean; mediaUrl?: string },
+): Promise<SendResult> {
+  if (!mediaUrl) return sendText(to, body, { enabled });
+  const mms = await sendText(to, body, { enabled, mediaUrl });
+  if (mms.ok || mms.temporary || mms.code === TWILIO_STOPPED) return mms;
+  console.warn(`[texts] MMS refused (${mms.why}); sending SMS`);
+  return sendText(to, body, { enabled });
 }
 
 export type ConfirmationsResult = {
@@ -292,8 +358,9 @@ export type ConfirmationsResult = {
 };
 
 /**
- * Held yeses (confirmations off, or outside the window, or Twilio was
- * down): each gets its confirmation text in its window. A number Twilio
+ * Held yeses (collected while confirmations were off, or Twilio was
+ * down): each gets its confirmation text in the daytime window (a fresh
+ * yes is confirmed at once, at any hour, in optIn). A number Twilio
  * refuses for good goes off; a temporary failure is retried next run.
  * Runs hourly in the daytime (/api/cron/text-confirmations).
  */
@@ -306,12 +373,15 @@ export async function sendPendingConfirmations(
   const started = Date.now();
   const waiting = await db.execute<{ address: string }>(sql`
     select address from (
-      select distinct on (address) address, action
+      select distinct on (address) address, action, created_at
       from ${contactConsents}
-      where channel = 'sms' and action in ('opt_in', 'opt_out', 'confirmation_pending', 'confirmation_sent')
+      where channel = 'sms' and action in ('opt_in', 'opt_out', 'confirmation_pending', 'confirmation_sending', 'confirmation_sent')
       order by address, id desc
     ) last
-    where action = 'confirmation_pending'
+    -- Held, or marked sending over a day ago with no answer (a crash
+    -- mid-send). A failure Twilio reported writes confirmation_pending.
+    where (action = 'confirmation_pending'
+        or (action = 'confirmation_sending' and created_at < now() - interval '24 hours'))
       and not exists (select 1 from ${smsOptOuts} o where o.phone = last.address)`);
   for (const { address } of waiting) {
     const at = new Date(now.getTime() + (Date.now() - started));
@@ -321,7 +391,7 @@ export async function sendPendingConfirmations(
     }
     const sent = await sendConfirmation(address);
     if (sent.ok) {
-      await note(address, "confirmation_sent", "held_until_live", {
+      await noteSent(address, "held_until_live", {
         path: "held",
         ip: null,
         userAgent: null,
@@ -513,6 +583,56 @@ export async function sendText(
   }
 }
 
+/** Delivery errors where the picture, not the number, was the problem. */
+export const MEDIA_CODES = new Set([
+  11200, 11205, 11206, 11210, 11751, 12300, 30019,
+]);
+
+/**
+ * A Weekend Pick MMS that failed late because of its picture: send the
+ * same body once more as plain SMS. The row is claimed first (its reason),
+ * so a repeated status report never sends twice; the row then carries the
+ * SMS's sid, and its reports from there on.
+ */
+async function resendAsSms(sid: string, code: number): Promise<void> {
+  const [row] = await db
+    .update(smsProgramSends)
+    .set({ reason: `media error ${code}: re-sending as SMS` })
+    .where(
+      and(
+        eq(smsProgramSends.twilioSid, sid),
+        inArray(smsProgramSends.status, ["sent", "dry_run"]),
+        sql`${smsProgramSends.phone} is not null and ${smsProgramSends.body} is not null`,
+        sql`coalesce(${smsProgramSends.reason}, '') not like 'media error%'`,
+      ),
+    )
+    .returning({
+      id: smsProgramSends.id,
+      phone: smsProgramSends.phone,
+      body: smsProgramSends.body,
+      status: smsProgramSends.status,
+    });
+  if (!row) return;
+  const r =
+    row.status === "sent"
+      ? await sendProgramText(row.phone!, row.body!)
+      : await sendText(row.phone!, row.body!, { enabled: sendingEnabled() });
+  await db
+    .update(smsProgramSends)
+    .set(
+      r.ok
+        ? {
+            twilioSid: r.sid ?? null,
+            deliveryStatus: null,
+            reason: `media error ${code}: re-sent as SMS (MMS ${sid})`,
+          }
+        : {
+            reason: `media error ${code}: the SMS re-send failed (${r.why})`,
+          },
+    )
+    .where(eq(smsProgramSends.id, row.id));
+}
+
 /** How far along a Twilio delivery status is (later states rank higher). */
 const DELIVERY_RANK: Record<string, number> = {
   accepted: 0,
@@ -577,6 +697,11 @@ export async function recordDelivery(p: {
   const code = p.errorCode;
   if (!code) return;
   if (code === TWILIO_STOPPED) return twilioHasStop(p.to);
+  if (
+    MEDIA_CODES.has(code) &&
+    (p.status === "undelivered" || p.status === "failed")
+  )
+    await resendAsSms(p.sid, code);
   if (UNREACHABLE.has(code)) {
     if (await textsOn(p.to))
       await optOut(p.to, "undeliverable", null, { keepListed: false });

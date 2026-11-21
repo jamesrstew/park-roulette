@@ -1,4 +1,5 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { testDbOn } from "@/lib/local-db";
 
 /**
  * The Friday Weekend Pick sender against a real (local) Postgres. Opt-in:
@@ -6,13 +7,16 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
  * stubbed: no text ever leaves.
  */
 const URL_ = process.env.TEST_DATABASE_URL ?? "";
-const local = /@(localhost|127\.0\.0\.1)[:/]/.test(URL_);
+const local = testDbOn(URL_);
 const A = "+15415550123";
 const B = "+15415550124";
 /** Friday, December 4, 2026, 4:00 pm Pacific. */
 const FRI = new Date("2026-12-05T00:00:00Z");
-/** Twilio's stand-in records who was texted. */
+/** Twilio's stand-in records who was texted, and each request. */
 const texted: string[] = [];
+const requests: URLSearchParams[] = [];
+/** When set, Twilio refuses any MMS with this code (400). */
+let refuseMedia: number | null = null;
 const ISSUE = `{"issue_date":"2026-12-03","subject":"Juniper and the rain","preview":"Plus a covered skate this week.","hello":{"text":"Hi there, a quick one this week about the weather and a fenced park."},"wheel_pick":{"park":"wildflower-park-bend","why_now":"Now.","who_for":"All.","bring":"Gloves."},"passport":{"challenge_id":"x","text":"Stamp it."},"signoff":{"text":"Hit reply."}}`;
 
 describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
@@ -25,7 +29,11 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
     process.env.DATABASE_URL = URL_;
     vi.stubGlobal("fetch", async (u: RequestInfo | URL, init?: RequestInit) => {
       if (String(u).startsWith("https://api.twilio.com/")) {
-        texted.push(new URLSearchParams(String(init?.body)).get("To") ?? "");
+        const form = new URLSearchParams(String(init?.body));
+        requests.push(form);
+        if (refuseMedia && form.get("MediaUrl"))
+          return Response.json({ code: refuseMedia }, { status: 400 });
+        texted.push(form.get("To") ?? "");
         return Response.json({ sid: `SM${texted.length}` }, { status: 201 });
       }
       return new Response("no", { status: 503 });
@@ -41,6 +49,8 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
     process.env.TEXTS_SENDING_ENABLED = "1";
     process.env.TWILIO_TEXTS_SERVICE_SID = "MG_test";
     texted.length = 0;
+    requests.length = 0;
+    refuseMedia = null;
     await q(
       "truncate sms_program_sends, contact_consents, sms_opt_outs, sms_last_texts, news_sends, news_issues, news_settings, news_clicks, parks, explorers, crews restart identity cascade",
     );
@@ -87,8 +97,28 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
       await q("select issue_date::text as d, slug, clicks from news_clicks"),
     ).toEqual([{ d: "2026-12-03", slug: "weekend-pick-text", clicks: 2 }]);
     // Unknown or malformed codes go home.
-    for (const code of ["zz", "0", "Ab", "a/b"])
+    for (const code of ["zz", "0", "Ab", "a/b", "abcde"])
       expect((await tap(code)).to, code).toBe("https://parkroulette.quest/");
+  });
+
+  it("a 4-character code is an issue date: a sent issue's page, marked src=text, counting nothing", async () => {
+    const { GET } = await import("@/app/w/[code]/route");
+    const tap = async (code: string) =>
+      (
+        await GET(new Request(`http://localhost/w/${code}`), {
+          params: Promise.resolve({ code }),
+        })
+      ).headers.get("location");
+    // Not sent yet: home.
+    expect(await tap("5ljn")).toBe("https://parkroulette.quest/");
+    await sentIssue2();
+    expect(await tap("5ljn")).toBe(
+      "https://parkroulette.quest/newsletter/2026-12-03?src=text",
+    );
+    // Another date, or no real date: home.
+    expect(await tap("5lju")).toBe("https://parkroulette.quest/");
+    expect(await tap("zzzz")).toBe("https://parkroulette.quest/");
+    expect(await q("select * from news_clicks")).toEqual([]);
   });
 
   it("dry run tests on a validated draft when nothing went out; a real run never does", async () => {
@@ -141,8 +171,13 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].phone).toBe(A);
     expect(rows[0].body).toBe(
-      "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/w/1 Reply STOP to opt out",
+      "Park Roulette: Go Saturday: Wildflower Park, Bend. Fenced toddler area. Reply STOP to opt out. https://parkroulette.quest/w/5ljn",
     );
+    // An MMS with the issue's preview picture.
+    expect(requests[0].get("MediaUrl")).toBe(
+      "https://parkroulette.quest/newsletter/2026-12-03/preview.jpg",
+    );
+    expect(requests[0].get("Body")).toBe(rows[0].body);
     const again = await pick.runWeekendPick(
       new Date(FRI.getTime() + 15 * 60_000),
     );
@@ -155,19 +190,32 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
     await q("update news_settings set texts_paused = true");
     expect((await pick.runWeekendPick(FRI)).action).toBe("paused");
     await q("update news_settings set texts_paused = false");
-    // Two weeks, one number each, and each said STOP the next day: 100%.
-    for (const [d, phone] of [
-      ["2026-11-19", "+15415559998"],
-      ["2026-11-26", "+15415559999"],
-    ]) {
-      await q(
-        `insert into sms_program_sends (issue_date, phone, status, sent_at) values ('${d}', '${phone}', 'sent', '${d}T23:30:00Z')`,
-      );
-      // "Stop texts" in settings counts too (M5).
-      await q(
-        `insert into contact_consents (channel, action, address, consent_version, source, created_at) values ('sms', 'opt_out', '${phone}', 'sms-2026-11-21', 'settings', timestamptz '${d}T23:30:00Z' + interval '1 day')`,
-      );
-    }
+    // Each send needs at least 3 STOPs AND over 1% of its own. Two STOPs
+    // a week (40%) isn't enough.
+    const week = async (d: string, n: number, stops: number, tag: string) => {
+      for (let i = 0; i < n; i++) {
+        const phone = `+1541555${tag}${String(i).padStart(2, "0")}`;
+        await q(
+          `insert into sms_program_sends (issue_date, phone, status, sent_at) values ('${d}', '${phone}', 'sent', '${d}T23:30:00Z')`,
+        );
+        // "Stop texts" in settings counts too (M5).
+        if (i < stops)
+          await q(
+            `insert into contact_consents (channel, action, address, consent_version, source, created_at) values ('sms', 'opt_out', '${phone}', 'sms-2026-11-21', 'settings', timestamptz '${d}T23:30:00Z' + interval '1 day')`,
+          );
+      }
+    };
+    await week("2026-11-19", 5, 2, "91");
+    await week("2026-11-26", 5, 3, "92");
+    expect(await pick.recentStopRates("2026-12-03")).toEqual([
+      { sent: 5, stops: 3 },
+      { sent: 5, stops: 2 },
+    ]);
+    expect((await pick.runWeekendPick(FRI)).counts?.sent).toBe(1);
+    await q("truncate sms_program_sends");
+    texted.length = 0;
+    await week("2026-11-19", 5, 3, "93");
+    await week("2026-11-26", 5, 3, "94");
     const r = await pick.runWeekendPick(FRI);
     expect(r.action).toBe("paused");
     const [s] = await q(
@@ -195,7 +243,10 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
         `insert into contact_consents (channel, action, address, consent_version, source, created_at) values ('sms', 'opt_out', '${phone}', 'sms-2026-11-21', '${source}', timestamptz '${d}T23:30:00Z' + interval '1 day')`,
       );
     }
-    expect(await pick.recentStopRates("2026-12-03")).toEqual([0, 0]);
+    expect(await pick.recentStopRates("2026-12-03")).toEqual([
+      { sent: 1, stops: 0 },
+      { sent: 1, stops: 0 },
+    ]);
     // One week of history never trips it.
     await q("truncate sms_program_sends");
     await q(
@@ -292,5 +343,207 @@ describe.skipIf(!local)("Weekend Pick, against Postgres", () => {
       `select status, reason from sms_program_sends where issue_date = '2026-12-03'`,
     );
     expect(row).toMatchObject({ status: "skipped" });
+  });
+
+  it("falls back to plain SMS with the same body when Twilio refuses the picture", async () => {
+    await sentIssue2();
+    refuseMedia = 21620;
+    const r = await pick.runWeekendPick(FRI);
+    expect(r.counts?.sent).toBe(1);
+    expect(requests.map((x) => !!x.get("MediaUrl"))).toEqual([true, false]);
+    expect(requests[1].get("Body")).toBe(requests[0].get("Body"));
+    expect(texted).toEqual([A]);
+    // 21610 (Twilio has its STOP) never falls back.
+    await q("truncate sms_program_sends");
+    requests.length = 0;
+    refuseMedia = 21610;
+    await pick.runWeekendPick(FRI);
+    expect(requests).toHaveLength(1);
+  });
+
+  it("starts 'Update:' when Friday flips a day, notes it for the page once, and keeps the words all window", async () => {
+    const issue = JSON.parse(ISSUE);
+    issue.weekend_ahead = {
+      days: [
+        {
+          date: "2026-12-04",
+          label: "Friday",
+          condition: "Sunny",
+          icon: "sun",
+          high: 45,
+          low: 25,
+          precip: 0,
+        },
+        {
+          date: "2026-12-05",
+          label: "Saturday",
+          condition: "Sunny",
+          icon: "sun",
+          high: 47,
+          low: 25,
+          precip: 0,
+        },
+        {
+          date: "2026-12-06",
+          label: "Sunday",
+          condition: "Sunny",
+          icon: "sun",
+          high: 49,
+          low: 25,
+          precip: 0,
+        },
+      ],
+    };
+    const plan = {
+      weather: {
+        tiers: {
+          towns: {
+            Bend: [
+              { date: "2026-12-05", tier: "fine" },
+              { date: "2026-12-06", tier: "fine" },
+            ],
+          },
+        },
+      },
+    };
+    await q(`insert into news_issues (issue_date, status, body, sent_body, plan, sent_at, send_started_at)
+      values ('2026-12-03', 'sent', '{}', '${JSON.stringify(issue)}'::jsonb, '${JSON.stringify(plan)}'::jsonb, now(), now())`);
+    const fresh = async () => ({
+      days: [
+        { date: "2026-12-05", word: "Snow", high: 29 },
+        { date: "2026-12-06", word: "Sunny", high: 36 },
+      ],
+      tiers: {
+        "2026-12-05": "disruptive" as const,
+        "2026-12-06": "fine" as const,
+      },
+    });
+    await pick.runWeekendPick(FRI, { fresh });
+    const [row] = await q("select body from sms_program_sends");
+    expect(row.body).toBe(
+      "Park Roulette: Update: Snow Sat, 29. Sunny Sun, 36. Go Sunday: Wildflower Park, Bend. Reply STOP to opt out. https://parkroulette.quest/w/5ljn",
+    );
+    const [p] = await q(
+      "select plan->'friday_update'->>'words' as w, plan->'friday_update'->'plan' as plan from news_issues",
+    );
+    expect(p.w).toBe("Snow Sat, 29. Sunny Sun, 36");
+    expect(p.plan).toEqual({ kind: "park", date: "2026-12-06" });
+    // An Update week goes as plain SMS: the picture shows Thursday's card.
+    expect(requests.every((r) => !r.get("MediaUrl"))).toBe(true);
+    // A later run (B confirmed meanwhile) sends the same words, even if
+    // the forecast changed back.
+    await q(
+      `insert into contact_consents (channel, action, address, consent_version, source) values ('sms', 'confirmation_sent', '${B}', 'sms-2026-11-21', 'test')`,
+    );
+    await pick.runWeekendPick(new Date(FRI.getTime() + 15 * 60_000), {
+      fresh: async () => null,
+    });
+    const bodies = await q("select distinct body from sms_program_sends");
+    expect(bodies).toHaveLength(1);
+    expect(texted.sort()).toEqual([A, B]);
+  });
+
+  it("the page's beacon counts a tap per sent issue, from our own pages, 20 an hour from one address", async () => {
+    const { POST } = await import("@/app/api/news/tap/route");
+    const beacon = (
+      body: string,
+      origin = "https://parkroulette.quest",
+      ip = "203.0.113.9",
+    ) =>
+      POST(
+        new Request("http://localhost/api/news/tap", {
+          method: "POST",
+          body,
+          headers: { origin, "x-real-ip": ip },
+        }),
+      );
+    const tap = JSON.stringify({ date: "2026-12-03" });
+    await beacon(tap);
+    expect(await q("select * from news_clicks")).toEqual([]);
+    await sentIssue2();
+    await beacon(tap);
+    await beacon(tap);
+    await beacon("not json");
+    await beacon(JSON.stringify({ date: "2026-12-10" }));
+    // Another site's page, or no Origin: nothing.
+    await beacon(tap, "https://evil.example");
+    await beacon(tap, "");
+    const count = async () =>
+      (
+        await q("select issue_date::text as d, slug, clicks from news_clicks")
+      )[0];
+    expect(await count()).toEqual({
+      d: "2026-12-03",
+      slug: "weekend-pick-tap",
+      clicks: 2,
+    });
+    // That address has used 5 of its 20 an hour (other sites' calls don't
+    // count): 15 more count, then none.
+    for (let i = 0; i < 20; i++) await beacon(tap);
+    expect((await count()).clicks).toBe(17);
+    // Another address still counts.
+    await beacon(tap, undefined, "198.51.100.1");
+    expect((await count()).clicks).toBe(18);
+  });
+
+  it("re-sends a Weekend Pick once as plain SMS when its picture fails late", async () => {
+    await sentIssue2();
+    await pick.runWeekendPick(FRI);
+    expect(requests).toHaveLength(1);
+    const mms = requests[0];
+    expect(mms.get("MediaUrl")).toBeTruthy();
+    const report = {
+      sid: "SM1",
+      status: "undelivered",
+      to: A,
+      errorCode: 30019,
+    };
+    await store.recordDelivery(report);
+    expect(requests).toHaveLength(2);
+    expect(requests[1].get("MediaUrl")).toBeNull();
+    expect(requests[1].get("Body")).toBe(mms.get("Body"));
+    const [row] = await q(
+      "select twilio_sid, reason, delivery_status from sms_program_sends",
+    );
+    expect(row).toMatchObject({ twilio_sid: "SM2", delivery_status: null });
+    expect(String(row.reason)).toMatch(/media error 30019: re-sent as SMS/);
+    // The same report again, or a failure that isn't the picture: no more.
+    await store.recordDelivery(report);
+    await store.recordDelivery({ ...report, sid: "SM2", errorCode: 30003 });
+    expect(requests).toHaveLength(2);
+  });
+
+  it("checks the link preview in production: og:image named, a JPEG, under 600 KB", async () => {
+    const page = "https://parkroulette.quest/newsletter/2026-12-03";
+    const img = `${page}/preview.jpg`;
+    const serve = (html: string, image: Response) =>
+      vi.stubGlobal("fetch", async (u: RequestInfo | URL) =>
+        String(u) === page ? new Response(html) : image,
+      );
+    const meta = `<meta property="og:image" content="${img}"/>`;
+    const jpeg = (bytes: number, type = "image/jpeg") =>
+      new Response(new Uint8Array(bytes), {
+        headers: { "content-type": type },
+      });
+    const before = process.env.VERCEL_ENV;
+    const twilio = globalThis.fetch;
+    try {
+      expect(await pick.previewProblem(page)).toBeNull(); // not production
+      process.env.VERCEL_ENV = "production";
+      serve(meta, jpeg(1000));
+      expect(await pick.previewProblem(page)).toBeNull();
+      serve("<html></html>", jpeg(1000));
+      expect(await pick.previewProblem(page)).toMatch(/og:image/);
+      serve(meta, jpeg(700 * 1024));
+      expect(await pick.previewProblem(page)).toMatch(/over 600/);
+      serve(meta, jpeg(1000, "image/png"));
+      expect(await pick.previewProblem(page)).toMatch(/JPEG/);
+      serve(meta, new Response("no", { status: 503 }));
+      expect(await pick.previewProblem(page)).toMatch(/503/);
+    } finally {
+      if (before === undefined) delete process.env.VERCEL_ENV;
+      else process.env.VERCEL_ENV = before;
+      vi.stubGlobal("fetch", twilio);
+    }
   });
 });

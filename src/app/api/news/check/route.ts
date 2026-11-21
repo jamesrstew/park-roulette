@@ -1,6 +1,12 @@
-import { validateContext } from "@/lib/news/data";
-import { ingestOk, json, nope, readJson } from "@/lib/news/http";
-import { isIsoDate } from "@/lib/news/time";
+import { nextDraftDate, validateContext } from "@/lib/news/data";
+import {
+  ingestOk,
+  issueDateProblem,
+  json,
+  nope,
+  readJson,
+  SEND_CUTOFF_MINUTES,
+} from "@/lib/news/http";
 import { validateIssue } from "@/lib/news/validate";
 
 export const maxDuration = 120;
@@ -16,12 +22,16 @@ export async function POST(req: Request) {
   if (body == null)
     return json({ error: "Send the issue as JSON (64 KB max)." }, 400);
   const date = (body as { issue_date?: unknown }).issue_date;
-  if (!isIsoDate(date))
-    return json({ error: "issue_date must be YYYY-MM-DD." }, 400);
+  // The same date rule as drafts: today after 7:00 is refused up front.
+  const problem = issueDateProblem(date, new Date(), {
+    cutoffMinutes: SEND_CUTOFF_MINUTES,
+    nextIssueDate: await nextDraftDate(),
+  });
+  if (problem) return json({ error: problem }, 400);
   const network = new URL(req.url).searchParams.get("network") !== "0";
   const report = await validateIssue(
     body,
-    await validateContext(date, { network }),
+    await validateContext(date as string, { network }),
   );
   return json(report);
 }

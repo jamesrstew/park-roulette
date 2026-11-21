@@ -1,5 +1,13 @@
 import { eventsContext } from "@/lib/events/context";
-import { upsertEvents } from "@/lib/events/store";
+import { dedupe, screenEdits } from "@/lib/events/dedupe";
+import {
+  createdToday,
+  DAILY_NEW_CAP,
+  editBlocks,
+  knownEvents,
+  recordHandin,
+  upsertEvents,
+} from "@/lib/events/store";
 import { validateEvents } from "@/lib/events/validate";
 import { pingIndexNow } from "@/lib/indexnow";
 import { ingestOk, json, nope } from "@/lib/news/http";
@@ -12,6 +20,8 @@ export const maxDuration = 300;
  * {events: [...]} (lib/events/model.ts EventInput). Each one is checked
  * on its own with the shared rules, official pages fetched; good ones are
  * stored (a series keeps its page), bad ones come back with the reasons.
+ * The same venue, day and start as another stored page is cut; the same
+ * official page or a near-duplicate is a warning (lib/events/dedupe.ts).
  * ?network=0 is a quick check that stores nothing. Local development only
  * (SMS_FAKE=1, never on Vercel): ?network=0&store=1 stores sample events
  * without fetching their pages.
@@ -31,13 +41,35 @@ export async function POST(req: Request) {
   const network = url.searchParams.get("network") !== "0";
   const report = await validateEvents(body, await eventsContext({ network }));
   if (report.error) return json(report, 400);
+  // The same event under another title, or a near-duplicate: against
+  // what's stored and within this hand-in (quick checks too).
+  // Admin repairs stick: dates an admin took off, and pages removed in
+  // the last 60 days, stay gone.
+  screenEdits(report.events, await editBlocks());
+  dedupe(report.events, await knownEvents(new Date(), 120));
   const devStore =
     !network &&
     url.searchParams.get("store") === "1" &&
     process.env.SMS_FAKE === "1" &&
     !process.env.VERCEL;
-  const stored =
-    network || devStore ? await upsertEvents(report.events, { network }) : [];
+  let stored: Awaited<ReturnType<typeof upsertEvents>> = [];
+  if (network || devStore) {
+    // At most 300 new event pages a day, whatever the routine thinks.
+    const left = DAILY_NEW_CAP - (await createdToday());
+    if (left <= 0)
+      return json(
+        {
+          error: `Today's cap of ${DAILY_NEW_CAP} new events is reached. Hand them in tomorrow.`,
+        },
+        429,
+      );
+    stored = await upsertEvents(report.events, { network, newLeft: left });
+  }
+  // Counts only, for the maintainer's weekly stats (real hand-ins only).
+  if (network)
+    await recordHandin(report.events, stored).catch((e) =>
+      console.error("[events] hand-in log failed", (e as Error)?.message),
+    );
   const changed = stored.filter((s) => s.changed);
   if (changed.length)
     await pingIndexNow([
@@ -49,7 +81,19 @@ export async function POST(req: Request) {
     ...(network ? {} : { quick: true, storedLocally: devStore }),
     cut: report.events
       .filter((e) => !e.ok)
-      .map((e) => ({ index: e.index, title: e.title, problems: e.problems })),
+      .map((e) => ({
+        index: e.index,
+        title: e.title,
+        problems: e.problems,
+        // A host that kept us out: report it in the retro's blocked_hosts.
+        ...(e.blocked
+          ? {
+              blocked_host: e.blocked.host,
+              blocked_kind: e.blocked.kind,
+              blocked_url: e.blocked.url,
+            }
+          : {}),
+      })),
     warnings: report.events.flatMap((e) =>
       e.warnings.map((w) => ({ index: e.index, warning: w })),
     ),

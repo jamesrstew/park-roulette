@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { type Ages, ageTags } from "./ages";
+import { CATALOG } from "@/lib/news/catalog";
 import { addDays, weekdayOf } from "@/lib/news/time";
 
 /**
@@ -15,7 +16,8 @@ const Text = (max: number, min = 1) => z.string().trim().min(min).max(max);
 
 /**
  * A quote is 12 characters or more, or as short as 8 when it prints a
- * price or "free" with a date or time ("Free · Dec 6", "$5 · 10 am").
+ * date and a time ("Dec 6 · 10:30am"), or a price or "free" with a date
+ * or time ("Free · Dec 6", "$5 · 10 am").
  */
 export const EventEvidence = z.strictObject({
   url: Https,
@@ -24,7 +26,10 @@ export const EventEvidence = z.strictObject({
 
 export const EventInput = z.strictObject({
   title: Text(80),
-  /** A catalog event series: the page is keyed on it. */
+  /**
+   * A catalog event series: links the page to it. It never merges
+   * different venues or programs (the key adds the venue and title stem).
+   */
   series_id: z.string().max(80).optional(),
   /** Happens every year (a yearless page that rolls to the next edition). */
   annual: z.boolean().optional(),
@@ -96,7 +101,11 @@ export const EventInput = z.strictObject({
   /** The official page (organizer, venue, city, parks, library, USFS). */
   url: Https,
   organizer: z.strictObject({ name: Text(80), url: Https }).optional(),
-  evidence: z.array(EventEvidence).min(1).max(8),
+  /**
+   * 1 to 8 quotes; a series may carry up to 30 (one per occurrence page,
+   * or one organizer JSON or .ics record per date).
+   */
+  evidence: z.array(EventEvidence).min(1).max(30),
   /** Where the writer found it (a roundup): never shown or linked. */
   discovery_url: Https.optional(),
   status: z
@@ -363,20 +372,155 @@ export function titleStem(title: string): string {
   return slugify(title.split(/[:(|]| - | – /)[0]);
 }
 
+/** The venue's name and town as a slug ("downtown-bend-library-bend"). */
+export function venueSlug(v: { name: string; town: string }): string {
+  return slugify(`${v.name} ${v.town}`);
+}
+
+/** A venue name's words, order-free ("Bend Downtown Library" = "Downtown Bend Library"). */
+function nameWords(name: string): string {
+  return [
+    ...new Set(
+      slugify(name.replace(/\([^)]*\)/g, " "))
+        .split("-")
+        .filter((w) => w && w !== "the"),
+    ),
+  ]
+    .sort()
+    .join("-");
+}
+
+type VenueIndex = Map<string, string>;
+let venueIndex: VenueIndex | null = null;
+
+/** Catalog venues and their aliases, by town + order-free name. */
+function venues(): VenueIndex {
+  if (venueIndex) return venueIndex;
+  const m: VenueIndex = new Map();
+  for (const v of CATALOG.venues)
+    m.set(`${slugify(v.town)}|${nameWords(v.name)}`, v.id);
+  for (const a of CATALOG.venue_aliases)
+    for (const n of a.names) m.set(`${slugify(a.town)}|${nameWords(n)}`, a.id);
+  return (venueIndex = m);
+}
+
 /**
- * Code's series key: the catalog series id, or venue + title stem, so
+ * The venue's identity in keys: its catalog venue id (or alias), else its
+ * order-free name and town. "Downtown Bend Library" and "Bend Downtown
+ * Library" are one venue; so are "The Pavilion" and "The Pavilion - Bend
+ * Park and Recreation District".
+ */
+export function venueKey(v: { name: string; town: string }): string {
+  const town = slugify(v.town);
+  return (
+    venues().get(`${town}|${nameWords(v.name)}`) ??
+    `${nameWords(v.name)}@${town}`
+  );
+}
+
+/** Audience qualifiers that make a different program ("Baby Storytime"). */
+const QUALIFIERS: [RegExp, (m: RegExpMatchArray) => string][] = [
+  [/\b(babies|baby|infants?|lap ?sit)\b/, () => "baby"],
+  [/\btoddlers?\b/, () => "toddler"],
+  [/\b(preschool(ers?)?|pre-?k)\b/, () => "preschool"],
+  [/\btweens?\b/, () => "tween"],
+  [/\bteens?\b/, () => "teen"],
+  [/\b(spanish|espanol|español)\b/, () => "spanish"],
+  [/\bbilingual\b/, () => "bilingual"],
+  [/\bsensory\b/, () => "sensory"],
+  [/\bschool[- ]age\b/, () => "school-age"],
+  [
+    /\bages?\s*(\d{1,2})\s*(?:-|to|–|through)\s*(\d{1,2})\b/,
+    (m) => `ages-${m[1]}-${m[2]}`,
+  ],
+  [/\bages?\s*(\d{1,2})\s*(?:\+|and up|and older)/, (m) => `ages-${m[1]}-up`],
+  [
+    /\bgrades?\s*(k|\d{1,2})\s*(?:-|to|–)\s*(\d{1,2})\b/,
+    (m) => `grades-${m[1]}-${m[2]}`,
+  ],
+];
+
+/** One word, lightly normalized ("times" -> "time", "stories" -> "story"). */
+function stemWord(w: string): string {
+  if (w.length > 4 && w.endsWith("ies")) return `${w.slice(0, -3)}y`;
+  if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss"))
+    return w.slice(0, -1);
+  return w;
+}
+
+/**
+ * The program in keys: the title's stem (before a colon or dash), with
+ * spelling normalized ("Storytime" = "Story Time") and every audience
+ * qualifier from the whole title kept, in a fixed order: "Story Time:
+ * Babies" and "Baby Storytime" are one program, "Toddler Story Time"
+ * another.
+ */
+/** The audience qualifiers anywhere in a title, in a fixed order. */
+export function qualifiers(title: string): string[] {
+  const t = title
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "");
+  const quals: string[] = [];
+  for (const [re, f] of QUALIFIERS) {
+    const m = t.match(re);
+    if (m) quals.push(f(m));
+  }
+  return quals;
+}
+
+/**
+ * The program's part of a page address: the title's stem as written,
+ * plus any audience qualifier it doesn't already say ("Story Time:
+ * Babies" -> "story-time-baby"; "Pop-Up Exhibits" stays as it is).
+ */
+export function slugStem(title: string): string {
+  const base = titleStem(title);
+  const have = new Set(base.split("-").map(stemWord));
+  const extra = qualifiers(title).filter(
+    (q) => !q.split("-").every((w) => have.has(w)),
+  );
+  return [base, ...extra].filter(Boolean).join("-");
+}
+
+export function keyStem(title: string): string {
+  const quals = qualifiers(title);
+  const words = slugify(title.split(/[:(|]| - | – /)[0])
+    .replace(/\bstory-?times?\b|\bstorytimes?\b/g, "story-time")
+    .split("-")
+    .filter(Boolean)
+    .map(stemWord);
+  const qualWords = new Set(quals.flatMap((q) => q.split("-")));
+  const base = words.filter(
+    (w) =>
+      !qualWords.has(w) &&
+      !/^(babie|babies|infant|toddler|preschooler|teen|tween)$/.test(w),
+  );
+  return [...base, ...quals].join("-") || slugify(title);
+}
+
+/**
+ * Code's series key: the venue (canonical) + the program (keyStem), so
  * weekly story times with their own URLs and themed titles share a page.
- * A one-off is keyed by its stem and first date.
+ * A catalog series_id only links the page to the catalog; it's never part
+ * of the key, so the same series_id at two library branches, or on two
+ * programs at one branch, makes two pages (on November 20, keying on the
+ * id alone merged ten programs into one page), and a hand-in with or
+ * without the id lands on the same page. A one-off is keyed by its stem
+ * and first date.
  */
 export function seriesKey(e: EventInput): string {
-  if (e.series_id) return `series:${e.series_id}`;
-  const venue = slugify(`${e.venue.name} ${e.venue.town}`);
-  if (e.annual) return `annual:${venue}:${titleStem(e.title)}`;
-  if (e.series === false)
-    return `one:${venue}:${titleStem(e.title)}:${e.dates[0].day}`;
+  const venue = venueKey(e.venue);
+  const stem = keyStem(e.title);
+  if (e.annual) return `annual:${venue}:${stem}`;
+  if (e.series === false && !e.series_id)
+    return `one:${venue}:${stem}:${e.dates[0].day}`;
   // Weekly hand-ins of one date each still land on one page.
-  return `venue:${venue}:${titleStem(e.title)}`;
+  return `venue:${venue}:${stem}`;
 }
+
+/** Rows stored before the fix were keyed "series:<id>" alone. */
+export const LEGACY_SERIES_KEY = /^series:[^:]+$/;
 
 export function kindOf(e: EventInput): EventRow["kind"] {
   if (e.annual) return "annual";
@@ -389,7 +533,7 @@ export function kindOf(e: EventInput): EventRow["kind"] {
  * page rolls to the next edition); a genuine one-off gets its year.
  */
 export function eventSlug(e: EventInput): string {
-  const base = slugify(`${titleStem(e.title) || e.title} ${e.venue.name}`);
+  const base = slugify(`${slugStem(e.title) || e.title} ${e.venue.name}`);
   return kindOf(e) === "one_off"
     ? `${base}-${e.dates[0].day.slice(0, 4)}`
     : base;

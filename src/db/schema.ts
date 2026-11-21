@@ -375,10 +375,11 @@ export const contactConsents = pgTable(
      */
     source: text("source").notNull(),
     /**
-     * Texts only: the proof a carrier or court asks for. The page path, IP,
+     * Texts: the proof a carrier or court asks for. The page path, IP,
      * browser, when the number last passed a code and that code's Verify
      * SID, Twilio message SIDs. The words shown are frozen per
-     * consent_version (lib/texts.ts).
+     * consent_version (lib/texts.ts). Email (batch 6): {prechecked, path}
+     * where the surface records them (lib/park-news.ts EMAIL_CONSENT_TEXT).
      */
     details: jsonb("details"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -675,6 +676,18 @@ export const newsSettings = pgTable(
     /** The Friday sender's own lease (one run at a time). */
     textsLockUntil: timestamp("texts_lock_until", { withTimezone: true }),
     textsLockOwner: text("texts_lock_owner"),
+    /**
+     * Instagram (lib/social): its own kill switch (off: nothing is created,
+     * published or DM'd) and dry run (on: posts are rendered and checked,
+     * and James gets the preview, but nothing goes to Meta). Dry run starts on.
+     */
+    socialEnabled: boolean("social_enabled").notNull().default(true),
+    socialDryRun: boolean("social_dry_run").notNull().default(true),
+    /** The social cron's lease (one run at a time). */
+    socialLockUntil: timestamp("social_lock_until", { withTimezone: true }),
+    socialLockOwner: text("social_lock_owner"),
+    /** When the daily token check and comment digest last ran. */
+    socialDailyAt: timestamp("social_daily_at", { withTimezone: true }),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -806,6 +819,37 @@ export const kidEvents = pgTable(
 );
 
 /**
+ * Admin repairs to kid_events, append-only: who trimmed, split off or
+ * removed what (the event's dates before and after), so a wrong page can
+ * be fixed from /admin without SQL and every fix leaves a trail. No
+ * foreign key: a removed event's history stays.
+ */
+export const kidEventEdits = pgTable(
+  "kid_event_edits",
+  {
+    id: serial("id").primaryKey(),
+    eventId: integer("event_id").notNull(),
+    slug: text("slug").notNull(),
+    /** trim | split | remove */
+    action: text("action").notNull(),
+    /** What changed: the occurrences removed, the new page, the reason. */
+    detail: jsonb("detail").notNull(),
+    /** The admin (explorers.id) who did it. */
+    byExplorerId: integer("by_explorer_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("kid_event_edits_event").on(t.eventId),
+    check(
+      "kid_event_edits_action",
+      sql`${t.action} in ('trim', 'split', 'remove')`,
+    ),
+  ],
+);
+
+/**
  * Weekend Pick: one row per (issue, number), claimed before the text goes,
  * so a number never gets the same week's text twice (the idempotency key).
  * sent | failed | skipped (window missed, monthly cap) | dry_run | sending
@@ -837,6 +881,228 @@ export const smsProgramSends = pgTable(
     check(
       "sms_program_sends_status",
       sql`${t.status} in ('sending', 'sent', 'failed', 'skipped', 'dry_run', 'logged')`,
+    ),
+  ],
+);
+
+/**
+ * The routines' retros (the Thursday writer, the daily events routine, the
+ * Sunday maintainer, the Sunday Instagram routine): what went wrong, raw and append-only. Kept a year
+ * (the daily cleanup deletes older rows). No personal details: the
+ * routines never see any.
+ */
+export const newsRetros = pgTable(
+  "news_retros",
+  {
+    id: serial("id").primaryKey(),
+    /** writer | events | maintainer | social */
+    kind: text("kind").notNull(),
+    issueDate: date("issue_date"),
+    body: jsonb("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("news_retros_created").on(t.createdAt),
+    check(
+      "news_retros_kind",
+      sql`${t.kind} in ('writer', 'events', 'maintainer', 'social')`,
+    ),
+  ],
+);
+
+/**
+ * Lessons: retro problems merged by code (lib/news/lessons.ts). The plan
+ * carries the open ones from the last 8 weeks; the Sunday maintainer
+ * fixes what it can in a pull request. Compliance lessons (competitors,
+ * consent, evidence, safety, Terms, Privacy) are flagged by code and can
+ * only move to needs_james or wontfix through the API.
+ */
+export const newsLessons = pgTable(
+  "news_lessons",
+  {
+    id: serial("id").primaryKey(),
+    /** validator | source | data | rule_conflict | idea */
+    category: text("category").notNull(),
+    title: text("title").notNull(),
+    detail: text("detail").notNull(),
+    /** Source lessons: the host that kept us out. */
+    host: text("host"),
+    /** category + host + sha1 of the sorted normalized tokens. */
+    fingerprint: text("fingerprint").notNull(),
+    /** The last 10 examples ({url?, message?, at}). */
+    examples: jsonb("examples").notNull().default([]),
+    seenCount: integer("seen_count").notNull().default(1),
+    firstSeen: timestamp("first_seen", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    lastSeen: timestamp("last_seen", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** open | needs_james | fix_proposed | fixed | wontfix */
+    status: text("status").notNull().default("open"),
+    /** Seen again after it was fixed. */
+    regressed: boolean("regressed").notNull().default(false),
+    prUrl: text("pr_url"),
+    /** The maintainer's one-line note (why wontfix, the decision needed). */
+    note: text("note"),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    /** Set by code only: automation may only park it for James. */
+    compliance: boolean("compliance").notNull().default(false),
+  },
+  (t) => [
+    index("news_lessons_fingerprint").on(t.fingerprint),
+    index("news_lessons_status").on(t.status, t.lastSeen),
+    check(
+      "news_lessons_category",
+      sql`${t.category} in ('validator', 'source', 'data', 'rule_conflict', 'idea')`,
+    ),
+    check(
+      "news_lessons_status",
+      sql`${t.status} in ('open', 'needs_james', 'fix_proposed', 'fixed', 'wontfix')`,
+    ),
+  ],
+);
+
+/**
+ * One row per POST /api/events hand-in: counts only, for the maintainer's
+ * weekly stats (events stored and cut). Kept a year.
+ */
+export const kidEventHandins = pgTable(
+  "kid_event_handins",
+  {
+    id: serial("id").primaryKey(),
+    stored: integer("stored").notNull(),
+    created: integer("created").notNull(),
+    cut: integer("cut").notNull(),
+    /** Hosts that kept us out: [{host, kind}] (no people, no pages). */
+    blocked: jsonb("blocked").notNull().default([]),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [index("kid_event_handins_created").on(t.createdAt)],
+);
+
+/**
+ * Instagram posts (lib/social): one row per post type per Pacific day. The
+ * Sunday routine hands in Monday's park post and Wednesday's carousel; code
+ * makes Thursday's teaser and Friday's Story from the sent issue. Rendered
+ * media is stored in Blob by content hash (`media`). The cron creates the
+ * Meta container in one run and publishes it in a later one, so a post is
+ * never published twice: queued -> creating -> publishing -> published.
+ * skipped / failed / dry_run / replaced are final.
+ */
+export const socialPosts = pgTable(
+  "social_posts",
+  {
+    id: serial("id").primaryKey(),
+    /** park_post | unpack | teaser | story */
+    kind: text("kind").notNull(),
+    /** The Pacific day it goes out. */
+    slotDate: date("slot_date").notNull(),
+    publishAt: timestamp("publish_at", { withTimezone: true }).notNull(),
+    /** writer (the Sunday routine) | code (teaser, story) */
+    origin: text("origin").notNull(),
+    status: text("status").notNull().default("queued"),
+    /** The post as handed in (model words plus fact IDs). */
+    body: jsonb("body").notNull(),
+    /** Code's resolved post: slides, caption, alt text, the facts used. */
+    spec: jsonb("spec").notNull(),
+    /** [{ sha, type: image | video, width, height, alt }] in slide order. */
+    media: jsonb("media").notNull().default([]),
+    caption: text("caption"),
+    report: jsonb("report"),
+    /** Meta: the carousel's children, then the container to publish. */
+    childIds: text("child_ids").array(),
+    containerId: text("container_id"),
+    igMediaId: text("ig_media_id"),
+    fbPostId: text("fb_post_id"),
+    /** Why it was skipped or failed (shown on /admin, mailed to James). */
+    reason: text("reason"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    // One live post per type per day (a re-draft replaces a queued one).
+    uniqueIndex("social_posts_slot")
+      .on(t.kind, t.slotDate)
+      .where(sql`${t.status} <> 'replaced'`),
+    index("social_posts_due").on(t.status, t.publishAt),
+    check(
+      "social_posts_kind",
+      sql`${t.kind} in ('park_post', 'unpack', 'teaser', 'story')`,
+    ),
+    check(
+      "social_posts_status",
+      sql`${t.status} in ('queued', 'creating', 'publishing', 'published', 'skipped', 'failed', 'dry_run', 'replaced')`,
+    ),
+  ],
+);
+
+/**
+ * The automated child-safety check (decision 10): the Sunday routine looks
+ * at each photo with the vision model and reports whether a person is
+ * visible. Keyed by the photo's URL and the sha256 of the bytes it looked
+ * at, so a swapped file needs a new look. Only "clear" lets a photo into a
+ * post; anything else (people, unsure, unchecked) gets the crayon card.
+ */
+export const socialPhotoChecks = pgTable(
+  "social_photo_checks",
+  {
+    src: text("src").notNull(),
+    sha256: text("sha256").notNull(),
+    /** clear (no person visible) | people | unsure */
+    verdict: text("verdict").notNull(),
+    note: text("note"),
+    checkedAt: timestamp("checked_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.src, t.sha256] }),
+    check(
+      "social_photo_checks_verdict",
+      sql`${t.verdict} in ('clear', 'people', 'unsure')`,
+    ),
+  ],
+);
+
+/**
+ * Keyword DMs: one row per comment (PARK) or Story reply (PICK) we
+ * answered, claimed before the message goes, so nobody gets two. Only
+ * Meta's ids: never a username, a name or the words.
+ */
+export const socialDmReplies = pgTable(
+  "social_dm_replies",
+  {
+    id: serial("id").primaryKey(),
+    /** comment | story_reply */
+    kind: text("kind").notNull(),
+    /** The comment id or the message id. */
+    extId: text("ext_id").notNull().unique(),
+    /** Our post it was on (comments). */
+    postId: integer("post_id").references(() => socialPosts.id, {
+      onDelete: "set null",
+    }),
+    /** sending | sent | failed | dry_run */
+    status: text("status").notNull(),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index("social_dm_replies_created").on(t.createdAt),
+    check(
+      "social_dm_replies_status",
+      sql`${t.status} in ('sending', 'sent', 'failed', 'dry_run')`,
     ),
   ],
 );

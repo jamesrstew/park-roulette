@@ -4,7 +4,7 @@
  *
  * Program name (carrier filing, Terms): "Park Roulette Weekend Pick". In
  * the app it's "Weekend Pick" everywhere (the glossary in
- * lib/park-news.ts); every text starts "Park Roulette: Weekend Pick:".
+ * lib/park-news.ts); every text starts "Park Roulette:".
  */
 
 export const PROGRAM_NAME = "Park Roulette Weekend Pick";
@@ -58,7 +58,61 @@ export const TEXTS_CONSENT_TEXT: Record<string, ConsentWords> = {
       "Park Roulette Weekend Pick: about 1 automated text a week, on Fridays (up to 5 a month). Message and data rates may apply. Reply HELP for help, STOP to opt out. You don't have to agree to texts to use Park Roulette.",
     button: "Text me Fridays",
   },
+  // Batch 6: one wording per surface. The welcome sheet's picks page: the
+  // same box and disclosure, under the sheet's own button.
+  "sms-2026-11-22-sheet": {
+    checkbox: "Yes, text me the Weekend Pick at {number}.",
+    disclosure:
+      "Park Roulette Weekend Pick: about 1 automated text a week, on Fridays (up to 5 a month). Message and data rates may apply. Reply HELP for help, STOP to opt out. You don't have to agree to texts to use Park Roulette.",
+    button: "Let's spin!",
+  },
+  // The site footer's card for signed-in grown-ups with a fresh code: the
+  // unchecked box, then the button (the filed CQXRMSG flow; never one tap).
+  "sms-2026-11-22-footer": {
+    checkbox: "Yes, text me the Weekend Pick at {number}.",
+    disclosure:
+      "Park Roulette Weekend Pick: about 1 automated text a week, on Fridays (up to 5 a month). Message and data rates may apply. Reply HELP for help, STOP to opt out. You don't have to agree to texts to use Park Roulette.",
+    button: "Text me Fridays",
+  },
 };
+
+/** Where a yes can come from (recorded as the consent's source). */
+export const TEXT_SOURCES = [
+  "texts_page",
+  "settings",
+  "welcome_sheet",
+  // Ask moments (lib/asks.ts).
+  "next_pick",
+  "rainy_spin",
+  "weekend_spin",
+  // The Weekend Pick line in the email footer and welcome email.
+  "email_footer",
+  // The site footer's card (signed-in grown-ups with a fresh code).
+  "site_footer",
+  // An issue page reached from a Weekend Pick text, or a forward of one.
+  "issue_text",
+  "issue_page",
+  // /ig: Instagram's link in bio, its keyword DM, Facebook.
+  "ig_bio",
+  "ig_dm",
+  "fb",
+] as const;
+export type TextSource = (typeof TEXT_SOURCES)[number];
+
+/**
+ * The wording each surface shows today. A yes is accepted only with its
+ * own surface's version: the sheet's words never count from the footer,
+ * and the other way around.
+ */
+const SOURCE_VERSION: Partial<Record<TextSource, string>> = {
+  welcome_sheet: "sms-2026-11-22-sheet",
+  site_footer: "sms-2026-11-22-footer",
+};
+
+/** The consent version a surface shows (and the only one it accepts). */
+export function consentVersionFor(source: string): string {
+  return SOURCE_VERSION[source as TextSource] ?? TEXTS_CONSENT_VERSION;
+}
 
 /** What the browser says the person agreed to (recorded with the yes). */
 export type Agreement = {
@@ -70,19 +124,32 @@ export type Agreement = {
 };
 
 /**
- * Is this the current version's exact wording, with the box checked?
- * The server refuses a yes that doesn't match what we show.
+ * Is this the exact wording `source` shows today, with the box checked?
+ * The server refuses a yes that doesn't match what that surface shows,
+ * including another surface's words.
+ *
+ * The limit: `source` is what the browser says, so this binds the words
+ * to the surface they claim, not proof of where the tap happened. A
+ * crafted request could claim the footer and send the footer's words.
+ * That's still a checked box with the full disclosure (every version
+ * shows the same box and disclosure), so the record stays truthful about
+ * what was agreed to; only the surface is self-reported.
  */
-export function agreementOk(a: unknown, number: string | null): boolean {
+export function agreementOk(
+  a: unknown,
+  number: string | null,
+  source: string,
+): boolean {
   if (!a || typeof a !== "object") return false;
   const x = a as Partial<Agreement>;
-  const w = TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION];
+  const version = consentVersionFor(source);
+  const w = TEXTS_CONSENT_TEXT[version];
   return (
     x.agreed === true &&
-    x.version === TEXTS_CONSENT_VERSION &&
+    x.version === version &&
     x.disclosure === w.disclosure &&
-    (x.checkbox === checkboxLine(TEXTS_CONSENT_VERSION, number) ||
-      x.checkbox === checkboxLine(TEXTS_CONSENT_VERSION, null))
+    (x.checkbox === checkboxLine(version, number) ||
+      x.checkbox === checkboxLine(version, null))
   );
 }
 
@@ -103,6 +170,13 @@ export const TEXTS_COPY = {
   kids: "Ask a grown-up to turn on park texts.",
   usOnly: "Park texts are for US numbers only.",
   changed: "Texts are off because your number changed.",
+  /** The site footer card, signed in with a fresh code (batch 6). */
+  footerRather: "Rather get a text?",
+  footerToo: "Want it by text too?",
+  /** The link when the email is on but there's no fresh code. */
+  footerTooLink: "Want the Weekend Pick by text too?",
+  /** After a yes from the sheet or the footer (the confirmation goes now). */
+  hello: "You're in! Watch for a hello text from Park Roulette.",
 } as const;
 
 /** The checkbox line with the number filled in. */
@@ -120,11 +194,13 @@ export function checkboxLine(version: string, number: string | null): string {
 /**
  * Every text we send. All are one SMS segment except `confirmation`, an MMS
  * that carries our contact card (/park-roulette.vcf); if Twilio refuses the
- * media it goes as `confirmationSms` instead.
+ * media it goes as `confirmationSms` instead. iOS loads link previews only
+ * from saved contacts (else "Tap to Load Preview"), hence "Save this
+ * contact".
  */
 export const TEXTS = {
   confirmation:
-    "Park Roulette: You're in! One playground pick every Friday afternoon (up to 5/mo). Tap the card to save us so you know it's us. Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+    "Park Roulette: You're in! One playground pick every Friday afternoon (up to 5/mo). Save this contact to see weekend previews. Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
   confirmationSms:
     "Park Roulette: You're in! 1 weekend playground pick a week, Fridays (up to 5/mo). Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
   help: "Park Roulette: Weekend Pick, about 1 text a week on Fridays. Help: hello@parkroulette.quest. Msg & data rates may apply. Reply STOP to opt out.",
@@ -133,9 +209,13 @@ export const TEXTS = {
     "Park Roulette: Welcome back! 1 weekend playground pick a week, Fridays (up to 5/mo). Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
 } as const;
 
-/** A real Weekend Pick, for the success state (its link answered 200). */
+/**
+ * A Weekend Pick as it looks (batch 6 sample 2), for the success state.
+ * Its link is the December 3, 2026 issue; until that issue goes out it
+ * lands on the home page.
+ */
 export const SAMPLE_TEXT =
-  "Park Roulette: Weekend Pick: Wildflower Park, Bend. Fenced toddler area. https://parkroulette.quest/w/51 Reply STOP to opt out";
+  "Park Roulette: Sunny Sat and Sun, 47 and 49. Go Saturday: Wildflower Park, Bend. Fenced toddler area. Reply STOP to opt out. https://parkroulette.quest/w/5ljn";
 
 /** GSM-7 only (one bad character makes a text Unicode: 70 a segment). */
 export function isGsm7(s: string): boolean {

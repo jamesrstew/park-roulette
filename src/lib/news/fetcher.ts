@@ -3,6 +3,7 @@ import type { LookupAddress, LookupOptions } from "node:dns";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { Agent, fetch as undiciFetch } from "undici";
+import { structuredText } from "@/lib/events/structured";
 import { allowedLink } from "./catalog";
 import { pageText, type Fetcher } from "./validate";
 
@@ -275,12 +276,14 @@ async function readCapped(
 export async function fetchImage(
   url: string,
   domains: readonly string[],
+  /** The Accept header (social photos ask for anything, like curl does). */
+  accept = "image/*",
 ): Promise<{ bytes: Uint8Array; type: string } | null> {
   try {
     const got = await safeFetch(
       url,
       domains,
-      "image/*",
+      accept,
       AbortSignal.timeout(15_000),
     );
     if ("refused" in got) return null;
@@ -296,13 +299,60 @@ export async function fetchImage(
   }
 }
 
+/**
+ * A fetch that never got an answer: a reset, a timeout or a TLS failure
+ * (undici wraps the cause, sometimes twice). Null for anything else, which
+ * is a bug to surface, not a site to report.
+ */
+export function networkFailure(
+  e: unknown,
+): { reason: string; kind: "reset" | "timeout" } | null {
+  const seen: string[] = [];
+  for (
+    let x = e as { code?: unknown; name?: unknown; cause?: unknown } | null,
+      i = 0;
+    x && i < 4;
+    x = x.cause as typeof x, i++
+  )
+    seen.push(String(x.code ?? ""), String(x.name ?? ""));
+  const has = (re: RegExp) => seen.some((s) => re.test(s));
+  if (has(/^(ECONNRESET|EPIPE|ECONNREFUSED|UND_ERR_SOCKET|UND_ERR_CLOSED)$/))
+    return { reason: "connection reset", kind: "reset" };
+  if (
+    has(
+      /^(ETIMEDOUT|UND_ERR_CONNECT_TIMEOUT|UND_ERR_HEADERS_TIMEOUT|UND_ERR_BODY_TIMEOUT|TimeoutError|AbortError)$/,
+    )
+  )
+    return { reason: "timed out", kind: "timeout" };
+  if (
+    has(/^(EPROTO|ERR_TLS_|ERR_SSL_|CERT_|UNABLE_TO_|DEPTH_ZERO_|SELF_SIGNED_)/)
+  )
+    return { reason: "TLS error", kind: "reset" };
+  return null;
+}
+
 export const fetchPage: Fetcher = async (start, domains) => {
-  const got = await safeFetch(
-    start,
-    domains,
-    "text/html,image/*,*/*;q=0.8",
-    AbortSignal.timeout(15_000),
-  );
+  let got: Awaited<ReturnType<typeof safeFetch>>;
+  try {
+    got = await safeFetch(
+      start,
+      domains,
+      // Browser-style Accept with our own honest User-Agent: we never
+      // pretend to be a browser to get past a bot check.
+      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      AbortSignal.timeout(15_000),
+    );
+  } catch (e) {
+    const f = networkFailure(e);
+    if (!f) throw e;
+    return {
+      status: 0,
+      finalUrl: start,
+      text: "",
+      unreachable: f.reason,
+      blockedKind: f.kind,
+    };
+  }
   if ("refused" in got)
     return { status: got.refused, finalUrl: got.url, text: "" };
   const { res, url } = got;
@@ -319,11 +369,15 @@ export const fetchPage: Fetcher = async (start, domains) => {
     res.status === 200 && !/sucuri_cloudproxy|cf-chl/i.test(html.slice(0, 4000))
       ? null
       : botWall(res.status, res.headers.get("server") ?? "", html);
+  // JSON and .ics are data, not a page: their records are the evidence.
+  const machine = /json|text\/calendar/i.test(contentType);
+  const data = res.ok && !wall ? structuredText(html, contentType) : "";
   return {
     status: res.status,
     finalUrl: url,
-    text: res.ok ? pageText(html) : "",
+    text: res.ok && !machine ? pageText(html) : "",
     contentType,
-    ...(wall ? { blocked: wall } : {}),
+    ...(wall ? { blocked: wall, blockedKind: "bot_check" as const } : {}),
+    ...(data ? { data } : {}),
   };
 };

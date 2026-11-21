@@ -63,6 +63,7 @@ function ctx(over: Partial<EventsContext> = {}): EventsContext {
       link_domains: ["highdesertmuseum.org", "deschuteslibrary.org"],
       event_series: [],
     },
+    fetchGapMs: 0,
     parks: new Map([
       ["juniper-park-bend", { lat: 44.05, lng: -121.29, name: "Juniper Park" }],
     ]),
@@ -216,7 +217,10 @@ describe("series, slugs and dates", () => {
       dates: [{ day: "2026-12-05" }, { day: "2026-12-12" }],
     });
     expect(seriesKey(a)).toBe(seriesKey(b));
-    expect(seriesKey(base({ series_id: "series-x" }))).toBe("series:series-x");
+    // A series_id links the catalog; it's never the key (writer fix 1).
+    expect(seriesKey(base({ series_id: "series-x" }))).toBe(
+      "venue:venue-high-desert-museum:fall-family-day",
+    );
     expect(eventSlug(base({ annual: true }))).toBe(
       "fall-family-day-high-desert-museum",
     );
@@ -845,5 +849,99 @@ describe("the writer's first live run", () => {
       ctx({ fetcher: undefined }),
     );
     expect(r.events[0].problems).toEqual([]);
+  });
+});
+
+describe("batch 6: listings sites and hosts that don't answer", () => {
+  it("refuses a visitbend link or evidence, and accepts it as discovery_url (item 3)", async () => {
+    const vb = "https://www.visitbend.com/event/fall-family-day/";
+    const c = ctx({
+      fetcher: undefined,
+      catalog: {
+        link_domains: ["highdesertmuseum.org"],
+        lead_domains: ["visitbend.com"],
+        event_series: [],
+      },
+    });
+    const linked = await validateEvents({ events: [base({ url: vb })] }, c);
+    expect(linked.events[0].problems).toContain(
+      "visitbend.com is a lead only: never a link or evidence. Find the organizer's own page.",
+    );
+    const found = await validateEvents(
+      { events: [base({ discovery_url: vb })] },
+      c,
+    );
+    expect(found.events[0].problems).toEqual([]);
+  });
+
+  it("names a reset and reports the host as blocked (item 4)", async () => {
+    const r = await validateEvents(
+      { events: [base()] },
+      ctx({
+        fetcher: async (url) => ({
+          status: 0,
+          finalUrl: url,
+          text: "",
+          unreachable: "connection reset",
+          blockedKind: "reset",
+        }),
+      }),
+    );
+    expect(r.events[0].ok).toBe(false);
+    expect(r.events[0].problems).toContain(
+      "www.highdesertmuseum.org didn't answer (connection reset).",
+    );
+    expect(r.events[0].blocked).toEqual({
+      host: "www.highdesertmuseum.org",
+      kind: "reset",
+      url: URL_,
+    });
+  });
+});
+
+describe("guardrails end to end: validateEvents (review M6)", () => {
+  const c = () =>
+    ctx({
+      fetcher: undefined,
+      catalog: {
+        link_domains: ["highdesertmuseum.org", "deschuteslibrary.org"],
+        lead_domains: ["visitbend.com"],
+        event_series: [],
+      },
+    });
+  const problems = async (e: EventInput) =>
+    (await validateEvents({ events: [e] }, c())).events[0].problems;
+
+  it("refuses a competitor link", async () => {
+    expect(
+      await problems(base({ url: "https://bendfamilyloop.beehiiv.com/p/1" })),
+    ).toContain(
+      "bendfamilyloop.beehiiv.com is another newsletter. Link the primary source.",
+    );
+  });
+
+  it("refuses visitbend as the link and as evidence", async () => {
+    const want =
+      "visitbend.com is a lead only: never a link or evidence. Find the organizer's own page.";
+    const vb = "https://www.visitbend.com/event/fall-family-day/";
+    expect(await problems(base({ url: vb }))).toContain(want);
+    expect(
+      await problems(base({ evidence: [{ ...base().evidence[0], url: vb }] })),
+    ).toContain(want);
+  });
+
+  it("refuses a 7-character quote and evidence from another host", async () => {
+    const r = await validateEvents(
+      { events: [base({ evidence: [{ url: URL_, quote: "Free $5" }] })] },
+      c(),
+    );
+    expect(r.events[0].ok).toBe(false);
+    expect(r.events[0].problems.join(" ")).toMatch(/evidence\.0\.quote/);
+    const lib = "https://www.deschuteslibrary.org/calendar/1";
+    expect(
+      await problems(base({ evidence: [{ ...base().evidence[0], url: lib }] })),
+    ).toContain(
+      "The evidence (www.deschuteslibrary.org) must come from the same site as the link (www.highdesertmuseum.org).",
+    );
   });
 });

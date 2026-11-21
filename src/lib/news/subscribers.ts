@@ -77,13 +77,26 @@ export type SignupSource =
   | "footer"
   | "newsletter"
   | "issue_page"
+  | "issue_text"
   | "welcome_sheet"
   | "settings"
   | "texts_page"
   | "confirm_page"
   | "next_pick"
   | "rainy_spin"
-  | "weekend_spin";
+  | "weekend_spin"
+  // Instagram's link in bio, its keyword DM, and Facebook (lib/social).
+  | "ig_bio"
+  | "ig_dm"
+  | "fb";
+
+/** How an email yes was given, kept on its consent row. */
+export type EmailConsentDetails = {
+  /** The box was checked before they saw it. */
+  prechecked: boolean;
+  /** The page they were on. */
+  path: string;
+};
 
 // --- IP fingerprints -----------------------------------------------------
 
@@ -368,7 +381,12 @@ export async function subscribe(input: {
   source: SignupSource;
   explorerId?: number | null;
   ip?: string | null;
+  /** The words they saw (lib/park-news.ts EMAIL_CONSENT_TEXT); default today's. */
+  consentVersion?: string;
+  /** How they said yes, kept with the consent (e.g. {prechecked, path}). */
+  details?: EmailConsentDetails;
 }): Promise<Outbox & { busy?: boolean }> {
+  const version = input.consentVersion ?? CONSENT_VERSION;
   const email = normalizeEmail(input.email);
   const hash = addressHash(email);
   const ipH = await ipHash(input.ip ?? null);
@@ -487,8 +505,9 @@ export async function subscribe(input: {
         channel: "email",
         action: "opt_in",
         address: email,
-        consentVersion: CONSENT_VERSION,
+        consentVersion: version,
         source: input.source,
+        details: input.details ?? null,
       });
 
     // Single opt-in (James, November 2026): a new address is on the list
@@ -523,7 +542,7 @@ export async function subscribe(input: {
           status: "pending",
           explorerId: me,
           source: input.source,
-          consentVersion: CONSENT_VERSION,
+          consentVersion: version,
         })
         .returning({ id: emailSubscribers.id });
       await consent(made.id);
@@ -707,6 +726,21 @@ export type Subscription = {
   status: "off" | "pending" | "on";
   email: string | null;
 };
+
+/**
+ * Did this account stop the email (a stopped row of its own and no live
+ * one)? The footer then stops offering it: a no is remembered.
+ */
+export async function emailStoppedFor(explorerId: number): Promise<boolean> {
+  const rows = await db
+    .select({ status: emailSubscribers.status })
+    .from(emailSubscribers)
+    .where(eq(emailSubscribers.explorerId, explorerId));
+  return (
+    rows.some((r) => r.status === "stopped") &&
+    !rows.some((r) => r.status === "pending" || r.status === "confirmed")
+  );
+}
 
 /**
  * What Family & settings shows: on (its own row, or an address it asked to

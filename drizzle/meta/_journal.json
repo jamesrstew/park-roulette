@@ -134,6 +134,27 @@
       "when": 1795148083166,
       "tag": "0018_ask_moments",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795237222437,
+      "tag": "0019_news_lessons",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1795252799322,
+      "tag": "0020_kid_event_edits",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1795253747719,
+      "tag": "0021_social",
+      "breakpoints": true
     }
   ]
 }

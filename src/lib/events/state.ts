@@ -1,5 +1,6 @@
 import { addDays, pacific } from "@/lib/news/time";
-import { normalizeText } from "@/lib/news/validate";
+import { lineNamesEvent } from "./binding";
+import { onPage } from "./structured";
 import {
   type EventDate,
   type EventRow,
@@ -28,24 +29,74 @@ export function indexable(e: EventRow, now: Date): boolean {
   return listed(e, now);
 }
 
-export type CheckOutcome = "seen" | "miss" | "unknown";
+/** canceled: the page loaded and says this event is canceled. */
+export type CheckOutcome = "seen" | "miss" | "unknown" | "canceled";
+
+/** A challenge or firewall page's words (served with any status). */
+const CHALLENGE =
+  /just a moment|checking (your|if the site connection is) (browser|secure)|verify (that )?you are (a )?human|attention required|access denied|request blocked|enable javascript and cookies|ddos protection/i;
+
+/** A short page that's a wall, not the event's page. */
+export function looksLikeChallenge(text: string): boolean {
+  return text.length < 3000 && CHALLENGE.test(text);
+}
 
 /**
  * One night's look at the official page. A real miss is a page that
- * loaded without the quote, or a 404 or 410. A timeout, a 5xx, a bot wall
- * (403, 429) or a redirect off the allowlist is "unknown": keep the last
- * state and try again tomorrow.
+ * loaded without the quote (in its text or its structured data), or a
+ * 404 or 410. A timeout, a 5xx, a bot wall (403, 429, a challenge page,
+ * even one served as 200) or a redirect off the allowlist is "unknown":
+ * keep the last state and try again tomorrow. On a known-walled host
+ * (catalog walled_hosts), a short page without the quote is unknown too:
+ * a wall we didn't recognize is never a miss.
  */
 export function judge(
-  r: { status: number; text: string } | null,
+  r: { status: number; text: string; data?: string; blocked?: string } | null,
   quote: string,
+  opts: { walled?: boolean; title?: string } = {},
 ): CheckOutcome {
-  if (!r) return "unknown";
+  if (!r || r.blocked) return "unknown";
   if (r.status === 404 || r.status === 410) return "miss";
   if (r.status !== 200) return "unknown";
-  if (!r.text) return "unknown"; // an empty page or one over the size cap
-  return r.text.includes(normalizeText(quote)) ? "seen" : "miss";
+  if (!r.text && !r.data) return "unknown"; // empty, or over the size cap
+  // A data line counts only when it names the event (lib/events/binding.ts).
+  if (onPage(r, quote, opts.title)) return "seen";
+  if (opts.title && cancellationOf(r, opts.title)) return "canceled";
+  if (looksLikeChallenge(r.text)) return "unknown";
+  if (opts.walled && r.text.length < 3000) return "unknown";
+  return "miss";
 }
+
+const CANCELED = /\bcancell?ed\b/i;
+const NOT_CANCELED =
+  /\b(not|no|never|isn'?t|wasn'?t)\s+(been\s+|be\s+)?cancell?ed\b|\bunless\s+cancell?ed\b/i;
+
+/**
+ * The page says this event is canceled: "canceled" or "cancelled" in the
+ * same sentence (or data line) as the event's title. Returns that
+ * sentence (the new status quote), or null.
+ */
+export function cancellationOf(
+  r: { text: string; data?: string },
+  title: string,
+): string | null {
+  const parts = [
+    ...r.text.split(/(?<=[.!?])\s+/),
+    ...(r.data ? r.data.split("\n") : []),
+  ];
+  for (const p of parts)
+    if (
+      p.length <= 400 &&
+      CANCELED.test(p) &&
+      !NOT_CANCELED.test(p) &&
+      lineNamesEvent(p, title)
+    )
+      return p.trim();
+  return null;
+}
+
+/** Days unseen (the page never answered) before an event leaves the listing. */
+export const UNKNOWN_DAYS_TO_UNCONFIRM = 7;
 
 /** Misses in a row before an event is "couldn't confirm". */
 export const MISSES_TO_UNCONFIRM = 2;
@@ -62,9 +113,23 @@ type CheckState = {
 export function afterCheck(
   prev: CheckState | { confirm: "ok" | "unconfirmed"; misses: number },
   outcome: CheckOutcome,
+  /** Days since the quote was last seen (or the event was stored). */
+  unseenDays = 0,
 ): CheckState & { seen: boolean } {
   const p = { seenStreak: 0, ...prev };
-  if (outcome === "unknown") return { ...p, seen: false };
+  // Unknown keeps the last state, but not forever: a page that hasn't
+  // answered for more than 7 days leaves the listing until it's seen.
+  if (outcome === "unknown")
+    return {
+      ...p,
+      confirm:
+        unseenDays > UNKNOWN_DAYS_TO_UNCONFIRM ? "unconfirmed" : p.confirm,
+      seen: false,
+    };
+  // Canceled is a status change (the caller records it), and the page
+  // was there.
+  if (outcome === "canceled")
+    return { ...p, misses: 0, seenStreak: 0, seen: true };
   if (outcome === "seen") {
     const seenStreak = p.seenStreak + 1;
     return {

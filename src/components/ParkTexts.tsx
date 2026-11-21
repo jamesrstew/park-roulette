@@ -15,21 +15,16 @@ import { sfx } from "@/lib/sound";
 import {
   type Agreement,
   checkboxLine,
+  consentVersionFor,
   prettyPhone,
   SAMPLE_TEXT,
   TEXTS_CONSENT_TEXT,
   TEXTS_CONSENT_VERSION,
   TEXTS_COPY,
+  type TextSource,
 } from "@/lib/texts";
 
-type Source =
-  | "texts_page"
-  | "settings"
-  | "welcome_sheet"
-  | "next_pick"
-  | "rainy_spin"
-  | "weekend_spin"
-  | "email_footer";
+type Source = TextSource;
 type Done = "on" | "already" | "needs_start" | "failed";
 
 /**
@@ -47,6 +42,8 @@ export function ParkTextsCard({
   bare = false,
   labelledBy,
   showSample = false,
+  headline = TEXTS_COPY.headline,
+  doneLine,
   onDone,
 }: {
   /** The signed-in grown-up's number (E.164); null to type one in. */
@@ -65,10 +62,16 @@ export function ParkTextsCard({
   labelledBy?: string;
   /** After a yes, show what a Weekend Pick looks like (/texts). */
   showSample?: boolean;
+  /** The card's heading (the site footer: "Rather get a text?"). */
+  headline?: string;
+  /** The line after a yes, instead of the default. */
+  doneLine?: string;
   onDone?: (state: Done) => void;
 }) {
   const id = useId();
-  const words = TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION];
+  // Each surface shows (and the server accepts) only its own wording.
+  const version = consentVersionFor(source);
+  const words = TEXTS_CONSENT_TEXT[version];
   const [typed, setTyped] = useState("");
   const [checked, setChecked] = useState(false);
   const [step, setStep] = useState<"ask" | "code">("ask");
@@ -81,8 +84,8 @@ export function ParkTextsCard({
   // What the person sees and agrees to, sent with the yes and recorded.
   const agreement = (): Agreement => ({
     agreed: true,
-    version: TEXTS_CONSENT_VERSION,
-    checkbox: checkboxLine(TEXTS_CONSENT_VERSION, number ?? null),
+    version,
+    checkbox: checkboxLine(version, number ?? null),
     disclosure: words.disclosure,
   });
   const finish = (s: Done) => {
@@ -120,9 +123,10 @@ export function ParkTextsCard({
       <div role="status" className="flex flex-col gap-2">
         <p className="flex animate-pop-in items-center gap-2 font-hand text-xl leading-snug">
           <Icon name="check" size={28} />
-          {sendingOn
-            ? "You're in! Watch for a text."
-            : "You're in! Your first text comes when the Weekend Pick starts."}
+          {doneLine ??
+            (sendingOn
+              ? "You're in! Watch for a text."
+              : "You're in! Your first text comes when the Weekend Pick starts.")}
         </p>
         {showSample ? (
           <>
@@ -185,9 +189,11 @@ export function ParkTextsCard({
             className="flex items-center gap-2 font-hand text-3xl leading-tight"
           >
             <Icon name="phone" size={32} className="text-crayon-green" />{" "}
-            {TEXTS_COPY.headline}
+            {headline}
           </h2>
-          <p className="-mt-1 leading-snug">{TEXTS_COPY.body}</p>
+          {headline === TEXTS_COPY.headline ? (
+            <p className="-mt-1 leading-snug">{TEXTS_COPY.body}</p>
+          ) : null}
         </>
       )}
       {step === "ask" ? (
@@ -214,6 +220,7 @@ export function ParkTextsCard({
           )}
           <TextsConsentBlock
             id={id}
+            version={version}
             number={number}
             checked={checked}
             onChange={(v) => (setChecked(v), setError(null))}
@@ -384,23 +391,29 @@ export function TextsRow({
  * The consent block, one source for every Weekend Pick yes (/texts,
  * settings, the ask sheet): the unchecked box with the checkbox line, and
  * the full disclosure in ink right under it, with Terms and Privacy. The
- * words come from the frozen TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION];
- * never retype them.
+ * words come from the frozen TEXTS_CONSENT_TEXT[version] (each surface has
+ * its own, lib/texts.ts consentVersionFor); never retype them.
  */
 export function TextsConsentBlock({
   id,
+  version = TEXTS_CONSENT_VERSION,
   number,
   checked,
   onChange,
+  newTab = false,
 }: {
   /** A unique id prefix (useId) for the disclosure's id. */
   id: string;
+  /** Terms and Privacy open in a new tab (inside a sheet, so a tap never loses it). */
+  newTab?: boolean;
+  /** The surface's consent version (consentVersionFor(source)). */
+  version?: string;
   /** The signed-in number (E.164), or null for "this number". */
   number: string | null;
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
-  const words = TEXTS_CONSENT_TEXT[TEXTS_CONSENT_VERSION];
+  const words = TEXTS_CONSENT_TEXT[version];
   return (
     <>
       <label className="flex min-h-11 cursor-pointer items-start gap-3">
@@ -419,7 +432,7 @@ export function TextsConsentBlock({
               {words.checkbox.split("{number}")[1]}
             </>
           ) : (
-            checkboxLine(TEXTS_CONSENT_VERSION, null)
+            checkboxLine(version, null)
           )}
         </span>
       </label>
@@ -429,11 +442,19 @@ export function TextsConsentBlock({
       >
         {words.disclosure}{" "}
         <span className="whitespace-nowrap">
-          <Link href="/terms#park-texts" className="underline">
+          <Link
+            href="/terms#park-texts"
+            className="underline"
+            {...(newTab ? { target: "_blank", rel: "noopener" } : {})}
+          >
             Terms
           </Link>{" "}
           ·{" "}
-          <Link href="/privacy#park-texts" className="underline">
+          <Link
+            href="/privacy#park-texts"
+            className="underline"
+            {...(newTab ? { target: "_blank", rel: "noopener" } : {})}
+          >
             Privacy
           </Link>
         </span>

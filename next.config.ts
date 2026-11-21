@@ -10,6 +10,11 @@ const nextConfig: NextConfig = {
     "/api/news/**": ["./public/fonts/**"],
     "/api/cron/news-send": ["./public/fonts/**"],
     "/newsletter/**": ["./public/fonts/**"],
+    // Instagram slides (lib/social/render.tsx, imported only where slides
+    // are drawn).
+    "/api/social/**": ["./public/fonts/**"],
+    "/api/cron/social": ["./public/fonts/**"],
+    "/social/**": ["./public/fonts/**"],
   },
   partialPrefetching: true,
   turbopack: {

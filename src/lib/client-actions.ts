@@ -74,10 +74,23 @@ export const acceptTerms = wrap(C.acceptTerms);
 export const deleteMe = wrap(C.deleteMe);
 export const deleteFamily = wrap(C.deleteFamily);
 export const removeKid = wrap(C.removeKid);
+export const savePicks = wrap(T.savePicks);
+/** The picks page's facts; a failure reads as "skip the page". */
+export async function loadPicks(): Promise<T.PicksFacts | null> {
+  try {
+    return await T.loadPicks();
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
+}
 export const signUpForEmail = wrap(N.signUpForEmail);
 export const declinePicks = wrap(N.declinePicks);
 export const stopParkNews = wrap(N.stopParkNews);
 export const setNewsSwitch = wrap(NA.setNewsSwitch);
+export const trimEventDates = wrap(NA.trimEventDatesAction);
+export const splitEvent = wrap(NA.splitEventAction);
+export const removeEvent = wrap(NA.removeEventAction);
 export const turnOnTexts = wrap(T.turnOnTexts);
 export const sendTextsCode = wrap(T.sendTextsCode);
 export const confirmTextsCode = wrap(T.confirmTextsCode);

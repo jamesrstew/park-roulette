@@ -20,7 +20,7 @@ import type { ParkInfo, ValidateContext } from "./validate";
 import { fetchPage } from "./fetcher";
 import { addDays, issueDateFor, pacific } from "./time";
 import { snapshotTakenDown } from "./takedowns";
-import { eventSlugs } from "@/lib/events/store";
+import { eventsForIssues } from "@/lib/events/store";
 import { type CardMode, memeSnapshot } from "./parents";
 import type { MemeSnapshot } from "./issue";
 import { postUrl } from "./xapi";
@@ -175,12 +175,13 @@ export async function validateContext(
     loadParks(),
     loadHistory(issueDate),
     getStoredPlan(issueDate),
-    eventSlugs(),
+    eventsForIssues(),
   ]);
   return {
     catalog: CATALOG,
     parks: parkMap(list),
-    events,
+    events: new Set(events.keys()),
+    eventData: events,
     history,
     plan,
     fetcher: opts.network ? fetchPage : undefined,
@@ -366,6 +367,7 @@ export async function sentIssue(issueDate: string) {
     .select({
       body: newsIssues.sentBody,
       rendered: newsIssues.rendered,
+      plan: newsIssues.plan,
       sentAt:
         sql<Date>`coalesce(${newsIssues.sentAt}, ${newsIssues.sendStartedAt})`.mapWith(
           (v) => new Date(v),
@@ -398,6 +400,8 @@ export async function sentIssue(issueDate: string) {
         )?.images ?? { weatherImage: true, memeImage: true },
         prev: r.prev,
         next: r.next,
+        /** The stored plan (tiers; a Friday update line, if any). */
+        plan: r.plan as Plan | null,
       }
     : null;
 }
@@ -504,6 +508,7 @@ export async function weatherIssue(issueDate: string) {
       started: sql<boolean>`${newsIssues.sendStartedAt} is not null`,
       sentBody: newsIssues.sentBody,
       report: newsIssues.report,
+      plan: newsIssues.plan,
     })
     .from(newsIssues)
     .where(eq(newsIssues.issueDate, issueDate));
@@ -514,7 +519,9 @@ export async function weatherIssue(issueDate: string) {
       ? (r.report as { issue?: unknown } | null)?.issue
       : null;
   const body = IssueSchema.safeParse(raw);
-  return body.success ? { issue: body.data, frozen: r.started } : null;
+  return body.success
+    ? { issue: body.data, frozen: r.started, plan: r.plan as Plan | null }
+    : null;
 }
 
 // --- The sender's lease ----------------------------------------------------

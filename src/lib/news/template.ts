@@ -209,6 +209,13 @@ export type RenderOptions = {
    * renders the Instagram card and its click-to-load embed there).
    */
   memeSlot?: boolean;
+  /**
+   * The issue page as a landing page: the page draws the weather card and
+   * the plan above the card, so the card leaves them out. "park" leaves
+   * out the weather and the featured park; "indoor" (an Indoor week) the
+   * weather and the Indoor pick.
+   */
+  landing?: "park" | "indoor";
 };
 
 /** Where renderArchiveSplit cuts the card for the page's own slot. */
@@ -419,6 +426,7 @@ function view(issue: Issue, o: RenderOptions) {
     unsubscribeUrl: o.unsubscribeUrl,
     postal: o.postalAddress,
     dryRun: !!o.dryRun,
+    landing: o.landing ?? null,
   };
 }
 
@@ -485,7 +493,7 @@ export function renderCard(v: View): string {
   // The weekend ahead (up top: in Central Oregon the weather is the plan).
   // The card image carries the whole forecast in its alt text; without
   // the image, the same words show as text.
-  if (v.weather || v.weatherNote || v.dress)
+  if (!v.landing && (v.weather || v.weatherNote || v.dress))
     parts.push(
       row(label(SECTIONS.weather, C.blue), "24px 32px 6px 32px") +
         bodyRow(
@@ -506,39 +514,46 @@ export function renderCard(v: View): string {
               : ""),
         ),
     );
-  // Featured park (the Wheel Pick)
-  parts.push(
-    row(
-      `<h1 class="h1 txt" style="margin:4px 0 2px 0; font-family:${HAND}; font-size:30px; line-height:36px; color:${C.ink};">${esc(featuredHeading(v.pick.name))}</h1>` +
-        (v.pick.city
-          ? `<div class="txt-soft" style="margin:0 0 12px 0; font-family:${BODY}; font-size:15px; line-height:22px; color:${C.soft};">${esc(v.pick.city)}</div>`
-          : `<div style="height:10px; line-height:10px; font-size:0;">&nbsp;</div>`) +
-        `<a href="${esc(v.pick.href)}" style="text-decoration:none;"><img src="${esc(v.pick.image)}" width="536" alt="${esc(v.pick.alt)}" style="width:100%; max-width:536px; height:auto; border-radius:12px; font-family:${BODY}; font-size:14px; color:${C.ink};"></a>`,
-    ),
-  );
-  if (v.pick.credit)
+  // On the landing page, the dress line stays (the weather moved up).
+  if (v.landing && v.dress)
     parts.push(
-      bodyRow(
-        `<div class="txt-soft" style="font-size:12px; line-height:18px; color:${C.soft};">${v.pick.credit.html}</div>`,
-        "6px 32px 0 32px",
+      bodyRow(para(`<b>${esc(v.dress.label)}:</b> ${esc(v.dress.text)}`)),
+    );
+  // Featured park (the Wheel Pick)
+  if (v.landing !== "park") {
+    parts.push(
+      row(
+        `<h1 class="h1 txt" style="margin:4px 0 2px 0; font-family:${HAND}; font-size:30px; line-height:36px; color:${C.ink};">${esc(featuredHeading(v.pick.name))}</h1>` +
+          (v.pick.city
+            ? `<div class="txt-soft" style="margin:0 0 12px 0; font-family:${BODY}; font-size:15px; line-height:22px; color:${C.soft};">${esc(v.pick.city)}</div>`
+            : `<div style="height:10px; line-height:10px; font-size:0;">&nbsp;</div>`) +
+          `<a href="${esc(v.pick.href)}" style="text-decoration:none;"><img src="${esc(v.pick.image)}" width="536" alt="${esc(v.pick.alt)}" style="width:100%; max-width:536px; height:auto; border-radius:12px; font-family:${BODY}; font-size:14px; color:${C.ink};"></a>`,
       ),
     );
-  parts.push(
-    bodyRow(
-      para(`<b>Why now.</b> ${esc(v.pick.why)}`) +
-        para(`<b>Who it's for.</b> ${esc(v.pick.who)}`) +
-        para(`<b>Bring.</b> ${esc(v.pick.bring)}`),
-      "12px 32px 0 32px",
-    ),
-  );
-  parts.push(
-    row(
-      button(v.pick.href, `See ${v.pick.name}`, C.buttonGreen),
-      "4px 32px 0 32px",
-    ),
-  );
+    if (v.pick.credit)
+      parts.push(
+        bodyRow(
+          `<div class="txt-soft" style="font-size:12px; line-height:18px; color:${C.soft};">${v.pick.credit.html}</div>`,
+          "6px 32px 0 32px",
+        ),
+      );
+    parts.push(
+      bodyRow(
+        para(`<b>Why now.</b> ${esc(v.pick.why)}`) +
+          para(`<b>Who it's for.</b> ${esc(v.pick.who)}`) +
+          para(`<b>Bring.</b> ${esc(v.pick.bring)}`),
+        "12px 32px 0 32px",
+      ),
+    );
+    parts.push(
+      row(
+        button(v.pick.href, `See ${v.pick.name}`, C.buttonGreen),
+        "4px 32px 0 32px",
+      ),
+    );
+  }
   // The Indoor pick: each field on its own line, led by its plain label.
-  if (v.indoor)
+  if (v.indoor && v.landing !== "indoor")
     parts.push(
       v.indoor.short
         ? bodyRow(

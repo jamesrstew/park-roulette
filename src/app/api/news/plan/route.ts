@@ -44,7 +44,7 @@ export async function GET(req: Request) {
       .filter((s) => /^\d{1,25}$/.test(s));
     return json({
       ...(await getPlan(date, { fresh, picks })),
-      // The Thursday to draft for (the writer stops if it's over 8 days out).
+      // The Thursday to draft for (the writer stops if it's over 7 days out).
       next_issue_date: nextIssue,
     });
   } catch (e) {

@@ -6,6 +6,49 @@
 /** Bump the version whenever the words people see change. */
 export const CONSENT_VERSION = "email-2026-11-21";
 
+/** What an email yes looked like on its surface (frozen per version). */
+export type EmailConsentWords = {
+  /** The box's title, when there's a box. */
+  title?: string;
+  body?: string;
+  /** The fine print ({date} is the first issue's day). */
+  fine: string;
+  /** The fine print when the first issue's day isn't known. */
+  fineNoDate?: string;
+  /** The button that said yes. */
+  button: string;
+  /** The box was checked before they saw it (opt-out email, CAN-SPAM). */
+  prechecked: boolean;
+};
+
+/**
+ * The words behind each email consent version, so a yes can be shown
+ * later as it was seen. Never edit a version: add one.
+ */
+export const EMAIL_CONSENT_TEXT: Record<string, EmailConsentWords> = {
+  "email-2026-11-21": {
+    fine: "For grown-ups. Unsubscribe anytime.",
+    button: "Count us in!",
+    prechecked: false,
+  },
+  // The welcome sheet's picks page: a pre-checked box with the field.
+  "email-2026-11-22-prechecked": {
+    title: "Email me Thursdays",
+    body: "The weekend forecast, one park to try, and a warm backup if it pours.",
+    fine: "First email: {date}. Unsubscribe anytime.",
+    fineNoDate: "First email: Thursday morning. Unsubscribe anytime.",
+    button: "Let's spin!",
+    prechecked: true,
+  },
+};
+
+/** The email consent version each surface records (the rest: CONSENT_VERSION). */
+export function emailConsentVersionFor(source: string): string {
+  return source === "welcome_sheet"
+    ? "email-2026-11-22-prechecked"
+    : CONSENT_VERSION;
+}
+
 /**
  * The glossary (one set of names everywhere): the umbrella is "the weekly
  * park picks" ("Park picks" as a card title); the email is "Bend
@@ -130,4 +173,12 @@ export function successLine(firstIssue?: string | null): string {
   return firstIssue
     ? `You're in! Look for us ${firstIssue}.`
     : PARK_NEWS.success;
+}
+
+/** Social proof shows only from this many confirmed subscribers (James). */
+export const PROOF_MIN = 50;
+
+/** "{N}+ grown-ups already get it": 237 → 230; under 50 → null. */
+export function proofCount(n: number): number | null {
+  return n >= PROOF_MIN ? Math.floor(n / 10) * 10 : null;
 }

@@ -29,6 +29,7 @@ export function AdminNews({
   heartbeat,
   audience,
   issues,
+  social,
 }: {
   paused: boolean;
   dryRun: boolean;
@@ -40,6 +41,22 @@ export function AdminNews({
   /** Confirmed subscribers right now. */
   audience: number;
   issues: IssueRow[];
+  /** Instagram (lib/social): switches, recent posts, this week's signups. */
+  social: {
+    enabled: boolean;
+    dryRun: boolean;
+    envOff: boolean;
+    /** IG_ACCESS_TOKEN and IG_USER_ID are set (preflight can run). */
+    canPreflight: boolean;
+    posts: {
+      id: number;
+      kind: string;
+      slotDate: string;
+      status: string;
+      reason: string | null;
+    }[];
+    signups: Record<string, number>;
+  };
 }) {
   return (
     <section className="flex flex-col gap-3">
@@ -86,6 +103,54 @@ export function AdminNews({
               : "Off: it goes to every confirmed number."
           }
         />
+        <h3 className="mt-2 font-hand text-2xl">Instagram</h3>
+        <Switch
+          which="socialPaused"
+          on={!social.enabled}
+          label="Instagram kill switch"
+          line={
+            social.envOff
+              ? "SOCIAL_PUBLISH=off in Vercel: nothing posts, whatever this says."
+              : !social.enabled
+                ? "On: nothing is made, posted or DM'd."
+                : "Off: posts go out on schedule."
+          }
+        />
+        <Switch
+          which="socialDryRun"
+          on={social.dryRun}
+          label="Instagram dry run"
+          line={
+            social.dryRun
+              ? "On: posts are drawn and checked, and the preview is emailed. Nothing goes to Instagram."
+              : "Off: posts publish to @park_roulette."
+          }
+        />
+        <p className="text-sm text-ink-soft">
+          Signups from Instagram this week: {social.signups.ig_bio ?? 0} bio
+          link, {social.signups.ig_dm ?? 0} DM link, {social.signups.fb ?? 0}{" "}
+          Facebook.
+        </p>
+        {social.posts.length ? (
+          <ul className="flex flex-col gap-1 text-sm">
+            {social.posts.map((p) => (
+              <li key={p.id} className="flex justify-between gap-2">
+                <span>
+                  {p.slotDate} {p.kind.replace("_", " ")}
+                </span>
+                <span className="flex items-center gap-2">
+                  {social.canPreflight &&
+                  (p.status === "queued" || p.status === "dry_run") ? (
+                    <Preflight id={p.id} />
+                  ) : null}
+                  <span className="chip text-xs" title={p.reason ?? undefined}>
+                    {p.status.replace("_", " ")}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <p className="text-sm text-ink-soft">
           {audience} confirmed {audience === 1 ? "subscriber" : "subscribers"}.
           Sender last ran {heartbeat}.
@@ -134,7 +199,13 @@ function Switch({
   label,
   line,
 }: {
-  which: "paused" | "dryRun" | "textsPaused" | "textsDryRun";
+  which:
+    | "paused"
+    | "dryRun"
+    | "textsPaused"
+    | "textsDryRun"
+    | "socialPaused"
+    | "socialDryRun";
   on: boolean;
   label: string;
   line: string;
@@ -162,5 +233,55 @@ function Switch({
       <p className="text-sm text-ink-soft">{line}</p>
       {error ? <ErrorLine>{error}</ErrorLine> : null}
     </div>
+  );
+}
+
+/**
+ * Make real Instagram containers for this post and read their status,
+ * never publishing (they expire in 24 hours): proves Meta can fetch our
+ * media before dry run goes off.
+ */
+function Preflight({ id }: { id: number }) {
+  const [lines, setLines] = useState<string[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <span className="flex flex-col items-end gap-1">
+      <button
+        type="button"
+        className="chip min-h-11 text-xs"
+        disabled={pending}
+        onClick={() =>
+          start(async () => {
+            setError(null);
+            // A route, not a server action: server actions are bundled with
+            // every page, and this one draws on the renderer and Meta.
+            const r = await fetch("/api/admin/social-preflight", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ id }),
+            })
+              .then(
+                (res) =>
+                  res.json() as Promise<{ lines?: string[]; error?: string }>,
+              )
+              .catch(() => ({
+                error: "No answer. Try again?",
+                lines: undefined,
+              }));
+            if (r.error) return setError(r.error);
+            setLines(r.lines ?? []);
+          })
+        }
+      >
+        {pending ? "Checking…" : "Preflight"}
+      </button>
+      {lines ? (
+        <span role="status" className="text-xs text-ink-soft">
+          {lines.join(" ")}
+        </span>
+      ) : null}
+      {error ? <ErrorLine>{error}</ErrorLine> : null}
+    </span>
   );
 }

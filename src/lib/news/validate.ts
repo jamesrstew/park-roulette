@@ -1,4 +1,10 @@
-import { allowedLink, type Catalog, seasonalDefault } from "./catalog";
+import {
+  allowedLink,
+  type Catalog,
+  leadMessage,
+  onList,
+  seasonalDefault,
+} from "./catalog";
 import {
   COOLDOWN_WEEKS,
   cooling,
@@ -9,6 +15,7 @@ import {
 import { WINTER_SUBJECT_WORDS } from "./tiers";
 import {
   type Issue,
+  type IssueEvidence,
   type MemeSnapshot,
   IssueSchema,
   issueText,
@@ -21,6 +28,9 @@ import type { Plan } from "./plan-types";
 import { weekdayOf, weekendOf } from "./time";
 import { LIKES_FLOOR, postUrl } from "./xapi";
 import { ageTags } from "@/lib/events/ages";
+import { dateEnds, type StoredEvent } from "@/lib/events/model";
+import { dataHasQuote } from "@/lib/events/binding";
+import { machinePrintsDay, machinePrintsTime } from "@/lib/events/machine-time";
 
 /**
  * The one validator. The writer's self-check (POST /api/news/check), the
@@ -82,7 +92,20 @@ export type FetchResult = {
   contentType?: string;
   /** The site showed a bot check instead of the page (we never get past one). */
   blocked?: string;
+  /** Status 0: the site never answered ("connection reset", "timed out"). */
+  unreachable?: string;
+  /** Why the page couldn't be read, for the retro's blocked hosts. */
+  blockedKind?: BlockedKind;
+  /**
+   * The organizer's own structured data on the page, one record a line:
+   * JSON-LD Events, or the whole body when it's JSON or an .ics feed
+   * (lib/events/structured.ts). Events evidence may quote it.
+   */
+  data?: string;
 };
+
+/** How a host kept us out (the retro's blocked_hosts kinds, minus allowlist). */
+export type BlockedKind = "bot_check" | "reset" | "timeout" | "http_status";
 /**
  * Fetch a page or image. `domains` is the allowlist for this link: every
  * redirect hop must stay on it (and off private networks).
@@ -131,6 +154,11 @@ export type ValidateContext = {
   memeFallback?: () => Promise<MemeSnapshot | null>;
   /** Event pages on /events, by slug (an outing may name its own). */
   events?: ReadonlySet<string>;
+  /**
+   * The stored events themselves, by slug: an outing that names one may
+   * leave its evidence out and use the event's verified quotes.
+   */
+  eventData?: ReadonlyMap<string, StoredEventRef>;
   memeSource?: (
     meme: NonNullable<Issue["meme"]>,
   ) => Promise<MemeSnapshot | null>;
@@ -185,7 +213,9 @@ export function blockedLink(url: string): boolean {
 }
 
 /** Naming another newsletter (even "via Bend Family Loop") is out too. */
-const MENTIONS = /\b(the\s+)?bend\s+(family\s+loop|buzz)\b/i;
+// Any spacing or case ("BendBuzz", "Bend-Family-Loop"), as the events
+// checker's COMPETITOR_NAMES.
+const MENTIONS = /bend[\s_.-]*(family[\s_.-]*loop|buzz)/i;
 
 /**
  * The site a link belongs to, for "the link and its evidence come from
@@ -470,6 +500,94 @@ export function quoteHasPrice(quote: string, price: string): boolean {
 export const FREE_ADMISSION =
   /\bfree (admission|entry|event|of charge|to attend|to the public|for (all|everyone|everybody|families|kids)|and open to (the public|all|everyone))\b|\b(admission|entry|it|this event|the event)( is)? free\b|\bno (cost|charge|admission fee)\b|^\s*free\.?\s*$/i;
 
+/** A stored event as the issue validator sees it (lib/events/store.ts). */
+export type StoredEventRef = {
+  data: StoredEvent;
+  status: string;
+  confirm: string;
+};
+
+/** A bare "Free" that's about admission, not free parking or snacks. */
+const BARE_FREE =
+  /\bfree\b(?!\s+(parking|wi-?fi|coffee|snacks?|refreshments|crafts?|gifts?|samples?|swag|t-shirts?))/i;
+
+/** "$5", "free" with a date or time: a short quote may still prove it. */
+const SHORT_TIME = /\b\d{1,2}(:\d{2})?\s*(a\.?m|p\.?m)\b|\bnoon\b/i;
+export function shortQuoteOk(quote: string, day: string): boolean {
+  const q = quote.trim();
+  if (q.length >= 20) return true;
+  return (
+    q.length >= 8 &&
+    /\$\s?\d|\bfree\b/i.test(q) &&
+    (quoteHasDay(q, day) || SHORT_TIME.test(q))
+  );
+}
+
+/**
+ * The evidence an outing borrows from its stored event (writer-fixes item
+ * 5): the quote that prints the outing's day first, then quotes with a
+ * price or a time, at most 3. A reason instead when the event can't stand
+ * in: missing, passed, canceled, unconfirmed, or not on that day.
+ */
+/** The names a data line may use to point at this unit: its own first
+ * text, plus the stored event's title when an outing borrows its quotes
+ * (a writer may shorten "Toddler Storytime: Snow!" to "Story time"). */
+function eventTitleNames(
+  key: string,
+  texts: string[],
+  weekend: { event?: string }[] | undefined,
+  events: ReadonlyMap<string, StoredEventRef> | undefined,
+): string[] {
+  const names = texts.slice(0, 1);
+  const m = /^weekend\.(\d+)$/.exec(key);
+  const slug = m ? weekend?.[Number(m[1])]?.event : undefined;
+  const title = slug ? events?.get(slug)?.data.title : undefined;
+  return title ? [...names, title] : names;
+}
+
+export function outingEventEvidence(
+  w: { event?: string; day: string },
+  events: ReadonlyMap<string, StoredEventRef> | undefined,
+  now: Date,
+): IssueEvidence[] | string {
+  const none =
+    "No evidence: give quotes from the official page, or name a stored, upcoming event (event).";
+  if (!w.event || !events) return none;
+  const row = events.get(w.event);
+  if (!row) return `No event page "${w.event}" on /events.`;
+  const e = row.data;
+  const date = e.dates.find(
+    (d) =>
+      d.day === w.day || (d.end_day && d.day <= w.day && w.day <= d.end_day),
+  );
+  if (!date) return `The event "${w.event}" isn't on ${w.day}.`;
+  if (dateEnds(date).getTime() <= now.getTime())
+    return `The event "${w.event}" on ${w.day} has passed.`;
+  const status = e.statusByDay?.[date.day] ?? row.status;
+  if (status !== "scheduled")
+    return `The event "${w.event}" is ${status} on ${w.day}. Leave this outing out.`;
+  if (e.ages && !e.ages.kids)
+    return `The event "${w.event}" isn't a kids' event. Leave this outing out.`;
+  if (row.confirm !== "ok")
+    return `The event "${w.event}" couldn't be confirmed on its page lately. Quote the official page instead.`;
+  const target = e.targets?.[date.day];
+  const all = [
+    ...(target ? [target] : []),
+    ...e.evidence.filter((x) => /\$\s?\d|\bfree\b/i.test(x.quote)),
+    ...e.evidence.filter((x) => SHORT_TIME.test(x.quote)),
+    ...e.evidence,
+  ];
+  const seen = new Set<string>();
+  const out: IssueEvidence[] = [];
+  for (const x of all) {
+    const k = `${x.url} ${x.quote}`;
+    if (seen.has(k) || out.length >= 3) continue;
+    seen.add(k);
+    out.push({ url: x.url, quote: x.quote.slice(0, 300) });
+  }
+  return out.length ? out : none;
+}
+
 /**
  * Every price claim in some texts: dollar amounts, and "free" when a text
  * says admission is free (a bare "Free" cost, or "free admission"...).
@@ -520,7 +638,10 @@ export function quoteHasDay(quote: string, date: string): boolean {
   if (new RegExp(`\\b(${wd}s?|${wd.slice(0, 3)}\\.?)\\b`).test(q)) return true;
   if (new RegExp(`\\b${MONTHS[m - 1]}[a-z]*\\.?\\s+${d}(?!\\d)`).test(q))
     return true;
-  return new RegExp(`\\b${m}/${d}(?!\\d)`).test(q);
+  if (new RegExp(`\\b${m}/${d}(?!\\d)`).test(q)) return true;
+  // The organizer's structured data, as a Pacific day ("2026-12-05T10:30";
+  // "2026-12-06T01:00:00Z" is Dec 5 in Bend).
+  return machinePrintsDay(q, date);
 }
 
 /** Does a quote print the outing's start time ("1 to 3 pm" needs a 1 o'clock time)? */
@@ -529,6 +650,16 @@ export function quoteHasTime(quote: string, time: string): boolean {
   if (/\bnoon\b/i.test(time)) return /\bnoon\b|\b12(:00)?\s*(p\.?m\.?)/.test(q);
   const hour = time.match(/\d{1,2}/)?.[0];
   if (!hour) return false;
+  // Structured data prints 24-hour times after a date, read in Pacific
+  // time ("…-05T13:00"; "…-05T21:00:00Z" is 1 pm).
+  const pm = /p\.?m/i.test(time);
+  const am = /a\.?m/i.test(time);
+  if (pm || am) {
+    const min = time.match(/\d{1,2}:(\d{2})/)?.[1] ?? "00";
+    const h24 = (Number(hour) % 12) + (pm ? 12 : 0);
+    if (machinePrintsTime(q, `${String(h24).padStart(2, "0")}:${min}`))
+      return true;
+  }
   return new RegExp(
     `\\b${hour}(:\\d{2})?\\s*(a\\.?m\\.?|p\\.?m\\.?|to\\b|-|until\\b)`,
   ).test(q);
@@ -707,6 +838,19 @@ export async function validateIssue(
 
   const issue = parsed.data;
   const { catalog, plan, history } = ctx;
+  // An outing from a stored event may leave its evidence out: the event's
+  // verified quotes stand in, and are fetched again like any other.
+  const borrowed = new Map<number, string>();
+  const lent = new Set<number>();
+  (issue.weekend ?? []).forEach((w, i) => {
+    if (w.evidence.length) return;
+    const got = outingEventEvidence(w, ctx.eventData, ctx.now);
+    if (typeof got === "string") borrowed.set(i, got);
+    else {
+      w.evidence = got;
+      lent.add(i);
+    }
+  });
   const month = Number(issue.issue_date.slice(5, 7));
   const errors: Finding[] = [];
   const warnings = base.warnings;
@@ -1057,6 +1201,16 @@ export async function validateIssue(
   );
   (issue.weekend ?? []).forEach((w, i) => {
     const key = `weekend.${i}`;
+    const noEvidence = borrowed.get(i);
+    if (noEvidence) flag(key, "evidence", noEvidence);
+    // Borrowed quotes passed the events rule when the event was stored.
+    for (const e of lent.has(i) ? [] : w.evidence)
+      if (!shortQuoteOk(e.quote, w.day))
+        flag(
+          key,
+          "evidence",
+          `The quote "${e.quote}" is too short: 20 characters, or 8 with a price or "free" and a date or time.`,
+        );
     if (w.day < wk.from || w.day > wk.to)
       flag(
         key,
@@ -1137,7 +1291,15 @@ export async function validateIssue(
         `The cost "${w.cost}" names no price. With no price printed on the page, leave this outing out.`,
       );
     for (const claim of priceClaims([w.cost, w.what]))
-      if (!quotesPrice(quotes, claim))
+      if (
+        !quotesPrice(quotes, claim) &&
+        // A listing's bare "Free" next to the outing's date counts (the
+        // events rule: "Free · Dec 6").
+        !(
+          claim === "free" &&
+          quotes.some((q) => BARE_FREE.test(q) && quoteHasDay(q, w.day))
+        )
+      )
         flag(
           key,
           "evidence",
@@ -1155,9 +1317,14 @@ export async function validateIssue(
   // site, so the link goes to the page that proved the facts. (Heads up
   // items are changes on our own map: no outside links.)
   (issue.weekend ?? []).forEach((w, i) => {
-    const site = siteOf(w.url, catalog.link_domains);
+    // dpl.libnet.info is the library, hdm.mux.earth the museum.
+    const org = (u: string) => {
+      const s = siteOf(u, catalog.link_domains);
+      return catalog.site_aliases?.[s] ?? s;
+    };
+    const site = org(w.url);
     for (const e of w.evidence)
-      if (siteOf(e.url, catalog.link_domains) !== site)
+      if (org(e.url) !== site)
         flag(
           `weekend.${i}`,
           "evidence",
@@ -1400,6 +1567,8 @@ export async function validateIssue(
       ? catalog.venues.find((v) => v.id === issue.plan_b?.venue_id)?.url
       : undefined;
   const checks: Promise<void>[] = [];
+  const namesFor = (key: string, texts: string[]) =>
+    eventTitleNames(key, texts, issue.weekend, ctx.eventData);
   for (const u of units) {
     const domains = [
       ...catalog.link_domains,
@@ -1427,6 +1596,11 @@ export async function validateIssue(
         );
     for (const url of new Set(urls)) {
       if (codeLink(url)) continue;
+      const lead = onList(url, catalog.lead_domains ?? []);
+      if (lead) {
+        flag(u.key, "links", leadMessage(lead));
+        continue;
+      }
       if (!ours(url) && !allowedLink(url, domains)) {
         flag(
           u.key,
@@ -1448,7 +1622,9 @@ export async function validateIssue(
               "links",
               r.blocked
                 ? `${host(url)} shows ${r.blocked} instead of the page. Use another official page.`
-                : `${url} answered ${r.status}, not 200.`,
+                : r.unreachable
+                  ? `${host(url)} didn't answer (${r.unreachable}).`
+                  : `${url} answered ${r.status}, not 200.`,
             );
           else if (!ours(r.finalUrl) && !allowedLink(r.finalUrl, domains))
             flag(u.key, "links", `${url} redirects off the allowlist.`);
@@ -1461,7 +1637,14 @@ export async function validateIssue(
       checks.push(
         fetchOnce(e.url, domains).then((r) => {
           if (r?.status !== 200) return; // already flagged as a link
-          if (!r.text.includes(normalizeText(e.quote)))
+          const q = normalizeText(e.quote);
+          // Page text, or the organizer's structured data (JSON-LD, JSON, .ics).
+          // A data line counts only when it names the item (its first
+          // text: the outing's name, the venue pick's words).
+          if (
+            !r.text.includes(q) &&
+            !dataHasQuote(r.data, q, namesFor(u.key, u.texts))
+          )
             flag(
               u.key,
               "evidence",

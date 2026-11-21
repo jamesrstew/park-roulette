@@ -1,29 +1,15 @@
 "use server";
 
 import { eq, sql } from "drizzle-orm";
-import { after } from "next/server";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { explorers } from "@/db/schema";
-import {
-  flush,
-  signupsBusy,
-  type SignupSource,
-  stopForExplorers,
-  subscribe,
-} from "@/lib/news/subscribers";
-import {
-  type ActionResult,
-  fail,
-  requireGrownUp,
-  UserError,
-} from "./action-utils";
+import { type SignupSource, stopForExplorers } from "@/lib/news/subscribers";
+import { type ActionResult, fail, requireGrownUp } from "./action-utils";
 import { getMe } from "./data";
-import { ev, EVENTS } from "./events";
-import { nextIssueDate } from "./news/data";
-import { cleanEmail, issueDay, PARK_NEWS } from "./park-news";
-import { clientIp } from "./sms";
+import { markOn } from "./on-cookie";
+import { emailYes, FORM_SOURCES } from "./signup-core";
 
 /**
  * Bend Playground Passport sign-ups and stops (single opt-in). Every
@@ -33,21 +19,6 @@ import { clientIp } from "./sms";
  * an invalid address, or the per-IP and daily caps ("busy"), get a
  * different reply.
  */
-
-const SOURCES = [
-  "footer",
-  "newsletter",
-  "issue_page",
-  "welcome_sheet",
-  "settings",
-  "texts_page",
-  "confirm_page",
-  // Ask moments (lib/asks.ts).
-  "next_pick",
-  "rainy_spin",
-  "weekend_spin",
-] as const satisfies readonly SignupSource[];
-const source = z.enum(SOURCES);
 
 /**
  * "Count us in!" from anywhere: the footer, /newsletter, an issue page,
@@ -62,47 +33,13 @@ export async function signUpForEmail(
   website = "",
 ): Promise<ActionResult & { firstIssue?: string }> {
   try {
-    const where = source.parse(from);
-    const email = cleanEmail(z.string().max(300).parse(rawEmail));
-    if (!email) throw new UserError("That email looks off. Try again?");
-    const track = ev(EVENTS.emailSignup, { source: where });
-    // A bot filled the hidden field: the same answer, and nothing happens.
-    if (website) return { ok: true, track, firstIssue: await firstIssue() };
-    const me = await getMe();
-    // Kids don't sign up for email: the same answer, and nothing happens.
-    if (me?.isKid) return { ok: true, track, firstIssue: await firstIssue() };
-    const explorerId = me && me.trusted ? me.id : null;
-    const ip = await clientIp();
-    // Over the per-IP or daily cap: a neutral "busy" (it says nothing
-    // about the address). The per-address cap stays silent.
-    if (await signupsBusy(ip)) throw new UserError(PARK_NEWS.busy);
-    // Everything about the address happens after the response, so its
-    // timing is the same whether or not it's already on the list.
-    after(async () => {
-      try {
-        await flush(await subscribe({ email, source: where, explorerId, ip }));
-      } catch (e) {
-        console.error("[news] signup failed", (e as Error)?.message);
-      }
-    });
-    if (explorerId) refresh();
-    return { ok: true, track, firstIssue: await firstIssue() };
+    // Never the welcome sheet's pre-checked source: that's savePicks.
+    const where = z.enum(FORM_SOURCES).parse(from);
+    const r = await emailYes(rawEmail, where, website);
+    if (r.explorerId) refresh();
+    return { ok: true, track: r.track, firstIssue: r.firstIssue };
   } catch (e) {
     return fail("signUpForEmail", e);
-  }
-}
-
-/**
- * The success line's date ("Thursday, December 3"): the first issue a new
- * subscriber gets (skip weeks included). Never fails a signup: without it
- * the line says "Thursday morning".
- */
-async function firstIssue(): Promise<string | undefined> {
-  try {
-    return issueDay(await nextIssueDate());
-  } catch (e) {
-    console.error("[news] next issue date failed", (e as Error)?.message);
-    return undefined;
   }
 }
 
@@ -156,6 +93,7 @@ export async function stopParkNews(): Promise<ActionResult> {
   try {
     const me = await requireGrownUp();
     await stopForExplorers([me.id], "settings");
+    await markOn("e", false);
     refresh();
     return { ok: true };
   } catch (e) {

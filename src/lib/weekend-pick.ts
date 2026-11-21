@@ -1,23 +1,33 @@
+import type { ForecastDay } from "./news/issue";
+import type { Tier } from "./news/tiers";
 import { isGsm7, septets, toGsmAscii } from "./texts";
 
 /**
  * Weekend Pick, the Friday text: the generator and the send-window rules,
- * pure (code only, no model, no new facts). The text is the decision
- * itself: the week's featured park from the SENT issue, its town, a few
- * kid-fit words from its own database record, and a weather word only
- * when the issue's forecast and Friday's fresh forecast agree.
+ * pure (code only, no model, no new facts). The text gives the weekend in
+ * words and links to this week's issue page, whose link preview carries
+ * the picture (spec: /tmp/pr-news/batch6/texts-spec.md):
  *
- *   Park Roulette: Weekend Pick: {hook} {Park}, {Town}. {fit}.
- *   https://parkroulette.quest/w/{code} Reply STOP to opt out
+ *   Park Roulette: {weather}. {plan}. {fit}. Reply STOP to opt out.
+ *   https://parkroulette.quest/w/{code}
  *
- * The link is our own short link (/w/{code}, the park's id in base 36):
- * it redirects to the park page and counts taps per issue.
+ * {weather} comes from the issue's frozen forecast (the weather card's
+ * own data). When Friday's fresh forecast flips a Saturday or Sunday into
+ * or out of the disruptive tier, the text starts "Update:" and uses the
+ * fresh forecast. {plan} is "Go Saturday: {Park}, {Town}" for the better
+ * day, or "Indoor pick: {Venue}, {Town}" when both days are disruptive.
+ * The link goes last: iMessage builds a rich preview only for a link at
+ * the start or end, and carriers need the STOP wording, not its position.
+ *
+ * {code} is the issue date as YYMMDD in base 36 (always 4 characters);
+ * /w/ sends it to /newsletter/{date}. Park codes from older texts are 1
+ * to 3 characters and still work.
  */
 
 export const SITE = "https://parkroulette.quest";
 export const MAX_CHARS = 160;
-export const PREFIX = "Park Roulette: Weekend Pick:";
-export const SUFFIX = "Reply STOP to opt out";
+export const BRAND = "Park Roulette:";
+export const STOP_LINE = "Reply STOP to opt out.";
 /**
  * At most this many Weekend Picks a number gets in a calendar month: the
  * "up to 5 a month" we promise. With one pick a Friday it can't bind
@@ -33,34 +43,73 @@ export const MONTHLY_CAP = 5;
  */
 export const START = { hour: 15, minute: 30 };
 export const END = { hour: 17, minute: 0 };
-/** Confirmations: any day, 8 am to 5 pm Pacific, and 8 am to 8 pm local. */
+/**
+ * The backlog of held confirmations (yeses collected while confirmations
+ * were off): any day, 8 am to 5 pm Pacific, and 8 am to 8 pm local. A
+ * confirmation answering a fresh yes goes at once, at any hour.
+ */
 export const CONFIRM_WINDOW = { from: 8, to: 17 };
 /** The recipient's local window: 8 am to 8 pm. */
 export const LOCAL_WINDOW = { from: 8, to: 20 };
-/** Two sends in a row with STOP above this rate pause the texts. */
+/** A send counts toward the guardrail above this STOP rate... */
 export const STOP_RATE_LIMIT = 0.01;
+/** ...with at least this many STOPs of its own. */
+export const STOP_MIN = 3;
 
-/** A park's short-link code: its id in base 36 ("3f"). */
+// --- Short links -------------------------------------------------------------
+
+/** A park's short-link code, from older texts: its id in base 36 ("3f"). */
 export function parkCode(id: number): string {
   return id.toString(36);
 }
 
-/** The park id a short-link code names, or null for anything else. */
+/**
+ * The park id an old text's code names (1 to 3 characters), or null.
+ * Four characters is always an issue date (dateFromCode).
+ */
 export function parkIdFromCode(code: string): number | null {
-  if (!/^[0-9a-z]{1,4}$/.test(code)) return null;
+  if (!/^[0-9a-z]{1,3}$/.test(code)) return null;
   const id = parseInt(code, 36);
   return Number.isSafeInteger(id) && id > 0 && parkCode(id) === code
     ? id
     : null;
 }
 
-/** news_clicks' key for Weekend Pick taps (per issue, next to /n/ links). */
-export const WEEKEND_PICK_CLICK = "weekend-pick-text";
-
-/** The text's link: /w/{code}. */
-export function shortLink(id: number): string {
-  return `${SITE}/w/${parkCode(id)}`;
+/** An issue date's code: YYMMDD in base 36 (2026-12-10 is "5lju"). */
+export function dateCode(issueDate: string): string {
+  if (!/^20\d{2}-\d{2}-\d{2}$/.test(issueDate))
+    throw new Error(`Not an issue date: ${issueDate}`);
+  const [y, m, d] = issueDate.split("-");
+  const code = Number(`${y.slice(2)}${m}${d}`).toString(36);
+  if (code.length !== 4)
+    throw new Error(`No 4-character code for ${issueDate}`);
+  return code;
 }
+
+/** The issue date a 4-character code names, or null. */
+export function dateFromCode(code: string): string | null {
+  if (!/^[0-9a-z]{4}$/.test(code)) return null;
+  const n = parseInt(code, 36);
+  if (n < 100_000 || n > 991_231) return null;
+  const s = String(n);
+  const date = `20${s.slice(0, 2)}-${s.slice(2, 4)}-${s.slice(4, 6)}`;
+  const t = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(t.getTime()) || t.toISOString().slice(0, 10) !== date)
+    return null;
+  return dateCode(date) === code ? date : null;
+}
+
+/** news_clicks' key for taps on old park links (/w/{park code}). */
+export const WEEKEND_PICK_CLICK = "weekend-pick-text";
+/** news_clicks' key for the issue page's beacon from a text (?src=text). */
+export const WEEKEND_PICK_TAP = "weekend-pick-tap";
+
+/** The text's link: /w/{date code}. */
+export function issueLink(issueDate: string): string {
+  return `${SITE}/w/${dateCode(issueDate)}`;
+}
+
+// --- The words ---------------------------------------------------------------
 
 export type ParkFacts = {
   id: number;
@@ -71,21 +120,81 @@ export type ParkFacts = {
   status: string;
 };
 
-export type Hook = "Sunny weekend?" | "Snowy weekend?" | null;
+/** One weekend day as the text says it: "Snow", 29. */
+export type TextDay = { date: string; word: string; high: number };
 
 /**
- * The text: with the weather word if it fits, else without it (a weather
- * word never costs the week its text). Null when neither fits.
+ * The text's weather word for a card condition: the card's own word,
+ * shortened where a text reads better ("Mostly sunny" is "Sunny").
  */
-export function weekendText(
-  park: ParkFacts,
-  hook: Hook,
-  month: number,
+export function weatherWord(condition: string): string {
+  const c = condition.trim().toLowerCase();
+  const map: Record<string, string> = {
+    "mostly sunny": "Sunny",
+    sunny: "Sunny",
+    "partly sunny": "Partly sunny",
+    "mostly cloudy": "Cloudy",
+    cloudy: "Cloudy",
+    "snow showers": "Snow",
+    blizzard: "Snow",
+    foggy: "Fog",
+  };
+  return map[c] ?? (c ? c[0].toUpperCase() + c.slice(1) : "");
+}
+
+/** Saturday and Sunday of the issue's card, skipping a missing day. */
+export function textDays(
+  days: readonly ForecastDay[] | undefined,
+  issueDate: string,
+): TextDay[] {
+  const weekend = [addDays(issueDate, 2), addDays(issueDate, 3)];
+  return weekend.flatMap((date) => {
+    const d = days?.find((x) => x.date === date);
+    if (!d || d.missing || d.high == null) return [];
+    const word = weatherWord(d.condition);
+    return word ? [{ date, word, high: d.high }] : [];
+  });
+}
+
+const DAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DAY_LONG = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+const weekday = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
+
+function addDays(date: string, n: number): string {
+  const t = new Date(`${date}T12:00:00Z`);
+  t.setUTCDate(t.getUTCDate() + n);
+  return t.toISOString().slice(0, 10);
+}
+
+/**
+ * "Sunny Sat and Sun, 47 and 49" or "Snow Sat, 29. Sunny Sun, 36"; short:
+ * "Sat rain and snow 33, Sun partly sunny 41". Null with no days.
+ */
+export function weatherWords(
+  days: readonly TextDay[],
+  short = false,
 ): string | null {
-  return (
-    (hook ? composeText(park, hook, month) : null) ??
-    composeText(park, null, month)
-  );
+  const [a, b] = days;
+  if (!a) return null;
+  const dayA = DAY_SHORT[weekday(a.date)];
+  if (!b)
+    return short
+      ? `${dayA} ${a.word.toLowerCase()} ${a.high}`
+      : `${a.word} ${dayA}, ${a.high}`;
+  const dayB = DAY_SHORT[weekday(b.date)];
+  if (a.word === b.word)
+    return `${a.word} ${dayA} and ${dayB}, ${a.high} and ${b.high}`;
+  return short
+    ? `${dayA} ${a.word.toLowerCase()} ${a.high}, ${dayB} ${b.word.toLowerCase()} ${b.high}`
+    : `${a.word} ${dayA}, ${a.high}. ${b.word} ${dayB}, ${b.high}`;
 }
 
 /**
@@ -116,38 +225,219 @@ export function fitWords(features: readonly string[], month: number): string[] {
   return out;
 }
 
+// --- The plan ----------------------------------------------------------------
+
+export type TextPlan =
+  | {
+      kind: "park";
+      /** The date of the day to go (Saturday or Sunday). */
+      date: string;
+      name: string;
+      city: string;
+      fit: readonly string[];
+    }
+  | { kind: "indoor"; name: string; city: string };
+
+const RANK: Record<Tier, number> = { fine: 0, plan_around: 1, disruptive: 2 };
+
 /**
- * The text, or null when nothing fits (no fit word fits in 160
- * characters, the park is closed, or a check fails): then skip and alert.
- * Fit words go in, in order, while the whole still fits.
+ * A day's tier when the issue's plan has none stored (issues from before
+ * the tiers): rain, snow or storms at 40% or more and smoke count as
+ * disruptive for picking the day only. Never opens the Indoor pick.
  */
-export function composeText(
-  park: ParkFacts,
-  hook: Hook,
-  month: number,
-): string | null {
-  if (park.status !== "active") return null;
-  if (!/^[a-z0-9-]+$/.test(park.slug)) return null;
-  const url = shortLink(park.id);
-  // Curly quotes and dashes in a name would make the text Unicode (70 a
-  // segment): plain ASCII instead.
-  const name = toGsmAscii(park.name);
-  const city = toGsmAscii(park.city);
-  const head = `${PREFIX} ${hook ? `${hook} ` : ""}${name}, ${city}.`;
-  const build = (fit: string[]) =>
-    `${head} ${fit.map((w, i) => (i ? w.toLowerCase() : w)).join(", ")}. ${url} ${SUFFIX}`;
-  const fit: string[] = [];
-  for (const w of fitWords(park.features, month)) {
-    if (septets(build([...fit, w])) <= MAX_CHARS) fit.push(w);
+export function roughTier(d: ForecastDay | undefined): Tier {
+  if (!d || d.missing) return "fine";
+  if (d.icon === "smoke") return "disruptive";
+  if (["rain", "snow", "mixed", "storm"].includes(d.icon))
+    return (d.precip ?? 0) >= 40 ? "disruptive" : "plan_around";
+  if (["cloudy", "fog", "wind"].includes(d.icon)) return "plan_around";
+  return "fine";
+}
+
+/** The day to go: the better tier, Saturday on a tie. */
+export function betterDay(
+  saturday: string,
+  tiers: Partial<Record<string, Tier>>,
+): string {
+  const sunday = addDays(saturday, 1);
+  const r = (d: string) => RANK[tiers[d] ?? "fine"];
+  return r(sunday) < r(saturday) ? sunday : saturday;
+}
+
+/**
+ * Did Friday's forecast flip a weekend day into or out of disruptive?
+ * Only days both forecasts cover count (missing data never decides).
+ */
+export function tierFlipped(
+  issue: Partial<Record<string, Tier>> | null,
+  fresh: Partial<Record<string, Tier>> | null,
+  dates: readonly string[],
+): boolean {
+  if (!issue || !fresh) return false;
+  return dates.some((d) => {
+    const a = issue[d];
+    const b = fresh[d];
+    return !!a && !!b && (a === "disruptive") !== (b === "disruptive");
+  });
+}
+
+// --- The text ----------------------------------------------------------------
+
+export type WeekInput = {
+  /** The issue's Thursday. */
+  issueDate: string;
+  /** The issue's frozen forecast (weekend_ahead.days). */
+  days: readonly ForecastDay[] | undefined;
+  /** Bend's tiers by date from the issue's plan, or null (older issues). */
+  tiers: Partial<Record<string, Tier>> | null;
+  /** The featured park (approved), or null. */
+  park: ParkFacts | null;
+  /** The issue's Indoor pick venue, if it ran one. */
+  indoor: { name: string; city: string } | null;
+  /** Friday's fresh forecast for Bend, when it could be fetched. */
+  fresh?: {
+    days: readonly TextDay[];
+    tiers: Partial<Record<string, Tier>>;
+  } | null;
+};
+
+export type WeekText = {
+  text: string;
+  /** "Snow Sat, 29. Sunny Sun, 36" when Friday's forecast changed the plan. */
+  update: string | null;
+  /** The plan the text names (the page follows it on an Update week). */
+  plan: { kind: "park"; date: string } | { kind: "indoor" };
+};
+
+/** A name for a text: ASCII, no parenthetical ("Gym (Bend)" is "Gym"). */
+export function textName(name: string): string {
+  return toGsmAscii(name)
+    .replace(/\s*\([^)]*\)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * The week's text, or null when nothing fits (then skip and alert James;
+ * the full-catalog test keeps that from happening with real names).
+ */
+export function weekendText(input: WeekInput): WeekText | null {
+  const saturday = addDays(input.issueDate, 2);
+  const weekend = [saturday, addDays(saturday, 1)];
+  const update = tierFlipped(input.tiers, input.fresh?.tiers ?? null, weekend);
+  const frozen = textDays(input.days, input.issueDate);
+  // Friday's forecast wins where it has a day; the issue's fills the gaps.
+  const days = update
+    ? weekend.flatMap((d) => {
+        const x =
+          input.fresh?.days.find((f) => f.date === d) ??
+          frozen.find((f) => f.date === d);
+        return x ? [x] : [];
+      })
+    : frozen;
+  const rough = Object.fromEntries(
+    weekend.map((d) => [d, roughTier(input.days?.find((x) => x.date === d))]),
+  );
+  const tiers: Partial<Record<string, Tier>> = update
+    ? { ...input.tiers, ...input.fresh!.tiers }
+    : (input.tiers ?? rough);
+  // The Indoor pick needs real tiers: both days disruptive.
+  const indoorWeek =
+    !!input.indoor &&
+    (update || !!input.tiers) &&
+    weekend.every((d) => tiers[d] === "disruptive");
+  const link = issueLink(input.issueDate);
+  const done = (text: string | null, plan: TextPlan): WeekText | null =>
+    text
+      ? {
+          text,
+          update: update ? (weatherWords(days) ?? "") : null,
+          plan:
+            plan.kind === "park"
+              ? { kind: "park", date: plan.date }
+              : { kind: "indoor" },
+        }
+      : null;
+  if (indoorWeek && input.indoor) {
+    const plan: TextPlan = {
+      kind: "indoor",
+      name: textName(input.indoor.name),
+      city: textName(input.indoor.city),
+    };
+    const text = composeText({ update, days, plan, link });
+    // An Indoor pick that can't fit falls back to the park.
+    if (text) return done(text, plan);
   }
-  if (!fit.length) return null;
-  const text = build(fit);
-  return textProblems(text) ? null : text;
+  if (
+    !input.park ||
+    input.park.status !== "active" ||
+    !/^[a-z0-9-]+$/.test(input.park.slug)
+  )
+    return null;
+  const date = betterDay(saturday, tiers);
+  const plan: TextPlan = {
+    kind: "park",
+    date,
+    name: textName(input.park.name),
+    city: textName(input.park.city),
+    fit: fitWords(input.park.features, Number(date.slice(5, 7))),
+  };
+  return done(composeText({ update, days, plan, link }), plan);
+}
+
+/**
+ * The shortening steps, in order: drop fit words (they go in only while
+ * the whole fits), then the short weather, then "Go Sat:", then drop the
+ * town, then the other day's weather, then all the weather. Null when
+ * even that is too long.
+ */
+const STEPS = [
+  { short: false, abbrev: false, town: true, weather: "both" },
+  { short: true, abbrev: false, town: true, weather: "both" },
+  { short: true, abbrev: true, town: true, weather: "both" },
+  { short: true, abbrev: true, town: false, weather: "both" },
+  { short: true, abbrev: true, town: false, weather: "plan_day" },
+  { short: true, abbrev: true, town: false, weather: "none" },
+] as const;
+
+export function composeText(x: {
+  update: boolean;
+  days: readonly TextDay[];
+  plan: TextPlan;
+  link: string;
+}): string | null {
+  const { plan } = x;
+  // The day the plan is for keeps its weather longest (Saturday indoors).
+  const planDay = plan.kind === "park" ? plan.date : (x.days[0]?.date ?? "");
+  for (const step of STEPS) {
+    const shown =
+      step.weather === "both"
+        ? x.days
+        : step.weather === "plan_day"
+          ? x.days.filter((d) => d.date === planDay)
+          : [];
+    const weather = weatherWords(shown, step.short);
+    const head = `${BRAND} ${x.update ? "Update: " : ""}${weather ? `${weather}. ` : ""}`;
+    const where = step.town ? `${plan.name}, ${plan.city}` : plan.name;
+    const what =
+      plan.kind === "indoor"
+        ? `Indoor pick: ${where}`
+        : `Go ${(step.abbrev ? DAY_SHORT : DAY_LONG)[weekday(plan.date)]}: ${where}`;
+    const build = (fit: readonly string[]) =>
+      `${head}${what}.${fit.length ? ` ${fit.map((w, i) => (i ? w.toLowerCase() : w)).join(", ")}.` : ""} ${STOP_LINE} ${x.link}`;
+    const fit: string[] = [];
+    if (plan.kind === "park")
+      for (const w of plan.fit)
+        if (septets(build([...fit, w])) <= MAX_CHARS) fit.push(w);
+    const text = build(fit);
+    if (!textProblems(text)) return text;
+  }
+  return null;
 }
 
 /**
  * The dry run's text: "[Dry run] " in front only when the whole still fits
- * in one segment, so "Reply STOP to opt out" is never cut off.
+ * in one segment, so the STOP line and the link are never cut off.
  */
 export function dryRunText(text: string): string {
   const marked = `[Dry run] ${text}`;
@@ -156,43 +446,23 @@ export function dryRunText(text: string): string {
 
 /**
  * Why a text can't go, or null: GSM-7, length in septets (one segment),
- * prefix, suffix, one link.
+ * the brand first, the STOP line, and exactly one link, our short link to
+ * an issue, at the very end.
  */
 export function textProblems(text: string): string | null {
   if (!isGsm7(text)) return "not GSM-7";
   if (septets(text) > MAX_CHARS) return "over 160 characters";
-  if (!text.startsWith("Park Roulette:")) return "doesn't start with the brand";
-  if (!text.endsWith(SUFFIX)) return "doesn't end with the STOP line";
+  if (!text.startsWith(BRAND)) return "doesn't start with the brand";
+  if (!text.includes(STOP_LINE)) return "doesn't carry the STOP line";
   const urls = text.match(/https?:\/\/\S+/g) ?? [];
   if (
     urls.length !== 1 ||
-    !/^https:\/\/parkroulette\.quest\/w\/[0-9a-z]{1,4}$/.test(urls[0])
+    !/^https:\/\/parkroulette\.quest\/w\/[0-9a-z]{4}$/.test(urls[0])
   )
-    return "needs exactly one link, our short link to a park";
-  return null;
-}
-
-/**
- * The weather word: only when the issue's Saturday and Friday's fresh
- * Saturday forecast both say it. A fresh forecast can remove a weather
- * word, never add one. "Sunny" means a sunny or clear sky ("Partly Sunny"
- * isn't), and never with rain, snow, cold (35 or under) or smoke.
- */
-export function hookFor(
-  issueSaturday: { icon: string } | null,
-  freshSaturday: { short: string; labels: readonly string[] } | null,
-): Hook {
-  if (!issueSaturday || !freshSaturday) return null;
-  const fresh = freshSaturday.short.trim().toLowerCase();
-  const has = (l: string) => freshSaturday.labels.includes(l);
-  if (issueSaturday.icon === "snow" && has("snow") && !has("smoke"))
-    return "Snowy weekend?";
-  if (
-    issueSaturday.icon === "sun" &&
-    /^(mostly )?(sunny|clear)$/.test(fresh) &&
-    !["rain", "storm", "snow", "cold", "smoke"].some(has)
-  )
-    return "Sunny weekend?";
+    return "needs exactly one link, our short link to the issue";
+  if (!text.endsWith(` ${urls[0]}`)) return "the link must come last";
+  if (text.indexOf(STOP_LINE) > text.indexOf(urls[0]))
+    return "the STOP line must come before the link";
   return null;
 }
 
@@ -345,9 +615,20 @@ export function stopRate(sent: number, stops: number): number {
   return sent ? stops / sent : 0;
 }
 
-/** Pause when the last two completed sends both ran above 1% STOP. */
-export function guardrailTrips(rates: readonly number[]): boolean {
+/** One completed send: the numbers it reached and the STOPs after it. */
+export type SendStops = { sent: number; stops: number };
+
+/**
+ * Pause after two sends in a row where each, on its own, had at least 3
+ * STOPs AND more than 1%: on a small list one or two STOPs are already
+ * over 1%, and that alone shouldn't stop the program.
+ */
+export function guardrailTrips(sends: readonly SendStops[]): boolean {
+  const last = sends.slice(0, 2);
   return (
-    rates.length >= 2 && rates.slice(0, 2).every((r) => r > STOP_RATE_LIMIT)
+    last.length === 2 &&
+    last.every(
+      (s) => s.stops >= STOP_MIN && stopRate(s.sent, s.stops) > STOP_RATE_LIMIT,
+    )
   );
 }

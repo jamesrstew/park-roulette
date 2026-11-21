@@ -14,7 +14,8 @@ import { addDays, pacific } from "./news/time";
  *
  * Exposures are counted per device (localStorage pr:asks): at most 1 a
  * day, 2 a week, 6 ever, and a moment ignored twice is retired. "No
- * thanks" and subscriptions follow the account when signed in.
+ * thanks" and subscriptions follow the account when signed in; signed
+ * out, the server reads the browser's pr_on cookie (lib/on-cookie.ts).
  */
 
 export type Moment = "next_pick" | "rainy_spin" | "weekend_spin";
@@ -80,6 +81,11 @@ export type AskCtx = {
   };
   /** The crew's latest stamp. */
   lastStamp: { key: string; park: string; at: string } | null;
+  /**
+   * What this browser's pr_on cookie says it already gets (lib/on-cookie.ts),
+   * read on the server: the signed-out truth, and a hint when signed in.
+   */
+  device?: { email: boolean; text: boolean };
   /** Weekend Pick texts are going out (and the number is known). */
   textsAvailable: boolean;
   /** The settled result under which rainy_spin or weekend_spin may show. */
@@ -97,11 +103,18 @@ export function openChannels(
   state: AskState,
 ): Record<Channel, boolean> {
   const a = ctx.account;
+  const d = ctx.device;
   return {
-    email: !(state.on.email || state.no.email || a?.emailOn || a?.emailNo),
+    email: !(
+      state.on.email ||
+      state.no.email ||
+      d?.email ||
+      a?.emailOn ||
+      a?.emailNo
+    ),
     text:
       ctx.textsAvailable &&
-      !(state.on.text || state.no.text || a?.textsOn || a?.textNo),
+      !(state.on.text || state.no.text || d?.text || a?.textsOn || a?.textNo),
   };
 }
 
@@ -225,6 +238,23 @@ export function recordDeclined(
   const no = { ...state.no };
   for (const c of channels) no[c] = true;
   return { ...state, no };
+}
+
+/**
+ * The welcome sheet's picks page left the email box unchecked or empty:
+ * one ignored next_pick, hidden for today (it never takes a slot today).
+ */
+export function recordPicksIgnored(state: AskState, now: Date): AskState {
+  const d = pacific(now).date;
+  if (state.exposures.some((e) => e.m === "next_pick" && e.d === d))
+    return markToday(state, "next_pick", now, { hidden: true, tapped: false });
+  return {
+    ...state,
+    exposures: [
+      ...state.exposures,
+      { m: "next_pick" as const, d, hidden: true },
+    ].slice(-50),
+  };
 }
 
 /** Signed up in this browser (or came from an email link). */

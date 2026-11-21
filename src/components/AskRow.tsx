@@ -116,6 +116,7 @@ export function AskSlot({
             isKid: server.isKid,
             borrowed: server.borrowed,
             account: server.account,
+            device: server.device,
             lastStamp: server.lastStamp,
             textsAvailable: server.textsAvailable,
             overlayOpen: overlay,

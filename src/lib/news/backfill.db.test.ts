@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { testDbOn } from "@/lib/local-db";
 import { addressHash } from "./tokens";
 
 /**
@@ -11,7 +12,7 @@ import { addressHash } from "./tokens";
  * explorers and crews.
  */
 const URL_ = process.env.TEST_DATABASE_URL ?? "";
-const local = /@(localhost|127\.0\.0\.1)[:/]/.test(URL_);
+const local = testDbOn(URL_);
 
 /** The backfill statement: the migration's last one. */
 const BACKFILL = readFileSync(

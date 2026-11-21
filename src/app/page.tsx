@@ -10,7 +10,6 @@ import { GuideLinks } from "@/components/seo/GuideLinks";
 import { JsonLd } from "@/components/seo/JsonLd";
 import type { AskServer } from "@/components/AskRow";
 import { ASK_LAUNCH, type Wet, wetFrom } from "@/lib/asks";
-import { getNewsSettings } from "@/lib/news/data";
 import {
   getBucketList,
   getMe,
@@ -26,13 +25,11 @@ import {
 import { subscriptionFor } from "@/lib/news/subscribers";
 import { addDays, pacific } from "@/lib/news/time";
 import { publicParks } from "@/lib/seo-data";
+import { readOn } from "@/lib/on-cookie";
+import { textsAvailable as textsAvailableNow } from "@/lib/signup-core";
 import { SITE_URL } from "@/lib/site";
 import { TEXTS_FROM } from "@/lib/texts";
-import {
-  confirmationsEnabled,
-  sendingEnabled,
-  textsOn,
-} from "@/lib/texts-store";
+import { confirmationsEnabled, textsOn } from "@/lib/texts-store";
 
 export const metadata: Metadata = {
   title: { absolute: "Park Roulette: find a playground in Central Oregon" },
@@ -43,20 +40,19 @@ export const metadata: Metadata = {
 
 /** The ask moments' facts for this visitor (lib/asks.ts). */
 async function askFacts(me: Me | null): Promise<AskServer> {
-  // Texts are offered only when the Friday text really goes to families:
-  // a number, sending on, and /admin's dry run and kill switch both off.
-  const settings = await getNewsSettings();
-  const textsAvailable =
-    !!TEXTS_FROM &&
-    sendingEnabled() &&
-    !settings.textsDryRun &&
-    !settings.textsPaused;
+  // Texts are offered only when the Friday text really goes to families
+  // (the same gate as the picks page and the footer).
+  const [textsAvailable, here] = await Promise.all([
+    textsAvailableNow(),
+    readOn(),
+  ]);
   const base = {
     isKid: !!me?.isKid,
     borrowed: !!me && !me.trusted,
     textsAvailable,
     textsSendingOn: confirmationsEnabled(),
     textsFrom: TEXTS_FROM,
+    device: { email: here.email, text: here.texts },
   };
   if (!me || me.isKid || !me.trusted)
     return {
@@ -153,7 +149,11 @@ async function Spin() {
   // not when the account already gets the email or said no to it.
   const a = asks.account;
   const wet =
-    asks.isKid || asks.borrowed || a?.emailOn || a?.emailNo
+    asks.isKid ||
+    asks.borrowed ||
+    a?.emailOn ||
+    a?.emailNo ||
+    asks.device?.email
       ? Promise.resolve({})
       : wetWeekend();
   return (

@@ -8,6 +8,9 @@ import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   emailConfirmations,
+  kidEventHandins,
+  newsLessons,
+  newsRetros,
   newsIssues,
   newsChunkState,
   newsSends,
@@ -694,6 +697,17 @@ export async function newsDailyChecks(now = new Date()) {
   await db
     .delete(webhookEvents)
     .where(lt(webhookEvents.receivedAt, sql`now() - interval '30 days'`));
+  // Retros and event hand-in counts are kept a year (lessons stay).
+  await db
+    .delete(newsRetros)
+    .where(lt(newsRetros.createdAt, sql`now() - interval '1 year'`));
+  await db
+    .delete(kidEventHandins)
+    .where(lt(kidEventHandins.createdAt, sql`now() - interval '1 year'`));
+  // A lesson nobody has hit in 26 weeks is gone (its retros stay a year).
+  await db
+    .delete(newsLessons)
+    .where(lt(newsLessons.lastSeen, sql`now() - interval '26 weeks'`));
   await db
     .delete(emailConfirmations)
     .where(lt(emailConfirmations.createdAt, sql`now() - interval '30 days'`));

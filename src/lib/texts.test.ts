@@ -3,6 +3,8 @@ import {
   agreementOk,
   checkboxLine,
   classifyReply,
+  consentVersionFor,
+  TEXT_SOURCES,
   isGsm7,
   prettyPhone,
   TEXTS,
@@ -24,7 +26,7 @@ describe("Weekend texts words", () => {
     }
     // The MMS confirmation (with our contact card), word for word.
     expect(TEXTS.confirmation).toBe(
-      "Park Roulette: You're in! One playground pick every Friday afternoon (up to 5/mo). Tap the card to save us so you know it's us. Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
+      "Park Roulette: You're in! One playground pick every Friday afternoon (up to 5/mo). Save this contact to see weekend previews. Msg & data rates may apply. Reply HELP for help, STOP to opt out.",
     );
     expect(TEXTS.confirmationSms).toContain("Reply HELP for help");
     expect(isGsm7("Curly ’quote’")).toBe(false);
@@ -158,21 +160,53 @@ describe("the yes the browser sends (L7)", () => {
     expect(TEXTS_CONSENT_TEXT["sms-2026-11-19"].disclosure).toMatch(/^About 1/);
   });
   it("needs the box checked and today's exact words", () => {
-    expect(agreementOk(good, "+15415550123")).toBe(true);
+    const ok = (a: unknown) => agreementOk(a, "+15415550123", "texts_page");
+    expect(ok(good)).toBe(true);
     expect(
-      agreementOk(
-        { ...good, checkbox: checkboxLine(TEXTS_CONSENT_VERSION, null) },
-        "+15415550123",
-      ),
+      ok({ ...good, checkbox: checkboxLine(TEXTS_CONSENT_VERSION, null) }),
     ).toBe(true);
-    expect(agreementOk({ ...good, agreed: false }, "+15415550123")).toBe(false);
-    expect(
-      agreementOk({ ...good, version: "sms-2026-11-19" }, "+15415550123"),
-    ).toBe(false);
-    expect(
-      agreementOk({ ...good, disclosure: "anything" }, "+15415550123"),
-    ).toBe(false);
-    expect(agreementOk(null, "+15415550123")).toBe(false);
+    expect(ok({ ...good, agreed: false })).toBe(false);
+    expect(ok({ ...good, version: "sms-2026-11-19" })).toBe(false);
+    expect(ok({ ...good, disclosure: "anything" })).toBe(false);
+    expect(ok(null)).toBe(false);
+  });
+  it("accepts each surface's wording only from that surface (batch 6)", () => {
+    const yes = (version: string) => ({
+      agreed: true,
+      version,
+      checkbox: checkboxLine(version, "+15415550123"),
+      disclosure: TEXTS_CONSENT_TEXT[version].disclosure,
+    });
+    expect(consentVersionFor("welcome_sheet")).toBe("sms-2026-11-22-sheet");
+    expect(consentVersionFor("site_footer")).toBe("sms-2026-11-22-footer");
+    expect(TEXTS_CONSENT_TEXT["sms-2026-11-22-sheet"].button).toBe(
+      "Let's spin!",
+    );
+    expect(TEXTS_CONSENT_TEXT["sms-2026-11-22-footer"].button).toBe(
+      "Text me Fridays",
+    );
+    const all = [
+      TEXTS_CONSENT_VERSION,
+      "sms-2026-11-22-sheet",
+      "sms-2026-11-22-footer",
+    ];
+    for (const source of TEXT_SOURCES)
+      for (const v of all)
+        expect(
+          agreementOk(yes(v), "+15415550123", source),
+          `${v} from ${source}`,
+        ).toBe(v === consentVersionFor(source));
+    // An unknown source gets the default wording only.
+    expect(agreementOk(yes("sms-2026-11-22-sheet"), null, "nowhere")).toBe(
+      false,
+    );
+  });
+  it("freezes the batch 6 words: the 11-21 box and disclosure, never pre-checked", () => {
+    const base = TEXTS_CONSENT_TEXT["sms-2026-11-21"];
+    for (const v of ["sms-2026-11-22-sheet", "sms-2026-11-22-footer"]) {
+      expect(TEXTS_CONSENT_TEXT[v].checkbox).toBe(base.checkbox);
+      expect(TEXTS_CONSENT_TEXT[v].disclosure).toBe(base.disclosure);
+    }
   });
   it("never treats YES as START", () => {
     expect(classifyReply("YES")).toBe("other");
