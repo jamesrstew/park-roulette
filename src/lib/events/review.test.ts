@@ -271,6 +271,29 @@ describe("high 5: de-duplication", () => {
     expect(titleJaccard("Family Story Time", "Lego Club")).toBe(0);
   });
 
+  it("two library programs sharing the calendar link at one branch and time are two pages (lessons 33, 47)", async () => {
+    // Every library program links deschuteslibrary.org/calendar/; each
+    // date is checked on its own dpl.libnet.info/event/{id} page.
+    const r = await validateEvents({ events: [story()] }, ctx());
+    expect(r.events[0].event?.url).toBe(CAL);
+    dedupe(r.events, [
+      known({ url: CAL, targetUrls: ["https://dpl.libnet.info/event/999"] }),
+    ]);
+    expect(r.events[0].ok).toBe(true);
+    expect(r.events[0].warnings.join(" ")).toMatch(/same venue, day and start/);
+    expect(r.events[0].warnings.join(" ")).not.toMatch(/official page/);
+
+    // The same occurrence page is still the same event.
+    const again = await validateEvents({ events: [story()] }, ctx());
+    dedupe(again.events, [known({ url: CAL, targetUrls: [EV] })]);
+    expect(again.events[0].ok).toBe(false);
+
+    // A stored page with no per-date pages: the link still counts.
+    const old = await validateEvents({ events: [story()] }, ctx());
+    dedupe(old.events, [known({ url: CAL, targetUrls: [] })]);
+    expect(old.events[0].ok).toBe(false);
+  });
+
   it("never lets a legacy row's (other venues') dates block", async () => {
     const r = await validateEvents({ events: [story()] }, ctx());
     dedupe(r.events, [

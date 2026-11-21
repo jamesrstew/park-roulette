@@ -49,7 +49,12 @@ import {
 
 export type EventsContext = {
   catalog: Pick<Catalog, "link_domains" | "event_series"> &
-    Partial<Pick<Catalog, "lead_domains" | "site_aliases" | "alias_pins">>;
+    Partial<
+      Pick<
+        Catalog,
+        "lead_domains" | "site_aliases" | "alias_pins" | "alias_paths"
+      >
+    >;
   /** Public parks on our map, by slug (a venue at a park uses its pin). */
   parks: ReadonlyMap<string, { lat: number; lng: number; name: string }>;
   /** Omit for a quick check (no pages fetched). */
@@ -237,7 +242,11 @@ const WEEKDAYS = [
   "saturday",
 ];
 
-/** Does a quote print this date: "Nov 21", "November 21st", "11/21"? */
+/**
+ * Does a quote print this date: "Nov 21", "November 21st", "11/21"? A
+ * zero-padded day or month counts as printed ("December 02", "Dec 06,
+ * 2026", "12/02"): the library's calendar and Wix sites print them.
+ */
 export function quotePrintsDate(quote: string, day: string): boolean {
   const q = quote.toLowerCase();
   const [y, m, d] = day.split("-").map(Number);
@@ -247,11 +256,11 @@ export function quotePrintsDate(quote: string, day: string): boolean {
     Number(printed) === y ||
     (printed.length === 2 && Number(printed) === y % 100);
   const long = new RegExp(
-    `\\b${MONTHS3[m - 1]}[a-z]*\\.?\\s+${d}(?:st|nd|rd|th)?(?!\\d)(?:,?\\s+(\\d{4})\\b)?`,
+    `\\b${MONTHS3[m - 1]}[a-z]*\\.?\\s+0?${d}(?:st|nd|rd|th)?(?!\\d)(?:,?\\s+(\\d{4})\\b)?`,
     "g",
   );
   const short = new RegExp(
-    `(?<!\\d)${m}/${d}(?!\\d)(?:/(\\d{4}|\\d{2})\\b)?`,
+    `(?<!\\d)0?${m}/0?${d}(?!\\d)(?:/(\\d{4}|\\d{2})\\b)?`,
     "g",
   );
   if ([...q.matchAll(long), ...q.matchAll(short)].some((x) => yearOk(x[1])))
@@ -529,6 +538,17 @@ export function checkEvent(
     const q = new URL(x.url).searchParams;
     for (const [k, want] of Object.entries(ctx.catalog.alias_pins![a]))
       if (q.get(k) !== want) p.push(`Evidence on ${a} needs ${k}=${want}.`);
+  }
+  // A host serving many organizations by path: the organizer's own paths.
+  for (const x of e.evidence) {
+    const paths = ctx.catalog.alias_paths ?? {};
+    const a = onList(x.url, Object.keys(paths));
+    if (!a) continue;
+    const path = new URL(x.url).pathname;
+    if (!paths[a].some((pre) => path.startsWith(pre)))
+      p.push(
+        `Evidence on ${a} must be the organizer's own data (${paths[a].join(" or ")}).`,
+      );
   }
   for (const u of new Set(links)) {
     const h = host(u).replace(/^www\./, "");

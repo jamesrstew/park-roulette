@@ -36,6 +36,7 @@ const catalog: Catalog = {
   lead_domains: ["visitbend.com"],
   site_aliases: {},
   alias_pins: {},
+  alias_paths: {},
   venue_aliases: [],
   walled_hosts: [],
   skip_dates: [{ date: "2026-12-24", reason: "Christmas Eve" }],

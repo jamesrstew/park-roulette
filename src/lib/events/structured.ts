@@ -5,7 +5,8 @@ import { normalizeText, pageText } from "@/lib/news/validate";
  * Structured evidence: the organization's own machine data, as text a
  * quote can be matched against. Some official pages print no text
  * without JavaScript (the High Desert Museum, Sunriver Resort), but they
- * carry the same facts as JSON-LD, a CMS JSON endpoint or an .ics feed.
+ * carry the same facts as JSON-LD, a CMS JSON endpoint, the page's own
+ * Next.js data, or an .ics feed.
  * Each record becomes one line of its field values, " | " between
  * fields, so a quote is copied from the organizer's data, never made up.
  * Pure: no network, no server imports.
@@ -108,8 +109,13 @@ export function jsonLdText(html: string): string {
   return out.filter(Boolean).join("\n").slice(0, MAX_CHARS);
 }
 
-/** Bookkeeping times (when a record was edited, not when the event is). */
-const DROP_KEY = /modif|updat|creat|publish/i;
+/**
+ * Bookkeeping times (when a record was edited, not when the event is), and
+ * other dates that aren't the event's: how far a booking calendar is
+ * filled in (availabilityCoveredTo), when a listing expires, a cutoff or
+ * deadline.
+ */
+const DROP_KEY = /modif|updat|creat|publish|covered|expir|cutoff|deadline/i;
 /** A record's own name. */
 const TITLE_KEY = /^(title|name|eventname|summary|heading)$/;
 /** Machine dates in a value ("2026-11-21", "20261121T1000"). */
@@ -122,6 +128,7 @@ export function whenKey(k: string): boolean {
   return (
     /^(start|end|begin|starts|ends)/.test(b) ||
     /(start|end)(date|time|at|datetime)?$/.test(b) ||
+    /dates$/.test(b) ||
     /^(date|dates|time|datetime|datestring|timestring|datedisplay|timedisplay|simpledate|when|day)$/.test(
       b,
     )
@@ -144,9 +151,17 @@ export function jsonText(body: string): string {
   } catch {
     return "";
   }
+  return jsonLines(parsed).join("\n").slice(0, MAX_CHARS);
+}
+
+const scalar = (v: unknown): v is string | number =>
+  typeof v === "string" || typeof v === "number";
+
+/** One line per record of a parsed JSON tree (see jsonText). */
+function jsonLines(parsed: unknown, maxDepth = 10): string[] {
   const out: string[] = [];
   const walk = (node: unknown, depth: number, parentTitle?: string) => {
-    if (depth > 10 || node === null || typeof node !== "object") return;
+    if (depth > maxDepth || node === null || typeof node !== "object") return;
     if (Array.isArray(node)) {
       for (const n of node) walk(n, depth + 1, parentTitle);
       return;
@@ -154,9 +169,14 @@ export function jsonText(body: string): string {
     const entries = Object.entries(node as Record<string, unknown>).filter(
       ([k]) => !DROP_KEY.test(k),
     );
-    const scalars = entries.filter(
-      ([, v]) => typeof v === "string" || typeof v === "number",
-    ) as [string, string | number][];
+    // A list of plain values (availableDates: ["2026-11-21"]) is one value.
+    const scalars = entries.flatMap(([k, v]): [string, string | number][] =>
+      scalar(v)
+        ? [[k, v]]
+        : Array.isArray(v) && v.length > 0 && v.length <= 60 && v.every(scalar)
+          ? [[k, v.join(", ")]]
+          : [],
+    );
     const title = scalars.find(([k]) => TITLE_KEY.test(bare(k)))?.[1];
     const hasWhen = scalars.some(([k]) => whenKey(k));
     const kept = scalars.filter(
@@ -176,6 +196,84 @@ export function jsonText(body: string): string {
       if (v && typeof v === "object") walk(v, depth + 1, next);
   };
   walk(parsed, 0);
+  return out;
+}
+
+/**
+ * The rows of a flight payload, each without its "id:" prefix. A row ends
+ * at a newline, except a text row ("1a:T9e9,..."), which is that many
+ * UTF-8 bytes (hex) with no newline after it.
+ */
+export function flightRows(payload: string): string[] {
+  const bytes = new TextEncoder().encode(payload);
+  const dec = new TextDecoder();
+  const rows: string[] = [];
+  let i = 0;
+  while (i < bytes.length) {
+    let colon = i;
+    while (colon < bytes.length && bytes[colon] !== 58 && bytes[colon] !== 10)
+      colon++;
+    if (colon >= bytes.length) break;
+    if (bytes[colon] === 10) {
+      i = colon + 1; // not a row
+      continue;
+    }
+    const at = colon + 1;
+    if (bytes[at] === 84 /* T */) {
+      let comma = at + 1;
+      while (comma < bytes.length && bytes[comma] !== 44) comma++;
+      const len = parseInt(dec.decode(bytes.subarray(at + 1, comma)), 16);
+      if (!Number.isFinite(len)) break;
+      rows.push(dec.decode(bytes.subarray(comma + 1, comma + 1 + len)));
+      i = comma + 1 + len;
+      continue;
+    }
+    let nl = at;
+    while (nl < bytes.length && bytes[nl] !== 10) nl++;
+    rows.push(dec.decode(bytes.subarray(at, nl)));
+    i = nl + 1;
+  }
+  return rows;
+}
+
+/**
+ * The data a Next.js page carries for its own rendering, when its HTML has
+ * no text of its own (a client-rendered page, like Sunriver Resort's): the
+ * App Router's flight data (self.__next_f.push([1, "..."]) chunks, one
+ * "id:JSON" row a line) and the Pages Router's __NEXT_DATA__. Each JSON
+ * row is read like a CMS endpoint (one line per record). This is the
+ * organizer's own page, as its own script reads it.
+ */
+export function nextDataText(html: string): string {
+  const out: string[] = [];
+  const chunks: string[] = [];
+  for (const m of html.matchAll(
+    /self\.__next_f\.push\(\[1,\s*("(?:[^"\\]|\\.)*")\]\)/g,
+  )) {
+    try {
+      chunks.push(JSON.parse(m[1]) as string);
+    } catch {
+      // a broken chunk is just not evidence
+    }
+  }
+  for (const row of flightRows(chunks.join(""))) {
+    if (!/^[[{]/.test(row)) continue;
+    try {
+      // React trees nest deep: allow more depth than a CMS record.
+      out.push(...jsonLines(JSON.parse(row), 60));
+    } catch {
+      continue;
+    }
+  }
+  const nd = html.match(
+    /<script\b[^>]*id\s*=\s*["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
+  );
+  if (nd)
+    try {
+      out.push(...jsonLines(JSON.parse(nd[1]), 40));
+    } catch {
+      // not evidence
+    }
   return out.join("\n").slice(0, MAX_CHARS);
 }
 
@@ -216,7 +314,10 @@ export function structuredText(body: string, contentType: string): string {
     return icsText(body);
   if (t.includes("json")) return jsonText(body);
   if (t.includes("html") || /<html|<script/i.test(body.slice(0, 2000)))
-    return jsonLdText(body);
+    return [jsonLdText(body), nextDataText(body)]
+      .filter(Boolean)
+      .join("\n")
+      .slice(0, MAX_CHARS);
   return "";
 }
 

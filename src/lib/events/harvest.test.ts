@@ -166,6 +166,20 @@ describe("quotes and dates", () => {
     expect(quotePrintsTime(q, "13:40", "start")).toBe(false);
   });
 
+  it("reads a zero-padded day (lesson 46: the library and Wix print them)", () => {
+    expect(quotePrintsDate("Wednesday, December 02 4:00pm", "2026-12-02")).toBe(
+      true,
+    );
+    expect(quotePrintsDate("Dec 06, 2026 at 10am", "2026-12-06")).toBe(true);
+    expect(quotePrintsDate("12/02/2026", "2026-12-02")).toBe(true);
+    expect(quotePrintsDate("01/09", "2027-01-09")).toBe(true);
+    // Never a different day or year.
+    expect(quotePrintsDate("December 02", "2026-12-20")).toBe(false);
+    expect(quotePrintsDate("December 20", "2026-12-02")).toBe(false);
+    expect(quotePrintsDate("Dec 06, 2025", "2026-12-06")).toBe(false);
+    expect(quotePrintsDate("12/021", "2026-12-02")).toBe(false);
+  });
+
   it("reads machine dates and times from organizer data", () => {
     expect(quotePrintsDate("2026-11-21T10:30:00-08:00", "2026-11-21")).toBe(
       true,

@@ -7,7 +7,8 @@ import { titleWords, type EventVerdict } from "./validate";
  * - the same venue, day and start time already on another page is the
  *   same event under another title: refused, naming the page;
  * - the same official URL on another page is a warning (a calendar page
- *   can list several programs);
+ *   can list several programs); when both have per-date pages, those
+ *   decide, not a shared calendar link (samePage);
  * - within 0.5 miles and 30 minutes of a stored event, with 60% of the
  *   title's words in common: a near-duplicate warning.
  */
@@ -90,6 +91,25 @@ function closeInTime(a: EventDate[], b: EventDate[]): string | null {
 
 const norm = (u: string) => u.replace(/#.*$/, "").replace(/\/$/, "");
 
+/**
+ * Do two events share an official page? When both have per-date pages
+ * (targets), those decide: the library links every program to one
+ * calendar page (deschuteslibrary.org/calendar/) but checks each date on
+ * its own occurrence page (dpl.libnet.info/event/{id}), so two programs
+ * at one branch and time are two pages, not one (lessons 33 and 47).
+ * Otherwise the link counts too.
+ */
+export function samePage(
+  a: Pick<KnownEvent, "url" | "targetUrls">,
+  b: Pick<KnownEvent, "url" | "targetUrls">,
+): boolean {
+  const both = a.targetUrls.length > 0 && b.targetUrls.length > 0;
+  const pages = (k: typeof a) =>
+    (both ? k.targetUrls : [k.url, ...k.targetUrls]).map(norm);
+  const mine = new Set(pages(a));
+  return pages(b).some((u) => mine.has(u));
+}
+
 /** A verdict as a known event (for checks within one hand-in). */
 function asKnown(v: EventVerdict): KnownEvent | null {
   if (!v.ok || !v.event || !v.key || !v.slug) return null;
@@ -121,9 +141,7 @@ export function dedupe(
     if (!me) continue;
     const others = seen.filter((k) => k.key !== me.key);
     const venue = venueKey(me.venue);
-    const mine = new Set([me.url, ...me.targetUrls].map(norm));
-    const sharesUrl = (k: KnownEvent) =>
-      [k.url, ...k.targetUrls].some((u) => mine.has(norm(u)));
+    const sharesUrl = (k: KnownEvent) => samePage(me, k);
     // Same venue, day and start on another page.
     const clashes = others.filter(
       (k) =>

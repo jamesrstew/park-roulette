@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "catalogItemId": "01a11cd9-13d6-74e7-a9a4-540d1848e801",
+      "catalogId": "01a11cd6-0ade-73ca-9fb6-f740033680b5",
+      "title": "Grand Illumination",
+      "description": "<p><strong>Saturday, November 21, 2026</strong></p>\n<p><br></p>\n<p>Holiday fun for the entire family at Grand Illumination - Sunriver Resort’s tree-lighting ceremony and fireworks show! This year’s celebration includes a visit from Santa, live music and entertainment, train rides, telescope viewings, hot cocoa, putt-putt, huggable characters, holiday shopping, and more. While here, enjoy food from local vendors or reserve a table in The Lodge at Lodge Kitchen or Owl's Nest. There will be live entertainment on the outdoor stage in The Backyard and holiday shopping in the Merchant Trader.</p>\n<p><br></p>\n<p>12 - 4:30 PM | Petting Zoo activities, pony rides in front of The Lodge, train rides, and putt-putt</p>\n<p><br></p>\n<p>12 - 5:15 PM | Raffle ticket sales benefiting local non-profit Wonderland Express</p>\n<p><br></p>\n<p>12 - 7 PM | Food and beverage vendors available</p>\n<p><br></p>\n<p>2 - 7 PM | Oregon Observatory telescope viewing and holiday retail</p>\n<p><br></p>\n<p>2 PM | Santa arrives</p>\n<p><br></p>\n<p>2 - 5 PM | North Pole open for Santa Visits</p>\n<p><br></p>\n<p>2:30 - 6:30 PM | Live Music from Jessie Leigh</p>\n<p><br></p>\n<p>5:30 PM | Raffle drawing</p>\n<p><br></p>\n<p>5:40 PM | Tree lighting and fireworks</p>\n<p><br></p>\n<p>6 - 7 PM | North Pole reopens for Santa visits</p>\n<p><br></p>\n<p>*Schedule is subject to change, events are weather-dependent.</p>",
+      "summary": "Presented by Sunriver Realty",
+      "pricing": {
+        "per": "person",
+        "from": { "amount": 0, "currency": "USD" },
+        "hidden": true
+      },
+      "availableDates": ["2026-11-21"],
+      "timezone": "America/Los_Angeles",
+      "location": {
+        "name": "The Lodge at Surnvier Resort",
+        "address": "17600 Center Dr, Sunriver, OR 97707, USA",
+        "latitude": 43.8740068,
+        "longitude": -121.4464867,
+        "instructions": null
+      },
+      "availabilityCoveredTo": "2027-02-19",
+      "slug": "grand-illumination-4gwqn0"
+    }
+  ],
+  "hasMore": false
+}

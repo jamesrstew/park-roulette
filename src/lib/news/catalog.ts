@@ -241,6 +241,15 @@ export const CatalogSchema = z.object({
     .record(z.string(), z.record(z.string(), z.string()))
     .default({}),
   /**
+   * Path prefixes an alias host's evidence URL must start with, when the
+   * host serves many organizations by path (Sunriver Resort's experience
+   * catalogs on api.live.onaws.letsway.com, its things-to-do page's own
+   * data: /v1/catalogs/<one of the resort's catalog ids>).
+   */
+  alias_paths: z
+    .record(z.string(), z.array(z.string().regex(/^\//)).min(1))
+    .default({}),
+  /**
    * Other names for one venue (a library branch printed three ways), so a
    * program there keys one page. Catalog venues match by their own name
    * too.

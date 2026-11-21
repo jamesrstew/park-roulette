@@ -35,7 +35,7 @@ type Resolved = import("../src/lib/events/legacy-split").Resolved;
 type StoredEvent = import("../src/lib/events/model").StoredEvent;
 
 const UA =
-  "Mozilla/5.0 (compatible; ParkRouletteNews/1.0; +https://parkroulette.quest; hello@parkroulette.quest)";
+  "ParkRouletteNews/1.0 (+https://parkroulette.quest; hello@parkroulette.quest)";
 
 async function resolve(u: string): Promise<Resolved | null> {
   try {

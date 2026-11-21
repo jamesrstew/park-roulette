@@ -1,3 +1,4 @@
+import { coverage } from "@/lib/events/coverage";
 import { knownEvents } from "@/lib/events/store";
 import { pacificToday } from "@/lib/events/model";
 import { ingestOk, json, nope } from "@/lib/news/http";
@@ -11,7 +12,8 @@ import { ingestOk, json, nope } from "@/lib/news/http";
  * ages_text, signup, parking, series_id, organizer, annual, series). The harvest skips any event whose (venue, day, start)
  * or page is here, except to add dates or the printed ages and cost a page
  * lacks: a hand-in for a stored page replaces those facts, so it hands
- * them in again.
+ * them in again. `coverage` counts the listed one-off and annual pages in
+ * the next 30 days against the community target, for the harvest's alarm.
  */
 export async function GET(req: Request) {
   if (!ingestOk(req)) return nope();
@@ -21,10 +23,12 @@ export async function GET(req: Request) {
     return json({ error: "days is a whole number from 1 to 120." }, 400);
   const now = new Date();
   const events = await knownEvents(now, days);
+  const today = pacificToday(now);
   return json({
-    today: pacificToday(now),
+    today,
     days,
     count: events.length,
+    coverage: coverage(events, today),
     dates: events.reduce((n, e) => n + e.dates.length, 0),
     events: events.map((e) => ({
       slug: e.slug,

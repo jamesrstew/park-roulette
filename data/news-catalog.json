@@ -2,6 +2,7 @@
   "version": 1,
   "link_domains": [
     "2ndstreettheater.com",
+    "api.live.onaws.letsway.com",
     "beatchildrenstheatre.org",
     "bendoregon.gov",
     "bendparksandrec.org",
@@ -55,12 +56,20 @@
   ],
   "site_aliases": {
     "dpl.libnet.info": "deschuteslibrary.org",
-    "hdm.mux.earth": "highdesertmuseum.org"
+    "hdm.mux.earth": "highdesertmuseum.org",
+    "api.live.onaws.letsway.com": "sunriverresort.com"
   },
   "alias_pins": {
     "hdm.mux.earth": {
       "site": "www.highdesertmuseum.org"
     }
+  },
+  "alias_paths": {
+    "api.live.onaws.letsway.com": [
+      "/v1/catalogs/01a11cd6-0ade-73ca-9fb6-f740033680b5/",
+      "/v1/catalogs/01a13650-495f-75d5-8c47-331c8470da6c/",
+      "/v1/catalogs/01a141f5-43e4-775f-a53c-6f31b973fd2b/"
+    ]
   },
   "venue_aliases": [
     {

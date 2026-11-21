@@ -16,8 +16,15 @@ import { pageText, type Fetcher } from "./validate";
  * are capped at 2 MB, and the whole fetch at 15 seconds.
  */
 
-const UA =
-  "Mozilla/5.0 (compatible; ParkRouletteNews/1.0; +https://parkroulette.quest; hello@parkroulette.quest)";
+/**
+ * Who we are, plainly: our name, our site and an address to write to. No
+ * "Mozilla/5.0 (compatible; ...)" prefix: we aren't a browser, and some
+ * firewalls (Old Mill District's, November 2026) drop that prefix on
+ * non-browsers as a fake browser, resetting the connection, while they
+ * answer an honest bot name with the page.
+ */
+export const UA =
+  "ParkRouletteNews/1.0 (+https://parkroulette.quest; hello@parkroulette.quest)";
 const MAX_BYTES = 2 * 1024 * 1024;
 const MAX_HOPS = 3;
 
@@ -331,15 +338,81 @@ export function networkFailure(
   return null;
 }
 
+/** What a page reader accepts (with our own honest User-Agent). */
+const PAGE_ACCEPT =
+  "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8";
+/** What a data reader accepts: the JSON (or .ics) a page's own script loads. */
+const DATA_ACCEPT = "application/json,text/calendar;q=0.9,*/*;q=0.5";
+
+/**
+ * An organizer's data endpoint, not a page: an api. host, a REST path
+ * (/wp-json/, /api/, /public/v2/), a .json or .ics file, or a format=json
+ * query. We
+ * ask these for their data the way the organizer's own page does; asking
+ * for HTML gets a browsable API page (Django REST framework's) whose text
+ * isn't the record.
+ */
+export function dataUrl(url: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return false;
+  }
+  return (
+    /^api\./i.test(u.hostname) ||
+    /\/(wp-json|api|graphql|public\/v\d+)(\/|$)/i.test(u.pathname) ||
+    /\.(json|ics)$/i.test(u.pathname) ||
+    /^(json|ics|ical)$/i.test(u.searchParams.get("format") ?? "")
+  );
+}
+
+/**
+ * The same data URL with the API's own format switch (format=json), for
+ * when an API answered HTML anyway: a shared cache in front of it that
+ * ignores Vary: Accept (Cloudflare in front of the High Desert Museum's
+ * CMS, November 2026) hands back the browsable page another reader asked
+ * for. The switch is part of the URL, so the cache keeps it apart.
+ */
+export function withJsonFormat(url: string): string | null {
+  const u = new URL(url);
+  if (u.searchParams.has("format")) return null;
+  u.searchParams.set("format", "json");
+  return u.toString();
+}
+
 export const fetchPage: Fetcher = async (start, domains) => {
+  const data = dataUrl(start);
+  const first = await fetchOnce(start, domains, data);
+  // An API that answered a page: ask once more with its format switch.
+  if (
+    data &&
+    first.status === 200 &&
+    /html/i.test(first.contentType ?? "") &&
+    !first.blocked
+  ) {
+    const again = withJsonFormat(start);
+    if (again) {
+      const second = await fetchOnce(again, domains, true);
+      if (second.status === 200 && second.data) return second;
+    }
+  }
+  return first;
+};
+
+async function fetchOnce(
+  start: string,
+  domains: readonly string[],
+  data: boolean,
+): ReturnType<Fetcher> {
   let got: Awaited<ReturnType<typeof safeFetch>>;
   try {
     got = await safeFetch(
       start,
       domains,
-      // Browser-style Accept with our own honest User-Agent: we never
-      // pretend to be a browser to get past a bot check.
-      "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+      // Browser-style Accept for pages, with our own honest User-Agent: we
+      // never pretend to be a browser to get past a bot check.
+      data ? DATA_ACCEPT : PAGE_ACCEPT,
       AbortSignal.timeout(15_000),
     );
   } catch (e) {
@@ -371,13 +444,13 @@ export const fetchPage: Fetcher = async (start, domains) => {
       : botWall(res.status, res.headers.get("server") ?? "", html);
   // JSON and .ics are data, not a page: their records are the evidence.
   const machine = /json|text\/calendar/i.test(contentType);
-  const data = res.ok && !wall ? structuredText(html, contentType) : "";
+  const records = res.ok && !wall ? structuredText(html, contentType) : "";
   return {
     status: res.status,
     finalUrl: url,
     text: res.ok && !machine ? pageText(html) : "",
     contentType,
     ...(wall ? { blocked: wall, blockedKind: "bot_check" as const } : {}),
-    ...(data ? { data } : {}),
+    ...(records ? { data: records } : {}),
   };
-};
+}
