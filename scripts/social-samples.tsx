@@ -378,6 +378,7 @@ async function atHomeSample() {
     now: new Date("2026-11-29T02:00:00Z"),
     catalog: CATALOG,
     parks: new Map(),
+    profiles: new Map(),
     events: new Map(),
     recent: [],
     planParks: [],
