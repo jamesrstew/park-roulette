@@ -217,6 +217,8 @@ describe("scoopEvents", () => {
       town: "Redmond",
       age: "Ages 4-12",
       free: true,
+      href: expect.stringMatching(/^\/events\//),
+      regular: false,
     });
   });
 });

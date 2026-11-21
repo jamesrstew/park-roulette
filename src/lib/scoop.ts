@@ -11,9 +11,13 @@ import {
   isFree,
   monthDay,
   statusOn,
-  upcomingDates,
 } from "@/lib/events/model";
-import { listed } from "@/lib/events/state";
+import {
+  bigness,
+  buildPrograms,
+  placesLabel,
+  type Program,
+} from "@/lib/events/programs";
 import { dayName, dayTier, type TextPeriod, type Tier } from "@/lib/news/tiers";
 import { addDays, pacific, shortDay } from "@/lib/news/time";
 
@@ -151,6 +155,10 @@ export type ScoopEvent = {
   /** One age chip: "Ages 4-12", "All ages", or null (none, or 0 to 12). */
   age: string | null;
   free: boolean;
+  /** The event page, or /events#regulars for a many-branch regular. */
+  href: string;
+  /** A regular (story time, club), not a special event. */
+  regular: boolean;
 };
 
 /** At most this many cards, then the See all card. */
@@ -188,51 +196,95 @@ export function scoopWhen(d: EventDate, today: string): string {
   return d.start ? `${day} · ${clock(d.start)}` : day;
 }
 
+/** Regular programs (story times, clubs) that may fill a thin carousel. */
+const SCOOP_REGULARS = 2;
+
 /**
- * The carousel's events: listed (confirmed, kids', within 60 days) whose
- * first scheduled date (never a canceled or postponed one) is in the next week
- * (two when the week is thin). Soonest first, by day then start time; on
- * the same day, single-day events before ones already running.
+ * The carousel's events, by program (one card for five branches' story
+ * time): specials first, listed (confirmed, kids', within 60 days) whose
+ * first scheduled date (never a canceled or postponed one) is in the next
+ * week (two when the week is thin), soonest first by day then start time;
+ * on the same day, single-day events before ones already running. A thin
+ * row is topped up with up to two regulars this week, marked as such.
  */
 export function scoopEvents(
   rows: readonly EventRow[],
   now: Date,
 ): ScoopEvent[] {
   const today = pacific(now).date;
-  const live = rows
-    .filter((r) => listed(r, now))
-    // The first scheduled date: a series whose next date is off still
-    // shows with the one after (each date's status is sticky).
-    .map((r) => ({
-      r,
-      next: upcomingDates(r.data, now).find(
-        (d) => statusOn(r.data, d.day, r.status) === "scheduled",
-      ),
-    }))
-    .filter((x): x is { r: EventRow; next: EventDate } => !!x.next);
-  const within = (n: number) =>
-    live.filter((x) => x.next.day <= addDays(today, n - 1));
-  const pool = within(WEEK).length >= ENOUGH ? within(WEEK) : within(WIDE);
-  const key = (x: (typeof live)[number]) => {
-    const running = x.next.day < today;
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const key = (d: EventDate) => {
+    const running = d.day < today;
     return [
-      running ? today : x.next.day,
+      running ? today : d.day,
       running ? "1" : "0",
-      x.next.start ?? "99:99",
-      x.r.data.title,
+      d.start ?? "99:99",
     ].join("|");
   };
-  return pool
-    .sort((a, b) => key(a).localeCompare(key(b)))
-    .slice(0, SCOOP_EVENTS)
-    .map(({ r, next }) => ({
+  const live = buildPrograms(rows, now)
+    .map((p) => {
+      // The soonest scheduled date across branches (each date's status is sticky).
+      const firsts = p.branches
+        .map((b) => {
+          const r = byId.get(b.row.id) ?? b.row;
+          return {
+            r,
+            next: b.upcoming.find(
+              (d) => statusOn(r.data, d.day, r.status) === "scheduled",
+            ),
+          };
+        })
+        .filter((x): x is { r: EventRow; next: EventDate } => !!x.next)
+        .sort((a, b) => key(a.next).localeCompare(key(b.next)));
+      return firsts.length ? { p, ...firsts[0] } : null;
+    })
+    .filter((x) => x !== null);
+  // Soonest day first; on one day, big specials (annual, not a library
+  // program) lead, then by start time.
+  const dayOf = (d: EventDate) => (d.day < today ? today : d.day);
+  const order = (a: (typeof live)[number], b: (typeof live)[number]) =>
+    dayOf(a.next).localeCompare(dayOf(b.next)) ||
+    bigness(a.p) - bigness(b.p) ||
+    key(a.next).localeCompare(key(b.next)) ||
+    a.p.title.localeCompare(b.p.title);
+  const within = (n: number, kind: "special" | "regular") =>
+    live.filter(
+      (x) => x.p.kind === kind && x.next.day <= addDays(today, n - 1),
+    );
+  const specials = (
+    within(WEEK, "special").length >= ENOUGH
+      ? within(WEEK, "special")
+      : within(WIDE, "special")
+  )
+    .sort(order)
+    .slice(0, SCOOP_EVENTS);
+  const room = Math.min(SCOOP_REGULARS, SCOOP_EVENTS - specials.length);
+  const regulars = within(WEEK, "regular").sort(order).slice(0, room);
+  const ages = (p: Program) => [
+    ...new Set(p.branches.flatMap((b) => b.row.data.ages?.tags ?? [])),
+  ];
+  return [
+    ...specials.map(({ r, next, p }) => ({
       slug: r.slug,
-      title: r.data.title,
+      href: `/events/${r.slug}`,
+      title: p.title,
       when: scoopWhen(next, today),
-      town: r.data.venue.town,
-      age: ageChip(r.data.ages?.tags),
-      free: isFree(r.data),
-    }));
+      town: p.branches.length > 1 ? placesLabel(p.branches) : r.data.venue.town,
+      age: ageChip(ages(p)),
+      free: p.branches.every((b) => isFree(b.row.data)),
+      regular: false,
+    })),
+    ...regulars.map(({ r, next, p }) => ({
+      slug: r.slug,
+      href: p.branches.length > 1 ? "/events#regulars" : `/events/${r.slug}`,
+      title: p.title,
+      when: `Next: ${scoopWhen(next, today)}`,
+      town: p.branches.length > 1 ? placesLabel(p.branches) : r.data.venue.town,
+      age: ageChip(ages(p)),
+      free: p.branches.every((b) => isFree(b.row.data)),
+      regular: true,
+    })),
+  ];
 }
 
 // --- Reviews -----------------------------------------------------------------

@@ -52,12 +52,18 @@ export function ScoopEvents({ events }: { events: ScoopEvent[] }) {
   return (
     <Carousel id="scoop-events" label="Upcoming kids' events">
       {events.map((e, i) => (
-        <li key={e.slug} className={`${CARD} snap-start`}>
+        <li key={e.slug} className={`${CARD} relative snap-start`}>
+          {e.regular ? (
+            <span className="absolute top-1 right-2 z-10 -rotate-3 rounded-[var(--radius-wobbly-2)] border-2 border-ink bg-[color-mix(in_srgb,var(--color-crayon-teal)_22%,#fffdf7)] px-1.5 font-hand text-sm leading-tight">
+              Regular
+            </span>
+          ) : null}
           <Link
-            href={`/events/${e.slug}`}
+            href={e.href}
             data-scoop="event"
             aria-label={[
               e.title,
+              e.regular ? "a regular" : null,
               e.when.replace(" · ", " at "),
               e.town,
               e.age,

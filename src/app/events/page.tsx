@@ -2,7 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
-import { EventCard } from "@/components/events/EventBits";
+import {
+  NoSpecials,
+  RegularRow,
+  SpecialCard,
+  SpecialRow,
+} from "@/components/events/ProgramBits";
 import { Icon } from "@/components/icons";
 import { CrayonLoading } from "@/components/Loading";
 import { PageTitle } from "@/components/PageTitle";
@@ -11,16 +16,22 @@ import { AGE_BRACKETS, type AgeKey, matchesAge } from "@/lib/events/ages";
 import { townForecast, weatherFor } from "@/lib/events/forecast";
 import {
   type EventRow,
-  GROUP_NAMES,
-  type GroupKey,
   groupBounds,
-  groupOf,
   isFree,
   monthDay,
   pacificToday,
-  upcomingDates,
+  shortDate,
 } from "@/lib/events/model";
-import { allEvents, listed, nextStatus } from "@/lib/events/store";
+import {
+  bigFirst,
+  buildPrograms,
+  groupSpan,
+  onDay,
+  SPECIAL_GROUP_NAMES,
+  type SpecialGroup,
+  specialGroupOf,
+} from "@/lib/events/programs";
+import { allEvents } from "@/lib/events/store";
 import { CATALOG } from "@/lib/news/catalog";
 import { publicParks } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
@@ -136,7 +147,7 @@ export default function EventsPage(props: Props) {
         underlineWidth="w-40"
         subtitle={
           <p className="text-lg">
-            Coming up in Central Oregon, with a link to each official page.
+            Big days out first. Story times and clubs below.
           </p>
         }
       />
@@ -153,36 +164,43 @@ async function Listing({ searchParams }: Props) {
   const today = pacificToday(now);
   const f = readFilters(await searchParams);
   const [rows, parks] = await Promise.all([allEvents(), publicParks()]);
-  const live = rows
-    .filter((r) => listed(r, now))
-    // The status shown is the next date's (sticky per date).
-    .map((r) => ({
-      r: { ...r, status: nextStatus(r, now) },
-      next: upcomingDates(r.data, now)[0],
-    }))
-    .sort((a, b) =>
-      a.next.day === b.next.day
-        ? (a.next.start ?? "").localeCompare(b.next.start ?? "")
-        : a.next.day.localeCompare(b.next.day),
-    );
-  const pass = (x: (typeof live)[number], g: Filters) =>
-    (!g.town || townSlug(x.r.data.venue.town) === g.town) &&
-    (!g.setting || x.r.data.setting === g.setting) &&
-    (!g.free || isFree(x.r.data)) &&
-    (!g.age || matchesAge(x.r.data.ages?.tags ?? [], g.age));
-  const shown = live.filter((x) => pass(x, f));
-  const bounds = groupBounds(today);
-  const groups = (["week", "weekend", "next", "later"] as GroupKey[])
+  const pass = (r: EventRow, g: Filters) =>
+    (!g.town || townSlug(r.data.venue.town) === g.town) &&
+    (!g.setting || r.data.setting === g.setting) &&
+    (!g.free || isFree(r.data)) &&
+    (!g.age || matchesAge(r.data.ages?.tags ?? [], g.age));
+  const everything = buildPrograms(rows, now);
+  const programs = filtered(f)
+    ? buildPrograms(rows, now, (r) => pass(r, f))
+    : everything;
+  const specials = programs.filter((p) => p.kind === "special");
+  const regulars = programs.filter((p) => p.kind === "regular");
+  const groups = (["today", "weekend", "later"] as SpecialGroup[])
     .map((k) => ({
       k,
-      items: shown.filter((x) => groupOf(x.next.day, today) === k),
+      span: groupSpan(k, today),
+      items: specials
+        .filter((p) => specialGroupOf(p.day, today) === k)
+        .sort(k === "later" ? () => 0 : bigFirst),
     }))
-    .filter((g) => g.items.length);
-  const towns = [...new Set(live.map((x) => x.r.data.venue.town))].sort();
-  const weekend = groups.find((g) => g.k === "weekend")?.items ?? [];
+    .filter((g) => g.span);
+  const liveRows = everything.flatMap((p) => p.branches.map((b) => b.row));
+  const towns = [...new Set(liveRows.map((r) => r.data.venue.town))].sort();
 
   // The weather strip: Saturday in Bend, and how many indoor picks.
-  const indoor = weekend.filter((x) => x.r.data.setting === "indoor").length;
+  const bounds = groupBounds(today);
+  const weekendRows = programs
+    .filter((p) =>
+      [
+        bounds.weekend.from,
+        addDaysStr(bounds.weekend.from, 1),
+        bounds.weekend.to,
+      ].some((d) => d >= today && onDay(p, d)),
+    )
+    .flatMap((p) => p.branches.map((b) => b.row));
+  const indoor = new Set(
+    weekendRows.filter((r) => r.data.setting === "indoor").map((r) => r.id),
+  ).size;
   const sat = bounds.weekend.from <= bounds.weekend.to ? satOf(bounds) : null;
   const w =
     sat && indoor && !f.setting
@@ -196,7 +214,17 @@ async function Listing({ searchParams }: Props) {
         )
       : null;
 
-  const nothingSoon = !live.some((x) => x.next.day <= addDaysStr(today, 14));
+  const nothingSoon = !everything.some((p) => p.day <= addDaysStr(today, 14));
+  /** Regulars on a day range, by name (for the honest empty lines). */
+  const regularsOn = (from: string, to: string) =>
+    regulars
+      .filter((p) => {
+        for (let d = from; d <= to; d = addDaysStr(d, 1))
+          if (onDay(p, d)) return true;
+        return false;
+      })
+      .map((p) => p.title);
+  const LATER_SHOWN = 12;
   return (
     <>
       {w ? (
@@ -210,7 +238,8 @@ async function Listing({ searchParams }: Props) {
               href={href({ ...f, setting: "indoor" })}
               className="underline"
             >
-              {indoor} indoor {indoor === 1 ? "pick" : "picks"} this weekend
+              {indoor} indoor {indoor === 1 ? "thing" : "things"} to do this
+              weekend
             </Link>
           </span>
         </p>
@@ -219,54 +248,179 @@ async function Listing({ searchParams }: Props) {
       <FilterBar f={f} towns={towns} />
       {filtered(f) ? (
         <p className="-mt-2 leading-snug">
-          {describe(f, rows)}: {shown.length}{" "}
-          {shown.length === 1 ? "event" : "events"}.{" "}
+          {describe(f, rows)}: {specials.length} special{" "}
+          {specials.length === 1 ? "event" : "events"}, {regulars.length}{" "}
+          {regulars.length === 1 ? "regular" : "regulars"}.{" "}
           <Link href="/events" className="underline">
             Show all
           </Link>
         </p>
       ) : null}
 
-      {groups.map((g) => (
-        <section
-          key={g.k}
-          aria-labelledby={`g-${g.k}`}
-          className="flex flex-col gap-3"
+      {programs.length ? (
+        <nav
+          aria-label="On this page"
+          className="-mt-2 flex flex-wrap items-center gap-x-3 text-ink-soft"
         >
-          <h2 id={`g-${g.k}`} className="font-hand text-3xl">
-            {GROUP_NAMES[g.k]}{" "}
-            <span className="text-lg text-ink-soft">
-              {g.k === "later"
-                ? `through ${monthDay(bounds.later.to)}`
-                : `${monthDay(bounds[g.k].from)} to ${monthDay(bounds[g.k].to)}`}
-            </span>
-          </h2>
-          {g.items.map(({ r, next }) => (
-            <EventCard
-              key={r.id}
-              row={r}
-              next={next}
-              parks={parks}
-              through={
-                next.end_day && next.day < today
-                  ? `Through ${monthDay(next.end_day)}.`
-                  : null
-              }
-            />
-          ))}
-        </section>
-      ))}
+          Jump to:
+          <a
+            href="#specials"
+            className="flex min-h-11 items-center text-ink underline underline-offset-2"
+          >
+            Specials ({specials.length})
+          </a>
+          ·
+          <a
+            href="#regulars"
+            className="flex min-h-11 items-center text-ink underline underline-offset-2"
+          >
+            Regulars ({regulars.length})
+          </a>
+        </nav>
+      ) : null}
 
-      {!shown.length && filtered(f) ? (
+      {programs.length ? (
+        <section
+          id="specials"
+          aria-labelledby="specials-h"
+          className="flex scroll-mt-4 flex-col gap-4"
+        >
+          <h2 id="specials-h" className="sr-only">
+            Special events
+          </h2>
+          {groups.map((g) => {
+            const big = g.k !== "later";
+            const head = g.items.slice(0, big ? 6 : LATER_SHOWN);
+            const tail = g.items.slice(head.length);
+            const span = g.span!;
+            const on = regularsOn(span.from, span.to);
+            return (
+              <section
+                key={g.k}
+                aria-labelledby={`g-${g.k}`}
+                className="flex flex-col gap-3"
+              >
+                <h3 id={`g-${g.k}`} className="font-hand text-3xl">
+                  {SPECIAL_GROUP_NAMES[g.k]}{" "}
+                  <span className="text-lg text-ink-soft">
+                    {span.from === span.to
+                      ? shortDate(span.from)
+                      : g.k === "later"
+                        ? `through ${monthDay(span.to)}`
+                        : `${monthDay(span.from)} to ${monthDay(span.to)}`}
+                  </span>
+                </h3>
+                {!g.items.length && g.k !== "later" ? (
+                  <NoSpecials
+                    line={
+                      g.k === "today"
+                        ? "Nothing special today."
+                        : "No special events this weekend yet."
+                    }
+                    regulars={on}
+                    fallback={
+                      g.k === "today" &&
+                      groups.some((x) => x.k === "weekend" && x.items.length)
+                        ? {
+                            href: "#g-weekend",
+                            label: "See this weekend's special events",
+                          }
+                        : groups.some((x) => x.k === "later" && x.items.length)
+                          ? { href: "#g-later", label: "See what's coming up" }
+                          : { href: "/", label: "Spin for a playground" }
+                    }
+                    regularsLabel={
+                      g.k === "today"
+                        ? `${on.length} ${on.length === 1 ? "regular is" : "regulars are"} on today`
+                        : `${on.length} ${on.length === 1 ? "regular" : "regulars"} this weekend`
+                    }
+                  />
+                ) : null}
+                {!g.items.length && g.k === "later" ? (
+                  <p className="leading-snug text-ink-soft">
+                    No more special events in the next two months yet.
+                  </p>
+                ) : null}
+                {big ? (
+                  <>
+                    {head.map((p) => (
+                      <SpecialCard
+                        key={p.key}
+                        p={p}
+                        today={today}
+                        parks={parks}
+                      />
+                    ))}
+                    {tail.length ? (
+                      <ul className="doodle-box flex flex-col divide-y divide-dashed divide-ink/25 px-3">
+                        {tail.map((p) => (
+                          <SpecialRow key={p.key} p={p} today={today} />
+                        ))}
+                      </ul>
+                    ) : null}
+                  </>
+                ) : g.items.length ? (
+                  <div className="doodle-box px-3">
+                    <ul className="flex flex-col divide-y divide-dashed divide-ink/25">
+                      {head.map((p) => (
+                        <SpecialRow key={p.key} p={p} today={today} />
+                      ))}
+                    </ul>
+                    {tail.length ? (
+                      <details className="group border-t border-dashed border-ink/25">
+                        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 font-hand text-xl underline underline-offset-4 group-open:hidden [&::-webkit-details-marker]:hidden">
+                          Show {tail.length} more special{" "}
+                          {tail.length === 1 ? "event" : "events"} ▾
+                        </summary>
+                        <ul className="flex flex-col divide-y divide-dashed divide-ink/25">
+                          {tail.map((p) => (
+                            <SpecialRow key={p.key} p={p} today={today} />
+                          ))}
+                        </ul>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : null}
+              </section>
+            );
+          })}
+        </section>
+      ) : null}
+
+      {programs.length ? (
+        <section
+          id="regulars"
+          aria-labelledby="regulars-h"
+          className="flex scroll-mt-4 flex-col gap-1 rounded-[var(--radius-wobbly)] border-2 border-dashed border-ink/40 bg-[color-mix(in_srgb,var(--color-crayon-teal)_10%,#fffdf7)] px-4 py-4"
+        >
+          <h2 id="regulars-h" className="font-hand text-3xl">
+            Regulars
+          </h2>
+          <p className="leading-snug text-ink-soft">
+            Story times, clubs and classes that come around again.
+          </p>
+          {regulars.length ? (
+            <ul className="mt-1 flex flex-col divide-y divide-dashed divide-ink/25">
+              {regulars.map((p) => (
+                <RegularRow key={p.key} p={p} today={today} />
+              ))}
+            </ul>
+          ) : (
+            <p className="py-2 leading-snug">
+              No regulars for these filters.{" "}
+              <Link href="/events" className="underline">
+                Show everything
+              </Link>
+            </p>
+          )}
+        </section>
+      ) : null}
+
+      {!programs.length && filtered(f) ? (
         <FilterEmpty
           f={f}
-          live={live.map((x) => x.r)}
-          pass={(r) =>
-            pass(
-              { r, next: upcomingDates(r.data, now)[0] },
-              { ...f, town: null },
-            )
-          }
+          live={liveRows}
+          pass={(r) => pass(r, { ...f, town: null })}
           rows={rows}
         />
       ) : null}
@@ -292,11 +446,18 @@ async function Listing({ searchParams }: Props) {
             },
             {
               "@type": "ItemList",
-              itemListElement: live.slice(0, 30).map((x, n) => ({
-                "@type": "ListItem",
-                position: n + 1,
-                url: `${SITE_URL}/events/${x.r.slug}`,
-              })),
+              // Specials first (each branch its own page), then regulars.
+              itemListElement: [
+                ...everything.filter((p) => p.kind === "special"),
+                ...everything.filter((p) => p.kind === "regular"),
+              ]
+                .flatMap((p) => p.branches.map((b) => b.row.slug))
+                .slice(0, 30)
+                .map((slug, n) => ({
+                  "@type": "ListItem",
+                  position: n + 1,
+                  url: `${SITE_URL}/events/${slug}`,
+                })),
             },
             {
               "@type": "BreadcrumbList",
