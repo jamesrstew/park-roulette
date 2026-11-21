@@ -1,10 +1,17 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import { ScoopWeather } from "@/components/news/scoop/ScoopWeather";
 import type { EventRow, StoredEvent } from "@/lib/events/model";
 import type { TextPeriod } from "@/lib/news/tiers";
 import {
   ageChip,
+  dayLabel,
   daySentence,
   excerpt,
+  issueRow,
+  nightOf,
+  roughDay,
   roughLine,
   scoopEvents,
   scoopWeather,
@@ -149,6 +156,31 @@ describe("scoopEvents", () => {
     ]);
   });
 
+  it("skips an off date and shows the series' next scheduled one", () => {
+    const rows = [
+      row({
+        title: "Story time",
+        dates: [
+          { day: "2026-11-22", start: "10:30" },
+          { day: "2026-11-25", start: "10:30" },
+        ],
+        statusByDay: { "2026-11-22": "canceled" },
+      }),
+      row({
+        title: "All off",
+        dates: [{ day: "2026-11-22" }, { day: "2026-11-25" }],
+        statusByDay: { "2026-11-22": "postponed", "2026-11-25": "canceled" },
+      }),
+      row(
+        { title: "Canceled event", dates: [{ day: "2026-11-23" }] },
+        { status: "canceled" },
+      ),
+    ];
+    expect(scoopEvents(rows, NOW).map((e) => [e.title, e.when])).toEqual([
+      ["Story time", "Wed, Nov 25 · 10:30 am"],
+    ]);
+  });
+
   it("looks two weeks out when the week is thin, and caps at 8", () => {
     const thin = [
       row({ title: "Soon", dates: [{ day: "2026-11-23" }] }),
@@ -223,5 +255,143 @@ describe("card labels", () => {
     expect(e.length).toBeLessThanOrEqual(121);
     expect(e.endsWith("…")).toBe(true);
     expect(excerpt("a\n\nb")).toBe("a b");
+  });
+});
+
+describe("evenings and night lows", () => {
+  const at = (date: string, hh: string, isDaytime: boolean, t: number) => ({
+    startTime: `${date}T${hh}:00:00-08:00`,
+    isDaytime,
+    temperature: t,
+    shortForecast: "Clear",
+    probabilityOfPrecipitation: { value: null },
+  });
+
+  it("takes the night from noon on, never the early overnight period", () => {
+    const periods = [
+      at("2026-11-21", "00", false, 30), // last night's, after midnight
+      at("2026-11-21", "06", true, 42),
+      at("2026-11-21", "18", false, 22),
+    ];
+    expect(nightOf(periods, "2026-11-21")?.temperature).toBe(22);
+    // No evening period: the last night period dated that day.
+    expect(nightOf(periods.slice(0, 2), "2026-11-21")?.temperature).toBe(30);
+    expect(nightOf([], "2026-11-21")).toBeUndefined();
+    const d = scoopWeather(
+      [
+        ...periods,
+        at("2026-11-22", "06", true, 40),
+        at("2026-11-23", "06", true, 41),
+      ],
+      new Date("2026-11-21T16:00:00Z"),
+    )!;
+    expect(d[0].low).toBe(22);
+  });
+
+  it("skips today's daytime period from 6 pm Pacific", () => {
+    const periods = [
+      at("2026-11-21", "06", true, 42), // still in a cached forecast
+      at("2026-11-21", "18", false, 22),
+      at("2026-11-22", "06", true, 40),
+      at("2026-11-23", "06", true, 41),
+      at("2026-11-24", "06", true, 43),
+    ];
+    const before = scoopWeather(periods, new Date("2026-11-22T01:59:00Z"))!; // 5:59 pm
+    expect(before[0].label).toBe("Today");
+    const after = scoopWeather(periods, new Date("2026-11-22T02:00:00Z"))!; // 6 pm
+    expect(after.map((x) => x.date)).toEqual([
+      "2026-11-22",
+      "2026-11-23",
+      "2026-11-24",
+    ]);
+    expect(after[0].label).toBe("Sun");
+  });
+});
+
+describe("the rough-day row", () => {
+  const snowy: TextPeriod = {
+    ...period("2026-11-22", true, 30, "Snow", 90),
+    detailedForecast:
+      "Snow. High near 30. New snow accumulation of 5 to 7 inches possible.",
+  };
+  const periods = [
+    period("2026-11-21", true, 42, "Sunny"),
+    snowy,
+    period("2026-11-23", true, 40, "Sunny"),
+  ];
+  const html = (p: TextPeriod[]) =>
+    renderToStaticMarkup(
+      createElement(ScoopWeather, { days: scoopWeather(p, NOW)! }),
+    );
+
+  it("shows for a disruptive day, with an indoor events link", () => {
+    const days = scoopWeather(periods, NOW)!;
+    expect(days.map((d) => d.tier)).toEqual(["fine", "disruptive", "fine"]);
+    expect(roughDay(days)?.long).toBe("Sunday");
+    const out = html(periods);
+    expect(out).toContain("Sunday looks snowy.");
+    expect(out).toContain('href="/events?setting=indoor"');
+    expect(out).toContain('data-scoop="indoor"');
+    expect(out).toContain("border-dashed");
+  });
+
+  it("stays away on fine days", () => {
+    const calm = [
+      periods[0],
+      period("2026-11-22", true, 40, "Sunny"),
+      periods[2],
+    ];
+    expect(roughDay(scoopWeather(calm, NOW)!)).toBeNull();
+    const out = html(calm);
+    expect(out).not.toContain("looks");
+    expect(out).not.toContain("/events?setting=indoor");
+  });
+});
+
+describe("dayLabel", () => {
+  const now = NOW.getTime(); // Saturday, Nov 21, 8 am Pacific
+  it("says today, yesterday, a weekday this week, else the date", () => {
+    expect(dayLabel("2026-11-21T15:30:00Z", now)).toBe("Today");
+    expect(dayLabel("2026-11-21T08:30:00Z", now)).toBe("Today"); // 12:30 am Pacific
+    expect(dayLabel("2026-11-21T07:30:00Z", now)).toBe("Yesterday"); // 11:30 pm Friday
+    expect(dayLabel("2026-11-19T20:00:00Z", now)).toBe("Thursday");
+    expect(dayLabel("2026-11-14T20:00:00Z", now)).toBe("Nov 14");
+  });
+});
+
+describe("issueRow", () => {
+  const issue = {
+    issueDate: "2026-11-19", // a Thursday
+    subject: "Farewell Bend before the snow",
+    pick: { slug: "farewell-bend-park-bend", name: "Farewell Bend Park" },
+  };
+  const at = (iso: string) => new Date(iso);
+
+  it("shows the pick Thursday to Sunday of the issue's week", () => {
+    for (const t of [
+      "2026-11-19T17:00:00Z", // Thu 9 am
+      "2026-11-21T16:00:00Z", // Sat
+      "2026-11-23T07:00:00Z", // Sun 11 pm
+    ])
+      expect(issueRow(issue, at(t))).toEqual({
+        kind: "pick",
+        pick: issue.pick,
+        issueDate: "2026-11-19",
+      });
+  });
+
+  it("shows the latest issue the rest of the week, or with no pick", () => {
+    for (const t of [
+      "2026-11-23T08:30:00Z", // Mon 12:30 am
+      "2026-11-25T20:00:00Z", // Wed
+    ])
+      expect(issueRow(issue, at(t)).kind).toBe("issue");
+    expect(
+      issueRow({ ...issue, pick: null }, at("2026-11-21T16:00:00Z")),
+    ).toEqual({
+      kind: "issue",
+      subject: "Farewell Bend before the snow",
+      issueDate: "2026-11-19",
+    });
   });
 });

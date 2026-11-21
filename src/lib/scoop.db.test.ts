@@ -87,8 +87,19 @@ describe.skipIf(!local)("fresh reviews on The scoop, against Postgres", () => {
   });
 
   it("your own family's reviews show at once, hidden or private", async () => {
-    const r = await feed.freshReviews(meOf(3, 2));
+    const r = await feed.freshReviews(meOf(3, 2), 10);
     expect(r.map((x) => x.body)).toEqual([
+      "B public, 10 min",
+      "B public, 2h",
+      "B members, 3h",
+      "B family, 4h",
+      "B hidden, 5h",
+      "",
+      "A public, 1 day",
+    ]);
+    expect(r.slice(0, 5).every((x) => x.ours)).toBe(true);
+    // The newest 3 (the default) are all this family's own.
+    expect((await feed.freshReviews(meOf(3, 2))).map((x) => x.body)).toEqual([
       "B public, 10 min",
       "B public, 2h",
       "B members, 3h",

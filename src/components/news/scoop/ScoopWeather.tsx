@@ -2,6 +2,7 @@ import Link from "next/link";
 import { WeatherGlyph } from "@/components/news/WeatherCard";
 import {
   daySentence,
+  roughDay,
   roughLine,
   type ScoopDay,
   shortCondition,
@@ -13,7 +14,7 @@ import {
  * (tiers.ts) gets a dashed outline and one row pointing at indoor events.
  */
 export function ScoopWeather({ days }: { days: ScoopDay[] }) {
-  const rough = days.find((d) => d.tier === "disruptive");
+  const rough = roughDay(days);
   return (
     <section aria-labelledby="scoop-weather-h" className="flex flex-col gap-2">
       <h2 id="scoop-weather-h" className="font-hand text-2xl leading-none">

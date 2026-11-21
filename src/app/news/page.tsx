@@ -13,14 +13,13 @@ import {
 import { ScoopReviews } from "@/components/news/scoop/ScoopReviews";
 import { ScoopTracker } from "@/components/news/scoop/ScoopTracker";
 import { ScoopWeather } from "@/components/news/scoop/ScoopWeather";
-import { isThisWeekendsPick } from "@/lib/asks";
 import { getMe } from "@/lib/data";
 import { freshReviews } from "@/lib/data-feed";
 import { townForecast } from "@/lib/events/forecast";
 import { allEvents } from "@/lib/events/store";
 import { latestIssue } from "@/lib/news/data";
 import type { TextPeriod } from "@/lib/news/tiers";
-import { scoopEvents, scoopWeather } from "@/lib/scoop";
+import { issueRow, scoopEvents, scoopWeather } from "@/lib/scoop";
 
 export const metadata: Metadata = { title: "The scoop" };
 
@@ -113,8 +112,8 @@ async function IssueRow() {
   await connection();
   const issue = await latestIssue();
   if (!issue) return null;
-  const live = issue.pick && isThisWeekendsPick(issue.issueDate, new Date());
-  const pick = live ? issue.pick : null;
+  const row = issueRow(issue, new Date());
+  const pick = row.kind === "pick" ? row.pick : null;
   return (
     <p className="doodle-box-alt flex h-[3.75rem] items-center gap-2.5 px-3 leading-snug">
       <Icon name={pick ? "stamp" : "mail"} size={26} className="shrink-0" />

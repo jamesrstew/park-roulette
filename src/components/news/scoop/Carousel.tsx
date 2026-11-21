@@ -64,6 +64,8 @@ export function Carousel({
       <ul
         ref={ref}
         id={id}
+        // Safari drops list semantics from a list styled without bullets.
+        role="list"
         aria-label={label}
         className="-mx-4 flex snap-x snap-mandatory scroll-px-4 [scrollbar-width:none] gap-3 overflow-x-auto px-4 pt-1 pb-3 sm:mx-0 sm:scroll-px-0 sm:px-0 [&::-webkit-scrollbar]:hidden"
       >

@@ -2,6 +2,7 @@ import {
   conditionFromNws,
   type WeatherIcon,
 } from "@/components/news/WeatherCard";
+import { isThisWeekendsPick } from "@/lib/asks";
 import { AGE_BRACKETS, ALL_AGES, type AgeTag } from "@/lib/events/ages";
 import {
   clock,
@@ -41,7 +42,8 @@ export type ScoopDay = {
 
 /**
  * The next three forecast days in Bend: from the first daytime period on
- * or after today (after 6 pm NWS leads with tonight, so tomorrow leads).
+ * or after today. From 6 pm Pacific today is over, so tomorrow leads (NWS
+ * drops the period then too, but a cached forecast may still hold it).
  * Tiers come from tiers.ts (text forecast only; no alerts here). Null when
  * there's no forecast, so the block hides.
  */
@@ -50,11 +52,13 @@ export function scoopWeather(
   now: Date,
 ): ScoopDay[] | null {
   if (!periods?.length) return null;
-  const today = pacific(now).date;
+  const p0 = pacific(now);
+  const today = p0.date;
+  const first = p0.minutes >= 18 * 60 ? addDays(today, 1) : today;
   const dates = [
     ...new Set(
       periods
-        .filter((p) => p.isDaytime && p.startTime.slice(0, 10) >= today)
+        .filter((p) => p.isDaytime && p.startTime.slice(0, 10) >= first)
         .map((p) => p.startTime.slice(0, 10)),
     ),
   ]
@@ -65,9 +69,7 @@ export function scoopWeather(
     const day = periods.find(
       (p) => p.isDaytime && p.startTime.slice(0, 10) === date,
     )!;
-    const night = periods.find(
-      (p) => !p.isDaytime && p.startTime.slice(0, 10) === date,
-    );
+    const night = nightOf(periods, date);
     const pop = day.probabilityOfPrecipitation?.value ?? null;
     const long = dayName(date);
     return {
@@ -81,6 +83,29 @@ export function scoopWeather(
       tier: dayTier({ date, periods, alerts: [] }).tier,
     };
   });
+}
+
+/**
+ * That date's night period: the one starting at noon or later ("Tonight",
+ * from 6 pm), else the last night period dated that day. Never an early
+ * "Overnight" period (midnight to 6 am), which is the night before's.
+ */
+export function nightOf(
+  periods: readonly TextPeriod[],
+  date: string,
+): TextPeriod | undefined {
+  const nights = periods.filter(
+    (p) => !p.isDaytime && p.startTime.slice(0, 10) === date,
+  );
+  return (
+    nights.find((p) => Number(p.startTime.slice(11, 13)) >= 12) ??
+    nights[nights.length - 1]
+  );
+}
+
+/** The day the rough-day row is about: the first disruptive one, if any. */
+export function roughDay(days: readonly ScoopDay[]): ScoopDay | null {
+  return days.find((d) => d.tier === "disruptive") ?? null;
 }
 
 /** The column's word, short enough for a third of a phone ("Snow showers" -> "Snow"). */
@@ -165,7 +190,7 @@ export function scoopWhen(d: EventDate, today: string): string {
 
 /**
  * The carousel's events: listed (confirmed, kids', within 60 days) whose
- * next date is scheduled (never canceled or postponed), in the next week
+ * first scheduled date (never a canceled or postponed one) is in the next week
  * (two when the week is thin). Soonest first, by day then start time; on
  * the same day, single-day events before ones already running.
  */
@@ -176,13 +201,15 @@ export function scoopEvents(
   const today = pacific(now).date;
   const live = rows
     .filter((r) => listed(r, now))
-    .map((r) => ({ r, next: upcomingDates(r.data, now)[0] }))
-    .filter(
-      (x) =>
-        x.next &&
-        x.r.status !== "canceled" &&
-        statusOn(x.r.data, x.next.day, x.r.status) === "scheduled",
-    );
+    // The first scheduled date: a series whose next date is off still
+    // shows with the one after (each date's status is sticky).
+    .map((r) => ({
+      r,
+      next: upcomingDates(r.data, now).find(
+        (d) => statusOn(r.data, d.day, r.status) === "scheduled",
+      ),
+    }))
+    .filter((x): x is { r: EventRow; next: EventDate } => !!x.next);
   const within = (n: number) =>
     live.filter((x) => x.next.day <= addDays(today, n - 1));
   const pool = within(WEEK).length >= ENOUGH ? within(WEEK) : within(WIDE);
@@ -233,4 +260,25 @@ export function excerpt(body: string, max = 120): string {
   const cut = flat.slice(0, max);
   const at = cut.lastIndexOf(" ");
   return `${(at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[,.;:!?-]+$/, "")}…`;
+}
+
+// --- The issue row -----------------------------------------------------------
+
+/**
+ * The row under the weather: Thursday to Sunday of a sent issue's week,
+ * its wheel pick ("This weekend's pick"); otherwise the latest issue.
+ */
+export function issueRow(
+  issue: {
+    issueDate: string;
+    subject: string;
+    pick: { slug: string; name: string } | null;
+  },
+  now: Date,
+):
+  | { kind: "pick"; pick: { slug: string; name: string }; issueDate: string }
+  | { kind: "issue"; subject: string; issueDate: string } {
+  return issue.pick && isThisWeekendsPick(issue.issueDate, now)
+    ? { kind: "pick", pick: issue.pick, issueDate: issue.issueDate }
+    : { kind: "issue", subject: issue.subject, issueDate: issue.issueDate };
 }
