@@ -167,9 +167,10 @@ export const TOWN_WORDS = [
 ];
 
 /**
- * A light stemmer: plurals and -er/-ers/-ing come together, so climbers,
- * climbing and climb meet, and trees stays tree. "es" goes only after s,
- * x, z, ch or sh (boxes, benches); otherwise only the "s".
+ * A light stemmer, applied to both sides: plurals, -ing, -ed, -er and
+ * -ers come together (climbers, climbing and climb meet; sledding meets
+ * sled; sliding meets slide), and trees stays tree. "es" goes only after
+ * s, x, z, ch or sh (boxes, benches); otherwise only the "s".
  */
 export function stem(word: string): string {
   let w = word.replace(/'s$/, "").replace(/'$/, "");
@@ -178,7 +179,17 @@ export function stem(word: string): string {
   else if (w.length > 3 && w.endsWith("s") && !w.endsWith("ss"))
     w = w.slice(0, -1);
   if (w.length > 5 && w.endsWith("ing")) w = w.slice(0, -3);
-  else if (w.length > 4 && w.endsWith("er")) w = w.slice(0, -2);
+  else if (w.length > 4 && w.endsWith("ed")) w = w.slice(0, -2);
+  if (w.length > 4 && w.endsWith("er")) w = w.slice(0, -2);
+  // sledd -> sled, swimm -> swim (never ll, ss, zz).
+  if (
+    w.length > 3 &&
+    /([b-df-hj-km-np-rtv-xz])\1$/.test(w) &&
+    !/(ll|ss|zz)$/.test(w)
+  )
+    w = w.slice(0, -1);
+  // slide and slid(ing) meet; short words (tree) keep their e.
+  if (w.length > 4 && w.endsWith("e") && !w.endsWith("ee")) w = w.slice(0, -1);
   return w;
 }
 
@@ -231,8 +242,8 @@ function googleFresh(t: Trait, now: Date): boolean {
 /**
  * The profiles as they stand: traits whose evidence was last seen
  * missing are dropped, google_places traits go stale after 12 months.
- * A profile whose lead trait dropped loses its one_liner (it leads with
- * that trait).
+ * A profile that lost any trait loses its one_liner (one-liners name
+ * several traits).
  */
 export function liveProfiles(
   base: ReadonlyMap<string, ParkProfile>,
@@ -248,7 +259,8 @@ export function liveProfiles(
     out.set(slug, {
       ...p,
       traits,
-      one_liner: traits[0] && traits[0] === p.traits[0] ? p.one_liner : null,
+      // One-liners name several traits: any dropped trait hides it.
+      one_liner: traits.length === p.traits.length ? p.one_liner : null,
     });
   }
   return out;
@@ -279,8 +291,10 @@ export function oneLinerFor(
   p: ParkProfile | null | undefined,
   month: number,
 ): string | null {
-  if (!p?.one_liner || !p.traits[0] || !inSeason(p.traits[0], month))
-    return null;
+  if (!p?.one_liner || !p.traits[0]) return null;
+  // Hidden while any trait it names (the lead included) is out of season.
+  const off = p.traits.filter((t) => !inSeason(t, month));
+  if (!inSeason(p.traits[0], month) || traitIn(p.one_liner, off)) return null;
   return p.one_liner;
 }
 
@@ -291,7 +305,8 @@ const GENERIC_PHRASES: [RegExp, string][] = [
   [/\bbuilt for\b[^.!?\n]{0,40}\bfans\b/i, '"built for ... fans"'],
   [/\bsomething for every(one|body)\b/i, '"something for everyone"'],
   [/\bfun for (all|every)\b/i, '"fun for all ages"'],
-  [/\b(of|for) all ages\b/i, '"of all ages"'],
+  // "of all ages and abilities" is a park's own all-abilities wording.
+  [/\b(of|for) all ages\b(?! and abilities)/i, '"of all ages"'],
   [/\bfor the whole family\b/i, '"for the whole family"'],
   [/\bgreat (place|spot)s?\b/i, '"great place"'],
   [/\bhidden gems?\b/i, '"hidden gem"'],

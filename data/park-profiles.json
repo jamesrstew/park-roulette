@@ -60,7 +60,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A tree-house play garden and a train engine for preschoolers to climb plus a winter sledding area",
+    "one_liner": "A tree-house play garden and a train engine for preschoolers, plus a Wildside fort zone",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -134,7 +134,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Bend's first park bouldering area, a summer sprayground and a 0.9-mile paved loop",
+    "one_liner": "Bend's first park bouldering area, a 0.9-mile paved loop and Cascade views",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -170,7 +170,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A small northwest Bend playground with regional views to the south and east",
+    "one_liner": "A small playground with regional views to the south and east",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -232,6 +232,19 @@
     "place_id": "ChIJ79JDxMnHuFQRjx0oiW_EfEE",
     "traits": [
       {
+        "text": "Big lawns under shade trees",
+        "keys": ["shade trees", "shady lawns"],
+        "kind": "shade",
+        "source": "official",
+        "evidence": [
+          {
+            "url": "https://www.bendparksandrec.org/park/blakely-park/",
+            "quote": "with its large lawn areas and shade trees"
+          }
+        ],
+        "verified_on": "2026-11-21"
+      },
+      {
         "text": "A mostly fenced playground",
         "keys": ["fenced", "fence"],
         "kind": "fenced",
@@ -251,22 +264,9 @@
           }
         ],
         "verified_on": "2026-11-21"
-      },
-      {
-        "text": "Big lawns under shade trees",
-        "keys": ["shade trees", "shady lawns"],
-        "kind": "shade",
-        "source": "official",
-        "evidence": [
-          {
-            "url": "https://www.bendparksandrec.org/park/blakely-park/",
-            "quote": "with its large lawn areas and shade trees"
-          }
-        ],
-        "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A mostly fenced playground near the Deschutes River Trail, with big shady lawns",
+    "one_liner": "Big lawns under shade trees, near the Deschutes River Trail and the canal trail",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -304,7 +304,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Wild trails through rock outcroppings with mountain and desert views",
+    "one_liner": "Trails through rock outcroppings with mountain and desert views",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -366,7 +366,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A water trough kids can route themselves, right by the rushing canal",
+    "one_liner": "A water trough kids can route, right by the rushing canal",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -542,7 +542,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A frisbee climber and basket swings made for free-form play, with Cascade views",
+    "one_liner": "A frisbee climber and basket swings for free-form play, with Cascade views",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -580,7 +580,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A two-tiered play area built into the hill, with a paved accessible path",
+    "one_liner": "A two-tiered play area built into the hillside, with a paved accessible path",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -794,7 +794,7 @@
       },
       {
         "text": "Big shade trees across the river from Drake Park",
-        "keys": ["shade trees", "drake park", "mirror pond"],
+        "keys": ["shade trees"],
         "kind": "shade",
         "source": "official",
         "evidence": [
@@ -810,7 +810,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Big shade trees and a small river access gate, across the Deschutes from Drake Park",
+    "one_liner": "Big shade trees and a small river access gate, across the river from Drake Park",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1041,7 +1041,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A Pilot Butte view that makes it a July 4th fireworks favorite",
+    "one_liner": "A Pilot Butte view, a July 4th fireworks favorite",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1121,7 +1121,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A shady sidewalk loop around a classic NorthWest Crossing playground",
+    "one_liner": "A shady perimeter sidewalk loop around the playground",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1159,7 +1159,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Named for the deer herd that lives here, with rock outcroppings to explore",
+    "one_liner": "Named for the deer herd that calls it home, with rocky terrain and rock outcroppings",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1197,7 +1197,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A giant beaver play structure made of logs, with a trail toward Shevlin Park",
+    "one_liner": "A giant beaver play structure made of logs, with a trail to Shevlin Park",
     "facts": {
       "wheelchair_accessible_entrance": true,
       "wheelchair_accessible_parking": true
@@ -1387,7 +1387,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A trail from the playground to the Overturf Butte off-leash area and beyond",
+    "one_liner": "A trail from the playground to the Overturf Butte off-leash area and the Cascade Highlands Trail",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1551,7 +1551,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A play garden for kids under mature trees",
+    "one_liner": "A play garden for kids",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1614,7 +1614,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Two skateparks, the Coyner Trail and a little-kid sledding hill on snow days",
+    "one_liner": "Two skateparks and the Coyner Trail to Juniper Park",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1651,7 +1651,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "About half the park kept as native conifer forest, with trails",
+    "one_liner": "Half the park kept as native conifer forest",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1877,7 +1877,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Mountain views, plus groomed cross-country ski tracks in snowy weather",
+    "one_liner": "Mountain views over the playground",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2036,7 +2036,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Bend's highest park, on top of Awbrey Butte, with a woods trail to Summit Park",
+    "one_liner": "Bend's highest-elevation park, atop Awbrey Butte, with a woods trail to Summit Park",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2108,7 +2108,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Separate playgrounds for younger and older kids, with a big open lawn",
+    "one_liner": "Separate playgrounds for younger and older kids",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2168,7 +2168,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A new skate park, pump track and pickleball courts, opened in October 2025",
+    "one_liner": "A new skate park and pump track, opened in 2025",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2254,7 +2254,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Views of Mount Jefferson, Mount Hood and the train trestle from Madras's largest park",
+    "one_liner": "Views of Mount Jefferson, Mount Hood and the train trestle",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2313,7 +2313,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Crooked River access and a covered amphitheater at Prineville's largest park",
+    "one_liner": "Crooked River access and a covered outdoor amphitheater",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2351,7 +2351,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A nature-trail park on the Crooked River, right by the Crook County Library",
+    "one_liner": "Nature trails with learning signs on the Crooked River, next to the library",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2389,7 +2389,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A shady little park where Harwood Avenue meets Ochoco Creek",
+    "one_liner": "Shaded areas right on Ochoco Creek",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2496,7 +2496,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Toddler-sized play and a log cabin museum in Prineville's oldest park",
+    "one_liner": "A log cabin museum and a toddler playground in Prineville's oldest park",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2548,7 +2548,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A 2024 inclusive play area, a toddler playground and the Kiwanis Splash Park",
+    "one_liner": "An inclusive playground added in 2024, plus a toddler playground for ages 2 to 5",
     "facts": {}
   },
   "yellowpine-park-prineville": {
@@ -2685,7 +2685,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Skate dots and a modern climbing playground for little and big kids",
+    "one_liner": "Skate dots and climbing areas for both little and big kids",
     "facts": {
       "wheelchair_accessible_entrance": true,
       "wheelchair_accessible_parking": true,
@@ -2720,7 +2720,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A forest-themed play area built from concrete, with a fenced spot for little kids",
+    "one_liner": "A forest-themed play area built from concrete, plus a play area just for little kids",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2848,7 +2848,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Home of the first swing set in a Sisters city park, plus spinning cups",
+    "one_liner": "The first swing set in a Sisters city park, plus rotating cups",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2879,7 +2879,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Climbing rocks and a traverse on downtown Sisters' play structure",
+    "one_liner": "Climbing rocks, slides and traverse equipment",
     "facts": {}
   },
   "fort-rock-park-sunriver": {
@@ -2899,7 +2899,7 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A playground in the heart of Sunriver, between Circles 4 and 11",
+    "one_liner": "A playground in the heart of Sunriver, at Circles 4 and 11",
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,

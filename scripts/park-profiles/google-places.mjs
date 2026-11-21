@@ -13,7 +13,12 @@
  * already cached are skipped; about 1.4 seconds between calls.
  *
  * --facts copies only the place id and the boolean facts into
- * data/park-profiles.json. Traits are written by hand, in our own words,
+ * data/park-profiles.json.
+ *
+ * --check scans every trait and one-liner for a 4-word run shared with
+ * the cached Google text and exits 1 if it finds one. Run it after any
+ * hand edit of the traits (the same scan runs in vitest when the cache
+ * is there). Traits are written by hand, in our own words,
  * from the review summary (hints only for the other summaries); the
  * local-only test in src/lib/park-profiles.test.ts fails on any 4-word
  * run shared with the cached Google text.
@@ -134,5 +139,55 @@ function copyFacts() {
   writeFileSync(PROFILES, `${JSON.stringify(profiles, null, 2)}\n`);
 }
 
+const words = (t) =>
+  String(t)
+    .replace(/[\u2018\u2019]/g, "'")
+    .toLowerCase()
+    .replace(/[^a-z0-9' ]+/g, " ")
+    .split(/\s+/)
+    .map((w) => w.replace(/^'+|'+$/g, "").replace(/'s$/, ""))
+    .filter(Boolean);
+const runs = (t) => {
+  const w = words(t);
+  const out = new Set();
+  for (let i = 0; i + 3 < w.length; i++) out.add(w.slice(i, i + 4).join(" "));
+  return out;
+};
+const flat = (x) =>
+  typeof x === "string"
+    ? x
+    : x && typeof x === "object"
+      ? Object.values(x).map(flat).join(" \n ")
+      : "";
+
+function check() {
+  if (!existsSync(DIR)) {
+    console.log(`No ${DIR}: nothing to compare against.`);
+    return;
+  }
+  const profiles = JSON.parse(readFileSync(PROFILES, "utf8"));
+  const bad = [];
+  for (const [slug, p] of Object.entries(profiles)) {
+    const file = `${DIR}/${slug}.json`;
+    if (!existsSync(file)) continue;
+    const d = JSON.parse(readFileSync(file, "utf8")).details ?? {};
+    const g = runs(
+      [d.reviewSummary, d.editorialSummary, d.generativeSummary, d.reviews]
+        .map(flat)
+        .join(" \n "),
+    );
+    for (const text of [p.one_liner ?? "", ...p.traits.map((t) => t.text)])
+      for (const r of runs(text)) if (g.has(r)) bad.push(`${slug}: "${r}"`);
+  }
+  if (bad.length) {
+    console.log(
+      `Shared 4-word runs with Google's text (reword these):\n${bad.join("\n")}`,
+    );
+    process.exit(1);
+  }
+  console.log("No shared 4-word runs with Google's text.");
+}
+
 if (process.argv.includes("--facts")) copyFacts();
+else if (process.argv.includes("--check")) check();
 else await fetchAll();

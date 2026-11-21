@@ -4,8 +4,19 @@ const alerts = vi.hoisted(() => ({
   sent: [] as { key: string; text: string; everyMinutes?: number }[],
 }));
 vi.mock("@/lib/alerts", () => ({
-  alertLater: (a: { key: string; text: string; everyMinutes?: number }) =>
-    alerts.sent.push(a),
+  sendAlert: async (a: {
+    key: string;
+    text: string;
+    everyMinutes?: number;
+  }) => {
+    alerts.sent.push(a);
+    return "sent";
+  },
+}));
+vi.mock("next/cache", () => ({
+  cacheLife: () => {},
+  cacheTag: () => {},
+  revalidateTag: () => {},
 }));
 vi.mock("@/lib/news/fetcher", () => ({ fetchPage: async () => null }));
 vi.mock("@/db", () => ({ db: {} }));
@@ -47,9 +58,6 @@ function memStore(): CheckStore & { rows: Map<string, CheckRow> } {
   const rows = new Map<string, CheckRow>();
   return {
     rows,
-    async load(urls) {
-      return urls.flatMap((u) => (rows.has(u) ? [rows.get(u)!] : []));
-    },
     async save(list) {
       for (const r of list) rows.set(r.url, r);
     },
@@ -135,68 +143,105 @@ describe("the monthly evidence re-check", () => {
     expect(got.find((r) => r.url.endsWith("/slow"))!.status).toBe("unknown");
     expect(got.filter((r) => r.status === "ok")).toHaveLength(3);
   });
-  it("records results, rolls misses into one weekly email, and tracks unknown streaks", async () => {
+  it("drops a trait only after 2 misses in a row, re-checks misses nightly, and clears on a hit", async () => {
     const profiles = new Map([
       ["a-park", profile("https://example.org/a", QA)],
-      ["b-park", profile("https://example.org/b", QB)],
     ]);
     const store = memStore();
-    const fetcher = async (url: string) =>
-      url.endsWith("/a")
-        ? res({ finalUrl: url, text: "The page changed completely." })
-        : res({ status: 403, finalUrl: url, blocked: "cloudflare" });
+    let text = "The page changed completely.";
+    const fetcher = async (url: string) => res({ finalUrl: url, text });
     const opts = { fetcher, profiles, store };
     const r1 = await recheckProfiles(1, opts);
-    expect(r1.missing).toEqual([
+    expect(r1.missing).toHaveLength(1);
+    expect(r1.dropped).toEqual([]);
+    expect(store.rows.get("https://example.org/a")!.missStreak).toBe(1);
+    expect(alerts.sent).toHaveLength(0);
+    // Day 2 isn't a's day, but a miss is re-checked every night.
+    const r2 = await recheckProfiles(2, opts);
+    expect(r2.checked).toBe(1);
+    expect(r2.dropped).toEqual([
       {
         slug: "a-park",
         trait: "A pirate ship to climb",
         url: "https://example.org/a",
       },
     ]);
-    expect(store.rows.get("https://example.org/a")).toMatchObject({
-      status: "missing",
-      missingQuotes: [QA],
-    });
     expect(alerts.sent).toHaveLength(1);
     expect(alerts.sent[0].key).toBe("park-profiles");
     expect(alerts.sent[0].everyMinutes).toBe(7 * 24 * 60);
     expect(alerts.sent[0].text).toMatch(/a-park/);
-
-    // b: unknown once (no alert), then a second month in a row (one alert).
-    alerts.sent.length = 0;
-    const r2 = await recheckProfiles(2, opts);
-    expect(r2.unknown).toEqual(["https://example.org/b"]);
-    expect(r2.stuck).toEqual([]);
-    expect(alerts.sent).toHaveLength(0);
-    const r3 = await recheckProfiles(2, opts);
-    expect(r3.stuck).toEqual(["https://example.org/b"]);
+    expect(store.rows.get("https://example.org/a")!.notifiedAt).not.toBeNull();
+    // Already told: no second email while it stays missing.
+    await recheckProfiles(3, opts);
     expect(alerts.sent).toHaveLength(1);
-    // The rolling email still lists a-park, missing since day 1.
-    expect(alerts.sent[0].text).toMatch(/a-park/);
-    expect(alerts.sent[0].text).toMatch(/example\.org\/b/);
-    const r4 = await recheckProfiles(2, opts);
-    expect(r4.stuck).toEqual([]);
-    expect(store.rows.get("https://example.org/b")!.unknownStreak).toBe(3);
+    // A bot wall in between neither confirms nor clears.
+    const walled = async (url: string) =>
+      res({ status: 403, finalUrl: url, blocked: "cloudflare" });
+    await recheckProfiles(4, { ...opts, fetcher: walled });
+    expect(store.rows.get("https://example.org/a")!.status).toBe("missing");
+    // The quote is back: cleared.
+    text = `Here is ${QA}.`;
+    const r5 = await recheckProfiles(5, opts);
+    expect(r5.dropped).toEqual([]);
+    expect(store.rows.get("https://example.org/a")).toMatchObject({
+      status: "ok",
+      missStreak: 0,
+      notifiedAt: null,
+    });
   });
-  it("drops a trait whose quote is gone from the live profiles", async () => {
-    const store = memStore();
-    const live = await currentProfiles(new Date("2026-11-21T12:00:00Z"), store);
-    const col = live.get("columbia-park-bend")!;
-    const ship = col.traits[0];
-    await store.save([
-      {
-        url: ship.evidence[0].url,
-        status: "missing",
-        missingQuotes: [ship.evidence[0].quote],
-        unknownStreak: 0,
-      },
+  it("mentions a page unknown 2 checks in a row, and retries a notice the window swallowed", async () => {
+    const profiles = new Map([
+      ["b-park", profile("https://example.org/b", QB)],
     ]);
-    const after = await currentProfiles(
-      new Date("2026-11-21T12:00:00Z"),
-      store,
-    );
-    expect(after.get("columbia-park-bend")!.traits).not.toContainEqual(ship);
-    expect(after.get("columbia-park-bend")!.one_liner).toBeNull();
+    const store = memStore();
+    const fetcher = async (url: string) =>
+      res({ status: 403, finalUrl: url, blocked: "cloudflare" });
+    let outcome: "sent" | "suppressed" = "suppressed";
+    const sent: string[] = [];
+    const notify = async (a: { text: string }) => {
+      if (outcome === "sent") sent.push(a.text);
+      return outcome;
+    };
+    const day = pagesForDay(evidencePages(profiles), 1).length ? 1 : 2;
+    const opts = { fetcher, profiles, store, notify };
+    const r1 = await recheckProfiles(day, opts);
+    expect(r1.stuck).toEqual([]);
+    expect(r1.notice).toBeNull();
+    const r2 = await recheckProfiles(day, opts);
+    expect(r2.stuck).toEqual(["https://example.org/b"]);
+    expect(r2.notice).toBe("suppressed");
+    expect(store.rows.get("https://example.org/b")!.notifiedAt).toBeNull();
+    // Next month the window is open: the swallowed notice goes out.
+    outcome = "sent";
+    const r3 = await recheckProfiles(day, opts);
+    expect(r3.notice).toBe("sent");
+    expect(sent[0]).toMatch(/example\.org\/b/);
+    // Told once: a fourth unknown sends nothing.
+    const r4 = await recheckProfiles(day, opts);
+    expect(r4.notice).toBeNull();
+    expect(store.rows.get("https://example.org/b")!.unknownStreak).toBe(4);
+  });
+  it("drops a trait whose quote is confirmed gone from the live profiles", async () => {
+    const store = memStore();
+    const now = new Date("2026-11-21T12:00:00Z");
+    const col = (await currentProfiles(now, store)).get("columbia-park-bend")!;
+    const ship = col.traits[0];
+    const row = {
+      url: ship.evidence[0].url,
+      status: "missing" as const,
+      missingQuotes: [ship.evidence[0].quote],
+      unknownStreak: 0,
+      notifiedAt: null,
+    };
+    await store.save([{ ...row, missStreak: 1 }]);
+    expect(
+      (await currentProfiles(now, store)).get("columbia-park-bend")!.traits,
+    ).toContainEqual(ship);
+    await store.save([{ ...row, missStreak: 2 }]);
+    const after = (await currentProfiles(now, store)).get(
+      "columbia-park-bend",
+    )!;
+    expect(after.traits).not.toContainEqual(ship);
+    expect(after.one_liner).toBeNull();
   });
 });

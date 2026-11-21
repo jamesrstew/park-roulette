@@ -1,5 +1,5 @@
 {
-  "id": "eb4b4cb6-4a9d-4874-a161-d7720d6a6e5e",
+  "id": "3d848335-3c47-46d5-abed-96709023072d",
   "prevId": "5c5dc4b5-e718-4a35-b9e1-5f5a203a0eeb",
   "version": "7",
   "dialect": "postgresql",
@@ -2094,6 +2094,19 @@
           "primaryKey": false,
           "notNull": true,
           "default": 0
+        },
+        "miss_streak": {
+          "name": "miss_streak",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "notified_at": {
+          "name": "notified_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
         },
         "checked_at": {
           "name": "checked_at",

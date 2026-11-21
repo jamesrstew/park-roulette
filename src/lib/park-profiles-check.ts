@@ -1,8 +1,8 @@
 import "server-only";
-import { inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { parkEvidenceChecks } from "@/db/schema";
-import { alertLater } from "@/lib/alerts";
+import { cacheLife, cacheTag, revalidateTag } from "next/cache";
+import { type Alert, type AlertOutcome, sendAlert } from "@/lib/alerts";
 import { fetchPage } from "@/lib/news/fetcher";
 import {
   normalizeText,
@@ -21,14 +21,17 @@ import {
  * The monthly re-check of signature-trait evidence (data/park-profiles.json),
  * and the profiles as they stand after it.
  *
- * Every evidence page is fetched once a month: pages are spread over days
- * 1 to 28, a few a night, from the nightly events-check cron, in parallel
- * and inside the time it's given. Only a 200 without the quote, or a 404
- * or 410, is "missing": that trait drops out of posts, plans and park
- * pages until the data is fixed, and James hears about it (one email, at
- * most weekly, listing everything missing). Anything else (403, 429, a
- * timeout, a bot wall, 5xx, an empty or oversized page) is "unknown"; a
- * page unknown 2 monthly checks in a row is mentioned once.
+ * Every evidence page is fetched once a month (pages spread over days 1
+ * to 28, a few a night, from the nightly events-check cron, in parallel
+ * and inside the time it's given), and a page with a missing quote again
+ * every night until it's settled. Only a 200 without the quote, or a 404
+ * or 410, is a miss; anything else (403, 429, a timeout, a bot wall,
+ * 5xx, an empty or oversized page) is "unknown" and changes nothing. A
+ * trait drops out of posts, plans and park pages after 2 misses in a
+ * row, and comes back the first time its quote is seen again. James gets
+ * one rolling email (at most weekly) listing every dropped trait and
+ * every page unknown 2 checks in a row; a notice the weekly window
+ * swallowed goes out with the next allowed email.
  */
 
 export const SPREAD_DAYS = 28;
@@ -123,13 +126,14 @@ export type CheckRow = {
   status: PageResult["status"];
   missingQuotes: string[];
   unknownStreak: number;
+  missStreak: number;
+  notifiedAt: Date | null;
 };
 
 /** Where results live: Postgres, or a Map in tests. */
 export type CheckStore = {
-  load(urls: string[]): Promise<CheckRow[]>;
-  save(rows: CheckRow[]): Promise<void>;
   all(): Promise<CheckRow[]>;
+  save(rows: CheckRow[]): Promise<void>;
 };
 
 const asRow = (r: typeof parkEvidenceChecks.$inferSelect): CheckRow => ({
@@ -137,44 +141,89 @@ const asRow = (r: typeof parkEvidenceChecks.$inferSelect): CheckRow => ({
   status: r.status as CheckRow["status"],
   missingQuotes: r.missingQuotes,
   unknownStreak: r.unknownStreak,
+  missStreak: r.missStreak,
+  notifiedAt: r.notifiedAt,
 });
 
 export const dbStore: CheckStore = {
-  async load(urls) {
-    if (!urls.length) return [];
-    const rows = await db
-      .select()
-      .from(parkEvidenceChecks)
-      .where(inArray(parkEvidenceChecks.url, urls));
-    return rows.map(asRow);
-  },
-  async save(rows) {
-    for (const r of rows)
-      await db
-        .insert(parkEvidenceChecks)
-        .values({ ...r, checkedAt: new Date() })
-        .onConflictDoUpdate({
-          target: parkEvidenceChecks.url,
-          set: {
-            status: r.status,
-            missingQuotes: r.missingQuotes,
-            unknownStreak: r.unknownStreak,
-            checkedAt: new Date(),
-          },
-        });
-  },
   async all() {
     return (await db.select().from(parkEvidenceChecks)).map(asRow);
   },
+  async save(rows) {
+    for (const r of rows) {
+      const set = {
+        status: r.status,
+        missingQuotes: r.missingQuotes,
+        unknownStreak: r.unknownStreak,
+        missStreak: r.missStreak,
+        notifiedAt: r.notifiedAt,
+        checkedAt: new Date(),
+      };
+      await db
+        .insert(parkEvidenceChecks)
+        .values({ url: r.url, ...set })
+        .onConflictDoUpdate({ target: parkEvidenceChecks.url, set });
+    }
+  },
 };
+
+/** A trait drops after this many misses in a row. */
+export const MISSES_TO_DROP = 2;
+/** A page unknown this many checks in a row is mentioned. */
+export const UNKNOWNS_TO_NOTE = 2;
+
+const confirmed = (r: CheckRow) =>
+  r.status === "missing" && r.missStreak >= MISSES_TO_DROP;
+const stuck = (r: CheckRow) => r.unknownStreak >= UNKNOWNS_TO_NOTE;
+
+/** Fold one check into the page's row. */
+export function nextRow(prev: CheckRow | undefined, r: PageResult): CheckRow {
+  if (r.status === "ok")
+    return { ...r, unknownStreak: 0, missStreak: 0, notifiedAt: null };
+  if (r.status === "missing") {
+    const again =
+      prev?.status === "missing" &&
+      r.missingQuotes.some((q) => prev.missingQuotes.includes(q));
+    return {
+      ...r,
+      unknownStreak: 0,
+      missStreak: again ? prev.missStreak + 1 : 1,
+      notifiedAt: again ? prev.notifiedAt : null,
+    };
+  }
+  // Unknown says nothing about the quotes: a page already missing stays so.
+  if (prev?.status === "missing")
+    return { ...prev, unknownStreak: prev.unknownStreak + 1 };
+  return {
+    ...r,
+    unknownStreak: (prev?.unknownStreak ?? 0) + 1,
+    missStreak: 0,
+    notifiedAt: prev?.status === "unknown" ? prev.notifiedAt : null,
+  };
+}
 
 export type ProfileCheck = {
   checked: number;
+  /** Tonight's misses (a trait drops at its second in a row). */
   missing: { slug: string; trait: string; url: string }[];
+  /** Traits out of posts now. */
+  dropped: { slug: string; trait: string; url: string }[];
   unknown: string[];
-  /** Pages that just reached 2 unknown monthly checks in a row. */
+  /** Pages unknown 2 checks in a row or more. */
   stuck: string[];
+  /** What happened to the email, when one was due. */
+  notice: AlertOutcome | null;
 };
+
+export const PROFILES_TAG = "park-evidence";
+
+function expireProfiles() {
+  try {
+    revalidateTag(PROFILES_TAG, { expire: 0 });
+  } catch {
+    // Scripts and tests: there's no cache to expire.
+  }
+}
 
 export async function recheckProfiles(
   dayOfMonth: number,
@@ -183,102 +232,125 @@ export async function recheckProfiles(
     profiles = PROFILES,
     store = dbStore,
     deadline = Date.now() + 60_000,
+    notify = sendAlert,
   }: {
     fetcher?: Fetcher;
     profiles?: ReadonlyMap<string, ParkProfile>;
     store?: CheckStore;
     deadline?: number;
+    notify?: (a: Alert) => Promise<AlertOutcome>;
   } = {},
 ): Promise<ProfileCheck> {
   const pages = evidencePages(profiles);
-  const due = pagesForDay(pages, dayOfMonth);
-  const results = await checkPages(due, fetcher, deadline);
-  const before = new Map(
-    (await store.load(due.map((p) => p.url))).map((r) => [r.url, r]),
+  const before = new Map((await store.all()).map((r) => [r.url, r]));
+  // This night's share, plus every page with a miss (settle it quickly).
+  const today = new Set(pagesForDay(pages, dayOfMonth).map((p) => p.url));
+  const due = pages.filter(
+    (p) => today.has(p.url) || before.get(p.url)?.status === "missing",
   );
-  const rows: CheckRow[] = results.map((r) => ({
-    ...r,
-    unknownStreak:
-      r.status === "unknown" ? (before.get(r.url)?.unknownStreak ?? 0) + 1 : 0,
-  }));
+  const results = await checkPages(due, fetcher, deadline);
+  const rows = results.map((r) => nextRow(before.get(r.url), r));
   await store.save(rows);
+  expireProfiles();
 
+  const after = new Map(before);
+  for (const r of rows) after.set(r.url, r);
   const itemsOf = new Map(pages.map((p) => [p.url, p.items]));
+  const traitsOn = (r: CheckRow) =>
+    (itemsOf.get(r.url) ?? [])
+      .filter((i) => r.missingQuotes.includes(i.quote))
+      .map((i) => ({ slug: i.slug, trait: i.trait, url: r.url }));
+  const live = [...after.values()].filter((r) => itemsOf.has(r.url));
   const out: ProfileCheck = {
     checked: due.length,
-    missing: results.flatMap((r) =>
-      (itemsOf.get(r.url) ?? [])
-        .filter((i) => r.missingQuotes.includes(i.quote))
-        .map((i) => ({ slug: i.slug, trait: i.trait, url: r.url })),
-    ),
+    missing: results
+      .filter((r) => r.status === "missing")
+      .flatMap((r) => traitsOn(after.get(r.url)!)),
+    dropped: live.filter(confirmed).flatMap(traitsOn),
     unknown: results.filter((r) => r.status === "unknown").map((r) => r.url),
-    stuck: rows.filter((r) => r.unknownStreak === 2).map((r) => r.url),
+    stuck: live.filter(stuck).map((r) => r.url),
+    notice: null,
   };
 
-  if (out.missing.length || out.stuck.length) {
-    // One rolling email: everything missing now, not only tonight's.
-    const missingNow = (await store.all()).filter(
-      (r) => r.status === "missing",
-    );
-    const lines = missingNow.flatMap((r) =>
-      (itemsOf.get(r.url) ?? [])
-        .filter((i) => r.missingQuotes.includes(i.quote))
-        .map((i) => `- ${i.slug}: ${i.trait} (${r.url})`),
-    );
-    alertLater({
+  // Email when something is due and not yet told; list everything open.
+  const told = live.filter((r) => confirmed(r) || stuck(r));
+  if (told.some((r) => !r.notifiedAt)) {
+    out.notice = await notify({
       key: ALERT_KEY,
       subject: "Park signature traits need a look",
       text: [
-        ...(lines.length
+        ...(out.dropped.length
           ? [
-              "These traits' evidence pages no longer print their quotes, so the traits are out of posts and plans until data/park-profiles.json is fixed:",
-              ...lines,
+              "These traits' evidence pages stopped printing their quotes (2 checks in a row), so the traits are out of posts and plans until the quote is back or data/park-profiles.json is fixed:",
+              ...out.dropped.map((d) => `- ${d.slug}: ${d.trait} (${d.url})`),
             ]
           : []),
         ...(out.stuck.length
           ? [
-              "These evidence pages couldn't be read 2 monthly checks in a row (bot wall, timeout or error). Their traits still count:",
+              "These evidence pages couldn't be read 2 checks in a row or more (bot wall, timeout or error). Their traits still count:",
               ...out.stuck.map((u) => `- ${u}`),
             ]
           : []),
       ].join("\n"),
       everyMinutes: WEEK_MIN,
-    });
+    }).catch((): AlertOutcome => "failed");
+    if (out.notice === "sent") {
+      const now = new Date();
+      await store.save(told.map((r) => ({ ...r, notifiedAt: now })));
+    }
   }
   return out;
 }
 
-/** Evidence last seen missing, as `${url}\n${quote}` keys. */
-export async function missingEvidence(
-  store: CheckStore = dbStore,
-): Promise<Set<string>> {
-  const rows = await store.all();
-  return new Set(
-    rows
-      .filter((r) => r.status === "missing")
-      .flatMap((r) => r.missingQuotes.map((q) => `${r.url}\n${q}`)),
-  );
+/** Evidence dropped now (2 misses in a row), as `${url}\n${quote}` keys. */
+export function droppedKeys(rows: readonly CheckRow[]): string[] {
+  return rows
+    .filter(confirmed)
+    .flatMap((r) => r.missingQuotes.map((q) => `${r.url}\n${q}`));
 }
 
 /**
- * The profiles as they stand now: missing evidence and stale Google
- * traits dropped. A bundled file that didn't parse means none, and an
- * alert (CI's strict parse test is the gate; this never crashes a page).
+ * The dropped evidence, cached for hours (the cron expires it): a park
+ * page view never reads the table. A read that fails counts nothing as
+ * dropped, logged once per cache fill, not per view.
+ */
+async function cachedDropped(): Promise<string[]> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(PROFILES_TAG);
+  try {
+    return droppedKeys(await dbStore.all());
+  } catch (e) {
+    console.error("[profiles] couldn't read checks", (e as Error)?.message);
+    return [];
+  }
+}
+
+let parseAlerted = false;
+
+/**
+ * The profiles as they stand now: dropped evidence and stale Google
+ * traits out. A bundled file that didn't parse means none, and one alert
+ * per server (CI's strict parse test is the gate; pages never crash).
  */
 export async function currentProfiles(
   now: Date,
-  store: CheckStore = dbStore,
+  store?: CheckStore,
 ): Promise<Map<string, ParkProfile>> {
-  if (PROFILES_ERROR)
-    alertLater({
+  if (PROFILES_ERROR && !parseAlerted) {
+    parseAlerted = true;
+    void sendAlert({
       key: "park-profiles:parse",
       subject: "data/park-profiles.json didn't parse",
       text: `Park posts are off until it's fixed: ${PROFILES_ERROR}`,
       everyMinutes: 23 * 60,
-    });
-  const missing = await missingEvidence(store).catch((e) => {
-    console.error("[profiles] couldn't read checks", (e as Error)?.message);
-    return new Set<string>();
-  });
-  return liveProfiles(PROFILES, { missing, now });
+    }).catch(() => null);
+  }
+  const keys = store
+    ? droppedKeys(await store.all())
+    : // Outside Next (scripts, tests) there's no cache: read it directly.
+      await cachedDropped().catch(() =>
+        dbStore.all().then(droppedKeys, () => []),
+      );
+  return liveProfiles(PROFILES, { missing: new Set(keys), now });
 }

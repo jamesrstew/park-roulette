@@ -60,6 +60,44 @@ describe("data/park-profiles.json", () => {
       if (p.one_liner)
         expect(traitIn(p.one_liner, [p.traits[0]]), slug).not.toBeNull();
   });
+  it("uses only words its traits back in each one_liner", () => {
+    const filler = new Set(
+      "plus with and the a an at on in by of to for from near next beside right just".split(
+        " ",
+      ),
+    );
+    for (const [slug, p] of PROFILES) {
+      if (!p.one_liner) continue;
+      const name = ALL.find((x) => x.slug === slug)!.name;
+      const have = new Set(
+        [
+          ...p.traits.flatMap((t) => [
+            ...words(t.text),
+            ...t.keys.flatMap(words),
+          ]),
+          ...words(name),
+        ].map(stem),
+      );
+      const bad = words(p.one_liner).filter(
+        (w) =>
+          !filler.has(w) &&
+          !NOT_KEYS.has(w) &&
+          !/^\d/.test(w) &&
+          !have.has(stem(w)),
+      );
+      expect(bad, `${slug}: ${p.one_liner}`).toEqual([]);
+    }
+  });
+  it("never makes a fence or accessibility claim from a Google trait in a one_liner", () => {
+    for (const [slug, p] of PROFILES)
+      if (p.one_liner)
+        for (const t of p.traits)
+          if (
+            t.source === "google_places" &&
+            (t.kind === "fenced" || t.kind === "all_abilities")
+          )
+            expect(traitIn(p.one_liner, [t]), slug).toBeNull();
+  });
   it("never leads with a seasonal trait when there's another", () => {
     for (const [slug, p] of PROFILES)
       if (p.traits.length > 1) expect(p.traits[0].season, slug).toBeUndefined();
@@ -129,6 +167,31 @@ describe("matching", () => {
     expect(stem("benches")).toBe("bench");
     expect(words("Bend's")).toEqual(["bend"]);
   });
+  it("matches each key's common inflections", () => {
+    const forms: [string, string[]][] = [
+      ["sled", ["sleds", "sledding", "sledder"]],
+      ["sledding", ["sled", "sleds"]],
+      ["boulder", ["boulders", "bouldering"]],
+      ["bouldering", ["boulder", "boulders"]],
+      ["slide", ["slides", "sliding", "slid"]],
+      ["climbing", ["climb", "climbs", "climber", "climbers", "climbed"]],
+      ["swim", ["swims", "swimming", "swimmer"]],
+      ["fence", ["fences", "fenced", "fencing"]],
+      ["skate park", ["skate parks"]],
+      ["skatepark", ["skateparks"]],
+      ["zipline", ["ziplines"]],
+      ["tree", ["trees"]],
+      ["sprayground", ["spraygrounds"]],
+    ];
+    for (const [key, list] of forms)
+      for (const f of list) expect(hasKey(f, key), `${f} ~ ${key}`).toBe(true);
+    // And every real key matches its own plural.
+    for (const [slug, p] of PROFILES)
+      for (const t of p.traits)
+        for (const k of t.keys)
+          if (/[a-z]$/.test(k) && !/(s|y)$/.test(k))
+            expect(hasKey(`${k}s`, k), `${slug}: ${k}s`).toBe(true);
+  });
   it("matches keys on word boundaries, never inside a word", () => {
     expect(hasKey("A pirate ship!", "pirate ship")).toBe(true);
     expect(hasKey("pirates", "pirate")).toBe(true);
@@ -178,6 +241,7 @@ describe("generic phrases", () => {
       "Something for everyone",
       "Fun for all ages",
       "Kids of all ages",
+      "Fun for all ages and abilities",
       "Fun for the whole family",
       "A great place to run",
       "Two hidden gems",
@@ -185,6 +249,9 @@ describe("generic phrases", () => {
     ])
       expect(genericPhrases(s).length, s).toBeGreaterThan(0);
     expect(genericPhrases("A pirate ship and a hillside slide")).toEqual([]);
+    expect(
+      genericPhrases("Three zones for children of all ages and abilities"),
+    ).toEqual([]);
   });
 });
 
@@ -211,7 +278,7 @@ const profile = (traits: Trait[]): ParkProfile => ({
 
 describe("which traits count", () => {
   const now = new Date("2026-11-21T12:00:00Z");
-  it("drops traits whose evidence was last seen missing, and the one-liner with a dropped lead", () => {
+  it("drops traits whose evidence is confirmed missing, and the one-liner with any dropped trait", () => {
     const creek = trait({
       text: "A creek",
       keys: ["creek"],
@@ -262,10 +329,24 @@ describe("which traits count", () => {
     expect(postKinds(p, 7)).toBe(2);
     expect(postKinds(p, 11)).toBe(1);
   });
-  it("hides a one-liner while its lead trait is out of season", () => {
+  it("hides a one-liner while a trait it names is out of season", () => {
     const p = profile([trait({ season: [6, 7] })]);
     expect(oneLinerFor(p, 7)).toBe(p.one_liner);
     expect(oneLinerFor(p, 11)).toBeNull();
+    const q: ParkProfile = {
+      ...profile([
+        trait(),
+        trait({
+          text: "A sprayground",
+          keys: ["sprayground"],
+          kind: "splash_pad",
+          season: [7],
+        }),
+      ]),
+      one_liner: "A pirate ship to climb and a sprayground.",
+    };
+    expect(oneLinerFor(q, 7)).toBe(q.one_liner);
+    expect(oneLinerFor(q, 11)).toBeNull();
   });
   it("shows the plans our words, keys and links, never quotes", () => {
     const p = planProfile(live("columbia-park-bend"), 11)!;
