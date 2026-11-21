@@ -49,6 +49,11 @@ export const EVENTS = {
    * code, once a day: {state: rather | too} (kept out of Ask shown).
    */
   footerTextShown: "Footer text shown",
+  /**
+   * A tap on The scoop (/news): {to: event | all_events | review | pick |
+   * issue | indoor}. Labels only, never which park or event.
+   */
+  scoopTap: "Scoop tap",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

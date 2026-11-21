@@ -359,6 +359,40 @@ export async function sentIssues(limit = 200) {
 }
 
 /**
+ * The latest issue that went out, with its wheel pick's park when that
+ * park is on the map (The scoop's "This weekend's pick"). The same for
+ * everyone, so cached a few minutes.
+ */
+export async function latestIssue(): Promise<{
+  issueDate: string;
+  subject: string;
+  pick: { slug: string; name: string } | null;
+} | null> {
+  "use cache";
+  cacheLife("minutes");
+  const [r] = await db
+    .select({
+      issueDate: newsIssues.issueDate,
+      subject: sql<string>`${newsIssues.sentBody}->>'subject'`,
+      pick: sql<string | null>`${newsIssues.sentBody}->'wheel_pick'->>'park'`,
+    })
+    .from(newsIssues)
+    .where(wentOut)
+    .orderBy(desc(newsIssues.issueDate))
+    .limit(1);
+  if (!r) return null;
+  const [park] = r.pick
+    ? await db
+        .select({ slug: parks.slug, name: parks.name })
+        .from(parks)
+        .where(
+          and(eq(parks.slug, r.pick), sql`${parks.approvedAt} is not null`),
+        )
+    : [];
+  return { issueDate: r.issueDate, subject: r.subject, pick: park ?? null };
+}
+
+/**
  * One issue that went out (never a draft, a skipped or a failed week),
  * with its number, when it went, and its neighbors. The web archive.
  */
