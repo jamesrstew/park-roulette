@@ -311,6 +311,29 @@ describe("at home: the 12-week idea cooldown by title", () => {
 });
 
 describe("validateAtHome", () => {
+  it("an intro sits under the headline, in our voice; a cliche or a second exclamation is refused", async () => {
+    const ok = await validateAtHome(
+      atHome({
+        intro: "A slow, gray morning. We like it for paper and crayons.",
+      }),
+      WEEK,
+      ctx(),
+    );
+    expect(ok.errors).toEqual([]);
+    expect(ok.spec!.caption!.split("\n").slice(0, 3)).toEqual([
+      ok.spec!.headline,
+      "",
+      "A slow, gray morning. We like it for paper and crayons.",
+    ]);
+    const bad = await validateAtHome(
+      atHome({ intro: "So magical! Your kids will love it!" }),
+      WEEK,
+      ctx(),
+    );
+    const all = bad.errors.join(" ");
+    expect(all).toMatch(/"magical"/);
+    expect(all).toMatch(/2 exclamation points/);
+  });
   it("a good post: headline, one slide per idea, the sign-up close", async () => {
     const r = await validateAtHome(atHome(), WEEK, ctx());
     expect(r.errors).toEqual([]);
@@ -326,7 +349,9 @@ describe("validateAtHome", () => {
       need: "paper, crayons",
     });
     expect(r.spec!.caption).toContain("1. Hand turkeys (ages 2 to 6)");
-    expect(r.spec!.caption).toContain("You need: paper, crayons.");
+    expect(r.spec!.caption).toContain("You need paper and crayons.");
+    expect(r.spec!.caption).toContain(COPY.captionClose.at_home);
+    expect(r.warnings.join(" ")).toMatch(/No intro/);
     expect(r.spec!.caption).toContain(COPY.save);
     expect(r.spec!.caption).toContain("Link in bio.");
     expect(r.spec!.caption).not.toMatch(/https?:/);
@@ -622,6 +647,44 @@ describe("pickWeekEvents", () => {
   });
 });
 
+describe("the roundup caption's own words", () => {
+  const e = (
+    venue: string,
+    town: string,
+    cost: string | null,
+    ages = ["Ages 5 to 10"],
+  ) => ({ venue, town, cost, ages });
+  it("names one venue, one town or the towns (Bend first), the youngest age and the free ones", async () => {
+    const { eventsIntro } = await import("./compose");
+    const teal = e("TEAL Tea + Art Lounge", "Bend", "$5 to $20");
+    expect(
+      eventsIntro([teal, teal, teal, { ...teal, ages: ["Ages 6 and up"] }]),
+    ).toBe(
+      "Four events, all at TEAL Tea + Art Lounge in Bend, for ages 5 and up.",
+    );
+    expect(
+      eventsIntro([
+        e("Downtown Library", "Bend", "Free"),
+        e("Pine Nursery Park", "Bend", null, ["Ages 2 to 5"]),
+      ]),
+    ).toBe("Two events, all in Bend, for ages 2 and up. One is free.");
+    expect(
+      eventsIntro([
+        e("Redmond Library", "Redmond", "Free"),
+        e("Fir Street Park", "Sisters", "Free", ["All ages"]),
+        e("Downtown Library", "Bend", "Free"),
+      ]),
+    ).toBe("Three events in Bend, Redmond and Sisters. All are free.");
+    // A venue that names its town isn't doubled.
+    expect(
+      eventsIntro([
+        e("Redmond Library", "Redmond", null),
+        e("Redmond Library", "Redmond", null),
+      ]),
+    ).toBe("Two events, all at Redmond Library, for ages 5 and up.");
+  });
+});
+
 describe("composeEventsWeek", () => {
   const tue = slotFor("events_week", WEEK);
   const w = roundupWindow(tue.date, tue.publishAt);
@@ -719,9 +782,21 @@ describe("composeEventsWeek", () => {
       fine: COPY.eventsFine,
     });
     expect(spec.caption).toContain("Hosted by Deschutes Public Library.");
-    expect(spec.caption).toContain(COPY.eventsDetails);
-    expect(spec.caption).toContain(COPY.eventsFine);
-    expect(spec.caption).not.toMatch(/\b(we|our|us)\b/i);
+    expect(spec.caption).toContain(COPY.eventsFineCaption);
+    expect(spec.caption).toContain(COPY.captionClose.events_week);
+    // "We" is Park Roulette's closing line only; never "I".
+    expect(spec.caption).not.toMatch(/\b(i|me|my)\b/i);
+    const lines = spec.caption!.split("\n");
+    expect(lines[2]).toBe(
+      "Four events in Bend, Redmond, Sisters and La Pine, for ages 3 and up. All are free.",
+    );
+    // Day headings, then one line per event, with where (venues differ).
+    expect(lines).toContain("Wednesday, Nov 25");
+    expect(lines).toContain("Monday, Nov 30");
+    const storytime = lines[lines.indexOf("Wednesday, Nov 25") + 1];
+    expect(storytime).toMatch(
+      /^Toddler Storytime, starts 10 am at Downtown Bend Library\. /,
+    );
     expect(spec.facts.events).toEqual(
       pick.events.map((e) => ({
         slug: e.slug,

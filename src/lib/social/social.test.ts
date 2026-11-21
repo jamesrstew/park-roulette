@@ -3,8 +3,10 @@ import { CATALOG } from "@/lib/news/catalog";
 import type { Issue } from "@/lib/news/issue";
 import type { EventRow } from "@/lib/events/model";
 import {
+  andList,
   composeParkPost,
   composeStory,
+  sentencesOf,
   composeTeaser,
   type ParkInfo,
   weatherWord,
@@ -32,7 +34,10 @@ import {
 } from "./model";
 import type { ParkProfile } from "@/lib/park-profiles";
 import {
+  exclamationProblem,
   headlineCount,
+  introProblems,
+  longSentences,
   holidayHours,
   holidayIn,
   openDaysLine,
@@ -45,6 +50,7 @@ import {
   ungrounded,
   validateParkPost,
   validateUnpack,
+  voiceProblems,
 } from "./validate";
 
 const BPRD = "Photo: Bend Park & Recreation District";
@@ -217,10 +223,10 @@ function ctx(over: Partial<SocialCtx> = {}): SocialCtx {
 const parkPost = (over: Partial<ParkPostDraft> = {}): ParkPostDraft => ({
   type: "park_post",
   park: "larkspur-park-bend",
-  hook: "A Bend playground for all abilities",
-  who: "Kids who want room to roam, little ones to big kids.",
-  what: "Three play zones for all abilities, plus a walking trail.",
-  bring: "Mittens and a snack.",
+  story:
+    "This week we're featuring Larkspur Park, a Bend playground for all abilities. There are three play zones, plus a walking trail.",
+  who: "kids who want room to roam, little ones to big kids",
+  bring: "mittens and a snack",
   hashtags: ["#BendOregon", "#CentralOregon", "#BendKids"],
   ...over,
 });
@@ -255,6 +261,31 @@ const unpack = (over: Partial<UnpackDraft> = {}): UnpackDraft => ({
   ],
   hashtags: ["#BendOregon"],
   ...over,
+});
+
+describe("carousel intros", () => {
+  it("allow a short scene in our voice, and no place claims in an Unpack intro", () => {
+    expect(
+      introProblems(
+        "A cold week ahead. These are the warm ones we picked.",
+        11,
+        true,
+      ),
+    ).toEqual([]);
+    expect(
+      introProblems("Slides and shade at every stop this week.", 11, true)[0],
+    ).toMatch(/no place claims here \(slides, shade\)/);
+    // At home: the same words are fine (no place to back).
+    expect(
+      introProblems("Slides down the hallway, then a nap.", 11, false),
+    ).toEqual([]);
+    expect(introProblems("One. Two. Three.", 11, false).join(" ")).toMatch(
+      /1 or 2 short sentences/,
+    );
+    expect(introProblems("I love a slow morning.", 11, false)[0]).toMatch(
+      /first person singular/,
+    );
+  });
 });
 
 describe("the calendar", () => {
@@ -296,6 +327,68 @@ describe("text rules", () => {
     expect(t("Restrooms by the lot", 7)).toEqual([]);
     expect(t("Vote for the best park")[0]).toMatch(/politics/);
     expect(t("A fenced toddler corner and two slides.")).toEqual([]);
+  });
+  it("lets Park Roulette say we, never I, and never claim a visit, a kid or an invitation", () => {
+    expect(t("This week we're featuring Compass Park.")).toEqual([]);
+    expect(t("Our park this week has a fort zone.")).toEqual([]);
+    expect(t("We picked a warm one for the cold week.")).toEqual([]);
+    expect(t("I love this park")[0]).toMatch(/first person singular/);
+    expect(t("Ask me about it")[0]).toMatch(/first person singular/);
+    for (const claim of [
+      "We went on Saturday",
+      "We loved the forts",
+      "Our kids built a fort",
+      "Our little ones ran laps",
+      "Join us at the park",
+      "See you there",
+    ])
+      expect(t(claim).join(" "), claim).toMatch(/never claims a visit/);
+    // Words that aren't ours (an event's own summary): no "we" either.
+    expect(
+      textProblems("We'll paint ornaments", {
+        month: 12,
+        label: "descriptor",
+        plural: false,
+      })[0],
+    ).toMatch(/words that aren't ours/);
+  });
+  it("refuses the voice guide's cliches, long sentences and exclamation spam", () => {
+    for (const [line, label] of [
+      ["A must-see spot in Bend", "must-see"],
+      ["Your kids will love it", "will love it"],
+      ["Adventure awaits in NorthWest Crossing", "adventure awaits"],
+      ["A magical place to make memories", "magical"],
+      ["Nestled by the river, it boasts amenities", "nestled"],
+      ["Tag a friend who needs this", "tag a friend"],
+      ["Don't miss the fort zone", "don't miss"],
+      ["A hidden gem with something for everyone", "hidden gem"],
+    ])
+      expect(voiceProblems(line, "story").join(" "), line).toContain(label);
+    expect(
+      voiceProblems(
+        "Kids build their own forts in the Wildside zone.",
+        "story",
+      ),
+    ).toEqual([]);
+    expect(
+      longSentences(
+        "Kids build forts. This sentence goes on and on with one more thing and then another thing and then a third thing after that one too.",
+        "story",
+      )[0],
+    ).toMatch(/runs 2\d words; keep each sentence to 22/);
+    expect(exclamationProblem(["A fort zone!", "Bring gloves."])).toBeNull();
+    expect(exclamationProblem(["A fort zone!", "Bring gloves!"])).toMatch(
+      /2 exclamation points/,
+    );
+  });
+  it("splits sentences without breaking at an abbreviation", () => {
+    expect(
+      sentencesOf("Meet Dr. Seuss at St. Francis. Then play. Done!"),
+    ).toEqual(["Meet Dr. Seuss at St. Francis.", "Then play.", "Done!"]);
+    expect(andList(["paper"])).toBe("paper");
+    expect(andList(["paper", "tape", "crayons"])).toBe(
+      "paper, tape and crayons",
+    );
   });
   it("checks feature claims against the park's record", () => {
     expect(unbackedClaims("Big climbers and a zipline", ["climbing"])).toEqual([
@@ -374,10 +467,19 @@ describe("the park post", () => {
     const c = r.spec!.caption!;
     expect(
       c.startsWith(
-        "A Bend playground for all abilities: Larkspur Park\n\nThree play zones",
+        "This week we're featuring Larkspur Park, a Bend playground for all abilities. There are three play zones",
       ),
     ).toBe(true);
-    expect(c).toContain("1600 SE Reed Market Rd, Bend, OR 97701");
+    expect(c).toContain(
+      "\n\nBest for: kids who want room to roam, little ones to big kids\nBring: mittens and a snack\nWhere: 1600 SE Reed Market Rd, Bend, OR 97701\n",
+    );
+    expect(c).toContain(COPY.captionClose.park_post);
+    expect(r.spec!.headline).toBe(
+      "This week we're featuring Larkspur Park, a Bend playground for all abilities.",
+    );
+    expect(r.spec!.fbCaption).toContain(
+      "Sign up free: https://parkroulette.quest/ig?from=fb",
+    );
     expect(c).toContain(COPY.bio);
     expect(c).not.toContain("Comment PARK");
     expect(c).not.toContain("Photo:");
@@ -415,8 +517,8 @@ describe("the park post", () => {
     const r = await validateParkPost(
       parkPost({
         park: "pine-nursery-park-bend",
-        hook: "The best Bend playground for little climbers and big ones",
-        what: "A zipline and swings.",
+        story:
+          "This week we're featuring Pine Nursery Park, with a zipline and swings for all abilities and a long list of other things to try today.",
         bring: "Swimsuits for the splash pad.",
       }),
       WEEK,
@@ -428,7 +530,7 @@ describe("the park post", () => {
     expect(all).toMatch(/last 8 weeks/);
     expect(all).toMatch(/zipline/);
     expect(all).toMatch(/splash pad/);
-    expect(all).toMatch(/over 8 words/);
+    expect(all).toMatch(/first sentence runs \d+ characters/);
   });
   it("needs a covering break, of the named town's district, to say school is out", async () => {
     const r = await validateParkPost(
@@ -529,6 +631,22 @@ describe("the Unpack carousel", () => {
     });
     expect(s.slides[0]).toMatchObject({ t: "headline", highlight: "warm" });
     expect(s.slides.at(-1)).toMatchObject({ t: "cta", line: COPY.thursday });
+    expect(r.warnings.join(" ")).toMatch(/No intro/);
+    const withIntro = await validateUnpack(
+      unpack({
+        items,
+        intro: "A frosty week ahead. These are the warm ones.",
+      }),
+      WEEK,
+      ctx({ evidence: async () => true }),
+    );
+    expect(withIntro.ok).toBe(true);
+    const cap = withIntro.spec!.caption!;
+    expect(cap).toContain(
+      "Warm spots for a frosty week\n\nA frosty week ahead. These are the warm ones.\n\n1. High Desert Museum\nIndoor exhibits, a porcupine and a hands-on volcano.\nHoliday hours: 10 am to 4 pm · All ages · Paid entry · Bend\n",
+    );
+    expect(cap).toContain(COPY.captionClose.unpack);
+    expect(withIntro.spec!.modelText).toContain("These are the warm ones.");
     expect(s.alts).toHaveLength(s.slides.length);
     expect(s.fbCaption).toContain(bioLink("fb"));
     expect(s.fbCaption).not.toContain(COPY.bio);
@@ -699,6 +817,10 @@ describe("Thursday's teaser and Friday's Story", () => {
     expect(s.caption).toContain(issue.preview);
     expect(s.caption).toContain(COPY.bio);
     expect(s.caption).not.toContain("Photo:");
+    expect(s.caption).toContain(
+      `This week's pick is Larkspur Park in Bend. ${issue.wheel_pick.why_now}`,
+    );
+    expect(s.caption).toContain(`${COPY.teaserClose}\n${COPY.bio}`);
     expect(weatherWord("partly")).toBe("Sun and clouds");
   });
   it("drops the weather slide without a forecast", () => {
@@ -968,25 +1090,35 @@ describe("keyword DMs", () => {
 });
 
 describe("signature traits lead the park post", () => {
-  it("refuses a hook or an opening line without a profile trait", async () => {
+  it("refuses an opening sentence without a profile trait or the park's name", async () => {
     const r = await validateParkPost(
       parkPost({
-        hook: "A Bend playground to visit this week",
-        what: "Picnic tables for grown-ups and open lawns.",
+        story:
+          "This week we're featuring Larkspur Park in Bend. It has three play zones for all abilities.",
       }),
       WEEK,
       ctx(),
     );
-    const all = r.errors.join(" ");
-    expect(all).toMatch(
-      /hook must lead with one of the park's signature traits/,
+    expect(r.errors.join(" ")).toMatch(
+      /first sentence opens the caption, so it must lead with one of the park's signature traits/,
     );
-    expect(all).toMatch(/what line opens the caption/);
+    const unnamed = await validateParkPost(
+      parkPost({
+        story:
+          "This week's park is a Bend playground for all abilities. It has three play zones.",
+      }),
+      WEEK,
+      ctx(),
+    );
+    expect(unnamed.errors.join(" ")).toMatch(
+      /first sentence must name the park \(Larkspur Park\)/,
+    );
   });
   it("refuses generic phrases anywhere", async () => {
     const r = await validateParkPost(
       parkPost({
-        hook: "A playground built for all abilities fans",
+        story:
+          "This week we're featuring Larkspur Park, a playground built for all abilities fans. Three play zones sit side by side.",
         who: "Something for everyone, fun for all ages.",
         bring: "Snacks: a great place for a picnic.",
       }),
@@ -999,11 +1131,42 @@ describe("signature traits lead the park post", () => {
     expect(all).toMatch(/fun for all ages/);
     expect(all).toMatch(/great place/);
   });
+  it("holds the story to a short paragraph that names the park first", async () => {
+    const r = await validateParkPost(
+      parkPost({
+        story:
+          "This week we're featuring Larkspur Park, a Bend playground for all abilities, with three zones and a trail and picnic tables and a lot more besides that. One. Two. Three. Four!",
+        who: "Kids will love it!",
+      }),
+      WEEK,
+      ctx(),
+    );
+    const all = r.errors.join(" ");
+    expect(all).toMatch(/story: 5 sentences; 4 at most/);
+    expect(all).toMatch(/first sentence runs \d+ characters; 130 at most/);
+    expect(all).toMatch(/runs \d+ words; keep each sentence to 22/);
+    expect(all).toMatch(/"will love it"/);
+    expect(all).toMatch(/2 exclamation points/);
+  });
+  it("refuses a story that says we visited, or names a feature the record lacks", async () => {
+    const r = await validateParkPost(
+      parkPost({
+        story:
+          "This week we're featuring Larkspur Park, a Bend playground for all abilities. We went last week and our kids loved the splash pad.",
+      }),
+      WEEK,
+      ctx(),
+    );
+    const all = r.errors.join(" ");
+    expect(all).toMatch(/never claims a visit/);
+    expect(all).toMatch(/doesn't list a splash pad/);
+  });
   it("refuses a park with fewer than 2 traits", async () => {
     const r = await validateParkPost(
       parkPost({
         park: "pine-nursery-park-bend",
-        hook: "A Bend fishing pond playground",
+        story:
+          "This week we're featuring Pine Nursery Park, with its fishing pond and a playground by the water.",
       }),
       WEEK,
       ctx({ planParks: ["pine-nursery-park-bend"] }),

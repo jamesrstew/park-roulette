@@ -47,12 +47,48 @@ export type ResolvedItem = {
 
 const strip = (s: string) => s.trim().replace(/[\s.:;,!-]+$/u, "");
 
+const sentence = (s: string) => {
+  const t = s.trim();
+  return /[.!?]$/.test(t) ? t : `${t}.`;
+};
+
 /** The Facebook caption: the same words, with the live link (no bio there). */
 function forFacebook(caption: string, ctaText: string): string {
-  return caption.replace(
-    ctaText,
-    `Free park picks every Thursday: ${bioLink("fb")}`,
-  );
+  return caption.replace(ctaText, `${COPY.fbSignup} ${bioLink("fb")}`);
+}
+
+/** A model fragment as a labeled line ("Bring: warm layers"): no end period. */
+const fragment = (s: string) => s.trim().replace(/[\s.;,]+$/u, "");
+
+/**
+ * A text's sentences, never split after an abbreviation or an initial
+ * ("Dr. Seuss", "St. Francis"). Pure; the validator counts them.
+ */
+export function sentencesOf(text: string): string[] {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (!t) return [];
+  const out: string[] = [];
+  let start = 0;
+  for (const m of t.matchAll(/[.!?]+(?=\s+["'‘“(]?[A-Z0-9])/g)) {
+    const head = t.slice(start, m.index + m[0].length);
+    if (
+      /(?:\b(?:Dr|Mr|Mrs|Ms|St|Mt|Ft|No|vs|Jr|Sr|Ave|Rd|Blvd)|(?:^|\s)[A-Z])\.$/.test(
+        head,
+      )
+    )
+      continue;
+    out.push(head.trim());
+    start = m.index + m[0].length;
+  }
+  const rest = t.slice(start).trim();
+  if (rest) out.push(rest);
+  return out;
+}
+
+/** "a, b and c" (no serial comma, as the rest of our copy). */
+export function andList(items: readonly string[]): string {
+  if (items.length <= 1) return items.join("");
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 const hashtagLine = (tags: readonly string[]) => tags.join(" ");
@@ -66,18 +102,18 @@ export function composeParkPost(
   dms: boolean,
 ): PostSpec {
   const cta = ctaLine(dms);
-  const hook = strip(d.hook);
+  const story = d.story.replace(/\s+/g, " ").trim();
   const caption = [
-    `${hook}: ${park.name}`,
+    // The story opens the caption: its first sentence names the park and
+    // a signature trait (the validator holds it).
+    story,
     "",
-    // The signature trait opens the caption (the validator holds it).
-    d.what.trim(),
-    d.who.trim(),
-    d.bring.trim(),
+    `Best for: ${fragment(d.who)}`,
+    `Bring: ${fragment(d.bring)}`,
+    `Where: ${park.address ?? `${park.name}, ${park.city}, Oregon`}`,
     "",
-    park.address ?? `${park.name}, ${park.city}, Oregon`,
     ...(photo?.credit ? [photo.credit] : []),
-    "",
+    COPY.captionClose.park_post,
     cta,
     "",
     hashtagLine(d.hashtags),
@@ -95,8 +131,8 @@ export function composeParkPost(
     alts: [slideAlt(slide)],
     caption,
     fbCaption: forFacebook(caption, cta),
-    headline: hook,
-    modelText: [hook, d.what, d.who, d.bring].join("\n"),
+    headline: sentencesOf(story)[0] ?? park.name,
+    modelText: [story, d.who, d.bring].join("\n"),
     facts: { parks: [park.slug], events: [], venues: [], issue: null },
   };
 }
@@ -130,15 +166,18 @@ export function composeUnpack(
     })),
     { t: "cta", line: COPY.thursday, cta, sub: COPY.free },
   ];
+  const intro = d.intro?.replace(/\s+/g, " ").trim();
   const caption = [
     headline,
     "",
-    ...items.map(
-      (it, i) =>
-        `${i + 1}. ${it.name}: ${strip(it.what)} (${it.facts.join(" • ")})`,
-    ),
-    "",
-    COPY.thursday,
+    ...(intro ? [intro, ""] : []),
+    ...items.flatMap((it, i) => [
+      `${i + 1}. ${it.name}`,
+      sentence(it.what),
+      it.facts.join(" · "),
+      "",
+    ]),
+    COPY.captionClose.unpack,
     cta,
     "",
     hashtagLine(d.hashtags),
@@ -151,7 +190,11 @@ export function composeUnpack(
     caption,
     fbCaption: forFacebook(caption, cta),
     headline,
-    modelText: [headline, ...items.map((i) => i.what)].join("\n"),
+    modelText: [
+      headline,
+      ...(intro ? [intro] : []),
+      ...items.map((i) => i.what),
+    ].join("\n"),
     facts,
   };
 }
@@ -171,11 +214,6 @@ export function ideaSafety(i: AtHomeDraft["ideas"][number]): string | null {
   const text = [i.title, ...i.need, ...i.steps, i.payoff].join(" ");
   return i.ages.from < 6 && WATER.test(text) ? COPY.waterSafety : null;
 }
-
-const sentence = (s: string) => {
-  const t = s.trim();
-  return /[.!?]$/.test(t) ? t : `${t}.`;
-};
 
 export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
   const cta = ctaLine(dms);
@@ -222,19 +260,21 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
     })),
     { t: "cta", line: COPY.thursday, cta, sub: COPY.free },
   ];
+  const intro = d.intro?.replace(/\s+/g, " ").trim();
   const caption = [
     headline,
     "",
+    ...(intro ? [intro, ""] : []),
     ...ideas.flatMap((i, n) => [
       `${n + 1}. ${i.title} (${agesLabel(i.ages).toLowerCase()})`,
-      `You need: ${i.need.join(", ")}.`,
+      `You need ${andList(i.need)}.`,
       ...i.steps.map((s) => `- ${s}`),
       `${COPY.payoffLabel}: ${i.payoff}`,
       ...(ideaSafety(i) ? [ideaSafety(i)!] : []),
       "",
     ]),
     COPY.save,
-    COPY.thursday,
+    COPY.captionClose.at_home,
     cta,
     "",
     hashtagLine(d.hashtags),
@@ -249,6 +289,7 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
     headline,
     modelText: [
       headline,
+      ...(intro ? [intro] : []),
       ...ideas.flatMap((i) => [
         i.title,
         i.need.join(", "),
@@ -300,6 +341,114 @@ export type WeekEvent = {
   host: string | null;
   also: string | null;
 };
+
+const NUMBER_WORDS = [
+  "No",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+];
+const count = (n: number) => NUMBER_WORDS[n] ?? String(n);
+
+const WEEKDAYS: Record<string, string> = {
+  Sun: "Sunday",
+  Mon: "Monday",
+  Tue: "Tuesday",
+  Wed: "Wednesday",
+  Thu: "Thursday",
+  Fri: "Friday",
+  Sat: "Saturday",
+};
+
+/** The youngest age the events' chips print, or null ("All ages" anywhere). */
+function youngest(events: Pick<WeekEvent, "ages">[]): number | null {
+  let lo: number | null = null;
+  for (const e of events)
+    for (const chip of e.ages) {
+      const m = /^Ages? (\d+)/.exec(chip);
+      if (!m) return null;
+      lo = lo == null ? Number(m[1]) : Math.min(lo, Number(m[1]));
+    }
+  return lo;
+}
+
+/**
+ * The roundup caption's opening, from the events alone: how many, where
+ * (one venue, one town, or the towns, Bend first), the youngest printed
+ * age and how many are free. "Four events, all at TEAL Tea + Art Lounge
+ * in Bend, for ages 5 and up." No prices beyond "free": the chips carry
+ * them, and an event with no printed cost never reads as free.
+ */
+export function eventsIntro(
+  events: Pick<WeekEvent, "venue" | "town" | "cost" | "ages">[],
+): string {
+  const n = events.length;
+  const venues = [...new Set(events.map((e) => e.venue))];
+  const towns = [...new Set(events.map((e) => e.town))].sort(
+    (a, b) => Number(b === "Bend") - Number(a === "Bend"),
+  );
+  const where =
+    venues.length === 1 && towns.length === 1 && n > 1
+      ? `, all ${placeLine(venues[0], towns[0])
+          .replace(/^At /, "at ")
+          .replace(/, ([^,]+)$/, " in $1")}`
+      : towns.length === 1
+        ? `, all in ${towns[0]}`
+        : ` in ${andList(towns)}`;
+  const lo = youngest(events);
+  const ages = lo != null && lo > 0 ? `, for ages ${lo} and up` : "";
+  const free = events.filter((e) => e.cost === "Free").length;
+  const freeLine =
+    free === 0
+      ? ""
+      : free === n
+        ? n === 2
+          ? " Both are free."
+          : " All are free."
+        : ` ${count(free)} ${free === 1 ? "is" : "are"} free.`;
+  return `${count(n)} event${n === 1 ? "" : "s"}${where}${ages}.${freeLine}`;
+}
+
+/**
+ * The roundup's events under day headings ("Wednesday, Dec 2"), one line
+ * each: title, time, where (only when the venues differ), what kids do,
+ * ages, price, host and repeats. Ends with a blank line.
+ */
+export function eventsByDay(events: WeekEvent[]): string[] {
+  const oneVenue =
+    events.length > 1 &&
+    new Set(events.map((e) => `${e.venue}|${e.town}`)).size === 1;
+  const out: string[] = [];
+  let day = "";
+  for (const e of events) {
+    if (e.day !== day) {
+      if (day) out.push("");
+      out.push(`${WEEKDAYS[e.weekday] ?? e.weekday}, ${e.date}`);
+      day = e.day;
+    }
+    const where = oneVenue
+      ? ""
+      : ` ${placeLine(e.venue, e.town).replace(/^At /, "at ")}`;
+    out.push(
+      [
+        `${e.title}, ${e.time.replace(/^Starts /, "starts ")}${where}.`,
+        ...(e.desc ? [`${e.desc}.`] : []),
+        `${e.ages.join(", ")}.${e.cost ? ` ${e.cost}.` : ""}`,
+        ...(e.host ? [`Hosted by ${e.host}.`] : []),
+        ...(e.also ? [`${e.also}.`] : []),
+      ].join(" "),
+    );
+  }
+  if (out.length) out.push("");
+  return out;
+}
 
 export function composeEventsWeek(
   events: WeekEvent[],
@@ -363,20 +512,12 @@ export function composeEventsWeek(
   const caption = [
     `${headline} (${range.caption})`,
     "",
-    ...events.map((e) =>
-      [
-        `${e.weekday}, ${e.date} · ${e.time}: ${e.title}, ${e.town}.`,
-        ...(e.desc ? [`${e.desc}.`] : []),
-        `${e.ages.join(", ")}.${e.cost ? ` ${e.cost}.` : ""}`,
-        ...(e.host ? [`Hosted by ${e.host}.`] : []),
-        ...(e.also ? [`${e.also}.`] : []),
-      ].join(" "),
-    ),
+    eventsIntro(events),
     "",
-    COPY.eventsFine,
-    COPY.eventsDetails,
+    ...eventsByDay(events),
+    COPY.eventsFineCaption,
     "",
-    COPY.thursday,
+    COPY.captionClose.events_week,
     cta,
     "",
     hashtagLine(HASHTAGS),
@@ -486,9 +627,10 @@ export function composeTeaser(
     "",
     issue.preview,
     "",
-    `This week's pick: ${park.name}, ${park.city}. ${issue.wheel_pick.why_now}`,
+    `This week's pick is ${park.name} in ${park.city}. ${issue.wheel_pick.why_now}`,
     "",
-    `${COPY.readFree}. ${cta}`,
+    COPY.teaserClose,
+    cta,
     "",
     hashtagLine(["#BendOregon", "#CentralOregon", "#BendKids"]),
   ].join("\n");

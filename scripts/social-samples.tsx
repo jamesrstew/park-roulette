@@ -400,10 +400,10 @@ async function main() {
       {
         type: "park_post",
         park: larkspur.slug,
-        hook: "A Bend playground for all abilities",
-        who: "Kids of every age and ability, side by side.",
-        what: "Three play zones for all abilities, at the Larkspur Trail trailhead.",
-        bring: "Mittens, and a snack for the picnic tables.",
+        story:
+          "This week we're featuring Larkspur Park, a Bend playground for all abilities. Three play zones sit side by side, at the Larkspur Trail trailhead.",
+        who: "kids of every age and ability, side by side",
+        bring: "mittens, and a snack for the picnic tables",
         hashtags: ["#BendOregon", "#CentralOregon", "#BendKids"],
       },
       larkspur,
@@ -414,10 +414,10 @@ async function main() {
       {
         type: "park_post",
         park: harvest.slug,
-        hook: "A sunny Bend playground for little legs",
-        who: "Good for toddlers to big kids.",
-        what: "Slides, shade trees and picnic tables.",
-        bring: "Snacks for the picnic tables.",
+        story:
+          "This week we're featuring Harvest Park, a sunny Bend playground for little legs. Slides, shade trees and picnic tables, all close together.",
+        who: "toddlers to big kids",
+        bring: "snacks for the picnic tables",
         hashtags: ["#BendOregon"],
       },
       harvest,

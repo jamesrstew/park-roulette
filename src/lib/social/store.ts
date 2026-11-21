@@ -56,6 +56,8 @@ import {
   mondayOf,
   OVERLAP_POSTS,
   PARK_COOLDOWN_WEEKS,
+  SENTENCE_MAX_WORDS,
+  STORY_LIMITS,
   photoCredit,
   type PhotoRef,
   type PostKind,
@@ -467,16 +469,21 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
       icons: ITEM_ICONS,
       cta: dmsOn() ? COPY.comment : COPY.bio,
       headline_words:
-        "4 to 8 (the carousel); the park post's hook 8 at most. A number in the headline must equal the items left after cuts.",
+        "4 to 8 (the carousels). A number in the headline must equal the items left after cuts.",
+      voice: `Warm, plain, specific: one parent to another. Short sentences (${SENTENCE_MAX_WORDS} words at most each), everyday words, a small scene, then the useful bits. One exclamation point at most per post. No cliches: must-see, will love it, magical, make memories, adventure awaits, nestled, boasts, amenities, don't miss, tag a friend, hidden gem, perfect for, something for everyone.`,
+      story: `The park post's story: 2 to ${STORY_LIMITS.sentences} short sentences, ${STORY_LIMITS.min} to ${STORY_LIMITS.max} characters. The first (${STORY_LIMITS.first} characters at most, it shows before "more") names the park and a signature trait. who and bring are short lowercase fragments with no period; code labels them "Best for:" and "Bring:" and adds "Where:".`,
+      intro:
+        "The Unpack and at home carousels take an intro: 1 or 2 short sentences above the list, setting the week or the morning. An Unpack intro makes no place claims (the items do).",
       what_lines:
         "A carousel item's what line may only use words from its own source (the venue's or event's what, or the park's features).",
       restrooms:
         month >= 11 || month <= 3
           ? "No restroom claims (November to March)."
           : "Restroom claims only when the park's features list restrooms.",
-      first_person: "None: no I, we, my, our.",
+      first_person:
+        'No I, me or my. "We" and "our" are Park Roulette, the publisher ("This week we\'re featuring ..."). Never a visit, a kid or an invitation: no "we went", "our kids", "join us".',
       signature:
-        "The park post leads with a signature trait: the hook and the what line (the caption's opening) each name one of post_parks[].profile.traits (by its key words). Generic lines are refused: built for ... fans, something for everyone, fun for all ages, great place.",
+        "The park post leads with a signature trait: the story's first sentence names the park and one of post_parks[].profile.traits (by its key words). Generic lines are refused: built for ... fans, something for everyone, fun for all ages, great place.",
       dated: `Dated items start ${DATED_LEAD_HOURS}+ hours after the post goes out.`,
       school_out:
         "Saying school is out needs break_id from breaks, covering the post's days and the towns you name.",

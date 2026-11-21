@@ -189,7 +189,8 @@ function descOk(
   month: number,
 ): { desc: string | null; why: string | null } {
   if (!d) return { desc: null, why: null };
-  const bad = textProblems(d, { month, label: "descriptor" });
+  // The host's words, not ours: no "we" either ("We'll paint ornaments").
+  const bad = textProblems(d, { month, label: "descriptor", plural: false });
   return bad.length
     ? { desc: null, why: bad.join(" ") }
     : { desc: d, why: null };

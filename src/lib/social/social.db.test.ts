@@ -151,9 +151,9 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       {
         type: "park_post",
         park: "larkspur-park-bend",
-        hook: "A Bend playground for all abilities",
+        story:
+          "This week we're featuring Larkspur Park, a Bend playground for all abilities. There are three play zones, plus picnic tables.",
         who: "Universal-design play for every ability.",
-        what: "Three play zones for all abilities, plus picnic tables.",
         bring: "Mittens and a snack.",
       },
     ],
@@ -711,7 +711,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     const [row] = await q(
       `select caption from social_posts where kind = 'events_week' and status = 'queued'`,
     );
-    expect(String(row.caption)).toContain("Thu, Nov 26 · 2 to 3 pm");
+    expect(String(row.caption)).toMatch(/Thursday, Nov 26\n.+, 2 to 3 pm/);
   });
 
   /** Each idea its own words (identical steps would be a repeat in the post). */

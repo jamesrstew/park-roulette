@@ -95,6 +95,23 @@ export const COPY = {
   comment: "Comment PARK and we'll DM you the link.",
   bio: "Link in bio.",
   thursday: "Every Thursday: the weekend forecast plus one great plan.",
+  /**
+   * The captions' closing line, in our voice (the slides keep `thursday`).
+   * One per post type, so it doesn't read the same four days a week.
+   */
+  captionClose: {
+    park_post:
+      "Every Thursday we send one park plan for the weekend. It's free.",
+    events_week:
+      "Every Thursday we send the weekend forecast and one good plan. It's free.",
+    unpack: "Our free Thursday email has the weekend forecast and one plan.",
+    at_home:
+      "When you're ready to get out, our free Thursday email has a plan.",
+  },
+  /** The teaser's closing line (it goes out the morning the email does). */
+  teaserClose: "The whole plan is in today's email. It's free.",
+  /** Facebook has no bio link: the caption's call to action, with the link. */
+  fbSignup: "Sign up free:",
   free: "Free, from a Bend family.",
   swipe: "Swipe",
   readFree: "Read it free",
@@ -115,7 +132,10 @@ export const COPY = {
   /** The label over an idea's payoff, on the slide and in the caption. */
   payoffLabel: "The best part",
   /** The "at home" caption's save prompt (saves drive reach on idea posts). */
-  save: "Save this for the next morning at home.",
+  save: "Save this for the next slow morning at home.",
+  /** The roundup caption's host line (the slide keeps `eventsFine`). */
+  eventsFineCaption:
+    "Hosts run these events, so check times and prices before you go. More at parkroulette.quest/events",
   /** Water ideas for kids under 6 (code adds it; the model never has to). */
   waterSafety: "Water play: stay within arm's reach.",
   /** The keyword DM (comments and Story replies): code-written, the same for everyone. */
@@ -238,17 +258,33 @@ export type ItemIcon = (typeof ITEM_ICONS)[number];
 export const REF =
   /^(venue:venue-[a-z0-9-]+|event:[a-z0-9-]+@\d{4}-\d{2}-\d{2}|park:[a-z0-9-]+)$/;
 
+/** The park post's story: its first sentence shows before "more". */
+export const STORY_LIMITS = {
+  min: 90,
+  max: 420,
+  /** The first sentence (Instagram shows about 125 characters). */
+  first: 130,
+  sentences: 4,
+} as const;
+/** No sentence of a story or an intro runs longer than this. */
+export const SENTENCE_MAX_WORDS = 22;
+/** A carousel's intro line(s), above the items. */
+export const INTRO_MAX = 200;
+
 export const ParkPostDraft = z.strictObject({
   type: z.literal("park_post"),
   /** One of the plan's park candidates (code picked them). */
   park: Slug,
-  /** The keyword hook ("Bend playground for little climbers"), 8 words at most. */
-  hook: Words(80, 8),
-  /** Who it fits. */
-  who: Words(140, 8),
-  /** What's there (only what the park's record says). */
-  what: Words(160, 8),
-  /** What to bring. */
+  /**
+   * The narrative opening: 2 to 4 short sentences. The first names the
+   * park and a signature trait ("This week we're featuring Compass Park in
+   * NorthWest Crossing, where kids build their own forts."); the rest is a
+   * small scene and what else is there (only what the record says).
+   */
+  story: Words(STORY_LIMITS.max, STORY_LIMITS.min),
+  /** Who it fits, a fragment ("Best for: ..."). */
+  who: Words(120, 8),
+  /** What to bring, a fragment ("Bring: ..."). */
   bring: Words(120, 5),
   /** A catalog break, required when any line says school is out. */
   break_id: z.string().optional(),
@@ -279,6 +315,8 @@ export const UnpackDraft = z.strictObject({
   headline: Words(70, 10),
   /** The one highlighted word (it must be in the headline). */
   highlight: Words(24),
+  /** 1 or 2 short sentences setting the week, above the items (caption only). */
+  intro: Words(INTRO_MAX, 20).optional(),
   break_id: z.string().optional(),
   items: z.array(UnpackItem).min(3).max(5),
   hashtags: Hashtags,
@@ -372,6 +410,8 @@ export const AtHomeDraft = z.strictObject({
   /** 4 to 8 words ("First snow: 4 cozy things to try"). */
   headline: Words(70, 10),
   highlight: Words(24),
+  /** 1 or 2 short sentences setting the morning, above the ideas (caption only). */
+  intro: Words(INTRO_MAX, 20).optional(),
   /** A theme id the plan offers for that Saturday (at_home.themes). */
   theme: z.string().regex(/^[a-z0-9-]+$/),
   break_id: z.string().optional(),

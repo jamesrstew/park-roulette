@@ -39,6 +39,7 @@ import {
   composeUnpack,
   type ParkInfo,
   type ResolvedItem,
+  sentencesOf,
 } from "./compose";
 import {
   type AtHomeDraft,
@@ -55,6 +56,8 @@ import {
   MAX_HASHTAGS,
   mondayOf,
   OVERLAP_LIMIT,
+  SENTENCE_MAX_WORDS,
+  STORY_LIMITS,
   type ParkPostDraft,
   type PhotoRef,
   type PostDraft,
@@ -127,9 +130,92 @@ const norm = (s: string) => s.replace(/[‘’]/g, "'");
 /** Other newsletters, by name or domain (the primary-source rule). */
 // Any spacing or case, as the issue and events checkers.
 const COMPETITORS = /bend[\s_.-]*(family[\s_.-]*loop|buzz)/i;
-/** We never claim to have done anything ("we went", "my kids loved"). */
-const FIRST_PERSON =
-  /\b(i|i'm|i've|i'd|i'll|me|my|mine|we|we're|we've|we'd|we'll|us|our|ours)\b/i;
+/**
+ * No "I": Park Roulette speaks as "we", the publisher ("This week we're
+ * featuring ..."). Plural first person is out only where the words aren't
+ * ours (an event's own summary: "we'll paint" is the host talking).
+ */
+const FIRST_PERSON = /\b(i|i'm|i've|i'd|i'll|me|my|mine|myself)\b/i;
+const FIRST_PERSON_PLURAL =
+  /\b(we|we're|we've|we'd|we'll|us|our|ours|ourselves)\b/i;
+/**
+ * "We" never claims a visit, a kid or an invitation: we don't go, we
+ * don't host, and we don't have kids in the post ("we went", "our kids
+ * loved it", "join us", "see you there").
+ */
+const EXPERIENCE =
+  /\b(we|we've|we'd)\s+(just\s+|finally\s+|recently\s+|all\s+)?(went|visited|tried|tested|loved|spent|played|took|brought|stopped|hiked|walked|biked|had|did|found|discovered|checked)\b|\bour\s+(own\s+)?(kids?|family|families|little ones?|littles|toddlers?|daughters?|sons?|crew|girls?|boys?|baby|babies)\b|\bjoin us\b|\bsee you (there|soon)\b|\bwith us\b/i;
+
+/**
+ * Influencer and brochure words the voice guide bans (with the generic
+ * park phrases): they could be about anywhere, and they read as an ad.
+ */
+const CLICHES: [RegExp, string][] = [
+  [/\bmust[- ](see|visit|try|do|have)\b/i, '"must-see"'],
+  [/\ba must\b/i, '"a must"'],
+  [/\bbucket[- ]list\b/i, '"bucket list"'],
+  [/\blook no further\b/i, '"look no further"'],
+  [/\bbest[- ]kept secrets?\b/i, '"best-kept secret"'],
+  [/\bthe ultimate\b/i, '"the ultimate"'],
+  [/\bunforgettable\b/i, '"unforgettable"'],
+  [/\bmagical\b/i, '"magical"'],
+  [
+    /\b(make|making|create|creating) (lasting |special )?memories\b|\bmemories (that|to) last\b/i,
+    '"make memories"',
+  ],
+  [/\bwill (absolutely |just )?love (it|this|these|them)\b/i, '"will love it"'],
+  [/\badventure awaits\b/i, '"adventure awaits"'],
+  [/\bfun[- ]filled\b/i, '"fun-filled"'],
+  [/\bdon'?t miss\b/i, '"don\'t miss"'],
+  [/\btag (a friend|someone|your)\b/i, '"tag a friend"'],
+  [/\bepic\b/i, '"epic"'],
+  [/\bvibes?\b/i, '"vibes"'],
+  [/\bnestled\b/i, '"nestled"'],
+  [/\bboasts?\b/i, '"boasts"'],
+  [/\bamenities\b/i, '"amenities"'],
+  [/\ba (wide )?variety of\b/i, '"a variety of"'],
+  [/\bhave a blast\b/i, '"have a blast"'],
+  [/\bamazing\b/i, '"amazing"'],
+  [/\bunparalleled\b/i, '"unparalleled"'],
+];
+
+/**
+ * Voice problems in words the model wrote: the generic park phrases and
+ * the guide's clichés. (Sentence length and exclamation points are
+ * checked per post.)
+ */
+export function voiceProblems(text: string, label: string): string[] {
+  const t = norm(text);
+  const found = [
+    ...genericPhrases(t),
+    ...CLICHES.filter(([re]) => re.test(t)).map(([, l]) => l),
+  ];
+  return found.length
+    ? [
+        `${label}: ${found.join(", ")} could be about anywhere. Say what makes this one different, in plain words.`,
+      ]
+    : [];
+}
+
+const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Sentences over SENTENCE_MAX_WORDS words (short sentences, always). */
+export function longSentences(text: string, label: string): string[] {
+  return sentencesOf(text)
+    .filter((x) => wordCount(x) > SENTENCE_MAX_WORDS)
+    .map(
+      (x) =>
+        `${label}: "${x.slice(0, 50)}..." runs ${wordCount(x)} words; keep each sentence to ${SENTENCE_MAX_WORDS} or fewer.`,
+    );
+}
+
+/** At most one exclamation point across a post's own words. */
+export function exclamationProblem(texts: readonly string[]): string | null {
+  const n = texts.join(" ").split("!").length - 1;
+  return n > 1
+    ? `${n} exclamation points: one at most in a post (calm, not loud).`
+    : null;
+}
 const LINKISH = /https?:|www\.|\.(com|org|net|gov|us|quest)\b|@\w|#\w/i;
 const EMOJI = /\p{Extended_Pictographic}/u;
 /** No restroom claims November to March (they close for the season). */
@@ -164,14 +250,31 @@ const TOWNS = [
 /** Problems with words the model wrote, or [] when they're fine. */
 export function textProblems(
   text: string,
-  { month, label }: { month: number; label: string },
+  {
+    month,
+    label,
+    plural = true,
+  }: {
+    month: number;
+    label: string;
+    /** May "we" and "our" appear (Park Roulette speaking)? Default yes. */
+    plural?: boolean;
+  },
 ): string[] {
   const t = norm(text);
   const out: string[] = [];
   if (COMPETITORS.test(t)) out.push(`${label}: never name another newsletter.`);
   if (FIRST_PERSON.test(t))
     out.push(
-      `${label}: no first person ("I", "we", "my", "our"). Say what the place has, not what anyone did.`,
+      `${label}: no first person singular ("I", "me", "my"). "We" is Park Roulette.`,
+    );
+  if (!plural && FIRST_PERSON_PLURAL.test(t))
+    out.push(
+      `${label}: no first person ("we", "our", "us") in words that aren't ours.`,
+    );
+  if (EXPERIENCE.test(t))
+    out.push(
+      `${label}: first person "we" never claims a visit, a kid or an invitation ("we went", "our kids", "join us"). Say what the place has.`,
     );
   if (LINKISH.test(t))
     out.push(
@@ -925,6 +1028,34 @@ export function schoolOutProblem(
     : null;
 }
 
+/**
+ * A carousel intro: 1 or 2 short sentences in our voice. An Unpack intro
+ * claims nothing about places (the items carry the facts, each backed by
+ * its own source), so a feature word there (slides, a splash pad, shade)
+ * is refused.
+ */
+export function introProblems(
+  intro: string | undefined,
+  month: number,
+  noPlaceClaims: boolean,
+): string[] {
+  if (!intro) return [];
+  const out = [
+    ...textProblems(intro, { month, label: "intro" }),
+    ...voiceProblems(intro, "intro"),
+    ...longSentences(intro, "intro"),
+  ];
+  if (sentencesOf(intro).length > 2) out.push("intro: 1 or 2 short sentences.");
+  if (noPlaceClaims) {
+    const claims = unbackedClaims(intro, []);
+    if (claims.length)
+      out.push(
+        `intro: no place claims here (${claims.join(", ")}); each item says what its place has.`,
+      );
+  }
+  return out;
+}
+
 export async function validateParkPost(
   d: ParkPostDraft,
   weekOf: string,
@@ -944,29 +1075,34 @@ export async function validateParkPost(
     r.errors.push(`${d.park} isn't an open park on the map.`);
   if (ctx.cooling.has(d.park))
     r.errors.push(`${d.park} was on Instagram in the last 8 weeks.`);
-  if (wordCount(d.hook) > HEADLINE_MAX_WORDS)
-    r.errors.push(`The hook is over ${HEADLINE_MAX_WORDS} words.`);
-  for (const [label, text] of [
-    ["hook", d.hook],
+  const sentences = sentencesOf(d.story);
+  const first = sentences[0] ?? "";
+  if (sentences.length > STORY_LIMITS.sentences)
+    r.errors.push(
+      `story: ${sentences.length} sentences; ${STORY_LIMITS.sentences} at most (a short paragraph).`,
+    );
+  if (first.length > STORY_LIMITS.first)
+    r.errors.push(
+      `story: the first sentence runs ${first.length} characters; ${STORY_LIMITS.first} at most (it shows before "more").`,
+    );
+  r.errors.push(...longSentences(d.story, "story"));
+  const parts = [
+    ["story", d.story],
     ["who", d.who],
-    ["what", d.what],
     ["bring", d.bring],
-  ] as const)
+  ] as const;
+  for (const [label, text] of parts) {
     r.errors.push(...textProblems(text, { month, label }));
-  for (const [label, text] of [
-    ["hook", d.hook],
-    ["who", d.who],
-    ["what", d.what],
-    ["bring", d.bring],
-  ] as const) {
-    const generic = genericPhrases(text);
-    if (generic.length)
-      r.errors.push(
-        `${label}: ${generic.join(", ")} could be any park. Say what makes this one different.`,
-      );
+    r.errors.push(...voiceProblems(text, label));
   }
+  const bang = exclamationProblem(parts.map(([, t]) => t));
+  if (bang) r.errors.push(bang);
   const profile = ctx.profiles.get(d.park) ?? null;
   if (park) {
+    if (!new RegExp(`\\b${escapeRe(park.name)}\\b`, "i").test(norm(first)))
+      r.errors.push(
+        `story: the first sentence must name the park (${park.name}), with its signature trait ("This week we're featuring ${park.name} ...").`,
+      );
     // In-season traits only; nearby and history traits can't lead.
     const traits = postTraits(profile, month);
     const leads = traits.filter((t) => !CONTEXT_KINDS.has(t.kind));
@@ -975,18 +1111,12 @@ export async function validateParkPost(
       r.errors.push(
         `${park.name} has signature traits of ${n} kind${n === 1 ? "" : "s"} this month; a park post needs ${MIN_POST_TRAITS}.`,
       );
-    else {
-      if (!traitIn(d.hook, leads))
-        r.errors.push(
-          "The hook must lead with one of the park's signature traits, using one of its keys (plan: post_parks[].profile.traits[].keys).",
-        );
-      if (!traitIn(d.what, leads))
-        r.errors.push(
-          "The what line opens the caption: it must name one of the park's signature traits, using one of its keys.",
-        );
-    }
+    else if (!traitIn(first, leads))
+      r.errors.push(
+        "story: the first sentence opens the caption, so it must lead with one of the park's signature traits, using one of its keys (plan: post_parks[].profile.traits[].keys).",
+      );
     const claims = unbackedClaims(
-      [d.hook, d.who, d.what, d.bring].join(" "),
+      [d.story, d.who, d.bring].join(" "),
       park.features,
       traits,
     );
@@ -996,7 +1126,7 @@ export async function validateParkPost(
       );
   }
   const school = schoolOutProblem(
-    [d.hook, d.who, d.what, d.bring].join(" "),
+    [d.story, d.who, d.bring].join(" "),
     d.break_id,
     ctx,
     date,
@@ -1041,13 +1171,29 @@ export async function validateUnpack(
   )
     r.errors.push("highlight must be one word of the headline.");
   r.errors.push(...textProblems(d.headline, { month, label: "headline" }));
+  r.errors.push(...introProblems(d.intro, month, true));
+  for (const [label, text] of [
+    ["headline", d.headline],
+    ...d.items.map((i) => [`item ${i.ref}`, i.what] as const),
+  ] as const)
+    r.errors.push(...voiceProblems(text, label));
+  const bang = exclamationProblem([
+    d.headline,
+    d.intro ?? "",
+    ...d.items.map((i) => i.what),
+  ]);
+  if (bang) r.errors.push(bang);
+  if (!d.intro)
+    r.warnings.push(
+      "No intro: a line or two setting the week reads better than a bare list.",
+    );
   const friday = slotFor("story", weekOf).date;
   if (holiday && !breakCovering(ctx.catalog, d.break_id, weekOf, friday))
     r.errors.push(
       "A Sunday carousel is for school-break weeks: give break_id, a verified catalog break in that week.",
     );
   const school = schoolOutProblem(
-    [d.headline, ...d.items.map((i) => i.what)].join(" "),
+    [d.headline, d.intro ?? "", ...d.items.map((i) => i.what)].join(" "),
     d.break_id,
     ctx,
     holiday ? weekOf : date,
@@ -1134,8 +1280,31 @@ export async function validateAtHome(
       `Theme "${d.theme}" isn't offered for ${date} (pick one of ${themes.map((t) => t.id).join(", ")}).`,
     );
   r.errors.push(...textProblems(d.headline, { month, label: "headline" }));
+  r.errors.push(...introProblems(d.intro, month, false));
+  for (const [label, text] of [
+    ["headline", d.headline],
+    ...d.ideas.flatMap((i) => [
+      [`idea "${i.title}"`, [i.title, ...i.steps].join(" ")] as const,
+      [`idea "${i.title}" payoff`, i.payoff] as const,
+    ]),
+  ] as const)
+    r.errors.push(...voiceProblems(text, label));
+  const bang = exclamationProblem([
+    d.headline,
+    d.intro ?? "",
+    ...d.ideas.flatMap((i) => [i.title, ...i.steps, i.payoff]),
+  ]);
+  if (bang) r.errors.push(bang);
+  if (!d.intro)
+    r.warnings.push(
+      "No intro: a line or two setting the morning reads better than a bare list.",
+    );
   const school = schoolOutProblem(
-    [d.headline, ...d.ideas.flatMap((i) => [i.title, ...i.steps])].join(" "),
+    [
+      d.headline,
+      d.intro ?? "",
+      ...d.ideas.flatMap((i) => [i.title, ...i.steps]),
+    ].join(" "),
     d.break_id,
     ctx,
     date,
