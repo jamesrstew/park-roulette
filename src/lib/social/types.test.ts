@@ -1449,3 +1449,184 @@ describe("the roundup's short descriptor, from the stored what", () => {
     );
   });
 });
+
+// --- Final review (release/b7b) ------------------------------------------------
+
+describe("descriptors: abbreviations, qualifiers, rules", () => {
+  let shortWhat: (w: string | undefined) => string | null;
+  beforeAll(async () => {
+    shortWhat = (await import("./roundup")).shortWhat;
+  });
+
+  it("never splits a sentence after Dr., Mt., St., a.m. or an initial", () => {
+    expect(
+      shortWhat("Celebrate Dr. Seuss's birthday with stories and hat crafts."),
+    ).toBe("Celebrate Dr. Seuss's birthday with stories and hat crafts");
+    expect(
+      shortWhat(
+        "Crafts and games at Mt. Bachelor's lodge for little skiers. Bring mittens.",
+      ),
+    ).toBe("Crafts and games at Mt. Bachelor's lodge for little skiers");
+    expect(
+      shortWhat(
+        "Doors open at 10 a.m. for families to build gingerbread houses.",
+      ),
+    ).toBe("Doors open at 10 a.m. for families to build gingerbread houses");
+    expect(shortWhat("Story time with J. Smith and her puppet friends.")).toBe(
+      "Story time with J. Smith and her puppet friends",
+    );
+  });
+
+  it("a first sentence that ends on an abbreviation is no line", () => {
+    expect(shortWhat("Hat crafts and stories to celebrate Dr.")).toBeNull();
+    expect(shortWhat("Sledding and cocoa near the base of Mt.")).toBeNull();
+  });
+
+  it("a cut never ends on Dr, Mt or St", () => {
+    const d = shortWhat(
+      "Kids build tiny snow forts and race sleds near Mt Bachelor's lodge with ski patrol volunteers.",
+    );
+    expect(d).not.toMatch(/\b(Dr|Mt|St)$/);
+  });
+
+  it("never cuts just before but, except or unless", () => {
+    const d = shortWhat(
+      "Kids paint winter scenes with watercolors and glitter glue, but grown-ups stay with kids under five.",
+    );
+    expect(d).not.toBe(
+      "Kids paint winter scenes with watercolors and glitter glue",
+    );
+    expect(
+      shortWhat(
+        "Open play in the big gym with balls and hoops for everyone, except on holiday weekends.",
+      ),
+    ).not.toBe("Open play in the big gym with balls and hoops for everyone");
+  });
+
+  it("no negation or rule in a descriptor", () => {
+    for (const w of [
+      "Only kids registered in advance can join the gingerbread build.",
+      "No experience needed for this clay class.",
+      "A grown-up must stay for the whole class.",
+      "Kids can't bring food into the gallery.",
+    ])
+      expect(shortWhat(w), w).toBeNull();
+  });
+
+  it("a descriptor that breaks a text rule is dropped, and the log says why", () => {
+    const tue = slotFor("events_week", WEEK);
+    const w = roundupWindow(tue.date, tue.publishAt);
+    const now = new Date(tue.publishAt.getTime() - 30 * 60_000);
+    const rows = ["a", "b", "c", "d"].map((slug, i) =>
+      ev({ slug, day: `2026-11-2${5 + i}` }),
+    );
+    rows[0].data.what = "We read stories and sing songs with the babies.";
+    const r = pickWeekEvents(rows, w, now);
+    expect(r.events.find((e) => e.slug === "a")!.desc).toBeNull();
+    expect(r.left.join(" ")).toMatch(/a: descriptor dropped \(.*first person/);
+  });
+});
+
+describe("the payoff rules after review", () => {
+  const steps = ["Fold paper into a fan", "Draw a turkey head on top"];
+  it("refuses these four", () => {
+    for (const payoff of [
+      "Then glue the eyes on the turkey",
+      "Now cut out the feathers carefully",
+      "Let it dry until after lunch",
+      "Get everything ready for next time",
+    ])
+      expect(payoffProblems({ steps, payoff }), payoff).not.toEqual([]);
+  });
+  it("accepts these four", () => {
+    for (const payoff of [
+      "Frame it as a gift for grandma",
+      "Use it as a bookmark all winter",
+      "Hide them, then hunt for them after lunch",
+      "Stick it on the fridge for the holidays",
+    ])
+      expect(payoffProblems({ steps, payoff }), payoff).toEqual([]);
+  });
+});
+
+describe("the routine's limits come from IDEA_LIMITS", () => {
+  it("the plan text and the command file print the schema's numbers", async () => {
+    const { IDEA_LIMITS, ideaLimitsText } = await import("./model");
+    const L = IDEA_LIMITS;
+    const text = ideaLimitsText();
+    for (const part of [
+      `${L.title} characters at most`,
+      `${L.needItem} characters each and ${L.needLine} together`,
+      `8 to ${L.step} characters each, ${L.steps} all together`,
+      `12 to ${L.payoff} characters`,
+    ])
+      expect(text).toContain(part);
+    expect(readFileSync("src/lib/social/store.ts", "utf8")).toContain(
+      "${ideaLimitsText()}",
+    );
+    const cmd = readFileSync(".claude/commands/social-week.md", "utf8");
+    for (const part of [
+      `a short name, ${L.title} characters at most`,
+      `${L.needItem} characters each and ${L.needLine} at most all together`,
+      `8 to ${L.step} characters each and ${L.steps} at most all together`,
+      `the ending, 12 to ${L.payoff} characters`,
+    ])
+      expect(cmd).toContain(part);
+  });
+});
+
+describe("venues, ages and the top row after review", () => {
+  it("exempts only a tea and art lounge, a tea lounge or an art studio", async () => {
+    const { venueProblem } = await import("./validate");
+    const v = (n: string) => venueProblem(n, { month: 12, label: "venue" });
+    expect(v("TEAL Tea + Art Lounge")).toBeNull();
+    expect(v("Bend Art Studio")).toBeNull();
+    expect(v("The Tea Lounge")).toBeNull();
+    expect(v("Tea & Wine Bar")).toMatch(/bar, brewery/);
+    expect(v("Art Wine Lounge")).toMatch(/bar, brewery/);
+    expect(v("Tea + Art Lounge and Wine Bar")).toMatch(/bar, brewery/);
+  });
+
+  it("compares an item's ages as parsed, not the printed words", async () => {
+    const { stillTrue, parsedAges } = await import("./validate");
+    const e = ev({ slug: "item", day: "2026-11-25", ages: "Ages 3 to 6" });
+    const facts = {
+      parks: [],
+      events: [
+        {
+          slug: "item",
+          day: "2026-11-25",
+          start: "10:00",
+          ages: [parsedAges(e.data.ages!)],
+        },
+      ],
+      venues: [],
+      issue: null,
+    };
+    const ctx = {
+      now: new Date("2026-11-24T15:00:00Z"),
+      catalog: CATALOG,
+      parks: new Map(),
+      events: new Map([["item", e]]),
+    };
+    // Reworded, same ages: still true.
+    e.data.ages_text = "3-6 year olds";
+    e.data.ages = ageTags("3-6 year olds");
+    expect(stillTrue(facts, ctx)).toBeNull();
+    // Different ages: changed.
+    e.data.ages = ageTags("Ages 5 to 8");
+    expect(stillTrue(facts, ctx)).toMatch(/printed ages changed/);
+  });
+
+  it("the time and Also lines never wrap: they shrink to one line", async () => {
+    const { oneLine, TOP_ROW, textWidth } =
+      await import("@/components/social/fit");
+    const also = "Also Wed, Thu, Fri, Sat, Sun";
+    const size = oneLine(also, TOP_ROW.also, TOP_ROW.width);
+    expect(size).toBeLessThan(TOP_ROW.also);
+    expect(textWidth(also, size)).toBeLessThanOrEqual(TOP_ROW.width);
+    expect(oneLine("1 to 3 pm", TOP_ROW.time, TOP_ROW.width)).toBe(
+      TOP_ROW.time,
+    );
+  });
+});

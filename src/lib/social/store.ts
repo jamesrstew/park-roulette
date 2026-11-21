@@ -50,6 +50,7 @@ import {
   HASHTAGS,
   IDEA_COOLDOWN_WEEKS,
   IDEA_ICONS,
+  ideaLimitsText,
   ITEM_ICONS,
   LATE_LIMIT_MIN,
   mondayOf,
@@ -481,8 +482,7 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
         "Saying school is out needs break_id from breaks, covering the post's days and the towns you name.",
       holiday_hours:
         "In a holiday week, a venue item needs holiday_evidence: a quote from the venue's own site that names the holiday or its date and prints the hours. Otherwise it is cut.",
-      at_home:
-        "Saturday's at home carousel: 3 to 5 ideas, each a short title (24 characters), ages {from, to}, need (1 to 4 lowercase household items, 48 characters together), 2 or 3 plain steps (8 to 56 characters), and a payoff (12 to 56 characters): what the kid ends up with or the moment it pays off, never another step or a bare 'Have fun!'. theme: one id from at_home.themes; every idea fits it. No brands or products, nothing to buy, print or watch, no links. Never knives, blades, glue guns, stove, oven, baking, boiling, microwave, anything hot, candles, fire, irons, cleaners or chemicals, batteries, magnets, plastic bags, ladders, or prep overnight. Scissors only from age 4; small parts (beads, buttons, coins, rice, beans, pasta, popcorn, nuts, grapes, pom-poms, googly eyes, pebbles, marshmallows) and string or ribbon only from age 3; balloons only from age 8. An idea whose title is like one in at_home.recent_ideas (12 weeks) is refused. Code adds a water-safety line for water ideas under 6.",
+      at_home: `Saturday's at home carousel: 3 to 5 ideas, ${ideaLimitsText()}: what the kid ends up with or the moment it pays off, never another step or a bare 'Have fun!'. theme: one id from at_home.themes; every idea fits it. No brands or products, nothing to buy, print or watch, no links. Never knives, blades, glue guns, stove, oven, baking, boiling, microwave, anything hot, candles, fire, irons, cleaners or chemicals, batteries, magnets, plastic bags, ladders, or prep overnight. Scissors only from age 4; small parts (beads, buttons, coins, rice, beans, pasta, popcorn, nuts, grapes, pom-poms, googly eyes, pebbles, marshmallows) and string or ribbon only from age 3; balloons only from age 8. An idea whose title is like one in at_home.recent_ideas (12 weeks) is refused. Code adds a water-safety line for water ideas under 6.`,
       photos:
         "Look at each photo in photos_to_check (vision) and POST /api/social/photo-checks: clear only when no person or child is visible at all. Then look at every stored post's preview slides and POST /api/social/posts/<id>/crayon if any person is visible.",
     },

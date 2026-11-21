@@ -323,6 +323,12 @@ export const IDEA_LIMITS = {
   payoff: 52,
 } as const;
 
+/** The idea limits in words, for the plan the routine reads (one source of truth). */
+export function ideaLimitsText(): string {
+  const L = IDEA_LIMITS;
+  return `each a short title (${L.title} characters at most), ages {from, to}, need (1 to ${L.needItems} lowercase household items, ${L.needItem} characters each and ${L.needLine} together), 2 or 3 plain steps (8 to ${L.step} characters each, ${L.steps} all together), and a payoff (12 to ${L.payoff} characters)`;
+}
+
 export const AtHomeIdea = z.strictObject({
   /** A short name ("Snow paint"), 24 characters at most. */
   title: Words(IDEA_LIMITS.title, 3),
@@ -444,8 +450,11 @@ export type SlideSpec =
       ages: string;
       need: string;
       steps: string[];
-      /** The ending: what the kid ends up with, or the moment it pays off. */
-      payoff: string;
+      /**
+       * The ending: what the kid ends up with, or the moment it pays off.
+       * Optional: posts queued before it existed have none.
+       */
+      payoff?: string;
       /** Body type for every idea slide of the post (fit.ts), px. */
       body?: number;
       /** Code's safety line (water play), or null. */

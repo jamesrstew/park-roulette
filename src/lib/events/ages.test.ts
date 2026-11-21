@@ -186,6 +186,21 @@ describe("the events-ages review: teens, durations, lists", () => {
       expect(ageTags(s)?.kids, s).toBe(false);
       expect(ageTags(s)?.tags ?? [], s).toEqual([]);
     });
+  it("keeps a kids' event whose kids' range is printed beside teen words", () => {
+    expect(ageTags("Ages 5-12, teens welcome")).toMatchObject({
+      kids: true,
+      range: [5, 12],
+    });
+    expect(ageTags("teen volunteers help kids ages 4-8")).toMatchObject({
+      kids: true,
+      range: [4, 8],
+    });
+    // Two ranges: the kids' one.
+    expect(ageTags("Kids 6 to 12, teens 13 to 17")).toMatchObject({
+      kids: true,
+      range: [6, 12],
+    });
+  });
   it("keeps kids' ranges that run up through the teens", () => {
     expect(ageTags("Ages 7 thru teens")?.kids).toBe(true);
     expect(ageTags("Ages 8-17")?.kids).toBe(true);

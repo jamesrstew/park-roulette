@@ -51,40 +51,66 @@ export const DESC_MAX = 70;
 const CUTS =
   /(?=[,;:]\s)|(?=\s[–—-]\s)|(?=\s(?:with|at|in|into|on|for|from|during|where|while|and|or|plus|then|before|after|using|led by|hosted by|presented by|inside|outside|near|to (?:make|create|build|learn|explore|try|see|play|take|bring|share))\s)/gi;
 
-/** Words a descriptor can't end on. */
+/** Words a descriptor can't end on (abbreviations too: "Celebrate Dr"). */
 const DANGLING =
-  /\s+(and|or|with|the|a|an|for|to|of|at|in|on|plus|their|your|its|by|from|as)$/i;
+  /\s+(and|or|with|the|a|an|for|to|of|at|in|on|plus|their|your|its|by|from|as|dr|mr|mrs|ms|st|mt|ft)$/i;
+
+/** A period that isn't a sentence's end: titles, saints, mounts, a.m., initials. */
+const ABBREV =
+  /(?:\b(?:Dr|Mr|Mrs|Ms|St|Mt|Ft|No|vs|Jr|Sr|Ave|Rd|Blvd|approx|e\.g|i\.e)|\b[ap]\.m|(?:^|\s)[A-Z])\.$/i;
+
+/** The first sentence, never split after an abbreviation ("Dr. Seuss", "10 a.m. Saturday"). */
+export function firstSentence(text: string): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  for (const m of t.matchAll(/[.!?](?=\s+[A-Z0-9])/g)) {
+    const head = t.slice(0, m.index + 1);
+    if (m[0] === "." && ABBREV.test(head)) continue;
+    return head;
+  }
+  return t;
+}
+
+/** A clause a descriptor can't stop just before: it qualifies what came first. */
+const QUALIFIER = /^[\s,;:–—-]*(but|except|unless)\b/i;
+
+/** A negation or a rule: not what kids do, and wrong without the rest. */
+const RULE =
+  /\b(not|no|never|only|must|required|requires?|mandatory|cannot)\b|n't\b/i;
 
 /**
  * A short line saying what kids do there, from the stored event's `what`
  * (the harvest's verified summary): its first sentence when that's 70
  * characters or less, else cut before a clause or a place phrase at a word
  * boundary ("Stories, songs and rhymes for babies" from "... for babies
- * and their grown-ups at the Downtown Bend Library"). Never an ellipsis or
- * a cut mid-thought: with no clean cut, null (the slide shows no line).
+ * and their grown-ups at the Downtown Bend Library"). Never an ellipsis,
+ * a cut mid-thought or just before "but", "except" or "unless", a line
+ * ending on an abbreviation, or one with a negation or a rule: then null
+ * (the slide shows no line).
  */
 export function shortWhat(what: string | undefined): string | null {
   if (!what) return null;
-  const first = what
-    .replace(/\s+/g, " ")
-    .trim()
-    .split(/(?<=[.!?])\s+(?=[A-Z])/)[0]
-    .replace(/[.!?]+$/, "")
-    .trim();
+  const sentence = firstSentence(what);
+  const first = sentence.replace(/[!?]+$/, "").trim();
+  // "Meet Dr." with nothing after: the abbreviation is the end. Never a line.
+  const plain = ABBREV.test(first) ? null : first.replace(/\.+$/, "").trim();
+  if (!plain) return null;
   const tidy = (t: string) => {
     let x = t.trim().replace(/[\s,;:–—-]+$/, "");
     while (DANGLING.test(x))
       x = x.replace(DANGLING, "").replace(/[\s,;:–—-]+$/, "");
     return x ? x[0].toUpperCase() + x.slice(1) : x;
   };
-  if (first.length <= DESC_MAX) return first.length >= 12 ? tidy(first) : null;
+  const ok = (x: string | null) => (x && !RULE.test(x) ? x : null);
+  if (plain.length <= DESC_MAX)
+    return plain.length >= 12 ? ok(tidy(plain)) : null;
   let best: string | null = null;
-  for (const m of first.matchAll(CUTS)) {
-    const cut = tidy(first.slice(0, m.index));
+  for (const m of plain.matchAll(CUTS)) {
+    if (QUALIFIER.test(plain.slice(m.index))) continue;
+    const cut = tidy(plain.slice(0, m.index));
     if (cut.length > DESC_MAX) break;
     if (cut.length >= 24) best = cut;
   }
-  return best;
+  return ok(best);
 }
 
 /** The oldest youngest-age a roundup event may print (a family event, not a teen one). */
@@ -153,9 +179,20 @@ export type RoundupPick = {
  * text rules, and no bars, breweries or wineries); null is fine.
  */
 /** Our summary's words still pass the text rules as a descriptor (else none). */
-function descOk(d: string | null): string | null {
-  if (!d) return null;
-  return textProblems(d, { month: 1, label: "descriptor" }).length ? null : d;
+/**
+ * Our summary's words, held to the text rules for the post's own month.
+ * A line that breaks one (first person, a competitor) is dropped, and
+ * why goes in the roundup's log rather than vanishing.
+ */
+function descOk(
+  d: string | null,
+  month: number,
+): { desc: string | null; why: string | null } {
+  if (!d) return { desc: null, why: null };
+  const bad = textProblems(d, { month, label: "descriptor" });
+  return bad.length
+    ? { desc: null, why: bad.join(" ") }
+    : { desc: d, why: null };
 }
 
 export function pickWeekEvents(
@@ -202,6 +239,12 @@ export function pickWeekEvents(
           .filter((day) => day !== first.day),
       ),
     ];
+    const descResult = descOk(
+      shortWhat(e.data.what),
+      Number(window.firstDay.slice(5, 7)),
+    );
+    if (descResult.why)
+      left.push(`${e.slug}: descriptor dropped (${descResult.why})`);
     const c = {
       slug: e.slug,
       day: first.day,
@@ -214,7 +257,7 @@ export function pickWeekEvents(
       venue: e.data.venue.name,
       town: e.data.venue.town,
       ages: ages.chips,
-      desc: descOk(shortWhat(e.data.what)),
+      desc: descResult.desc,
       cost,
       host:
         e.data.organizer &&

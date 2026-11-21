@@ -39,3 +39,25 @@ describe("loadPhoto", () => {
     expect(await loadPhoto(null)).toBeNull();
   });
 });
+
+/** A post queued before payoffs existed still renders (the preview route). */
+describe("an old-shape at home slide (no payoff)", () => {
+  it("draws without the payoff box, and its alt text says nothing about one", async () => {
+    const { slidePng } = await import("./render");
+    const { slideAlt } = await import("./compose");
+    const old = {
+      t: "idea" as const,
+      n: 1,
+      of: 3,
+      icon: "home" as const,
+      title: "Hand turkeys",
+      ages: "Ages 2 to 6",
+      need: "paper, crayons",
+      steps: ["Trace a hand on paper.", "Color each finger as a feather."],
+      safety: null,
+    };
+    const png = await slidePng([old], 0, null);
+    expect(png.length).toBeGreaterThan(1000);
+    expect(slideAlt(old)).not.toMatch(/undefined|best part/i);
+  });
+});

@@ -272,7 +272,7 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
       ]);
     });
 
-    it("keeps the venue pin and the page's url on the same site", async () => {
+    it("keeps the venue pin; the url only for the same page's other occurrence", async () => {
       await store.upsertEvents(
         [
           verdict(
@@ -300,10 +300,28 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
         },
       );
       await store.upsertEvents([again], { network: true });
-      const [row] = await pages();
+      let [row] = await pages();
+      // A new path on the same site is a new link: it's taken.
       expect(row.data).toMatchObject({
-        url: PAGE,
+        url: "https://www.deschuteslibrary.org/other",
         venue: { lat: 44.06, lng: -121.31 },
+      });
+      // Another occurrence of the same page (same path, another query) keeps
+      // the stored link.
+      await store.upsertEvents(
+        [
+          verdict(
+            "Lego Club",
+            "2026-12-05",
+            {},
+            { url: "https://www.deschuteslibrary.org/other?occurrence=42" },
+          ),
+        ],
+        { network: true },
+      );
+      [row] = await pages();
+      expect(row.data).toMatchObject({
+        url: "https://www.deschuteslibrary.org/other",
       });
     });
   });

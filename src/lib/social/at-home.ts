@@ -340,7 +340,7 @@ const PREP =
 
 /** Words that say the payoff: what the kid ends up with, or the moment it pays off. */
 const PAYOFF =
-  /\b(now|then|watch\w*|see|look|race|play|hang|show|display|give|gift|wear|keep|take (it|them|turns)|cheer|win\w*|admire|glow\w*|shine\w*|sparkl\w*|light(s)? up|fly|flies|float\w*|sail\w*|spin\w*|launch\w*|crash\w*|bounce\w*|pop\w*|tumble\w*|knock\w*|topple\w*|surprise\w*|reveal\w*|appear\w*|grow\w*|sprout\w*|melt\w*|count|who|until|every|whoever|first to|your own|ready|ends? up|get to|gets? to|treasure|keepsake|forever|tonight|tomorrow|all (day|week|winter)|for (the|a) (table|tree|window|fridge|door|wall))\b/i;
+  /\b(watch\w*|see|look|race|play|hang|show|display|give|gift|wear|keep|frame|use (it|them) as|hide|hunt|bookmark|fridge|wall|window|take (it|them|turns)|cheer|win\w*|admire|glow\w*|shine\w*|sparkl\w*|light(s)? up|fly|flies|float\w*|sail\w*|spin\w*|launch\w*|crash\w*|bounce\w*|pop\w*|tumble\w*|knock\w*|topple\w*|surprise\w*|reveal\w*|appear\w*|grow\w*|sprout\w*|melt\w*|count|who|whoever|first to|your own|ends? up|get to|gets? to|treasure|keepsake|forever|tonight|tomorrow|all (day|week|winter)|for (the|a) (table|tree|door))\b/i;
 
 /**
  * Why a payoff isn't one, or []: it must be there, end something (not a
@@ -361,11 +361,16 @@ export function payoffProblems(i: {
       `the payoff "${p}" is generic. Say what the kid ends up with or gets to do ("Hang it in a sunny window and watch the colors glow").`,
     ];
   const out: string[] = [];
-  if (PREP.test(p) && !PAYOFF.test(p))
+  // "Now" or "Then" up front doesn't make a step a payoff: check what follows.
+  const lead = /^(now|then)\b[,\s]*/i.exec(p);
+  const core = lead ? p.slice(lead[0].length) : p;
+  const marked =
+    PAYOFF.test(core) || (!!lead && /^now/i.test(lead[0]) && !PREP.test(core));
+  if (PREP.test(core) && !PAYOFF.test(core))
     out.push(
       `the payoff "${p}" reads like another step. End on what the kid gets: the moment it works, or what they keep.`,
     );
-  else if (!PAYOFF.test(p))
+  else if (!marked)
     out.push(
       `the payoff "${p}" doesn't say what the kid gets. End with the moment it works ("Now race them down the hallway") or what they keep.`,
     );

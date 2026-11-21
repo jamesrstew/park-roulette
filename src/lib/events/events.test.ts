@@ -316,6 +316,66 @@ describe("series, slugs and dates", () => {
     ).toBe("Saturdays, 10:30 am");
     expect(costChip(storedFrom(base(), null, ""))).toBe("$13 kids");
   });
+  it("never understates: kids' prices, fees, adults, from, family, commas", () => {
+    const priced = (
+      text: string,
+      prices: { label: string; amount: number }[],
+      free = false,
+    ) => costChip(storedFrom(base({ cost: { text, prices, free } }), null, ""));
+    // "$10 adults, kids free" isn't $10.
+    expect(
+      priced("$10 adults, kids free", [
+        { label: "adults", amount: 10 },
+        { label: "kids", amount: 0 },
+      ]),
+    ).toBe("Kids free");
+    expect(
+      priced("$10 adults, kids free", [{ label: "adults", amount: 10 }]),
+    ).toBe("Kids free");
+    expect(priced("$10 adults", [{ label: "adults", amount: 10 }])).toBe(
+      "$10 adults",
+    );
+    // A fee isn't part of the price.
+    expect(
+      priced("$15 + $2.50 fee", [
+        { label: "ticket", amount: 15 },
+        { label: "fee", amount: 2.5 },
+      ]),
+    ).toBe("$15");
+    expect(
+      priced("$20, $5 parking, $10 deposit", [
+        { label: "class", amount: 20 },
+        { label: "parking", amount: 5 },
+        { label: "deposit", amount: 10 },
+      ]),
+    ).toBe("$20");
+    // "Adult with child" is a grown-up's price, not a kid's.
+    expect(
+      priced("$12 adult with child, $6 child", [
+        { label: "adult with child", amount: 12 },
+        { label: "child", amount: 6 },
+      ]),
+    ).toBe("$6 kids");
+    // A lone starting price.
+    expect(priced("From $5", [{ label: "from", amount: 5 }])).toBe("From $5");
+    expect(
+      priced("Classes starting at $25", [{ label: "class", amount: 25 }]),
+    ).toBe("From $25");
+    // A family price.
+    expect(
+      priced("$10 per family", [{ label: "per family", amount: 10 }]),
+    ).toBe("$10 family");
+    // The thousands comma.
+    expect(
+      priced("$1,250 per camp week", [{ label: "camp week", amount: 1250 }]),
+    ).toBe("$1,250");
+    expect(
+      priced("$1,250 to $1,500", [
+        { label: "camp", amount: 1250 },
+        { label: "camp", amount: 1500 },
+      ]),
+    ).toBe("$1,250 to $1,500");
+  });
   it("shows the printed price range, never just the low end", () => {
     const priced = (
       text: string,

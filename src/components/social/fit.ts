@@ -72,7 +72,8 @@ export type IdeaCopy = {
   title: string;
   need: string;
   steps: readonly string[];
-  payoff: string;
+  /** Old queued posts have none: then no payoff box. */
+  payoff?: string;
   safety: string | null;
 };
 
@@ -97,10 +98,11 @@ export function ideaHeight(s: IdeaCopy, body: number): number {
     ) +
     16 * (s.steps.length - 1);
   const pw = CONTENT.width - IDEA.payoffIndent - 2 * 22 - 8;
-  const payoff =
-    40 * 1.25 + lines(s.payoff, body + 2, pw) * (body + 2) * 1.16 + 32;
+  const payoff = s.payoff
+    ? 40 * 1.25 + lines(s.payoff, body + 2, pw) * (body + 2) * 1.16 + 32
+    : 0;
   const safety = s.safety ? 46 * 1.3 + 20 : 0;
-  const blocks = s.safety ? 4 : 3;
+  const blocks = 2 + (s.payoff ? 1 : 0) + (s.safety ? 1 : 0);
   return header + need + steps + payoff + safety + IDEA.gap * blocks;
 }
 
@@ -212,4 +214,18 @@ export function commonBody(
   fits: readonly { body: number }[],
 ): number | undefined {
   return fits.length ? Math.min(...fits.map((f) => f.body)) : undefined;
+}
+
+/** The event slide's top row, beside the date block: the time and "Also". */
+export const TOP_ROW = {
+  width: CONTENT.width - 250 - 40,
+  time: 68,
+  also: 50,
+} as const;
+
+/** The largest size, up to `max`, at which a text stays on one line in `width`. */
+export function oneLine(text: string, max: number, width: number): number {
+  let size = max;
+  while (size > 30 && textWidth(text, size) > width) size -= 2;
+  return size;
 }

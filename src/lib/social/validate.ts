@@ -185,6 +185,16 @@ export function textProblems(
   return out;
 }
 
+/** Ages as parsed ("parsed:3-5", "parsed:all"), compared instead of the printed words. */
+export function parsedAges(a: {
+  tags: readonly string[];
+  kids: boolean;
+  range: readonly [number, number] | null;
+}): string {
+  const span = a.range ? `${a.range[0]}-${a.range[1]}` : "all";
+  return `parsed:${span}${a.kids ? "" : ":not-kids"}`;
+}
+
 /**
  * Venues no family post names: bars, breweries, taprooms, wineries,
  * lounges and the like, even when they host a kids' event. One exemption:
@@ -193,9 +203,13 @@ export function textProblems(
  */
 export const ADULT_VENUE =
   /\b(bars?|brew(ery|eries|ing|pub|pubs|house)|taprooms?|tap ?house|pubs?|saloons?|winer(y|ies)|wines?|distiller(y|ies)|taverns?|lounges?|beer ?gardens?|cider ?house|ciderworks?)\b/i;
-/** The adult words a tea or art lounge may carry. */
-const LOUNGE_WORDS = /\b(lounges?|wines?)\b/gi;
-const TEA_OR_ART = /\btea\b|\bart\b/i;
+/**
+ * The only lounge names exempt: a tea and art lounge, a tea lounge, an art
+ * studio (TEAL Tea + Art Lounge runs kids' classes). Any other adult word
+ * left in the name still blocks it ("Tea & Wine Bar", "Art Wine Lounge").
+ */
+const FAMILY_LOUNGES =
+  /\btea\s*(?:\+|&|and)\s*art\s+lounge\b|\btea\s+lounge\b|\bart\s+studio\b/gi;
 
 /** Bars named only "... Lounge" (whole words, any case). */
 export const BAR_LOUNGES = [/\bastro lounge\b/i];
@@ -206,8 +220,8 @@ export function venueProblem(
   { month, label }: { month: number; label: string },
 ): string | null {
   const n = norm(name);
-  const exempt =
-    TEA_OR_ART.test(n) && !ADULT_VENUE.test(n.replace(LOUNGE_WORDS, " "));
+  const rest = n.replace(FAMILY_LOUNGES, " ");
+  const exempt = rest !== n && !ADULT_VENUE.test(rest);
   if (BAR_LOUNGES.some((b) => b.test(n)) || (ADULT_VENUE.test(n) && !exempt))
     return `${label} "${name}" is a bar, brewery or winery: never in a family post.`;
   // A name is a proper name, not our words: first person ("Our Lady
@@ -801,7 +815,7 @@ async function resolveItem(
             slug,
             day,
             ...(date.start ? { start: date.start } : {}),
-            ...(e.data.ages_text ? { ages: [e.data.ages_text] } : {}),
+            ...(e.data.ages ? { ages: [parsedAges(e.data.ages)] } : {}),
             cost: costChip(e.data),
           },
         ],
@@ -1208,6 +1222,9 @@ export function stillTrue(
       const r = roundupAges(e.data.ages);
       const shown = [
         "chips" in r ? r.chips : null,
+        // An Unpack item: the ages as parsed, so rewording isn't a change.
+        e.data.ages ? [parsedAges(e.data.ages)] : null,
+        // Posts stored before that: the printed words.
         e.data.ages_text ? [e.data.ages_text] : null,
       ];
       if (!shown.some((x) => x && x.join("|") === ages.join("|")))

@@ -547,25 +547,65 @@ export function isFree(e: StoredEvent): boolean {
 }
 
 const dollars = (n: number) =>
-  `$${Number.isInteger(n) ? n : n.toFixed(2).replace(/\.00$/, "")}`;
+  `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: Number.isInteger(n) ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+/** Add-ons, not the price of going: fees, parking, deposits, donations, tax. */
+const EXTRA =
+  /\b(fees?|parking|deposits?|donations?|suggested donation|tax(es)?|service|processing|booking|surcharge|tips?|add-?ons?)\b/i;
+/** A grown-up's price, even when a child comes along ("adult with child"). */
+const ADULTISH =
+  /\b(adults?|grown-?ups?|parents?|caregivers?|chaperones?|seniors?|members? 18)\b/i;
+const KIDISH =
+  /\b(kids?|child(ren)?|youth|students?|toddlers?|bab(y|ies)|ages? \d|under \d)\b/i;
+const FAMILY = /\b(famil(y|ies)|households?)\b/i;
+const FROM = /\b(from|starting|starts at|as low as|and up)\b/i;
+/** The page says kids are free though it lists only a grown-up's price. */
+const KIDS_FREE_TEXT =
+  /\b(kids?|children|youth)( \w+){0,2} (are |get in |go )?free\b|\bfree for (kids|children)\b/i;
 
 /**
- * The short chip: "Free", "$13 kids", "$5", or the printed range when the
- * page prints more than one price ("$5 to $20", "$8 to $12 kids"), so the
- * chip never understates what a family pays. Kids' prices are used when
- * the page labels them; otherwise every paid price. Null: no printed price.
+ * The short chip, never understating what a family pays: "Free", "$13
+ * kids", "Kids free", "$5 to $20" (the printed range), "From $5" (a lone
+ * starting price), "$10 family", "$10 adults" (when that's all that's
+ * printed). Kids' prices come from every price whose label is a kid's and
+ * not a grown-up's; fees, parking, deposits, donations and tax are left
+ * out. Null: no price the chip can show.
  */
 export function costChip(e: StoredEvent): string | null {
   if (!e.cost) return null;
   if (isFree(e)) return "Free";
-  const paid = (e.cost.prices ?? []).filter((p) => p.amount > 0);
-  if (!paid.length) return null;
-  const kids = paid.filter((p) => /kid|child|youth/i.test(p.label));
-  const set = (kids.length ? kids : paid).map((p) => p.amount);
-  const lo = Math.min(...set);
-  const hi = Math.max(...set);
-  const amount = lo === hi ? dollars(lo) : `${dollars(lo)} to ${dollars(hi)}`;
-  return kids.length ? `${amount} kids` : amount;
+  const prices = (e.cost.prices ?? []).filter((p) => !EXTRA.test(p.label));
+  if (!prices.length) return null;
+  const range = (set: number[]) => {
+    const lo = Math.min(...set);
+    const hi = Math.max(...set);
+    if (lo === hi) return lo === 0 ? "Free" : dollars(lo);
+    return lo === 0
+      ? `Free to ${dollars(hi)}`
+      : `${dollars(lo)} to ${dollars(hi)}`;
+  };
+  const kids = prices.filter(
+    (p) => KIDISH.test(p.label) && !ADULTISH.test(p.label),
+  );
+  if (kids.length) {
+    if (kids.every((p) => p.amount === 0)) return "Kids free";
+    return `${range(kids.map((p) => p.amount))} kids`;
+  }
+  const paid = prices.filter((p) => p.amount > 0);
+  if (!paid.length) return e.cost.free ? "Free" : null;
+  const set = paid.map((p) => p.amount);
+  const one = new Set(set).size === 1;
+  if (paid.every((p) => ADULTISH.test(p.label)))
+    return KIDS_FREE_TEXT.test(e.cost.text)
+      ? "Kids free"
+      : `${range(set)} adults`;
+  if (paid.every((p) => FAMILY.test(p.label))) return `${range(set)} family`;
+  if (one && (paid.some((p) => FROM.test(p.label)) || FROM.test(e.cost.text)))
+    return `From ${dollars(set[0])}`;
+  return range(set);
 }
 
 export function domainOf(url: string): string {

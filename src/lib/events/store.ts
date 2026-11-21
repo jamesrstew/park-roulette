@@ -158,11 +158,17 @@ export function adoptStored(
       );
     if (!row) continue;
     const prev = row.data as StoredEvent;
-    const host = (u: string) => {
+    const samePage = (a: string, b: string) => {
       try {
-        return new URL(u).hostname.replace(/^www\./, "");
+        const x = new URL(a);
+        const y = new URL(b);
+        return (
+          x.hostname.replace(/^www\./, "") ===
+            y.hostname.replace(/^www\./, "") &&
+          x.pathname.replace(/\/+$/, "") === y.pathname.replace(/\/+$/, "")
+        );
       } catch {
-        return u;
+        return false;
       }
     };
     const pinned = !!(e.venue.park || e.venue.lat != null);
@@ -180,7 +186,14 @@ export function adoptStored(
       ...(e.series === undefined && prev.series !== undefined
         ? { series: prev.series }
         : {}),
-      ...(host(e.url) === host(prev.url) ? { url: prev.url } : {}),
+      // The stored link stays only for a per-occurrence page of the same
+      // page (same host and path, another occurrence's query). An annual
+      // page, or a new path, takes the new link (last year's is stale).
+      ...(row.kind !== "annual" &&
+      e.annual !== true &&
+      samePage(e.url, prev.url)
+        ? { url: prev.url }
+        : {}),
       ...(!pinned && (prev.venue.park || prev.venue.lat != null)
         ? {
             venue: {
@@ -195,8 +208,9 @@ export function adoptStored(
         : {}),
     };
     if (v.key !== row.seriesKey && rowKey(row) !== v.key) {
-      // Joined by venue and stem: this page's key, kind and slug.
-      v.key = row.seriesKey;
+      // Joined by venue and stem: this page's key (the one its data makes
+      // today; upsert moves a row stored under an older key), kind and slug.
+      v.key = rowKey(row);
       v.kind = row.kind as EventRow["kind"];
     }
   }

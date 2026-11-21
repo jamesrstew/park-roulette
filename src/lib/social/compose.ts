@@ -566,7 +566,7 @@ export function slideAlt(s: SlideSpec): string {
     case "item":
       return `${s.n} of ${s.of}: ${s.name}. ${strip(s.what)}. ${s.facts.join(", ")}.`;
     case "idea":
-      return `${s.n} of ${s.of}: ${s.title}. ${s.ages}. You need: ${s.need}. ${s.steps.map((x, i) => `${i + 1}. ${x}`).join(" ")} ${COPY.payoffLabel}: ${s.payoff}${s.safety ? ` ${s.safety}` : ""}`;
+      return `${s.n} of ${s.of}: ${s.title}. ${s.ages}. You need: ${s.need}. ${s.steps.map((x, i) => `${i + 1}. ${x}`).join(" ")}${s.payoff ? ` ${COPY.payoffLabel}: ${s.payoff}` : ""}${s.safety ? ` ${s.safety}` : ""}`;
     case "event":
       return `${s.n} of ${s.of}: ${s.title}.${s.desc ? ` ${s.desc}.` : ""} ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}.${s.cost ? ` ${s.cost}.` : ""}${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
     case "cta":

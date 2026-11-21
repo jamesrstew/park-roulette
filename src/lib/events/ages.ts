@@ -215,23 +215,29 @@ export function ageTags(printed: string | null | undefined): Ages | null {
     return [n, n];
   });
   if (!spans.length) return null;
+  // Teen words ("teens", "jóvenes", "adolescentes") other than the top of a
+  // kids' range ("7 thru teens").
+  const teenWords = /\bteens?\b|\bj[oó]venes\b|\badolesc/.test(
+    t.replace(/\b\d{1,2}\s*(-|to)\s*(the )?teens\b/g, " "),
+  );
+  // A kids' range printed beside the teen words wins: "Ages 5-12, teens
+  // welcome", "teen volunteers help kids ages 4-8", "Kids 6 to 12, teens
+  // 13 to 17" (the kids' range alone). A kids' range starts at 10 or under
+  // and ends by 12, so "Teens 10-18" is still a teen program.
+  const kidSpans = spans.filter(([a, b]) => a <= 10 && b <= KID_MAX);
+  const use = teenWords && kidSpans.length ? kidSpans : spans;
   // Separate ranges that don't overlap ("ages 7-12, siblings 5-6"): unclear.
-  const sorted = [...spans].sort((a, b) => a[0] - b[0]);
+  const sorted = [...use].sort((a, b) => a[0] - b[0]);
   for (let i = 1; i < sorted.length; i++)
     if (sorted[i][0] > sorted[i - 1][1]) return null;
-  const lo = Math.min(...spans.map((s) => s[0]));
-  const hi = Math.max(...spans.map((s) => s[1]));
+  const lo = Math.min(...use.map((s) => s[0]));
+  const hi = Math.max(...use.map((s) => s[1]));
   if (lo > hi) return null;
   if (lo > KID_MAX) return { tags: [], kids: false, range: [lo, hi] };
   // Teen programs aren't kids' events: a range that starts at 11 and runs
-  // past 12 ("Ages 11-18", "Grades 6-12"), or teen words that aren't the
-  // top of a kids' range ("7 thru teens").
-  if (
-    (lo >= 11 && hi > KID_MAX) ||
-    /\bteens?\b|\bj[oó]venes\b|\badolesc/.test(
-      t.replace(/\b\d{1,2}\s*(-|to)\s*(the )?teens\b/g, " "),
-    )
-  )
+  // past 12 ("Ages 11-18", "Grades 6-12"), or teen words with no kids'
+  // range printed beside them.
+  if ((lo >= 11 && hi > KID_MAX) || (teenWords && !kidSpans.length))
     return { tags: [], kids: false, range: [lo, hi] };
   const tags = AGE_BRACKETS.filter(
     (b) => b.lo <= Math.min(hi, KID_MAX) && b.hi >= lo,

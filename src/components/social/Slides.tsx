@@ -15,7 +15,7 @@ import { WeatherGlyph, type WeatherIcon } from "@/components/news/WeatherCard";
 import { ALIASES, DRAWINGS } from "@/components/icons/drawings";
 import { compile, type Mark } from "@/components/icons/kit";
 import { CRAYONS } from "@/lib/crayons";
-import { EVENT, eventFit, IDEA, ideaFit } from "./fit";
+import { EVENT, eventFit, IDEA, ideaFit, oneLine, TOP_ROW } from "./fit";
 import { placeLine } from "@/lib/social/compose";
 import { COPY, FEED, type SlideSpec, STORY } from "@/lib/social/model";
 
@@ -681,7 +681,8 @@ function IdeaSlide({
   page?: { n: number; of: number };
 }) {
   const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
-  const fit = ideaFit(s, s.body ? [s.body] : undefined);
+  const payoff = s.payoff ?? "";
+  const fit = ideaFit({ ...s, payoff }, s.body ? [s.body] : undefined);
   const body = fit.body;
   return (
     <Frame page={page} color={color}>
@@ -775,34 +776,36 @@ function IdeaSlide({
             </div>
           ))}
         </div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 20,
-            background: tint(color, 0.35),
-            border: `6px solid ${INK}`,
-            borderRadius: "30px 18px 34px 16px",
-            boxShadow: `8px 10px 0 ${INK}`,
-            padding: "8px 22px 14px",
-          }}
-        >
-          <SlideIcon name="star" size={60} />
-          <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-            <div style={{ display: "flex", fontSize: 40, color: SOFT }}>
-              {COPY.payoffLabel}
-            </div>
-            <div
-              style={{
-                display: "flex",
-                fontSize: body + 2,
-                lineHeight: 1.16,
-              }}
-            >
-              {s.payoff}
+        {payoff ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 20,
+              background: tint(color, 0.35),
+              border: `6px solid ${INK}`,
+              borderRadius: "30px 18px 34px 16px",
+              boxShadow: `8px 10px 0 ${INK}`,
+              padding: "8px 22px 14px",
+            }}
+          >
+            <SlideIcon name="star" size={60} />
+            <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+              <div style={{ display: "flex", fontSize: 40, color: SOFT }}>
+                {COPY.payoffLabel}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: body + 2,
+                  lineHeight: 1.16,
+                }}
+              >
+                {payoff}
+              </div>
             </div>
           </div>
-        </div>
+        ) : null}
         {s.safety ? (
           <div
             style={{
@@ -886,14 +889,20 @@ function EventSlide({
           </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
-          <div style={{ display: "flex", fontSize: 68, lineHeight: 1.1 }}>
+          <div
+            style={{
+              display: "flex",
+              fontSize: oneLine(s.time, TOP_ROW.time, TOP_ROW.width),
+              lineHeight: 1.1,
+            }}
+          >
             {s.time}
           </div>
           {s.also ? (
             <div
               style={{
                 display: "flex",
-                fontSize: 50,
+                fontSize: oneLine(s.also, TOP_ROW.also, TOP_ROW.width),
                 color: SOFT,
                 marginTop: 6,
               }}
