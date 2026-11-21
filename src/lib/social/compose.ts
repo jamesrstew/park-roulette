@@ -1,8 +1,10 @@
 import type { ForecastDay, Issue } from "@/lib/news/issue";
 import {
+  type AtHomeDraft,
   bioLink,
   COPY,
   ctaLine,
+  HASHTAGS,
   type ItemIcon,
   type ParkPostDraft,
   type PhotoRef,
@@ -148,6 +150,198 @@ export function composeUnpack(
     headline,
     modelText: [headline, ...items.map((i) => i.what)].join("\n"),
     facts,
+  };
+}
+
+// --- E. At home (Saturday) -------------------------------------------------
+
+/** "Ages 2 to 6" ("ages 2 to 6" in the caption). */
+export function agesLabel(a: { from: number; to: number }): string {
+  return a.from === 0 ? `Under ${a.to + 1}` : `Ages ${a.from} to ${a.to}`;
+}
+
+const WATER =
+  /\b(water|tub|bathtub|sprinklers?|hose|kiddie pool|wading pool|puddles?|buckets? of water|splash\w*)\b/i;
+
+/** Code's safety line for an idea: water play with kids under 6. */
+export function ideaSafety(i: AtHomeDraft["ideas"][number]): string | null {
+  const text = [i.title, ...i.need, ...i.steps].join(" ");
+  return i.ages.from < 6 && WATER.test(text) ? COPY.waterSafety : null;
+}
+
+const sentence = (s: string) => {
+  const t = s.trim();
+  return /[.!?]$/.test(t) ? t : `${t}.`;
+};
+
+export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
+  const cta = ctaLine(dms);
+  const headline = d.headline.trim();
+  const ideas = d.ideas.map((i) => ({
+    ...i,
+    title: i.title.trim(),
+    need: i.need.map((n) => n.trim()),
+    steps: i.steps.map(sentence),
+  }));
+  const slides: SlideSpec[] = [
+    {
+      t: "headline",
+      words: headline,
+      highlight: d.highlight.trim(),
+      kicker: COPY.atHomeKicker,
+      swipe: true,
+      icon: "home",
+    },
+    ...ideas.map((i, n): SlideSpec => ({
+      t: "idea",
+      n: n + 1,
+      of: ideas.length,
+      icon: i.icon ?? "home",
+      title: i.title,
+      ages: agesLabel(i.ages),
+      need: i.need.join(", "),
+      steps: i.steps,
+      safety: ideaSafety(i),
+    })),
+    { t: "cta", line: COPY.thursday, cta, sub: COPY.free },
+  ];
+  const caption = [
+    headline,
+    "",
+    ...ideas.flatMap((i, n) => [
+      `${n + 1}. ${i.title} (${agesLabel(i.ages).toLowerCase()})`,
+      `You need: ${i.need.join(", ")}.`,
+      ...i.steps.map((s) => `- ${s}`),
+      ...(ideaSafety(i) ? [ideaSafety(i)!] : []),
+      "",
+    ]),
+    COPY.save,
+    COPY.thursday,
+    cta,
+    "",
+    hashtagLine(d.hashtags),
+  ].join("\n");
+  return {
+    kind: "at_home",
+    size: "feed",
+    slides,
+    alts: slides.map(slideAlt),
+    caption,
+    fbCaption: forFacebook(caption, cta),
+    headline,
+    modelText: [
+      headline,
+      ...ideas.flatMap((i) => [i.title, i.need.join(", "), ...i.steps]),
+    ].join("\n"),
+    facts: {
+      parks: [],
+      events: [],
+      venues: [],
+      issue: null,
+      ideas: ideas.map((i) => i.title),
+    },
+  };
+}
+
+// --- F. Family events this week (Tuesday, code only) -----------------------
+
+/** One roundup event, resolved from kid_events by code. */
+export type WeekEvent = {
+  slug: string;
+  day: string;
+  start: string;
+  title: string;
+  weekday: string;
+  date: string;
+  time: string;
+  venue: string;
+  town: string;
+  ages: string[];
+  cost: string;
+  host: string | null;
+  also: string | null;
+};
+
+export function composeEventsWeek(
+  events: WeekEvent[],
+  range: { label: string; caption: string },
+  dms: boolean,
+): PostSpec {
+  const cta = ctaLine(dms);
+  const headline = COPY.eventsHeadline;
+  const towns = [...new Set(events.map((e) => e.town))].sort(
+    (a, b) => Number(b === "Bend") - Number(a === "Bend"),
+  );
+  const slides: SlideSpec[] = [
+    {
+      t: "headline",
+      words: headline,
+      highlight: COPY.eventsHighlight,
+      kicker: range.label,
+      swipe: true,
+      icon: "calendar",
+      sub: towns,
+    },
+    ...events.map((e, i): SlideSpec => ({
+      t: "event",
+      n: i + 1,
+      of: events.length,
+      weekday: e.weekday,
+      date: e.date,
+      time: e.time,
+      title: e.title,
+      venue: e.venue,
+      town: e.town,
+      ages: e.ages,
+      cost: e.cost,
+      host: e.host,
+      also: e.also,
+    })),
+    {
+      t: "cta",
+      line: COPY.eventsDetailsLine,
+      url: COPY.eventsUrl,
+      sub: COPY.thursday,
+      fine: COPY.eventsFine,
+      cta,
+      icon: "calendar",
+    },
+  ];
+  const caption = [
+    `${headline} (${range.caption})`,
+    "",
+    ...events.map((e) =>
+      [
+        `${e.weekday}, ${e.date} · ${e.time}: ${e.title}, ${e.town}.`,
+        `${e.ages.join(", ")}. ${e.cost}.`,
+        ...(e.host ? [`Hosted by ${e.host}.`] : []),
+        ...(e.also ? [`${e.also}.`] : []),
+      ].join(" "),
+    ),
+    "",
+    COPY.eventsFine,
+    COPY.eventsDetails,
+    "",
+    COPY.thursday,
+    cta,
+    "",
+    hashtagLine(HASHTAGS),
+  ].join("\n");
+  return {
+    kind: "events_week",
+    size: "feed",
+    slides,
+    alts: slides.map(slideAlt),
+    caption,
+    fbCaption: forFacebook(caption, cta),
+    headline,
+    modelText: "",
+    facts: {
+      parks: [],
+      events: events.map((e) => ({ slug: e.slug, day: e.day })),
+      venues: [],
+      issue: null,
+    },
   };
 }
 
@@ -308,11 +502,17 @@ function dayWords(d: {
 export function slideAlt(s: SlideSpec): string {
   switch (s.t) {
     case "headline":
-      return `${s.words}.${s.swipe ? " Swipe for more." : ""}`;
+      return `${s.kicker}: ${s.words}.${s.sub?.length ? ` ${s.sub.join(", ")}.` : ""}${s.swipe ? " Swipe for more." : ""}`;
     case "item":
       return `${s.n} of ${s.of}: ${s.name}. ${strip(s.what)}. ${s.facts.join(", ")}.`;
+    case "idea":
+      return `${s.n} of ${s.of}: ${s.title}. ${s.ages}. You need: ${s.need}. ${s.steps.map((x, i) => `${i + 1}. ${x}`).join(" ")}${s.safety ? ` ${s.safety}` : ""}`;
+    case "event":
+      return `${s.n} of ${s.of}: ${s.title}. ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}. ${s.cost}.${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
     case "cta":
-      return [s.line, s.sub, s.cta].filter(Boolean).join(" ");
+      return [s.url ? `${s.line} ${s.url}.` : s.line, s.sub, s.fine, s.cta]
+        .filter(Boolean)
+        .join(" ");
     case "parkcard":
       return s.photo
         ? `${s.park}, ${s.town}, Oregon, on a taped crayon label over a photo of the park.${s.photo.credit ? ` ${s.photo.credit}.` : ""}`

@@ -2405,5 +2405,339 @@
       ],
       "tip": "Pavilion skate"
     }
-  ]
+  ],
+  "season_themes": {
+    "months": [
+      {
+        "month": 1,
+        "themes": [
+          {
+            "id": "snow-day",
+            "label": "Snow days",
+            "hint": "snow play, tracks, snow painting, building inside when it's too cold"
+          },
+          {
+            "id": "cozy-indoors",
+            "label": "Cozy indoor days",
+            "hint": "forts, reading nooks, quiet games for short gray days"
+          },
+          {
+            "id": "winter-birds",
+            "label": "Winter birds",
+            "hint": "watching birds from a window, counting, drawing what comes"
+          }
+        ]
+      },
+      {
+        "month": 2,
+        "themes": [
+          {
+            "id": "snow-day",
+            "label": "Snow days",
+            "hint": "snow play, tracks, snow painting"
+          },
+          {
+            "id": "cozy-indoors",
+            "label": "Cozy indoor days",
+            "hint": "forts, reading nooks, indoor games"
+          },
+          {
+            "id": "kindness",
+            "label": "Kindness and cards",
+            "hint": "cards for neighbors, notes, simple acts of kindness"
+          }
+        ]
+      },
+      {
+        "month": 3,
+        "themes": [
+          {
+            "id": "mud-puddles",
+            "label": "Mud and puddles",
+            "hint": "puddle jumping, mud kitchens, rain boots"
+          },
+          {
+            "id": "spring-signs",
+            "label": "First signs of spring",
+            "hint": "buds, birds coming back, a backyard nature hunt"
+          },
+          {
+            "id": "windy-days",
+            "label": "Windy days",
+            "hint": "things that blow, flutter and spin"
+          }
+        ]
+      },
+      {
+        "month": 4,
+        "themes": [
+          {
+            "id": "rainy-days",
+            "label": "Rainy days",
+            "hint": "rain music, window races, indoor camping"
+          },
+          {
+            "id": "seeds-sprouts",
+            "label": "Seeds and sprouts",
+            "hint": "sprouting seeds in a jar, planting, watching things grow"
+          },
+          {
+            "id": "spring-signs",
+            "label": "Spring outside",
+            "hint": "bugs, buds and backyard hunts"
+          }
+        ]
+      },
+      {
+        "month": 5,
+        "themes": [
+          {
+            "id": "garden-helpers",
+            "label": "Garden helpers",
+            "hint": "digging, planting, watering, worms"
+          },
+          {
+            "id": "bugs-critters",
+            "label": "Bugs and critters",
+            "hint": "bug hunts, rock flipping, drawing what you find"
+          },
+          {
+            "id": "sidewalk-art",
+            "label": "Sidewalk art",
+            "hint": "chalk games, hopscotch, outdoor drawing"
+          }
+        ]
+      },
+      {
+        "month": 6,
+        "themes": [
+          {
+            "id": "summer-start",
+            "label": "First days of summer",
+            "hint": "backyard camping, long evenings, summer lists"
+          },
+          {
+            "id": "backyard-water",
+            "label": "Backyard water play",
+            "hint": "sprinklers, water painting, splash games"
+          },
+          {
+            "id": "bugs-critters",
+            "label": "Bugs and critters",
+            "hint": "bug hunts and backyard nature"
+          }
+        ]
+      },
+      {
+        "month": 7,
+        "themes": [
+          {
+            "id": "backyard-water",
+            "label": "Backyard water play",
+            "hint": "sprinklers, water painting, ice play, splash games"
+          },
+          {
+            "id": "beat-the-heat",
+            "label": "Beat the heat inside",
+            "hint": "cool indoor games for the hottest afternoons"
+          },
+          {
+            "id": "smoky-days",
+            "label": "Smoky days inside",
+            "hint": "indoor movement games and quiet projects for smoke days"
+          }
+        ]
+      },
+      {
+        "month": 8,
+        "themes": [
+          {
+            "id": "backyard-water",
+            "label": "Backyard water play",
+            "hint": "sprinklers, water painting, ice play"
+          },
+          {
+            "id": "smoky-days",
+            "label": "Smoky days inside",
+            "hint": "indoor movement games and quiet projects for smoke days"
+          },
+          {
+            "id": "back-to-school",
+            "label": "Back to school",
+            "hint": "routines, first-day jitters, reading together"
+          }
+        ]
+      },
+      {
+        "month": 9,
+        "themes": [
+          {
+            "id": "back-to-school",
+            "label": "Back to school",
+            "hint": "after-school wind-downs, reading, routines"
+          },
+          {
+            "id": "harvest",
+            "label": "Harvest and apples",
+            "hint": "apples, garden harvest, sorting and counting"
+          },
+          {
+            "id": "smoky-days",
+            "label": "Smoky days inside",
+            "hint": "indoor games for smoke days"
+          }
+        ]
+      },
+      {
+        "month": 10,
+        "themes": [
+          {
+            "id": "pumpkins",
+            "label": "Pumpkins",
+            "hint": "pumpkin painting, pumpkin bowling, seed counting (no carving knives)"
+          },
+          {
+            "id": "fall-leaves",
+            "label": "Fall leaves",
+            "hint": "leaf piles, leaf rubbings, leaf hunts"
+          },
+          {
+            "id": "frosty-mornings",
+            "label": "Frosty mornings",
+            "hint": "frost hunts, breath clouds, warm layers"
+          }
+        ]
+      },
+      {
+        "month": 11,
+        "themes": [
+          {
+            "id": "first-snow",
+            "label": "First snow",
+            "hint": "the first snowfall, snow painting, tracks, cozy afterward"
+          },
+          {
+            "id": "fall-leaves",
+            "label": "Last leaves",
+            "hint": "leaf piles and leaf art before the snow"
+          },
+          {
+            "id": "thankful",
+            "label": "Thankful",
+            "hint": "gratitude games, cards and table helpers"
+          }
+        ]
+      },
+      {
+        "month": 12,
+        "themes": [
+          {
+            "id": "first-snow",
+            "label": "Snow days",
+            "hint": "snow play, snow painting, tracks"
+          },
+          {
+            "id": "winter-lights",
+            "label": "Lights and long nights",
+            "hint": "flashlight games, paper lanterns, star watching from a window"
+          },
+          {
+            "id": "cozy-indoors",
+            "label": "Cozy indoor days",
+            "hint": "forts, reading nooks, indoor games"
+          }
+        ]
+      }
+    ],
+    "holidays": [
+      {
+        "id": "lunar-new-year",
+        "label": "Lunar New Year",
+        "hint": "paper lanterns, red paper crafts, dumpling-folding play with paper",
+        "dates": ["2027-02-06", "2028-01-26"],
+        "before": 7,
+        "after": 2
+      },
+      {
+        "id": "valentines",
+        "label": "Valentine's Day",
+        "hint": "cards for family and neighbors, paper hearts",
+        "on": "02-14",
+        "before": 7,
+        "after": 0
+      },
+      {
+        "id": "st-patricks",
+        "label": "St. Patrick's Day",
+        "hint": "green hunts, rainbows, paper shamrocks",
+        "on": "03-17",
+        "before": 5,
+        "after": 0
+      },
+      {
+        "id": "earth-day",
+        "label": "Earth Day",
+        "hint": "litter pick-up with gloves, recycled-box builds, seed planting",
+        "on": "04-22",
+        "before": 6,
+        "after": 1
+      },
+      {
+        "id": "mothers-day",
+        "label": "Mother's Day",
+        "hint": "cards, breakfast-in-bed helpers (no stove), paper flowers",
+        "dates": ["2027-05-09", "2028-05-14"],
+        "before": 6,
+        "after": 0
+      },
+      {
+        "id": "fathers-day",
+        "label": "Father's Day",
+        "hint": "cards, backyard games, coupons",
+        "dates": ["2027-06-20", "2028-06-18"],
+        "before": 6,
+        "after": 0
+      },
+      {
+        "id": "fourth-of-july",
+        "label": "Fourth of July",
+        "hint": "parades in the yard, paper flags, red-white-and-blue snacks (no fireworks)",
+        "on": "holiday:Independence Day",
+        "before": 6,
+        "after": 1
+      },
+      {
+        "id": "halloween",
+        "label": "Halloween",
+        "hint": "costumes from the dress-up box, pumpkin painting, not-scary games",
+        "on": "holiday:Halloween",
+        "before": 14,
+        "after": 0
+      },
+      {
+        "id": "thanksgiving",
+        "label": "Thanksgiving",
+        "hint": "thankful games, place cards, table helpers (no stove or knives)",
+        "on": "holiday:Thanksgiving",
+        "before": 10,
+        "after": 3
+      },
+      {
+        "id": "winter-holidays",
+        "label": "Winter holidays",
+        "hint": "paper snowflakes, wrapping-paper play, cards for neighbors",
+        "on": "12-25",
+        "before": 16,
+        "after": 1
+      },
+      {
+        "id": "new-years-eve",
+        "label": "New Year's Eve",
+        "hint": "noon countdowns, paper hats, a family wish list",
+        "on": "holiday:New Year's Eve",
+        "before": 4,
+        "after": 1
+      }
+    ]
+  }
 }

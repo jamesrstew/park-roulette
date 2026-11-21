@@ -86,6 +86,15 @@ export function SlideIcon({ name, size }: { name: string; size: number }) {
   );
 }
 
+/** A crayon icon, or a weather glyph for the weather words (snow, rain). */
+function AnyIcon({ name, size }: { name: string; size: number }) {
+  return name === "snow" || name === "rain" ? (
+    <WeatherGlyph icon={name} size={size} />
+  ) : (
+    <SlideIcon name={name} size={size} />
+  );
+}
+
 // --- Shared pieces -----------------------------------------------------------
 
 function Tape({
@@ -442,17 +451,41 @@ function HeadlineSlide({
         <div style={{ display: "flex", fontSize: 50, color: SOFT }}>
           {s.kicker}
         </div>
-        <SlideIcon name="spin" size={170} />
+        <AnyIcon name={s.icon ?? "spin"} size={170} />
       </div>
       <div style={{ display: "flex", marginTop: 6 }}>
         <Scribble width={300} color={color} />
       </div>
-      <div style={{ display: "flex", flex: 1, alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          justifyContent: "center",
+        }}
+      >
         <HeadlineWords
           words={s.words}
           highlight={s.highlight}
           size={headlineSize(s.words)}
         />
+        {s.sub?.length ? (
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              fontSize: 50,
+              color: SOFT,
+              marginTop: 30,
+              lineHeight: 1.25,
+              columnGap: 14,
+            }}
+          >
+            {s.sub.map((town, i) => (
+              <span key={town}>{i ? `·\u00a0${town}` : town}</span>
+            ))}
+          </div>
+        ) : null}
       </div>
       {s.swipe ? (
         <div
@@ -553,6 +586,286 @@ function ItemSlide({
   );
 }
 
+/** A number in a hand-drawn circle (the slide's place, or a step). */
+function NumberBlob({
+  n,
+  color,
+  size,
+}: {
+  n: number;
+  color: string;
+  size: number;
+}) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        flexShrink: 0,
+        borderRadius: "50% 46% 52% 48%",
+        border: `${size > 80 ? 7 : 5}px solid ${INK}`,
+        background: tint(color, 0.35),
+        fontSize: Math.round(size * 0.62),
+        lineHeight: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      {String(n)}
+    </div>
+  );
+}
+
+function Chip({ text, fill }: { text: string; fill: string }) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        fontSize: 42,
+        padding: "6px 22px 10px",
+        border: `5px solid ${INK}`,
+        borderRadius: "26px 18px 28px 16px",
+        background: fill,
+      }}
+    >
+      {text}
+    </div>
+  );
+}
+
+/** The small line above a slide's title ("Idea 1 of 4"). */
+function Kicker({ text }: { text: string }) {
+  return (
+    <div style={{ display: "flex", fontSize: 44, color: SOFT }}>{text}</div>
+  );
+}
+
+/**
+ * An "at home" idea, laid out like a recipe card: name, ages, what you
+ * need (in a tinted box), then 2 or 3 numbered steps, and code's safety
+ * line right under the steps it's about.
+ */
+function IdeaSlide({
+  s,
+  page,
+}: {
+  s: Extract<SlideSpec, { t: "idea" }>;
+  page?: { n: number; of: number };
+}) {
+  const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
+  const words = s.steps.join(" ").length + s.need.length;
+  const stepSize = words > 230 ? 46 : 52;
+  return (
+    <Frame page={page} color={color}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+        }}
+      >
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <Kicker text={`Idea ${s.n} of ${s.of}`} />
+          <div
+            style={{
+              display: "flex",
+              fontSize: s.title.length > 20 ? 84 : 100,
+              lineHeight: 1.04,
+              marginTop: 6,
+              maxWidth: 700,
+            }}
+          >
+            {s.title}
+          </div>
+          <Scribble width={300} color={color} />
+        </div>
+        <AnyIcon name={s.icon} size={170} />
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          justifyContent: "center",
+          gap: 26,
+        }}
+      >
+        <div style={{ display: "flex" }}>
+          <Chip text={s.ages} fill={tint(color, 0.3)} />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            background: tint(color, 0.12),
+            border: `4px solid ${INK}`,
+            borderRadius: "24px 16px 26px 14px",
+            padding: "10px 24px 16px",
+          }}
+        >
+          <div style={{ display: "flex", fontSize: 36 }}>You need</div>
+          <div
+            style={{
+              display: "flex",
+              fontSize: s.need.length > 70 ? 44 : 50,
+              lineHeight: 1.18,
+            }}
+          >
+            {s.need}
+          </div>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          {s.steps.map((step, i) => (
+            <div
+              key={i}
+              style={{ display: "flex", alignItems: "flex-start", gap: 20 }}
+            >
+              <NumberBlob n={i + 1} color={color} size={64} />
+              <div
+                style={{
+                  display: "flex",
+                  fontSize: stepSize,
+                  lineHeight: 1.16,
+                  flex: 1,
+                }}
+              >
+                {step}
+              </div>
+            </div>
+          ))}
+        </div>
+        {s.safety ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 14,
+              fontSize: 40,
+              background: tint(CRAYONS.yellow, 0.35),
+              border: `4px solid ${INK}`,
+              borderRadius: "20px 14px 22px 12px",
+              padding: "6px 20px 10px",
+            }}
+          >
+            <SlideIcon name="heads_up" size={52} />
+            <span>{s.safety}</span>
+          </div>
+        ) : null}
+      </div>
+    </Frame>
+  );
+}
+
+/**
+ * One event of the roundup. Every event slide has the same fixed layout
+ * (date block, title from the same line, the same chip row), so no event
+ * stands out from the others.
+ */
+function EventSlide({
+  s,
+  page,
+}: {
+  s: Extract<SlideSpec, { t: "event" }>;
+  page?: { n: number; of: number };
+}) {
+  const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
+  const titleSize = s.title.length > 48 ? 80 : s.title.length > 28 ? 96 : 116;
+  return (
+    <Frame page={page} color={color}>
+      <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            width: 250,
+            flexShrink: 0,
+            border: `7px solid ${INK}`,
+            borderRadius: "26px 16px 30px 14px",
+            background: CARD,
+            boxShadow: `8px 10px 0 ${INK}`,
+            overflow: "hidden",
+            transform: "rotate(-2deg)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              width: "100%",
+              justifyContent: "center",
+              background: tint(color, 0.75),
+              borderBottom: `6px solid ${INK}`,
+              fontSize: 60,
+              padding: "2px 0 6px",
+            }}
+          >
+            {s.weekday}
+          </div>
+          <div style={{ display: "flex", fontSize: 68, padding: "6px 0 12px" }}>
+            {s.date}
+          </div>
+        </div>
+        <div
+          style={{ display: "flex", fontSize: 64, lineHeight: 1.1, flex: 1 }}
+        >
+          {s.time}
+        </div>
+      </div>
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 340,
+        }}
+      >
+        <div style={{ display: "flex", fontSize: titleSize, lineHeight: 1.06 }}>
+          {s.title}
+        </div>
+        <div style={{ display: "flex", marginTop: 4 }}>
+          <Scribble width={340} color={color} />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            fontSize: s.venue.length > 34 ? 50 : 58,
+            color: SOFT,
+            marginTop: 14,
+          }}
+        >
+          {`At ${s.venue}`}
+        </div>
+        <div
+          style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 56 }}
+        >
+          {s.ages.map((a) => (
+            <Chip key={a} text={a} fill={tint(color, 0.3)} />
+          ))}
+          <Chip text={s.cost} fill={CARD} />
+          <Chip text={s.town} fill={CARD} />
+        </div>
+        {s.host || s.also ? (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              fontSize: 44,
+              marginTop: 34,
+              lineHeight: 1.25,
+            }}
+          >
+            {s.host ? <span>{`Hosted by ${s.host}`}</span> : null}
+            {s.also ? <span style={{ color: SOFT }}>{s.also}</span> : null}
+          </div>
+        ) : null}
+      </div>
+    </Frame>
+  );
+}
+
 function CtaSlide({
   s,
   page,
@@ -563,12 +876,12 @@ function CtaSlide({
   return (
     <Frame page={page} color={CRAYONS.blue}>
       <div style={{ display: "flex", justifyContent: "center", marginTop: 20 }}>
-        <SlideIcon name="mail" size={230} />
+        <SlideIcon name={s.icon ?? "mail"} size={s.url ? 190 : 230} />
       </div>
       <div
         style={{
           display: "flex",
-          fontSize: s.line.length > 30 ? 84 : 120,
+          fontSize: s.url ? 84 : s.line.length > 30 ? 84 : 120,
           lineHeight: 1.1,
           textAlign: "center",
           justifyContent: "center",
@@ -577,6 +890,26 @@ function CtaSlide({
       >
         {s.line}
       </div>
+      {s.url ? (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            fontSize: 66,
+            whiteSpace: "nowrap",
+            marginTop: 6,
+          }}
+        >
+          <span
+            style={{
+              borderBottom: `6px solid ${CRAYONS.blue}`,
+              paddingBottom: 2,
+            }}
+          >
+            {s.url}
+          </span>
+        </div>
+      ) : null}
       {s.sub ? (
         <div
           style={{
@@ -589,6 +922,19 @@ function CtaSlide({
           }}
         >
           {s.sub}
+        </div>
+      ) : null}
+      {s.fine ? (
+        <div
+          style={{
+            display: "flex",
+            fontSize: 38,
+            justifyContent: "center",
+            textAlign: "center",
+            marginTop: 20,
+          }}
+        >
+          {s.fine}
         </div>
       ) : null}
       <div
@@ -983,6 +1329,10 @@ export function Slide({
       return <HeadlineSlide s={s} page={page} />;
     case "item":
       return <ItemSlide s={s} page={page} />;
+    case "idea":
+      return <IdeaSlide s={s} page={page} />;
+    case "event":
+      return <EventSlide s={s} page={page} />;
     case "cta":
       return <CtaSlide s={s} page={page} />;
     case "weather":

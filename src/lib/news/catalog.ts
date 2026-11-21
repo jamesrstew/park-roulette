@@ -155,6 +155,36 @@ const SeasonalDefault = z.object({
   months: z.array(Month),
 });
 
+/** One "at home" theme (the Saturday Instagram post): id, label, a hint for the writer. */
+const Theme = z.object({
+  id: z.string().regex(/^[a-z0-9-]+$/),
+  label: z.string(),
+  hint: z.string(),
+});
+
+/**
+ * A holiday the "at home" post may theme to, for `before` days ahead of it
+ * and `after` days after. `on` is "MM-DD" or "holiday:<a holidays() name>";
+ * `dates` lists the years of a moving one (Lunar New Year).
+ */
+const ThemeHoliday = Theme.extend({
+  on: z
+    .string()
+    .regex(/^(\d{2}-\d{2}|holiday:.+)$/)
+    .optional(),
+  dates: z.array(Day).default([]),
+  before: z.number().int().min(0).max(21),
+  after: z.number().int().min(0).max(7),
+}).refine((h) => h.on || h.dates.length, "A holiday needs on or dates.");
+
+/** The season calendar for the "at home" post: month to themes, plus holidays. */
+const SeasonThemes = z.object({
+  months: z
+    .array(z.object({ month: Month, themes: z.array(Theme).min(1) }))
+    .length(12),
+  holidays: z.array(ThemeHoliday),
+});
+
 const Break = z.object({
   id: z.string(),
   label: z.string(),
@@ -242,6 +272,7 @@ export const CatalogSchema = z.object({
   seasonal_defaults: z.array(SeasonalDefault),
   dress_tips: z.array(DressTip),
   season_calendar: z.array(SeasonMonth).length(12),
+  season_themes: SeasonThemes,
 });
 
 export type Catalog = z.infer<typeof CatalogSchema>;
@@ -252,6 +283,7 @@ export type Series = z.infer<typeof Series>;
 export type SeasonalDefault = z.infer<typeof SeasonalDefault>;
 export type DressTip = z.infer<typeof DressTip>;
 export type SeasonMonth = z.infer<typeof SeasonMonth>;
+export type SeasonThemes = z.infer<typeof SeasonThemes>;
 
 export const CATALOG: Catalog = CatalogSchema.parse(raw);
 

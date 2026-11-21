@@ -46,6 +46,14 @@
       "schedule": "*/15 0-2 * * 6"
     },
     {
+      "path": "/api/cron/social",
+      "schedule": "*/15 13-17 * * 2"
+    },
+    {
+      "path": "/api/cron/social",
+      "schedule": "*/15 14-17 * * 6"
+    },
+    {
       "path": "/api/cron/social-comments",
       "schedule": "*/15 * * * *"
     }

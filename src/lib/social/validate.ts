@@ -10,13 +10,16 @@ import {
   whenLine,
 } from "@/lib/events/model";
 import { listed } from "@/lib/events/state";
+import { ideaProblems, repeatOf, themesFor, titleSimilarity } from "./at-home";
 import {
+  composeAtHome,
   composeParkPost,
   composeUnpack,
   type ParkInfo,
   type ResolvedItem,
 } from "./compose";
 import {
+  type AtHomeDraft,
   COPY,
   CAPTION_MAX,
   CREATE_LEAD_MIN,
@@ -24,6 +27,7 @@ import {
   HASHTAGS,
   HEADLINE_MAX_WORDS,
   HEADLINE_MIN_WORDS,
+  IDEA_SIMILAR,
   type ItemIcon,
   MAX_HASHTAGS,
   mondayOf,
@@ -69,6 +73,8 @@ export type SocialCtx = {
   photoFor: (slug: string) => PhotoRef | null;
   /** The keyword DM call to action (else "Link in bio"). */
   dms: boolean;
+  /** "At home" idea titles in the 12-week cooldown (other slots). */
+  recentIdeas?: readonly string[];
   /**
    * Does this page print this quote? (Holiday hours, fetched live from the
    * venue's own site.) Missing: the evidence can't be checked, and the
@@ -819,14 +825,90 @@ export async function validateUnpack(
   return r;
 }
 
+/**
+ * Saturday's "at home" carousel. Every idea is the model's own words, so
+ * the rules are about safety (hazard words, by the idea's youngest age),
+ * no brands or products, household items only, the season theme, and the
+ * 12-week idea cooldown by title.
+ */
+export async function validateAtHome(
+  d: AtHomeDraft,
+  weekOf: string,
+  ctx: SocialCtx,
+): Promise<PostReport> {
+  const { date, publishAt } = slotFor("at_home", weekOf);
+  const r = base("at_home", date, publishAt);
+  const slot = slotProblems(weekOf, publishAt, ctx.now);
+  if (slot) r.errors.push(slot);
+  const month = Number(date.slice(5, 7));
+  const words = wordCount(d.headline);
+  if (words > HEADLINE_MAX_WORDS || words < HEADLINE_MIN_WORDS)
+    r.errors.push(
+      `The headline needs ${HEADLINE_MIN_WORDS} to ${HEADLINE_MAX_WORDS} words (it has ${words}).`,
+    );
+  const hl = d.highlight.trim().toLowerCase();
+  if (
+    /\s/.test(hl) ||
+    !d.headline
+      .toLowerCase()
+      .split(/[^a-z0-9'-]+/)
+      .includes(hl.replace(/[^a-z0-9'-]/g, ""))
+  )
+    r.errors.push("highlight must be one word of the headline.");
+  const n = headlineCount(d.headline);
+  if (n != null && n !== d.ideas.length)
+    r.errors.push(
+      `The headline says ${n}, but there are ${d.ideas.length} ideas.`,
+    );
+  const themes = themesFor(date, ctx.catalog.season_themes);
+  if (!themes.some((t) => t.id === d.theme))
+    r.errors.push(
+      `Theme "${d.theme}" isn't offered for ${date} (pick one of ${themes.map((t) => t.id).join(", ")}).`,
+    );
+  r.errors.push(...textProblems(d.headline, { month, label: "headline" }));
+  const school = schoolOutProblem(
+    [d.headline, ...d.ideas.flatMap((i) => [i.title, ...i.steps])].join(" "),
+    d.break_id,
+    ctx,
+    date,
+    date,
+  );
+  if (school) r.errors.push(school);
+  d.ideas.forEach((idea, k) => {
+    const label = `idea "${idea.title}"`;
+    for (const [part, text] of [
+      ["title", idea.title],
+      ["need", idea.need.join(", ")],
+      ...idea.steps.map((s, j) => [`step ${j + 1}`, s]),
+    ])
+      r.errors.push(
+        ...textProblems(text, { month, label: `${label} ${part}` }),
+      );
+    r.errors.push(...ideaProblems(idea));
+    const again = repeatOf(idea.title, ctx.recentIdeas ?? []);
+    if (again)
+      r.errors.push(
+        `${label} is too close to "${again}", posted in the last 12 weeks. Pick another idea.`,
+      );
+    for (const other of d.ideas.slice(0, k))
+      if (titleSimilarity(idea.title, other.title) >= IDEA_SIMILAR)
+        r.errors.push(`${label} repeats "${other.title}" in this post.`);
+  });
+  const spec = composeAtHome(d, ctx.dms);
+  common(r, spec, ctx, d.hashtags);
+  r.spec = spec;
+  r.ok = r.errors.length === 0;
+  return r;
+}
+
 export async function validatePost(
   d: PostDraft,
   weekOf: string,
   ctx: SocialCtx,
 ): Promise<PostReport> {
-  return d.type === "park_post"
-    ? validateParkPost(d, weekOf, ctx)
-    : validateUnpack(d, weekOf, ctx);
+  if (d.type === "park_post") return validateParkPost(d, weekOf, ctx);
+  if (d.type === "at_home") return validateAtHome(d, weekOf, ctx);
+  return validateUnpack(d, weekOf, ctx);
 }
 
 /**

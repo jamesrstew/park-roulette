@@ -8,16 +8,233 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Issue } from "../src/lib/news/issue";
+import { ageTags } from "../src/lib/events/ages";
+import type { EventRow } from "../src/lib/events/model";
 import {
+  composeAtHome,
+  composeEventsWeek,
   composeParkPost,
   composeStory,
   composeTeaser,
   composeUnpack,
   type ParkInfo,
 } from "../src/lib/social/compose";
+import { slotFor } from "../src/lib/social/model";
 import { photosFor, renderPost } from "../src/lib/social/render";
+import { pickWeekEvents, roundupWindow } from "../src/lib/social/roundup";
 
 const out = process.argv[2] ?? "/tmp/social-samples";
+/** Optional: only these posts ("at_home,events_week"). */
+const only = process.argv[3]?.split(",");
+
+/** A sample kids' event, as kid_events stores it (sample data, not real listings). */
+function sampleEvent(e: {
+  slug: string;
+  title: string;
+  day: string;
+  start: string;
+  end?: string;
+  more?: string[];
+  venue: string;
+  town: string;
+  ages: string | null;
+  cost: { text: string; free?: boolean; kids?: number } | null;
+  host?: string;
+  kids?: boolean;
+}): EventRow {
+  const ages = ageTags(e.ages);
+  return {
+    id: 1,
+    slug: e.slug,
+    kind: "series",
+    status: "scheduled",
+    confirm: "ok",
+    lastSeenAt: null,
+    factsChangedAt: new Date(),
+    stateChangedAt: null,
+    data: {
+      title: e.title,
+      dates: [e.day, ...(e.more ?? [])].map((day) => ({
+        day,
+        start: e.start,
+        ...(e.end ? { end: e.end } : {}),
+      })),
+      venue: { name: e.venue, town: e.town },
+      ...(e.cost
+        ? {
+            cost: {
+              text: e.cost.text,
+              free: !!e.cost.free,
+              prices: e.cost.kids
+                ? [{ label: "kids", amount: e.cost.kids }]
+                : [],
+            },
+          }
+        : {}),
+      ...(e.ages ? { ages_text: e.ages } : {}),
+      ages: e.kids === false ? { tags: [], kids: false, range: null } : ages,
+      what: "A sample event for the design review, not a real listing.",
+      url: "https://example.org/event",
+      ...(e.host
+        ? { organizer: { name: e.host, url: "https://example.org" } }
+        : {}),
+      evidence: [
+        { url: "https://example.org/event", quote: "sample quote here" },
+      ],
+      point: null,
+      checkQuote: "sample",
+    },
+  };
+}
+
+const SAMPLE_EVENTS: EventRow[] = [
+  sampleEvent({
+    slug: "baby-storytime-east-bend",
+    title: "Baby Storytime",
+    day: "2026-11-25",
+    start: "10:00",
+    end: "10:30",
+    venue: "East Bend Library",
+    town: "Bend",
+    ages: "Ages 0 to 2",
+    cost: { text: "Free", free: true },
+    host: "Deschutes Public Library",
+  }),
+  sampleEvent({
+    slug: "toddler-storytime-downtown-bend",
+    title: "Toddler Storytime",
+    day: "2026-11-25",
+    start: "10:30",
+    end: "11:00",
+    venue: "Downtown Bend Library",
+    town: "Bend",
+    ages: "Ages 1 to 3",
+    cost: { text: "Free", free: true },
+    host: "Deschutes Public Library",
+  }),
+  sampleEvent({
+    slug: "no-school-open-rec-swim-madras",
+    title: "No School Open Rec Swim",
+    day: "2026-11-25",
+    start: "13:00",
+    end: "15:00",
+    venue: "Madras Aquatic Center",
+    town: "Madras",
+    ages: "All ages",
+    cost: { text: "$4 kids", kids: 4 },
+  }),
+  sampleEvent({
+    slug: "family-skate-pavilion",
+    title: "Family Skate",
+    day: "2026-11-27",
+    start: "13:00",
+    end: "15:00",
+    more: ["2026-11-28", "2026-11-29"],
+    venue: "The Pavilion",
+    town: "Bend",
+    ages: "All ages",
+    cost: { text: "$8 kids", kids: 8 },
+    host: "Bend Park & Recreation District",
+  }),
+  sampleEvent({
+    slug: "sisters-tree-lighting",
+    title: "Holiday Tree Lighting",
+    day: "2026-11-27",
+    start: "17:00",
+    venue: "Fir Street Park",
+    town: "Sisters",
+    ages: "All ages",
+    cost: { text: "Free", free: true },
+    host: "Sisters Area Chamber of Commerce",
+  }),
+  sampleEvent({
+    slug: "kids-craft-saturday-la-pine",
+    title: "Kids Craft Saturday",
+    day: "2026-11-28",
+    start: "10:00",
+    end: "11:00",
+    venue: "La Pine Library",
+    town: "La Pine",
+    ages: "Ages 3 to 8",
+    cost: { text: "Free", free: true },
+    host: "Deschutes Public Library",
+  }),
+  sampleEvent({
+    slug: "build-it-club-redmond",
+    title: "Build It Club",
+    day: "2026-11-28",
+    start: "11:00",
+    end: "12:00",
+    venue: "Redmond Library",
+    town: "Redmond",
+    ages: "Ages 5 to 10",
+    cost: { text: "Free", free: true },
+    host: "Deschutes Public Library",
+  }),
+  sampleEvent({
+    slug: "winter-wildlife-walk",
+    title: "Winter Wildlife Walk for Families",
+    day: "2026-11-29",
+    start: "11:00",
+    venue: "High Desert Museum",
+    town: "Bend",
+    ages: "Ages 6 and up",
+    cost: { text: "$15 kids", kids: 15 },
+  }),
+  sampleEvent({
+    slug: "family-movie-prineville",
+    title: "Family Movie Afternoon",
+    day: "2026-11-30",
+    start: "15:30",
+    end: "17:30",
+    venue: "Crook County Library",
+    town: "Prineville",
+    ages: "All ages",
+    cost: { text: "Free", free: true },
+    host: "Crook County Library",
+  }),
+  // Left out: outside the window, no printed ages, not a kids' event.
+  sampleEvent({
+    slug: "preschool-science-sunriver",
+    title: "Preschool Science",
+    day: "2026-12-01",
+    start: "10:00",
+    venue: "Sunriver Nature Center",
+    town: "Sunriver",
+    ages: "Ages 3 to 5",
+    cost: { text: "$5", kids: 5 },
+  }),
+  sampleEvent({
+    slug: "holiday-market-bend",
+    title: "Holiday Market",
+    day: "2026-11-28",
+    start: "10:00",
+    venue: "Old Mill",
+    town: "Bend",
+    ages: null,
+    cost: { text: "Free", free: true },
+  }),
+  sampleEvent({
+    slug: "teen-night-redmond",
+    title: "Teen Night",
+    day: "2026-11-27",
+    start: "18:00",
+    venue: "Redmond Library",
+    town: "Redmond",
+    ages: "Ages 13 to 18",
+    cost: { text: "Free", free: true },
+    kids: false,
+  }),
+];
+
+function roundupSample() {
+  const tue = slotFor("events_week", "2026-11-23");
+  const w = roundupWindow(tue.date, tue.publishAt);
+  const now = new Date(tue.publishAt.getTime() - 45 * 60_000);
+  const pick = pickWeekEvents(SAMPLE_EVENTS, w, now);
+  console.log("roundup left out:", pick.left.join("; ") || "(none)");
+  return composeEventsWeek(pick.events, w, false);
+}
 
 const larkspur: ParkInfo = {
   slug: "larkspur-park-bend",
@@ -189,8 +406,64 @@ async function main() {
     ),
     teaser: composeTeaser(issue, harvest, false),
     story: composeStory(issue, harvest, false),
+    at_home: composeAtHome(
+      {
+        type: "at_home",
+        headline: "Thanksgiving weekend: 4 cozy ideas",
+        highlight: "cozy",
+        theme: "thanksgiving",
+        ideas: [
+          {
+            title: "Snow paint",
+            ages: { from: 2, to: 8 },
+            need: ["spray bottles", "water", "food coloring"],
+            steps: [
+              "Fill each bottle with water and a few drops of color",
+              "Spray stripes, letters and pictures on clean snow",
+            ],
+            icon: "snow",
+          },
+          {
+            title: "Hand turkeys",
+            ages: { from: 2, to: 6 },
+            need: ["paper", "crayons"],
+            steps: [
+              "Trace a hand on paper with the fingers spread wide",
+              "Color each finger as a feather, then add a beak and feet",
+            ],
+            icon: "crayon",
+          },
+          {
+            title: "Thankful paper chain",
+            ages: { from: 3, to: 9 },
+            need: ["paper", "crayons", "tape"],
+            steps: [
+              "Tear paper into long strips, one for each person",
+              "Draw or write one thing to be thankful for on each strip",
+              "Loop and tape the strips into a chain for the table",
+            ],
+            icon: "heart",
+          },
+          {
+            title: "Bathtub boat race",
+            ages: { from: 2, to: 6 },
+            need: ["foil", "a bathtub", "a little water", "straws"],
+            steps: [
+              "Fold foil into small boats, one for each racer",
+              "Run a few inches of water in the bathtub",
+              "Blow through straws to race the boats to the far end",
+            ],
+            icon: "sparkles",
+          },
+        ],
+        hashtags: ["#BendKids", "#CentralOregon", "#BendOregon"],
+      },
+      false,
+    ),
+    events_week: roundupSample(),
   };
   for (const [name, spec] of Object.entries(posts)) {
+    if (only && !only.includes(name)) continue;
     const files = await renderPost(spec, await photosFor(spec));
     let n = 0;
     for (const f of files) {

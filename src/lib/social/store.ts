@@ -20,7 +20,14 @@ import { IssueSchema, type Issue } from "@/lib/news/issue";
 import { addDays, pacific } from "@/lib/news/time";
 import { normalizeText, type Fetcher } from "@/lib/news/validate";
 import { SITE_URL } from "@/lib/site";
-import { composeStory, composeTeaser, type ParkInfo } from "./compose";
+import { themesFor } from "./at-home";
+import {
+  composeEventsWeek,
+  composeStory,
+  composeTeaser,
+  type ParkInfo,
+} from "./compose";
+import { pickWeekEvents, roundupWindow } from "./roundup";
 import {
   containerStatus,
   createContainer,
@@ -36,7 +43,10 @@ import {
   CREATE_LEAD_MIN,
   DAILY_PUBLISH_LIMIT,
   DATED_LEAD_HOURS,
+  EVENTS_MAKE_LEAD_MIN,
   HASHTAGS,
+  IDEA_COOLDOWN_WEEKS,
+  IDEA_ICONS,
   ITEM_ICONS,
   LATE_LIMIT_MIN,
   mondayOf,
@@ -145,6 +155,23 @@ async function coolingParks(
       )
       .flatMap((r) => (r.spec as PostSpec).facts.parks),
   );
+}
+
+/** "At home" idea titles in the 12-week cooldown, not counting one slot (a re-draft). */
+async function recentIdeas(day: string, exceptSlot: string): Promise<string[]> {
+  const rows = await db
+    .select({ slotDate: socialPosts.slotDate, spec: socialPosts.spec })
+    .from(socialPosts)
+    .where(
+      and(
+        eq(socialPosts.kind, "at_home"),
+        inArray(socialPosts.status, LIVE),
+        gte(socialPosts.slotDate, addDays(day, -7 * IDEA_COOLDOWN_WEEKS)),
+      ),
+    );
+  return rows
+    .filter((r) => r.slotDate !== exceptSlot)
+    .flatMap((r) => (r.spec as PostSpec).facts.ideas ?? []);
 }
 
 type Verdicts = Map<
@@ -273,6 +300,8 @@ export async function socialCtx(
     slotDate: postSlot.date,
   });
   const photoFor = (slug: string) => clearedFor(verdicts, slug);
+  const sat = slotFor("at_home", weekOf).date;
+  const ideas = await recentIdeas(sat, sat);
   return {
     now,
     catalog: CATALOG,
@@ -293,6 +322,7 @@ export async function socialCtx(
     cooling,
     photoFor,
     dms: dmsOn(),
+    recentIdeas: ideas,
     evidence: opts.evidence ?? ((u, q) => evidenceSeen(u, q)),
   };
 }
@@ -311,6 +341,8 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
   const mon = slotFor("park_post", weekOf);
   const wed = slotFor("unpack", weekOf);
   const sun = slotFor("unpack", weekOf, true);
+  const sat = slotFor("at_home", weekOf);
+  const tue = slotFor("events_week", weekOf);
   const friday = slotFor("story", weekOf).date;
   const breaks = CATALOG.breaks.filter(
     (b) => b.verified && b.from <= friday && b.to >= weekOf,
@@ -371,6 +403,12 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
     slots: {
       park_post: { day: mon.date, publish_at: mon.publishAt.toISOString() },
       unpack: { day: wed.date, publish_at: wed.publishAt.toISOString() },
+      at_home: { day: sat.date, publish_at: sat.publishAt.toISOString() },
+      events_week: {
+        day: tue.date,
+        publish_at: tue.publishAt.toISOString(),
+        note: "Made by code from the events listing that morning. Nothing to write.",
+      },
       ...(breaks.length
         ? {
             unpack_sunday: {
@@ -417,6 +455,13 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
         town: p.city,
         features: p.features,
       })),
+    at_home: {
+      day: sat.date,
+      themes: themesFor(sat.date, CATALOG.season_themes),
+      recent_ideas: ctx.recentIdeas ?? [],
+      icons: IDEA_ICONS,
+    },
+    season_themes: CATALOG.season_themes,
     photos_to_check: photosToCheck,
     recent: ctx.recent.map((r) => ({
       kind: r.kind,
@@ -441,6 +486,8 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
         "Saying school is out needs break_id from breaks, covering the post's days and the towns you name.",
       holiday_hours:
         "In a holiday week, a venue item needs holiday_evidence: a quote from the venue's own site that names the holiday or its date and prints the hours. Otherwise it is cut.",
+      at_home:
+        "Saturday's at home carousel: 3 to 5 ideas, each a short title (32 characters), ages {from, to}, need (1 to 5 lowercase household items), 2 or 3 plain steps (8 to 80 characters). theme: one id from at_home.themes; every idea fits it. No brands or products, nothing to buy, print or watch, no links. Never knives, blades, glue guns, stove, oven, baking, boiling, microwave, anything hot, candles, fire, irons, cleaners or chemicals, batteries, magnets, plastic bags, ladders, or prep overnight. Scissors only from age 4; small parts (beads, buttons, coins, rice, beans, pasta, popcorn, nuts, grapes, pom-poms, googly eyes, pebbles, marshmallows) and string or ribbon only from age 3; balloons only from age 8. An idea whose title is like one in at_home.recent_ideas (12 weeks) is refused. Code adds a water-safety line for water ideas under 6.",
       photos:
         "Look at each photo in photos_to_check (vision) and POST /api/social/photo-checks: clear only when no person or child is visible at all. Then look at every stored post's preview slides and POST /api/social/posts/<id>/crayon if any person is visible.",
     },
@@ -816,6 +863,77 @@ export async function ensureCodePost(
   return "made";
 }
 
+/**
+ * Tuesday's "Family events this week", made by code from kid_events on
+ * its morning (from 60 minutes before its slot, so the listing is that
+ * morning's): 4 to 8 confirmed kids' events with printed ages, times and
+ * cost, spread across towns and days, in date order. Fewer than 4: the
+ * slot is skipped and James hears. `rebuild` redraws a queued roundup
+ * whose events changed (a canceled date drops out; below 4, it's skipped).
+ */
+export async function ensureEventsWeek(
+  now: Date,
+  { rebuild = false }: { rebuild?: boolean } = {},
+): Promise<string> {
+  const weekOf = mondayOf(pacific(now).date);
+  const { date, publishAt } = slotFor("events_week", weekOf);
+  if (pacific(now).date !== date) return "not its day";
+  if (!rebuild && (await slotTaken("events_week", date))) return "already made";
+  if (now.getTime() < publishAt.getTime() - EVENTS_MAKE_LEAD_MIN * 60_000)
+    return "not yet";
+  const skip = async (reason: string) => {
+    await upsertPost({
+      kind: "events_week",
+      slotDate: date,
+      publishAt,
+      origin: "code",
+      body: { events: [] },
+      spec: emptySpec("events_week"),
+      media: [],
+      report: null,
+      status: "skipped",
+      reason,
+    });
+    alertLater({
+      key: `social:skip:events_week:${date}`,
+      subject: "Instagram events roundup skipped",
+      text: `The family events roundup for ${date} was skipped: ${reason}`,
+      everyMinutes: 24 * 60,
+    });
+    return reason;
+  };
+  if (now.getTime() > publishAt.getTime() + LATE_LIMIT_MIN * 60_000)
+    return skip("Over 2 hours late.");
+  const month = Number(date.slice(5, 7));
+  const window = roundupWindow(date, publishAt);
+  // An organizer's title isn't our words: first person is fine there.
+  const titleProblem = (title: string) =>
+    textProblems(title, { month, label: "title" })
+      .filter((p) => !/first person/.test(p))
+      .join(" ") || null;
+  const pick = pickWeekEvents(
+    (await eventRows()).values(),
+    window,
+    now,
+    titleProblem,
+  );
+  if (pick.skip) return skip(pick.skip);
+  const spec = composeEventsWeek(pick.events, window, dmsOn());
+  const R = await render();
+  const media = await R.storeMedia(await R.renderPost(spec, []));
+  const id = await upsertPost({
+    kind: "events_week",
+    slotDate: date,
+    publishAt,
+    origin: "code",
+    body: { events: pick.events.map((e) => `${e.slug}@${e.day}`) },
+    spec,
+    media,
+    report: { errors: [], warnings: [], cut: pick.left },
+  });
+  return id == null ? "slot already going out" : rebuild ? "remade" : "made";
+}
+
 function emptySpec(kind: PostKind): PostSpec {
   return {
     kind,
@@ -960,6 +1078,18 @@ export async function runSocial(
   const notes: string[] = [];
   try {
     const wd = pacific(now).weekday;
+    if (wd === 2)
+      try {
+        notes.push(`events_week: ${await ensureEventsWeek(now)}`);
+      } catch (e) {
+        notes.push(`events_week: failed (${(e as Error).message})`);
+        alertLater({
+          key: `social:make:events_week:${pacific(now).date}`,
+          subject: "Instagram events roundup: making it failed",
+          text: `Making the family events roundup threw an error (${(e as Error).message}). The next run tries again until the slot is 2 hours late.`,
+          everyMinutes: 6 * 60,
+        });
+      }
     for (const kind of [wd === 4 ? "teaser" : null, wd === 5 ? "story" : null])
       if (kind)
         try {
@@ -1020,6 +1150,15 @@ export async function runSocial(
           continue;
         }
         const broken = await factsHold(post, now);
+        if (broken && post.kind === "events_week") {
+          // One event changed: redraw the roundup without it (the next run
+          // publishes the new one), or skip it below 4 events.
+          const made = await ensureEventsWeek(now, { rebuild: true }).catch(
+            (e) => `failed (${(e as Error).message})`,
+          );
+          notes.push(`${post.id}: ${broken} Roundup: ${made}`);
+          continue;
+        }
         if (broken) {
           await setPost(post.id, { status: "skipped", reason: broken });
           tell(post, "skipped", `Skipped just before it went out: ${broken}`);

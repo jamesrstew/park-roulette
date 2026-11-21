@@ -559,4 +559,216 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       { ext_id: "c1", status: "sent" },
     ]);
   });
+  // --- Batch 7: Tuesday's events roundup and Saturday's "at home" ---------
+
+  /** Tuesday, November 24, 2026 (PST): 6:45 am, 7:15 am and 7:30 am Pacific. */
+  const TUE_0645 = new Date("2026-11-24T14:45:00Z");
+  const TUE_0715 = new Date("2026-11-24T15:15:00Z");
+
+  async function addEvent(
+    slug: string,
+    day: string,
+    town: string,
+    over: Record<string, unknown> = {},
+  ) {
+    const data = {
+      title: `Storytime ${slug}`,
+      dates: [{ day, start: "10:00", end: "11:00" }],
+      venue: { name: `${town} Library`, town },
+      cost: { text: "Free", prices: [], free: true },
+      ages_text: "Ages 0 to 5",
+      ages: { tags: ["Ages 0-3", "Ages 4-7"], kids: true, range: [0, 5] },
+      what: "Stories, songs and rhymes for little kids at the library.",
+      url: "https://www.deschuteslibrary.org/calendar/event",
+      organizer: {
+        name: "Deschutes Public Library",
+        url: "https://www.deschuteslibrary.org",
+      },
+      evidence: [
+        {
+          url: "https://www.deschuteslibrary.org/calendar/event",
+          quote: "Storytime at the library",
+        },
+      ],
+      point: null,
+      checkQuote: "Storytime",
+      ...over,
+    };
+    await q(`insert into kid_events (slug, kind, series_key, data)
+      values ('${slug}', 'series', 'k:${slug}', '${JSON.stringify(data).replace(/'/g, "''")}'::jsonb)`);
+  }
+
+  async function fourEvents() {
+    await addEvent("a", "2026-11-25", "Bend");
+    await addEvent("b", "2026-11-26", "Redmond");
+    await addEvent("c", "2026-11-28", "Sisters");
+    await addEvent("d", "2026-11-30", "La Pine");
+  }
+
+  it("Tuesday: the roundup is made from kid_events an hour ahead, then goes out (dry run)", async () => {
+    await fourEvents();
+    await addEvent("no-ages", "2026-11-25", "Bend", {
+      ages_text: undefined,
+      ages: null,
+    });
+    // Too early: nothing yet.
+    let r = await store.runSocial(new Date("2026-11-24T14:15:00Z"), {
+      fetchImpl,
+    });
+    expect(r.notes).toContain("events_week: not yet");
+    r = await store.runSocial(TUE_0645, { fetchImpl });
+    expect(r.notes).toContain("events_week: made");
+    const [row] = await q(
+      `select kind, slot_date::text as day, status, publish_at, spec, caption from social_posts`,
+    );
+    expect(row).toMatchObject({
+      kind: "events_week",
+      day: "2026-11-24",
+      status: "queued",
+    });
+    const spec = row.spec as {
+      slides: { t: string }[];
+      facts: { events: { slug: string }[] };
+    };
+    expect(spec.slides.map((s) => s.t)).toEqual([
+      "headline",
+      "event",
+      "event",
+      "event",
+      "event",
+      "cta",
+    ]);
+    expect(spec.facts.events.map((e) => e.slug)).toEqual(["a", "b", "c", "d"]);
+    expect(String(row.caption)).toContain(
+      "Hosted by Deschutes Public Library.",
+    );
+    expect(String(row.caption)).toContain("parkroulette.quest/events");
+    // Made once per slot.
+    r = await store.runSocial(new Date("2026-11-24T15:00:00Z"), { fetchImpl });
+    expect(r.notes).toContain("events_week: already made");
+    r = await store.runSocial(TUE_0715, { fetchImpl });
+    expect(
+      (
+        await q(`select status from social_posts where kind = 'events_week'`)
+      )[0],
+    ).toEqual({ status: "dry_run" });
+    expect(calls).toEqual([]);
+  });
+
+  it("Tuesday: fewer than 4 events skips the week and tells James", async () => {
+    await addEvent("a", "2026-11-25", "Bend");
+    await addEvent("b", "2026-11-26", "Redmond");
+    await addEvent("c", "2026-11-28", "Sisters");
+    const r = await store.runSocial(TUE_0645, { fetchImpl });
+    expect(r.notes.join(" ")).toMatch(/events_week: Only 3/);
+    expect(await q(`select kind, status from social_posts`)).toEqual([
+      { kind: "events_week", status: "skipped" },
+    ]);
+    expect(alerts.some((a) => /roundup skipped/.test(a.subject))).toBe(true);
+  });
+
+  it("a canceled date before publishing redraws the roundup without it, or skips it below 4", async () => {
+    await fourEvents();
+    await addEvent("e", "2026-11-27", "Madras");
+    await store.runSocial(TUE_0645, { fetchImpl });
+    await q(
+      `update kid_events set data = jsonb_set(data, '{statusByDay}', '{"2026-11-27": "canceled"}') where slug = 'e'`,
+    );
+    let r = await store.runSocial(TUE_0715, { fetchImpl });
+    expect(r.notes.join(" ")).toMatch(/Roundup: remade/);
+    let rows = await q(
+      `select status, spec->'facts'->'events' as ev from social_posts where kind = 'events_week' order by id`,
+    );
+    expect(rows.map((x) => x.status)).toEqual(["replaced", "queued"]);
+    expect((rows[1].ev as { slug: string }[]).map((e) => e.slug)).toEqual([
+      "a",
+      "b",
+      "c",
+      "d",
+    ]);
+    // Another date goes: only 3 left, so the week is skipped.
+    await q(
+      `update kid_events set data = jsonb_set(data, '{statusByDay}', '{"2026-11-28": "canceled"}') where slug = 'c'`,
+    );
+    r = await store.runSocial(new Date("2026-11-24T15:20:00Z"), { fetchImpl });
+    rows = await q(
+      `select status from social_posts where kind = 'events_week' and status <> 'replaced'`,
+    );
+    expect(rows).toEqual([{ status: "skipped" }]);
+    expect(calls).toEqual([]);
+  });
+
+  const atHomeDraft = (week: string, titles: string[]) => ({
+    week_of: week,
+    posts: [
+      {
+        type: "at_home",
+        headline: "Cozy ideas for a snowy morning",
+        highlight: "cozy",
+        theme: week === WEEK ? "thanksgiving" : "first-snow",
+        ideas: titles.map((title) => ({
+          title,
+          ages: { from: 3, to: 8 },
+          need: ["paper", "crayons", "tape"],
+          steps: [
+            "Set out paper and crayons on the table",
+            "Draw, color and tape the pages up on the wall",
+          ],
+        })),
+      },
+    ],
+  });
+
+  it("Saturday: the routine's at home post is stored for 7:45 am, and its ideas cool down for 12 weeks", async () => {
+    const { WeekDraft } = await import("./model");
+    const r = await store.handleDrafts(
+      WeekDraft.parse(
+        atHomeDraft(WEEK, ["Snow paint", "Hand turkeys", "Paper chain"]),
+      ),
+      SUNDAY,
+      { store: true },
+    );
+    expect(r[0].errors).toEqual([]);
+    expect(r[0].stored).toBe(true);
+    const [row] = await q(
+      `select kind, slot_date::text as day, publish_at from social_posts where id = ${r[0].id}`,
+    );
+    expect(row.kind).toBe("at_home");
+    expect(row.day).toBe("2026-11-28");
+    expect(new Date(String(row.publish_at)).toISOString()).toBe(
+      "2026-11-28T15:45:00.000Z",
+    );
+    // A re-draft of the same Saturday may reuse its own ideas.
+    const again = await store.handleDrafts(
+      WeekDraft.parse(
+        atHomeDraft(WEEK, ["Snow paint", "Hand turkeys", "Paper chain"]),
+      ),
+      SUNDAY,
+      { store: false },
+    );
+    expect(again[0].errors).toEqual([]);
+    // Two weeks later, a reworded "Painting the snow" is refused.
+    const plan = await store.socialPlan(
+      new Date("2026-12-06T02:00:00Z"),
+      "2026-12-07",
+    );
+    expect(plan.at_home.recent_ideas).toEqual([
+      "Snow paint",
+      "Hand turkeys",
+      "Paper chain",
+    ]);
+    expect(plan.at_home.themes.map((t) => t.id)).toContain("first-snow");
+    const later = await store.handleDrafts(
+      WeekDraft.parse(
+        atHomeDraft("2026-12-07", [
+          "Painting the snow",
+          "Hallway bowling",
+          "Sock puppets",
+        ]),
+      ),
+      new Date("2026-12-06T02:00:00Z"),
+      { store: false },
+    );
+    expect(later[0].errors.join(" ")).toMatch(/too close to "Snow paint"/);
+  });
 });

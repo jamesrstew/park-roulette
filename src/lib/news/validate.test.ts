@@ -176,6 +176,13 @@ const catalog: Catalog = {
     normal: [],
     tip: "Tip",
   })),
+  season_themes: {
+    months: Array.from({ length: 12 }, (_, i) => ({
+      month: i + 1,
+      themes: [{ id: "theme", label: "Theme", hint: "Hint" }],
+    })),
+    holidays: [],
+  },
 };
 
 const park = (name: string, status = "active"): ParkInfo => ({

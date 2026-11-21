@@ -9,15 +9,24 @@ import { addDays, pacificInstant, weekdayOf } from "@/lib/news/time";
  * review, no per-post veto, no outreach, Facebook off until
  * pages_manage_posts, no Reels, keyword DMs off until tested).
  *
- *   Mon 12:15 pm  park_post  the park post (one 4:5 image, the photo or the crayon card)
- *   Wed  7:45 pm  unpack     the Unpack carousel (@nowbam pattern)
- *   Thu  7:15 am  teaser     the issue teaser (code only, from the sent issue)
- *   Fri  4:30 pm  story      the Weekend Pick Story (code only)
+ *   Mon 12:15 pm  park_post    the park post (one 4:5 image, the photo or the crayon card)
+ *   Tue  7:30 am  events_week  family events this week (code only, from kid_events)
+ *   Wed  7:45 pm  unpack       the Unpack carousel (@nowbam pattern)
+ *   Thu  7:15 am  teaser       the issue teaser (code only, from the sent issue)
+ *   Fri  4:30 pm  story        the Weekend Pick Story (code only)
+ *   Sat  7:45 am  at_home      things to do at home (the Sunday routine, 6 days ahead)
  *
  * A school break may move the carousel to Sunday 7:45 pm, the day before.
  */
 
-export const POST_KINDS = ["park_post", "unpack", "teaser", "story"] as const;
+export const POST_KINDS = [
+  "park_post",
+  "unpack",
+  "teaser",
+  "story",
+  "events_week",
+  "at_home",
+] as const;
 export type PostKind = (typeof POST_KINDS)[number];
 
 /** Feed posts are 4:5; Stories 9:16. Words stay inside the center 1012 px. */
@@ -34,6 +43,8 @@ export const SLOTS: Record<
   unpack: { weekday: 3, hh: 19, mm: 45 },
   teaser: { weekday: 4, hh: 7, mm: 15 },
   story: { weekday: 5, hh: 16, mm: 30 },
+  events_week: { weekday: 2, hh: 7, mm: 30 },
+  at_home: { weekday: 6, hh: 7, mm: 45 },
 };
 /** The school-break carousel: Sunday 7:45 pm, the day before week_of. */
 export const HOLIDAY_UNPACK = { weekday: 0, hh: 19, mm: 45 } as const;
@@ -49,6 +60,15 @@ export const LATE_LIMIT_MIN = 120;
 export const DAILY_PUBLISH_LIMIT = 50;
 /** A park isn't featured again on Instagram for this many weeks. */
 export const PARK_COOLDOWN_WEEKS = 8;
+/** An "at home" idea isn't repeated (by title similarity) for this many weeks. */
+export const IDEA_COOLDOWN_WEEKS = 12;
+/** Title similarity (stemmed content-word Jaccard) that counts as a repeat. */
+export const IDEA_SIMILAR = 0.6;
+/** The events roundup: at least this many events, or the week is skipped. */
+export const EVENTS_MIN = 4;
+export const EVENTS_MAX = 8;
+/** The roundup is made from kid_events this long before its slot (fresh data). */
+export const EVENTS_MAKE_LEAD_MIN = 60;
 /** Trigram overlap is checked against this many recent posts. */
 export const OVERLAP_POSTS = 8;
 /** Share of a post's word trigrams found in one recent post: too close. */
@@ -82,6 +102,17 @@ export const COPY = {
   storyKicker: "Weekend Pick",
   /** Holiday hours that a venue's page doesn't print as one clear span. */
   holidayVaries: "Holiday hours vary, check before you go",
+  atHomeKicker: "At home this weekend",
+  eventsHeadline: "Family events this week in Central Oregon",
+  eventsHighlight: "week",
+  eventsDetails: "Details and more at parkroulette.quest/events",
+  eventsDetailsLine: "Details and more at",
+  eventsUrl: "parkroulette.quest/events",
+  eventsFine: "Each event is run by its host. Check times before you go.",
+  /** The "at home" caption's save prompt (saves drive reach on idea posts). */
+  save: "Save this for the next morning at home.",
+  /** Water ideas for kids under 6 (code adds it; the model never has to). */
+  waterSafety: "Water play: stay within arm's reach.",
   /** The keyword DM (comments and Story replies): code-written, the same for everyone. */
   dm: `Here's the link: ${bioLink("ig_dm")} Free park picks for Central Oregon kids every Thursday, and the Weekend Pick by text if you want it.`,
 } as const;
@@ -249,16 +280,70 @@ export const UnpackDraft = z.strictObject({
 });
 export type UnpackDraft = z.infer<typeof UnpackDraft>;
 
+/** Icons an "at home" idea may use (the crayon set, plus the snow glyph). */
+export const IDEA_ICONS = [
+  "home",
+  "crayon",
+  "pencil",
+  "book",
+  "star",
+  "heart",
+  "party",
+  "sparkles",
+  "teddy",
+  "tree",
+  "sun",
+  "snow",
+  "rain",
+  "picnic",
+  "splash_pad",
+  "trophy",
+  "mountains",
+] as const;
+export type IdeaIcon = (typeof IDEA_ICONS)[number];
+
+export const AtHomeIdea = z.strictObject({
+  /** A short name ("Snow paint"), 32 characters at most. */
+  title: Words(32, 3),
+  /** Who it's for, in whole years ("Ages 2 to 6"). */
+  ages: z
+    .strictObject({
+      from: z.number().int().min(0).max(10),
+      to: z.number().int().min(1).max(12),
+    })
+    .refine((a) => a.to > a.from, "ages.to must be above ages.from"),
+  /** Household items only, lowercase words ("spray bottles"). */
+  need: z.array(Words(28, 2)).min(1).max(5),
+  /** 2 or 3 plain steps. */
+  steps: z.array(Words(80, 8)).min(2).max(3),
+  icon: z.enum(IDEA_ICONS).optional(),
+});
+export type AtHomeIdea = z.infer<typeof AtHomeIdea>;
+
+export const AtHomeDraft = z.strictObject({
+  type: z.literal("at_home"),
+  /** 4 to 8 words ("First snow: 4 cozy things to try"). */
+  headline: Words(70, 10),
+  highlight: Words(24),
+  /** A theme id the plan offers for that Saturday (at_home.themes). */
+  theme: z.string().regex(/^[a-z0-9-]+$/),
+  break_id: z.string().optional(),
+  ideas: z.array(AtHomeIdea).min(3).max(5),
+  hashtags: Hashtags,
+});
+export type AtHomeDraft = z.infer<typeof AtHomeDraft>;
+
 export const PostDraft = z.discriminatedUnion("type", [
   ParkPostDraft,
   UnpackDraft,
+  AtHomeDraft,
 ]);
 export type PostDraft = z.infer<typeof PostDraft>;
 
 export const WeekDraft = z.strictObject({
   /** The Monday of the week the posts are for. */
   week_of: Day,
-  posts: z.array(PostDraft).min(1).max(2),
+  posts: z.array(PostDraft).min(1).max(3),
 });
 export type WeekDraft = z.infer<typeof WeekDraft>;
 
@@ -293,6 +378,10 @@ export type SlideSpec =
       highlight: string;
       kicker: string;
       swipe: boolean;
+      /** The top-right icon (default: the wheel). */
+      icon?: string;
+      /** Small words under the headline (the roundup's towns), never split. */
+      sub?: string[];
     }
   | {
       t: "item";
@@ -304,7 +393,50 @@ export type SlideSpec =
       /** day • ages • cost • town (code, from the IDs). */
       facts: string[];
     }
-  | { t: "cta"; line: string; cta: string; sub: string | null }
+  | {
+      /** An "at home" idea: name, ages, what you need, 2 or 3 steps. */
+      t: "idea";
+      n: number;
+      of: number;
+      icon: IdeaIcon;
+      title: string;
+      ages: string;
+      need: string;
+      steps: string[];
+      /** Code's safety line (water play), or null. */
+      safety: string | null;
+    }
+  | {
+      /** One event of the roundup: every event slide has the same weight. */
+      t: "event";
+      n: number;
+      of: number;
+      /** "Sat" and "Nov 28". */
+      weekday: string;
+      date: string;
+      /** "10 am to noon", "Starts 6 pm". */
+      time: string;
+      title: string;
+      venue: string;
+      town: string;
+      ages: string[];
+      cost: string;
+      host: string | null;
+      /** "Also Thu, Sat" when it repeats in the window. */
+      also: string | null;
+    }
+  | {
+      t: "cta";
+      line: string;
+      cta: string;
+      sub: string | null;
+      /** A web address on its own line, never broken ("parkroulette.quest/events"). */
+      url?: string;
+      /** A small line under the sub (the roundup: hosts run the events). */
+      fine?: string;
+      /** The top icon (default: the envelope). */
+      icon?: string;
+    }
   | {
       /** Monday's park post: the photo or the crayon card, a taped label. */
       t: "parkcard";
@@ -356,6 +488,8 @@ export type PostFacts = {
   events: { slug: string; day: string }[];
   venues: string[];
   issue: string | null;
+  /** An "at home" post's idea titles (the 12-week cooldown). */
+  ideas?: string[];
 };
 
 export type PostSpec = {

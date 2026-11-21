@@ -1,0 +1,2 @@
+ALTER TABLE "social_posts" DROP CONSTRAINT "social_posts_kind";--> statement-breakpoint
+ALTER TABLE "social_posts" ADD CONSTRAINT "social_posts_kind" CHECK ("social_posts"."kind" in ('park_post', 'unpack', 'teaser', 'story', 'events_week', 'at_home'));
