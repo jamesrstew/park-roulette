@@ -6,8 +6,12 @@ import { ingestOk, json, nope } from "@/lib/news/http";
  * What's already stored, for the daily events harvest (bearer
  * NEWS_INGEST_TOKEN, read-only): every event with a date from today to
  * ?days= out (default 60, at most 120), confirmed or not, with its slug,
- * series key, venue, dates and the pages its dates are checked on. The
- * harvest skips any event whose (venue, day, start) or page is here.
+ * series key, venue, dates and the pages its dates are checked on, and
+ * the facts it was stored with (venue in full, setting, cost, ages_text,
+ * signup, parking). The harvest skips any event whose (venue, day, start)
+ * or page is here, except to add dates or the printed ages and cost a page
+ * lacks: a hand-in for a stored page replaces those facts, so it hands
+ * them in again.
  */
 export async function GET(req: Request) {
   if (!ingestOk(req)) return nope();
@@ -29,7 +33,7 @@ export async function GET(req: Request) {
       confirm: e.confirm,
       status: e.status,
       title: e.title,
-      venue: e.venue,
+      ...e.facts,
       url: e.url,
       target_urls: e.targetUrls,
       dates: e.dates,

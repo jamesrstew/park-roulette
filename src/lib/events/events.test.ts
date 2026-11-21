@@ -162,6 +162,68 @@ describe("the events validator (shared rules)", () => {
     expect(r.events[3].problems.join(" ")).toMatch(/word for word/);
     expect(r.events[4].problems.join(" ")).toMatch(/Not a kids' event/);
   });
+  it("takes a library program's printed ages from its event page, never its audience label (events-ages)", async () => {
+    // What dpl.libnet.info/event/{id} prints (November 2026): the
+    // program's own age words, then the library's AGE GROUP label.
+    const EV = "https://dpl.libnet.info/event/17804701";
+    const CAL = "https://www.deschuteslibrary.org/calendar/";
+    const page =
+      "Baby Story Time A gentle story time for infant and caregiver. 0-18 mo. Central Library - Youth Programing (2nd Floor) Saturday, November 21 10:30am - 11:05am Add to Calendar This workshop is intended for children ages 0-5, and all children must be accompanied by a caregiver. AGE GROUP: | Baby | EVENT TYPE: | Story Time |";
+    const lib = (ages_text: string, quote: string): EventInput =>
+      base({
+        title: "Baby Story Time",
+        dates: [{ day: "2026-11-21", start: "10:30", end: "11:05" }],
+        venue: { name: "Central Library", town: "Bend" },
+        cost: undefined,
+        ages_text,
+        url: CAL,
+        what: "Babies and their grown-ups share simple stories, songs and rhymes around a parachute.",
+        evidence: [
+          { url: EV, quote: "Saturday, November 21 10:30am - 11:05am" },
+          { url: EV, quote },
+        ],
+      });
+    const r = await validateEvents(
+      {
+        events: [
+          lib(
+            "0-18 mo.",
+            "A gentle story time for infant and caregiver. 0-18 mo.",
+          ),
+          // The audience label has no numbers: never an age.
+          lib("Baby", "AGE GROUP: | Baby | EVENT TYPE: | Story Time |"),
+          // The age words with the condition: copy only the age words.
+          lib(
+            "children ages 0-5, and all children must be accompanied by a caregiver",
+            "This workshop is intended for children ages 0-5, and all children must be accompanied by a caregiver.",
+          ),
+          lib(
+            "children ages 0-5",
+            "This workshop is intended for children ages 0-5, and all children must be accompanied by a caregiver.",
+          ),
+        ],
+      },
+      ctx({
+        catalog: {
+          link_domains: ["deschuteslibrary.org", "dpl.libnet.info"],
+          event_series: [],
+          site_aliases: { "dpl.libnet.info": "deschuteslibrary.org" },
+        },
+        fetcher: async (url): Promise<FetchResult> =>
+          url === EV
+            ? { status: 200, finalUrl: url, text: page }
+            : url === CAL
+              ? { status: 200, finalUrl: url, text: "Library calendar" }
+              : { status: 404, finalUrl: url, text: "" },
+      }),
+    );
+    const problems = r.events.map((e) => e.problems.join(" "));
+    expect(problems[0]).toBe("");
+    expect(r.events[0].event?.ages?.tags).toEqual(["Ages 0-3"]);
+    expect(problems[1]).toMatch(/doesn't say an age/);
+    expect(problems[2]).toMatch(/doesn't say an age/);
+    expect(problems[3]).toBe("");
+  });
   it("cuts a what-kids-do line too close to the roundup it was found in", async () => {
     const r = await validateEvents(
       {

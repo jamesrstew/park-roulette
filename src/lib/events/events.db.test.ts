@@ -75,6 +75,68 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
     expect((rows[0].data as { dates: unknown[] }).dates).toHaveLength(2);
   });
 
+  it("enriches a stored page with printed ages and cost, keeping its dates (events-ages)", async () => {
+    // The harvest re-hands a known page with one upcoming date plus the
+    // ages and cost its page prints: the same page, every date kept.
+    await store.upsertEvents([verdict("Baby Story Time", "2026-11-21")], {
+      network: true,
+    });
+    const agesQuote = "A gentle story time for infant and caregiver. 0-18 mo.";
+    const costQuote = "Saturday, 2026-11-28, 10:30 am. Free admission.";
+    const [r] = await store.upsertEvents(
+      [
+        verdict(
+          "Baby Story Time",
+          "2026-11-28",
+          {},
+          {
+            ages_text: "0-18 mo.",
+            cost: { text: "Free admission", prices: [], free: true },
+            evidence: [
+              { url: PAGE, quote: costQuote },
+              { url: PAGE, quote: agesQuote },
+            ],
+          },
+        ),
+      ],
+      { network: true },
+    );
+    expect(r).toMatchObject({ created: false, changed: true });
+    const rows = await q("select data from kid_events");
+    expect(rows).toHaveLength(1);
+    const data = rows[0].data as {
+      dates: { day: string }[];
+      ages: { tags: string[]; range: number[] };
+      ages_text: string;
+      cost: { free: boolean };
+      targets: Record<string, unknown>;
+    };
+    expect(data.dates.map((d) => d.day)).toEqual(["2026-11-21", "2026-11-28"]);
+    expect(Object.keys(data.targets).sort()).toEqual([
+      "2026-11-21",
+      "2026-11-28",
+    ]);
+    expect(data.ages_text).toBe("0-18 mo.");
+    expect(data.ages).toMatchObject({ tags: ["Ages 0-3"], range: [0, 1] });
+    expect(data.cost.free).toBe(true);
+    // /api/events/known shows the stored facts, so the harvest can see a
+    // page that lacks them and hand them in again with new dates.
+    const [k] = await store.knownEvents(new Date("2026-11-19T20:00:00Z"));
+    expect(k.facts).toMatchObject({
+      venue: { name: "Downtown Bend Library", town: "Bend" },
+      ages_text: "0-18 mo.",
+      cost: { text: "Free admission", free: true },
+    });
+    // A hand-in replaces the page's facts: one without ages drops them
+    // (the harvest prompt hands them in again every time).
+    await store.upsertEvents([verdict("Baby Story Time", "2026-12-05")], {
+      network: true,
+    });
+    const [after] = await store.knownEvents(new Date("2026-11-19T20:00:00Z"));
+    expect(after.facts.ages_text).toBeUndefined();
+    expect(after.dates).toHaveLength(3);
+  });
+
   it("keeps two showtimes on one day as two dates", async () => {
     const a = verdict("Nutcracker for Kids", "2026-12-12");
     const b = verdict("Nutcracker for Kids", "2026-12-12");

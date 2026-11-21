@@ -348,7 +348,22 @@ export async function eventsForIssues(): Promise<
 export async function knownEvents(
   now = new Date(),
   days = 60,
-): Promise<(KnownEvent & { kind: string; confirm: string; status: string })[]> {
+): Promise<
+  (KnownEvent & {
+    kind: string;
+    confirm: string;
+    status: string;
+    /**
+     * The page's stored facts, for the harvest to hand them in again (a
+     * hand-in replaces them) and to see which pages lack printed ages or
+     * cost.
+     */
+    facts: Pick<
+      StoredEvent,
+      "venue" | "setting" | "cost" | "ages_text" | "signup" | "parking"
+    >;
+  })[]
+> {
   const today = pacificToday(now);
   const until = addDays(today, days);
   const rows = await db.select().from(kidEvents).orderBy(asc(kidEvents.id));
@@ -383,6 +398,14 @@ export async function knownEvents(
       targetUrls: [
         ...new Set(Object.values(e.targets ?? {}).map((t) => t.url)),
       ],
+      facts: {
+        venue: e.venue,
+        ...(e.setting ? { setting: e.setting } : {}),
+        ...(e.cost ? { cost: e.cost } : {}),
+        ...(e.ages_text ? { ages_text: e.ages_text } : {}),
+        ...(e.signup ? { signup: e.signup } : {}),
+        ...(e.parking ? { parking: e.parking } : {}),
+      },
     }));
 }
 

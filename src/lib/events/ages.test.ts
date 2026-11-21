@@ -118,3 +118,53 @@ describe("the final review's cases (times, guards, bare ranges)", () => {
       }
     });
 });
+
+describe("what Central Oregon organizers print (events-ages survey)", () => {
+  // Words copied from dpl.libnet.info, crooklibraryor.gov and bendteal.com
+  // pages, November 2026.
+  const cases: [string, string[] | null, [number, number] | null][] = [
+    ["0-18 mo.", ["Ages 0-3"], [0, 1]],
+    ["18-36 mo.", ["Ages 0-3"], [1, 3]],
+    ["0-5 yrs.", ["Ages 0-3", "Ages 4-7"], [0, 5]],
+    ["3-5 yrs.", ["Ages 0-3", "Ages 4-7"], [3, 5]],
+    ["ages 3-5", ["Ages 0-3", "Ages 4-7"], [3, 5]],
+    ["kids ages 6-9", ["Ages 4-7", "Ages 8-12"], [6, 9]],
+    ["children 6-10", ["Ages 4-7", "Ages 8-12"], [6, 10]],
+    ["children ages 5 and under", ["Ages 0-3", "Ages 4-7"], [0, 5]],
+    ["8-12 year olds", ["Ages 8-12"], [8, 12]],
+    ["Ages 0-17", ["Ages 0-3", "Ages 4-7", "Ages 8-12"], [0, 17]],
+    ["everyone ages 4+", ["Ages 4-7", "Ages 8-12"], [4, 99]],
+    ["grades 3rd -8th", ["Ages 8-12"], [8, 14]],
+    // A range on one hyphenated noun is the whole range, not its top.
+    ["3-5-year-old", ["Ages 0-3", "Ages 4-7"], [3, 5]],
+    ["0–5-year-olds", ["Ages 0-3", "Ages 4-7"], [0, 5]],
+    ["8 to 12 year olds", ["Ages 8-12"], [8, 12]],
+    // "Thru teens" runs to 18, never just the first age.
+    ["Ages 7 thru teens", ["Ages 4-7", "Ages 8-12"], [7, 18]],
+    ["Kids ages 6 to teens", ["Ages 4-7", "Ages 8-12"], [6, 18]],
+    // Spanish, as the library prints it.
+    ["niños de 0-5 años", ["Ages 0-3", "Ages 4-7"], [0, 5]],
+    ["para todas las edades", ["All ages"], null],
+    ["bebés de 0 a 18 meses", ["Ages 0-3"], [0, 1]],
+    // Audience labels with no numbers never become a range.
+    ["Babies", null, null],
+    ["Toddler", null, null],
+    ["Preschool", null, null],
+    ["Family", null, null],
+    // A condition is not an age: copy only the age words.
+    [
+      "children ages 0-5, and all children must be accompanied by a caregiver",
+      null,
+      null,
+    ],
+  ];
+  for (const [words, want, range] of cases)
+    it(words, () => {
+      const a = ageTags(words);
+      if (want === null) expect(a?.tags ?? null, words).toBeNull();
+      else {
+        expect(a?.tags, words).toEqual(want);
+        expect(a?.range, words).toEqual(range);
+      }
+    });
+});

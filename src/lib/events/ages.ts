@@ -31,6 +31,8 @@ export type Ages = {
 /** The oldest age we count as a kid. */
 const KID_MAX = 12;
 const OPEN_TOP = 99;
+/** "Ages 7 thru teens": the last teen year a youth program counts. */
+const TEEN_TOP = 18;
 
 /**
  * Printed age words ("Ages 5 and under", "Grades K-5", "18+") to tags.
@@ -44,6 +46,14 @@ export function ageTags(printed: string | null | undefined): Ages | null {
     .replace(/(\d)\s*½/g, "$1.5")
     .replace(/&/g, " and ")
     .replace(/\bthrough\b|\bthru\b/g, "to")
+    // Spanish, as the library prints it ("niños de 0-5 años", "para todas
+    // las edades"): read as the English words.
+    .replace(/\btodas las edades\b/g, "all ages")
+    .replace(/\bedad(es)?\b/g, "ages")
+    .replace(/\bni[ñn][oa]s\b/g, "children")
+    .replace(/\ba[ñn]os?\b/g, "years")
+    .replace(/\bmes(es)?\b/g, "months")
+    .replace(/(\d)\s+a\s+(\d)/g, "$1 to $2")
     .replace(/\s+/g, " ")
     .trim();
   // Times and clocks are never ages: strip them ("10:30-11 am", "3:30").
@@ -159,6 +169,16 @@ export function ageTags(printed: string | null | undefined): Ages | null {
     years(x[1]),
     years(x[3]),
   ]);
+  // "7 thru teens": teens end with high school, at 18.
+  take(new RegExp(`\\b${N}\\s*(?:-|to)\\s*(?:the )?teens\\b`), (x) => [
+    years(x[1]),
+    TEEN_TOP,
+  ]);
+  // "3-5-year-olds", "8 to 12 year olds".
+  take(
+    new RegExp(`\\b${N}\\s*(?:-|to)\\s*${N}[- ](?:year|yr)s?[- ]olds?\\b`),
+    (x) => [years(x[1]), years(x[2])],
+  );
   // "3-year-olds", "3 year olds".
   take(new RegExp(`\\b${N}[- ](?:year|yr)[- ]olds?\\b`), (x) => [
     years(x[1]),
