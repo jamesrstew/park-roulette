@@ -8,6 +8,7 @@ import {
   SpecialCard,
   SpecialRow,
 } from "@/components/events/ProgramBits";
+import { ScrollToHash } from "@/components/events/ScrollToHash";
 import { Icon } from "@/components/icons";
 import { CrayonLoading } from "@/components/Loading";
 import { PageTitle } from "@/components/PageTitle";
@@ -26,6 +27,7 @@ import {
   bigFirst,
   buildPrograms,
   groupSpan,
+  narrowPrograms,
   onDay,
   SPECIAL_GROUP_NAMES,
   type SpecialGroup,
@@ -170,8 +172,9 @@ async function Listing({ searchParams }: Props) {
     (!g.free || isFree(r.data)) &&
     (!g.age || matchesAge(r.data.ages?.tags ?? [], g.age));
   const everything = buildPrograms(rows, now);
+  // Built once; a filter narrows each program's rows (its kind stays).
   const programs = filtered(f)
-    ? buildPrograms(rows, now, (r) => pass(r, f))
+    ? narrowPrograms(everything, (r) => pass(r, f), today)
     : everything;
   const specials = programs.filter((p) => p.kind === "special");
   const regulars = programs.filter((p) => p.kind === "regular");
@@ -184,23 +187,22 @@ async function Listing({ searchParams }: Props) {
         .sort(k === "later" ? () => 0 : bigFirst),
     }))
     .filter((g) => g.span);
-  const liveRows = everything.flatMap((p) => p.branches.map((b) => b.row));
+  const liveRows = everything.flatMap((p) => p.branches.flatMap((b) => b.rows));
   const towns = [...new Set(liveRows.map((r) => r.data.venue.town))].sort();
 
   // The weather strip: Saturday in Bend, and how many indoor picks.
   const bounds = groupBounds(today);
-  const weekendRows = programs
-    .filter((p) =>
-      [
-        bounds.weekend.from,
-        addDaysStr(bounds.weekend.from, 1),
-        bounds.weekend.to,
-      ].some((d) => d >= today && onDay(p, d)),
-    )
-    .flatMap((p) => p.branches.map((b) => b.row));
-  const indoor = new Set(
-    weekendRows.filter((r) => r.data.setting === "indoor").map((r) => r.id),
-  ).size;
+  // Programs with an indoor date this weekend (what the indoor link shows).
+  const weekendFrom = bounds.weekend.from > today ? bounds.weekend.from : today;
+  const indoor = narrowPrograms(
+    programs,
+    (r) => r.data.setting === "indoor",
+    today,
+  ).filter((p) => {
+    for (let d = weekendFrom; d <= bounds.weekend.to; d = addDaysStr(d, 1))
+      if (onDay(p, d)) return true;
+    return false;
+  }).length;
   const sat = bounds.weekend.from <= bounds.weekend.to ? satOf(bounds) : null;
   const w =
     sat && indoor && !f.setting
@@ -214,7 +216,6 @@ async function Listing({ searchParams }: Props) {
         )
       : null;
 
-  const nothingSoon = !everything.some((p) => p.day <= addDaysStr(today, 14));
   /** Regulars on a day range, by name (for the honest empty lines). */
   const regularsOn = (from: string, to: string) =>
     regulars
@@ -288,12 +289,29 @@ async function Listing({ searchParams }: Props) {
           <h2 id="specials-h" className="sr-only">
             Special events
           </h2>
-          {groups.map((g) => {
+          {!specials.length ? (
+            <div className="doodle-box flex flex-col items-center gap-3 px-4 py-6 text-center">
+              <Icon name="calendar" size={48} />
+              <p className="font-hand text-2xl">
+                No special events in the next two months yet.
+              </p>
+              <Link
+                href="#regulars"
+                className="crayon-btn wax min-h-12 bg-crayon-yellow px-5 text-xl"
+              >
+                See the regulars
+              </Link>
+            </div>
+          ) : null}
+          {(specials.length ? groups : []).map((g) => {
             const big = g.k !== "later";
             const head = g.items.slice(0, big ? 6 : LATER_SHOWN);
             const tail = g.items.slice(head.length);
             const span = g.span!;
-            const on = regularsOn(span.from, span.to);
+            const on =
+              g.k === "later" || g.items.length
+                ? []
+                : regularsOn(span.from, span.to);
             return (
               <section
                 key={g.k}
@@ -338,7 +356,7 @@ async function Listing({ searchParams }: Props) {
                 ) : null}
                 {!g.items.length && g.k === "later" ? (
                   <p className="leading-snug text-ink-soft">
-                    No more special events in the next two months yet.
+                    Nothing else special on the calendar yet.
                   </p>
                 ) : null}
                 {big ? (
@@ -368,9 +386,14 @@ async function Listing({ searchParams }: Props) {
                     </ul>
                     {tail.length ? (
                       <details className="group border-t border-dashed border-ink/25">
-                        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 font-hand text-xl underline underline-offset-4 group-open:hidden [&::-webkit-details-marker]:hidden">
-                          Show {tail.length} more special{" "}
-                          {tail.length === 1 ? "event" : "events"} ▾
+                        <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 font-hand text-xl underline underline-offset-4 [&::-webkit-details-marker]:hidden">
+                          <span className="group-open:hidden">
+                            Show {tail.length} more special{" "}
+                            {tail.length === 1 ? "event" : "events"} ▾
+                          </span>
+                          <span className="hidden group-open:inline">
+                            Show fewer ▴
+                          </span>
                         </summary>
                         <ul className="flex flex-col divide-y divide-dashed divide-ink/25">
                           {tail.map((p) => (
@@ -424,7 +447,7 @@ async function Listing({ searchParams }: Props) {
           rows={rows}
         />
       ) : null}
-      {nothingSoon && !filtered(f) ? <QuietWeek /> : null}
+      {!programs.length && !filtered(f) ? <QuietWeek /> : null}
 
       <p className="text-center text-[0.95rem] leading-snug text-ink-soft">
         Plans change. Check the source before you go. Know an event we missed?{" "}
@@ -434,6 +457,7 @@ async function Listing({ searchParams }: Props) {
         .
       </p>
 
+      <ScrollToHash />
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -451,7 +475,9 @@ async function Listing({ searchParams }: Props) {
                 ...everything.filter((p) => p.kind === "special"),
                 ...everything.filter((p) => p.kind === "regular"),
               ]
-                .flatMap((p) => p.branches.map((b) => b.row.slug))
+                .flatMap((p) =>
+                  p.branches.flatMap((b) => b.rows.map((r) => r.slug)),
+                )
                 .slice(0, 30)
                 .map((slug, n) => ({
                   "@type": "ListItem",

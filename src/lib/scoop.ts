@@ -223,13 +223,16 @@ export function scoopEvents(
   };
   const live = buildPrograms(rows, now)
     .map((p) => {
-      // The soonest scheduled date across branches (each date's status is sticky).
+      // The soonest scheduled date across the program's event pages (each
+      // date's status is sticky); the card's title, link and time all
+      // come from that one page.
       const firsts = p.branches
-        .map((b) => {
-          const r = byId.get(b.row.id) ?? b.row;
+        .flatMap((b) => b.parts)
+        .map((x) => {
+          const r = byId.get(x.row.id) ?? x.row;
           return {
             r,
-            next: b.upcoming.find(
+            next: x.upcoming.find(
               (d) => statusOn(r.data, d.day, r.status) === "scheduled",
             ),
           };
@@ -261,17 +264,21 @@ export function scoopEvents(
   const room = Math.min(SCOOP_REGULARS, SCOOP_EVENTS - specials.length);
   const regulars = within(WEEK, "regular").sort(order).slice(0, room);
   const ages = (p: Program) => [
-    ...new Set(p.branches.flatMap((b) => b.row.data.ages?.tags ?? [])),
+    ...new Set(
+      p.branches.flatMap((b) => b.rows.flatMap((r) => r.data.ages?.tags ?? [])),
+    ),
   ];
+  const free = (p: Program) =>
+    p.branches.every((b) => b.rows.every((r) => isFree(r.data)));
   return [
     ...specials.map(({ r, next, p }) => ({
       slug: r.slug,
       href: `/events/${r.slug}`,
-      title: p.title,
+      title: r.data.title,
       when: scoopWhen(next, today),
       town: p.branches.length > 1 ? placesLabel(p.branches) : r.data.venue.town,
       age: ageChip(ages(p)),
-      free: p.branches.every((b) => isFree(b.row.data)),
+      free: free(p),
       regular: false,
     })),
     ...regulars.map(({ r, next, p }) => ({
@@ -281,7 +288,7 @@ export function scoopEvents(
       when: `Next: ${scoopWhen(next, today)}`,
       town: p.branches.length > 1 ? placesLabel(p.branches) : r.data.venue.town,
       age: ageChip(ages(p)),
-      free: p.branches.every((b) => isFree(b.row.data)),
+      free: free(p),
       regular: true,
     })),
   ];

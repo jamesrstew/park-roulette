@@ -17,10 +17,15 @@ import {
  */
 
 /** On the listing: confirmed, a kids' event, with a date in the next 60 days. */
-export function listed(e: EventRow, now: Date): boolean {
+export function listed(
+  e: EventRow,
+  now: Date,
+  /** Its dates not over yet, when the caller already has them. */
+  upcoming: readonly EventDate[] = upcomingDates(e.data, now),
+): boolean {
   if (e.confirm !== "ok" || e.data.ages?.kids === false) return false;
   const today = pacific(now).date;
-  const next = upcomingDates(e.data, now)[0];
+  const next = upcoming[0];
   return !!next && next.day <= addDays(today, 60);
 }
 
@@ -175,8 +180,12 @@ export function checkTarget(
 }
 
 /** The status shown now: the next date's (sticky per date). */
-export function nextStatus(row: EventRow, now: Date): EventStatus {
-  const next = upcomingDates(row.data, now)[0];
+export function nextStatus(
+  row: EventRow,
+  now: Date,
+  upcoming: readonly EventDate[] = upcomingDates(row.data, now),
+): EventStatus {
+  const next = upcoming[0];
   return next ? statusOn(row.data, next.day, row.status) : row.status;
 }
 

@@ -6,52 +6,72 @@ import {
   type EventRow,
   groupBounds,
   keyStem,
-  upcomingDates,
+  listingDates,
+  pacificToday,
+  shortDate,
+  slugify,
   venueKey,
 } from "./model";
 import { listed, nextStatus } from "./state";
 
 /**
- * Programs: the listing's unit. Rows of one program (same name stem, same
- * organizer site) merge across branches, so five library branches' story
- * times are one program. A program is a "special" (one-offs, annual
- * events, short runs like a Nutcracker weekend) or a "regular" (repeats on
- * a schedule: story times, clubs, weekly classes). The kind is decided on
- * the whole program before any filter, so a filter never moves a program
- * between sections. Pure: no database. Spec:
- * /tmp/pr-news/batch7/events-page-spec.md.
+ * Programs: the listing's unit. A program is a "special" (one-offs, annual
+ * events, runs like a Nutcracker weekend or a month of holiday lights) or
+ * a "regular" (repeats on a schedule: story times, clubs, weekly classes).
+ * Regulars merge across branches (same name stem, same organizer site), so
+ * five library branches' story times are one row; specials merge only
+ * when the title and venue match, so "Family Movie: Elf" and "Family
+ * Movie: Frozen" stay two. The kind is decided on the whole program before
+ * any filter (narrowPrograms), so a filter never moves a program between
+ * sections. Pure: no database. Spec: /tmp/pr-news/batch7/events-page-spec.md.
  */
 
+/** One venue of a program: its rows there (a series and a one-off merge). */
 export type Branch = {
+  /** The row its link goes to (a series over a one-off, else the soonest). */
   row: EventRow;
-  /** Its first date not over yet. */
+  /** The row whose date is next (a special's link, chips and status). */
+  nextRow: EventRow;
+  /** Every row at this venue, soonest first. */
+  rows: EventRow[];
+  /** Each row with its own listing dates (for narrowing). */
+  parts: Live[];
+  /** Its first date still on the listing. */
   next: EventDate;
-  /** Every date not over yet, soonest first. */
+  /** Every date still on the listing, soonest first. */
   upcoming: EventDate[];
 };
+
+/** A row with the dates the listing uses (worked out once per row). */
+export type Live = { row: EventRow; upcoming: EventDate[] };
 
 export type ProgramKind = "special" | "regular";
 
 export type Program = {
   key: string;
   kind: ProgramKind;
-  /** The soonest branch's title. */
+  /** The shared title, or the shared stem when branches' titles differ. */
   title: string;
   /** Soonest first. */
   branches: Branch[];
-  /** The soonest branch (its row and next date). */
+  /** The soonest branch. */
   lead: Branch;
   /** The lead's next day, or today when it's already running. */
   day: string;
   annual: boolean;
 };
 
-/** Which rows are one program: the organizer's site plus the name stem. */
-export function programKey(r: EventRow): string {
+const isLibrary = (r: EventRow) => /\blibrary\b/i.test(r.data.venue.name);
+
+/** Rows that may be one regular: the organizer's site plus the name stem. */
+function stemKey(r: EventRow): string {
   return `${domainOf(r.data.url)}|${keyStem(r.data.title)}`;
 }
 
-const isLibrary = (r: EventRow) => /\blibrary\b/i.test(r.data.venue.name);
+/** A special's own key: the full title and the venue. */
+function specialKey(r: EventRow): string {
+  return `${domainOf(r.data.url)}|${slugify(r.data.title)}|${venueKey(r.data.venue)}`;
+}
 
 /** Monday of the day's week (weeks run Monday to Sunday). */
 function mondayOf(day: string): string {
@@ -77,15 +97,28 @@ function median(xs: number[]): number {
   return s[Math.floor((s.length - 1) / 2)];
 }
 
+/** Share of days with a neighbor the day before or after (runs, weekend pairs). */
+function clustered(days: string[]): number {
+  if (days.length < 2) return 1;
+  const g = gapsOf(days);
+  return (
+    days.filter((_, i) => (g[i - 1] ?? 99) <= 1 || (g[i] ?? 99) <= 1).length /
+    days.length
+  );
+}
+
 /**
  * Special or regular, from every stored date of the program's rows (past
  * ones too, so a weekly program near the end of what we know stays put):
  * 1. Any annual row, or only one-offs: special.
  * 2. A short run (everything within 14 days, mostly back-to-back days, or
  *    one day): special.
- * 3. At a library with more than one date: regular.
- * 4. Dates in 3 or more different weeks: regular.
- * 5. Otherwise: special.
+ * 3. A seasonal run away from a library (within 45 days, at least 60% of
+ *    days next to another: a month of nightly lights, four weekends of a
+ *    train ride): special.
+ * 4. At a library with more than one date: regular.
+ * 5. Dates in 3 or more different weeks: regular.
+ * 6. Otherwise: special.
  */
 export function programKind(rows: readonly EventRow[]): ProgramKind {
   if (rows.some((r) => r.kind === "annual")) return "special";
@@ -96,62 +129,147 @@ export function programKind(rows: readonly EventRow[]): ProgramKind {
   const span = gapsOf([days[0], days[days.length - 1]])[0] ?? 0;
   if (span <= 14 && (days.length === 1 || median(gapsOf(days)) <= 2))
     return "special";
-  if (rows.some(isLibrary)) return "regular";
+  const library = rows.some(isLibrary);
+  if (!library && span <= 45 && clustered(days) >= 0.6) return "special";
+  if (library) return "regular";
   if (new Set(days.map(mondayOf)).size >= 3) return "regular";
   return "special";
 }
 
-/**
- * The listing's programs: listed rows (with the next date's status),
- * merged and classified, then filtered by row (a town filter keeps only
- * that town's branches). Soonest first.
- */
-export function buildPrograms(
-  rows: readonly EventRow[],
-  now: Date,
-  keep: (r: EventRow) => boolean = () => true,
-): Program[] {
-  const today = now
-    .toLocaleString("sv-SE", { timeZone: "America/Los_Angeles" })
-    .slice(0, 10);
-  const byKey = new Map<string, EventRow[]>();
-  for (const r of rows) {
-    if (!listed(r, now)) continue;
-    const row = { ...r, status: nextStatus(r, now) };
-    const k = programKey(row);
-    byKey.set(k, [...(byKey.get(k) ?? []), row]);
-  }
-  const out: Program[] = [];
-  for (const [key, members] of byKey) {
-    const kind = programKind(members);
-    const branches = members
-      .filter(keep)
-      .map((row) => {
-        const upcoming = upcomingDates(row.data, now);
-        return { row, upcoming, next: upcoming[0] };
-      })
-      .sort((a, b) => sortKey(a.next).localeCompare(sortKey(b.next)));
-    if (!branches.length) continue;
-    const lead = branches[0];
-    out.push({
-      key,
-      kind,
-      title: lead.row.data.title,
-      branches,
-      lead,
-      day: lead.next.day < today ? today : lead.next.day,
-      annual: members.some((r) => r.kind === "annual"),
-    });
-  }
-  return out.sort(
-    (a, b) =>
-      a.day.localeCompare(b.day) ||
-      sortKey(a.lead.next).localeCompare(sortKey(b.lead.next)) ||
-      a.title.localeCompare(b.title),
+const sortKey = (d: EventDate) => `${d.day}|${d.start ?? "99:99"}`;
+
+/** Rows at one venue as a branch (null when none is left). */
+function branchOf(lives: readonly Live[]): Branch | null {
+  if (!lives.length) return null;
+  const rows = [...lives].sort((a, b) =>
+    sortKey(a.upcoming[0]).localeCompare(sortKey(b.upcoming[0])),
   );
+  const upcoming = rows
+    .flatMap((x) => x.upcoming)
+    .sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+  const row = (rows.find((x) => x.row.kind === "series") ?? rows[0]).row;
+  return {
+    row,
+    nextRow: rows[0].row,
+    rows: rows.map((x) => x.row),
+    parts: rows,
+    upcoming,
+    next: upcoming[0],
+  };
 }
 
-const sortKey = (d: EventDate) => `${d.day}|${d.start ?? "99:99"}`;
+/** Rows to branches, one per venue, soonest first. */
+function branchesOf(lives: readonly Live[]): Branch[] {
+  const byVenue = new Map<string, Live[]>();
+  for (const l of lives) {
+    const k = venueKey(l.row.data.venue);
+    byVenue.set(k, [...(byVenue.get(k) ?? []), l]);
+  }
+  return [...byVenue.values()]
+    .map(branchOf)
+    .filter((b): b is Branch => !!b)
+    .sort((a, b) => sortKey(a.next).localeCompare(sortKey(b.next)));
+}
+
+/** "Story Time" for "Story Time: Dinosaurs" + "Story Time: Bugs". */
+function titleOf(rows: readonly EventRow[]): string {
+  const titles = [...new Set(rows.map((r) => r.data.title))];
+  if (titles.length === 1) return titles[0];
+  return titles[0].split(/[:(|]| - | – /)[0].trim() || titles[0];
+}
+
+function programOf(
+  key: string,
+  kind: ProgramKind,
+  annual: boolean,
+  branches: Branch[],
+  today: string,
+): Program | null {
+  if (!branches.length) return null;
+  const lead = branches[0];
+  return {
+    key,
+    kind,
+    title: titleOf(branches.flatMap((b) => b.rows)),
+    branches,
+    lead,
+    day: lead.next.day < today ? today : lead.next.day,
+    annual,
+  };
+}
+
+const byDay = (a: Program, b: Program) =>
+  a.day.localeCompare(b.day) ||
+  sortKey(a.lead.next).localeCompare(sortKey(b.lead.next)) ||
+  a.title.localeCompare(b.title);
+
+/**
+ * The listing's programs, unfiltered: listed rows (each row's dates worked
+ * out once; a start with no end is over 2 hours later), the next date's
+ * status, merged and classified. Soonest first.
+ */
+export function buildPrograms(rows: readonly EventRow[], now: Date): Program[] {
+  const today = pacificToday(now);
+  const byStem = new Map<string, Live[]>();
+  for (const r of rows) {
+    const upcoming = listingDates(r.data, now);
+    if (!listed(r, now, upcoming)) continue;
+    const row = { ...r, status: nextStatus(r, now, upcoming) };
+    const k = stemKey(row);
+    byStem.set(k, [...(byStem.get(k) ?? []), { row, upcoming }]);
+  }
+  const out: Program[] = [];
+  for (const [key, lives] of byStem) {
+    const rowsHere = lives.map((l) => l.row);
+    const kind = programKind(rowsHere);
+    if (kind === "regular") {
+      const p = programOf(key, kind, false, branchesOf(lives), today);
+      if (p) out.push(p);
+      continue;
+    }
+    // Specials merge only on the same title at the same venue.
+    const bySpecial = new Map<string, Live[]>();
+    for (const l of lives) {
+      const k = specialKey(l.row);
+      bySpecial.set(k, [...(bySpecial.get(k) ?? []), l]);
+    }
+    for (const [k, group] of bySpecial) {
+      const p = programOf(
+        k,
+        "special",
+        group.some((l) => l.row.kind === "annual"),
+        branchesOf(group),
+        today,
+      );
+      if (p) out.push(p);
+    }
+  }
+  return out.sort(byDay);
+}
+
+/**
+ * Programs narrowed by a row filter (a town keeps only that town's
+ * branches). The kind stays as decided unfiltered.
+ */
+export function narrowPrograms(
+  programs: readonly Program[],
+  keep: (r: EventRow) => boolean,
+  today: string,
+): Program[] {
+  return programs
+    .map((p) => {
+      const branches = p.branches
+        .map((b) => {
+          const parts = b.parts.filter((x) => keep(x.row));
+          return parts.length === b.parts.length ? b : branchOf(parts);
+        })
+        .filter((b): b is Branch => !!b && !!b.next)
+        .sort((a, b) => sortKey(a.next).localeCompare(sortKey(b.next)));
+      return programOf(p.key, p.kind, p.annual, branches, today);
+    })
+    .filter((p): p is Program => !!p)
+    .sort(byDay);
+}
 
 // --- Groups ------------------------------------------------------------------
 
@@ -205,11 +323,6 @@ export function bigFirst(a: Program, b: Program): number {
 /** 0 annual, 1 another organizer, 2 a library program. */
 export function bigness(p: Program): number {
   return p.annual ? 0 : p.branches.every((x) => isLibrary(x.row)) ? 2 : 1;
-}
-
-/** A library program (every branch at a library). */
-export function atLibraries(p: Program): boolean {
-  return p.branches.every((x) => isLibrary(x.row));
 }
 
 /** Does any branch have a date on this day (or one running through it)? */
@@ -288,7 +401,8 @@ export function patternLine(
   branches: readonly (readonly EventDate[])[] = [],
 ): string {
   const all = [...dates].sort((a, b) => a.day.localeCompare(b.day));
-  if (!all.length) return "";
+  // One date left is a date, not a pattern.
+  if (new Set(all.map((d) => d.day)).size < 2) return "";
   const soon = all.filter((d) => d.day <= addDays(today, 27));
   const look = soon.length >= 2 ? soon : all.slice(0, 8);
   // Weekdays that recur (a holiday week's odd day doesn't count).
@@ -317,8 +431,14 @@ export function patternLine(
   const gap = days.length >= 2 ? median(gapsOf(days)) : 7;
   if (wds.length === 1) {
     const wd = wds[0];
+    // One time, or two a day ("9:30 and 10:30 am").
+    const timed = starts.filter(Boolean).sort();
     const time =
-      starts.length === 1 && starts[0] ? `, ${clock(starts[0])}` : "";
+      starts.length === 1 && timed.length === 1
+        ? `, ${clock(timed[0])}`
+        : starts.length === 2 && timed.length === 2
+          ? `, ${twoTimes(timed[0], timed[1])}`
+          : "";
     const tod = !time && steady ? ` ${top}` : "";
     if (gap >= 21) return `One ${DAYS[wd]} a month${time}`;
     if (gap >= 12) return `Every other ${DAYS[wd]}${time}`;
@@ -328,6 +448,15 @@ export function patternLine(
   const tod = steady ? ` ${top}` : "";
   if (gap >= 21) return `About once a month`;
   return `${list}${tod}`;
+}
+
+/** "9:30 and 10:30 am", "10 am and 4 pm". */
+function twoTimes(a: string, b: string): string {
+  const [x, y] = [clock(a), clock(b)];
+  const ampm = (t: string) => t.match(/ (am|pm)$/)?.[1];
+  return ampm(x) && ampm(x) === ampm(y)
+    ? `${x.replace(/ (am|pm)$/, "")} and ${y}`
+    : `${x} and ${y}`;
 }
 
 function mostCommon(xs: (string | null)[]): string | null {
@@ -340,31 +469,11 @@ function mostCommon(xs: (string | null)[]): string | null {
 export function dayWord(day: string, today: string): string {
   if (day <= today) return "Today";
   if (day === addDays(today, 1)) return "Tomorrow";
-  const [, m, d] = day.split("-").map(Number);
-  const MON = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${DAY3[weekdayOf(day)]}, ${MON[m - 1]} ${d}`;
+  return shortDate(day);
 }
 
 /** "Today · 10:30 am", "Tue, Nov 24 · 4 pm". */
 export function nextLine(d: EventDate, today: string): string {
   const w = dayWord(d.day, today);
   return d.start ? `${w} · ${clock(d.start)}` : w;
-}
-
-/** Every date a special program has left, across branches (for "+2 more dates"). */
-export function moreDates(p: Program): number {
-  return p.branches.reduce((n, b) => n + b.upcoming.length, 0) - 1;
 }

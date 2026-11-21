@@ -174,6 +174,17 @@ export function statusOn(
 
 const TZ = "America/Los_Angeles";
 
+/** One formatter for every Pacific wall-time read (building one is slow). */
+const WALL = new Intl.DateTimeFormat("sv-SE", {
+  timeZone: TZ,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
 /** Pacific wall time to an instant (DST-safe). */
 export function pacificAt(day: string, time = "00:00"): Date {
   const [y, m, d] = day.split("-").map(Number);
@@ -181,8 +192,7 @@ export function pacificAt(day: string, time = "00:00"): Date {
   const guess = Date.UTC(y, m - 1, d, hh, mm);
   for (const off of [7, 8]) {
     const t = new Date(guess + off * 3_600_000);
-    const local = t.toLocaleString("sv-SE", { timeZone: TZ }).slice(0, 16);
-    if (local === `${day} ${time}`) return t;
+    if (WALL.format(t) === `${day} ${time}`) return t;
   }
   return new Date(guess + 8 * 3_600_000);
 }
@@ -209,11 +219,34 @@ export function dateEnds(d: EventDate): Date {
   return pacificAt(addDays(lastDay, 1), "00:00");
 }
 
+/** Soonest first: by day, then start time (untimed first). */
+const byWhen = (a: EventDate, b: EventDate) =>
+  a.day.localeCompare(b.day) || (a.start ?? "").localeCompare(b.start ?? "");
+
 /** Dates not over yet, soonest first. */
 export function upcomingDates(e: StoredEvent, now: Date): EventDate[] {
-  return [...e.dates]
-    .filter((d) => dateEnds(d) > now)
-    .sort((a, b) => a.day.localeCompare(b.day));
+  return [...e.dates].filter((d) => dateEnds(d) > now).sort(byWhen);
+}
+
+/** Hours a date with a start but no printed end stays on the listing. */
+export const UNTIMED_END_HOURS = 2;
+
+/**
+ * When a date leaves the listing: like dateEnds, except a one-day date
+ * with a start and no end is over 2 hours after it starts (a 10 am story
+ * time isn't offered at 4 pm).
+ */
+export function listingEnds(d: EventDate): Date {
+  if (d.start && !d.end && (!d.end_day || d.end_day === d.day))
+    return new Date(
+      pacificAt(d.day, d.start).getTime() + UNTIMED_END_HOURS * 3_600_000,
+    );
+  return dateEnds(d);
+}
+
+/** The listing's dates not over yet (listingEnds), soonest first. */
+export function listingDates(e: StoredEvent, now: Date): EventDate[] {
+  return [...e.dates].filter((d) => listingEnds(d) > now).sort(byWhen);
 }
 
 /** The latest moment any date ends (for "passed" and the sitemap). */
