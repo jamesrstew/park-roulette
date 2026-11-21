@@ -46,6 +46,16 @@ const allFree = (p: Program) =>
   p.branches.every((b) => b.rows.every((r) => isFree(r.data)));
 const canceled = (b: Branch) => b.nextRow.status === "canceled";
 
+/** "Central Library, Bend", or "Central Library, Bend, and 2 more libraries". */
+function whereLine(p: Program): string {
+  const here = venueLine(p.lead.nextRow);
+  if (p.branches.length < 2) return here;
+  const n = p.branches.length - 1;
+  const all = placesLabel(p.branches).replace(/^\d+ /, "");
+  const noun = n === 1 ? all.replace(/ies$/, "y").replace(/s$/, "") : all;
+  return `${here}, and ${n} more ${noun}`;
+}
+
 /** "Through Jan 4", "4 dates through Nov 29", "2 sessions", or null. */
 function moreLine(p: Program, today: string): string | null {
   const d = p.lead.next;
@@ -139,7 +149,7 @@ export function SpecialCard({
         </Link>
       </h4>
       <p className="text-[0.95rem] text-ink-soft">
-        {venueLine(row)}
+        {whereLine(p)}
         {more ? ` · ${more}` : ""}
       </p>
       <div className="flex flex-wrap gap-1.5">
@@ -208,6 +218,9 @@ export function SpecialRow({ p, today }: { p: Program; today: string }) {
   );
 }
 
+const TITLE =
+  "font-hand text-xl leading-tight underline decoration-2 underline-offset-4";
+
 /** A regular, once: what, where, when it usually is, and the next one. */
 export function RegularRow({ p, today }: { p: Program; today: string }) {
   const age = ageChip(tagsOf(p));
@@ -223,12 +236,14 @@ export function RegularRow({ p, today }: { p: Program; today: string }) {
     b.parts.filter((x) => x.upcoming.length).map((x) => ({ ...x, b })),
   );
   const next = `Next: ${nextLine(p.lead.next, today)}${multi ? `, ${p.lead.row.data.venue.name}` : ""}`;
-  const body = (
+  const body = (heading: boolean) => (
     <>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <h3 className="font-hand text-xl leading-tight underline decoration-2 underline-offset-4">
-          {p.title}
-        </h3>
+        {heading ? (
+          <h3 className={TITLE}>{p.title}</h3>
+        ) : (
+          <span className={TITLE}>{p.title}</span>
+        )}
         {allFree(p) ? <Chip tint="free">Free</Chip> : null}
         {age ? <Chip tint="age">{age}</Chip> : null}
       </div>
@@ -246,7 +261,7 @@ export function RegularRow({ p, today }: { p: Program; today: string }) {
           href={`/events/${p.lead.row.slug}`}
           className="flex min-h-11 flex-col gap-0.5 py-2.5"
         >
-          {body}
+          {body(true)}
         </Link>
       </li>
     );
@@ -254,7 +269,9 @@ export function RegularRow({ p, today }: { p: Program; today: string }) {
     <li>
       <details className="group">
         <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2 py-2.5 [&::-webkit-details-marker]:hidden">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">{body}</div>
+          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+            {body(false)}
+          </div>
           <span
             aria-hidden
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-wobbly-2)] border-2 border-ink bg-paper font-hand text-2xl transition-transform group-open:rotate-180"

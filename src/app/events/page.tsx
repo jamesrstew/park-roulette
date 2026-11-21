@@ -293,7 +293,9 @@ async function Listing({ searchParams }: Props) {
             <div className="doodle-box flex flex-col items-center gap-3 px-4 py-6 text-center">
               <Icon name="calendar" size={48} />
               <p className="font-hand text-2xl">
-                No special events in the next two months yet.
+                {filtered(f)
+                  ? "No special events for these filters yet."
+                  : "No special events in the next two months yet."}
               </p>
               <Link
                 href="#regulars"

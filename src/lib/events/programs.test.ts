@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { addDays } from "@/lib/news/time";
 import { scoopEvents } from "@/lib/scoop";
 import {
@@ -184,14 +184,15 @@ describe("buildPrograms", () => {
     // Central and East Bend are two venues in one town: still 6.
     expect(placesLabel(regulars[0].branches)).toBe("6 libraries");
     const specials = ps.filter((p) => p.kind === "special");
-    // Specials merge only on the same title at the same venue.
     expect(specials.map((p) => p.title)).toEqual([
       "Pop-Up Exhibits",
       "Sunriver Winter Fest",
       "The Nutcracker: A Child's Tale",
-      "Pop-Up Exhibits",
       "Community Christmas Tree Lighting",
     ]);
+    // One special at two library branches is one card.
+    expect(specials[0].branches).toHaveLength(2);
+    expect(placesLabel(specials[0].branches)).toBe("2 libraries");
   });
 
   it("never merges different one-offs that share a stem", () => {
@@ -240,25 +241,44 @@ describe("buildPrograms", () => {
     ]);
   });
 
-  it("one venue with a series and a one-off is one branch, both linked", () => {
+  it("a regular's one-off comes out as its own special", () => {
     const ps = buildPrograms(
       [
         row("series", {
-          title: "Crafternoon",
-          dates: weekly("2026-11-23", 5, "13:00"),
+          title: "Family Story Time",
+          dates: weekly("2026-11-23", 5, "10:30"),
+        }),
+        row("series", {
+          title: "Family Story Time",
+          venue: { name: "Redmond Library", town: "Redmond" },
+          dates: weekly("2026-11-24", 5, "10:30"),
         }),
         row("one_off", {
-          title: "Crafternoon",
-          dates: [{ day: "2026-11-26", start: "13:00" }],
+          title: "Family Story Time: Pajama Party",
+          dates: [{ day: "2026-12-04", start: "18:00" }],
         }),
       ],
       NOW,
     );
-    expect(ps).toHaveLength(1);
-    expect(ps[0].branches).toHaveLength(1);
-    expect(ps[0].branches[0].rows).toHaveLength(2);
-    expect(ps[0].branches[0].row.kind).toBe("series");
-    expect(placesLabel(ps[0].branches)).toBe("Central Library, Bend");
+    expect(ps.map((p) => [p.kind, p.title, p.branches.length])).toEqual([
+      ["regular", "Family Story Time", 2],
+      ["special", "Family Story Time: Pajama Party", 1],
+    ]);
+  });
+
+  it("the same one-off at a theater and a library stays two", () => {
+    const at = (name: string, town: string) =>
+      row("one_off", {
+        title: "Holiday Sing-Along",
+        venue: { name, town },
+        url: "https://sing.example.org",
+        dates: [{ day: "2026-12-12", start: "15:00" }],
+      });
+    const ps = buildPrograms(
+      [at("Tower Theatre", "Bend"), at("Old Mill District", "Bend")],
+      NOW,
+    );
+    expect(ps).toHaveLength(2);
   });
 
   it("filters rows without moving a program between sections", () => {
@@ -333,21 +353,38 @@ describe("buildPrograms", () => {
     expect(ps).toEqual([]);
   });
 
-  it("a start with no end leaves the listing 2 hours later", () => {
-    const story = row("one_off", {
+  it("a regular's start with no end leaves 2 hours later; a special stays", () => {
+    const story = row("series", {
       title: "Story Walk",
+      dates: weekly(TODAY, 4, "10:00"),
+    });
+    const show = row("one_off", {
+      title: "Puppet Show",
+      venue: { name: "Tower Theatre", town: "Bend" },
       dates: [{ day: TODAY, start: "10:00" }],
     });
     const at = (hhmm: string) => pacificAt(TODAY, hhmm);
-    expect(buildPrograms([story], at("11:59"))).toHaveLength(1);
-    expect(buildPrograms([story], at("12:01"))).toHaveLength(0);
-    // With a printed end, it stays until then.
-    const fair = row("one_off", {
-      title: "Fair",
-      dates: [{ day: TODAY, start: "10:00", end: "16:00" }],
-    });
-    expect(buildPrograms([fair], at("15:00"))).toHaveLength(1);
+    const next = (hhmm: string) =>
+      buildPrograms([story, show], at(hhmm)).map((p) => [p.title, p.day]);
+    expect(next("11:59")).toEqual([
+      ["Puppet Show", TODAY],
+      ["Story Walk", TODAY],
+    ]);
+    // Story Walk's next is next week; the show stays until the day ends.
+    expect(next("12:01")).toEqual([
+      ["Puppet Show", TODAY],
+      ["Story Walk", "2026-11-28"],
+    ]);
     expect(listingEnds({ day: TODAY })).toEqual(pacificAt("2026-11-22"));
+  });
+
+  it("a date from before today is never shown as today", () => {
+    const old = row("one_off", {
+      title: "Last night",
+      venue: { name: "Tower Theatre", town: "Bend" },
+      dates: [{ day: "2026-11-20", start: "19:00" }],
+    });
+    expect(buildPrograms([old], pacificAt(TODAY, "00:30"))).toEqual([]);
   });
 
   it("puts big specials first within a day", () => {
@@ -363,44 +400,87 @@ describe("buildPrograms", () => {
   });
 });
 
-describe("seasonal runs", () => {
+describe("seasonal runs and ordinary classes", () => {
   const away = { name: "Old Mill District", town: "Bend" };
+  const kind = (title: string, dates: EventDate[], what?: string) =>
+    programKind([
+      row("series", {
+        title,
+        venue: away,
+        url: "https://x.example.org",
+        dates,
+        ...(what ? { what } : {}),
+      }),
+    ]);
+  const days = (first: string, n: number, keep: (wd: number) => boolean) =>
+    Array.from({ length: n }, (_, i) => addDays(first, i))
+      .filter((d) => keep(new Date(`${d}T12:00:00Z`).getUTCDay()))
+      .map((day) => ({ day, start: "15:30" }));
+
   it("a 5-week nightly lights show is special", () => {
-    const lights = row("series", {
-      title: "Holiday Lights",
-      venue: away,
-      dates: Array.from({ length: 35 }, (_, i) => ({
-        day: addDays("2026-11-27", i),
-        start: "17:00",
-      })),
-    });
-    expect(programKind([lights])).toBe("special");
+    expect(
+      kind(
+        "Holiday Lights",
+        days("2026-11-27", 35, () => true),
+      ),
+    ).toBe("special");
   });
-  it("a train ride on four weekends is special", () => {
-    const train = row("series", {
-      title: "Polar Express Train",
-      venue: away,
-      dates: [0, 7, 14, 21].flatMap((w) => [
-        { day: addDays("2026-11-28", w) },
-        { day: addDays("2026-11-29", w) },
-      ]),
-    });
-    expect(programKind([train])).toBe("special");
+  it("a train ride on four weekends is special (named in its words)", () => {
+    expect(
+      kind(
+        "Ride the Rails",
+        days("2026-11-28", 23, (wd) => wd === 0 || wd === 6),
+        "Ride to the North Pole with Santa and cocoa for every kid.",
+      ),
+    ).toBe("special");
+  });
+  it("Mon–Fri clubs, swim lessons, weekend and daily classes stay regular", () => {
+    expect(
+      kind(
+        "LEGO Club",
+        days("2026-11-23", 28, (wd) => wd >= 1 && wd <= 5),
+      ),
+    ).toBe("regular");
+    expect(
+      kind(
+        "Swim Lessons",
+        days("2026-11-24", 28, (wd) => wd >= 2 && wd <= 4),
+      ),
+    ).toBe("regular");
+    expect(
+      kind(
+        "Weekend Pottery",
+        days("2026-11-28", 28, (wd) => wd === 0 || wd === 6),
+      ),
+    ).toBe("regular");
+    expect(
+      kind(
+        "Open Swim",
+        days("2026-11-22", 30, () => true),
+      ),
+    ).toBe("regular");
+    expect(
+      kind(
+        "Gymnastics",
+        days("2026-11-23", 35, (wd) => wd === 1 || wd === 3),
+      ),
+    ).toBe("regular");
   });
   it("a weekly class away from a library stays regular", () => {
-    const art = row("series", {
-      title: "Advanced Art",
-      venue: { name: "TEAL Tea + Art Lounge", town: "Bend" },
-      dates: [0, 7, 14].flatMap((w) => [
-        { day: addDays("2026-12-02", w) },
-        { day: addDays("2026-12-04", w) },
-      ]),
-    });
-    expect(programKind([art])).toBe("regular");
+    expect(
+      kind(
+        "Advanced Art",
+        [0, 7, 14].flatMap((w) => [
+          { day: addDays("2026-12-02", w) },
+          { day: addDays("2026-12-04", w) },
+        ]),
+      ),
+    ).toBe("regular");
   });
   it("a library's weekend story times stay regular", () => {
     const story = row("series", {
       title: "Weekend Story Time",
+      what: "Holiday stories every weekend.",
       dates: [0, 7, 14, 21].flatMap((w) => [
         { day: addDays("2026-11-28", w) },
         { day: addDays("2026-11-29", w) },
@@ -552,16 +632,16 @@ describe("scoopEvents, by program", () => {
       "Sunriver Winter Fest",
       "The Nutcracker: A Child's Tale",
       "Pop-Up Exhibits",
-      "Pop-Up Exhibits",
     ]);
     const regulars = cards.filter((c) => c.regular);
     expect(regulars).toHaveLength(2);
-    expect(new Set(regulars.map((c) => c.title)).size).toBe(2);
+    // One card per program: no title twice.
+    expect(new Set(cards.map((c) => c.title)).size).toBe(cards.length);
     expect(regulars[0]).toMatchObject({
       town: "6 libraries",
       href: "/events#regulars",
     });
-    expect(cards[2].town).toBe("Bend");
+    expect(cards[2].town).toBe("2 libraries");
   });
 
   it("has no room for regulars when specials fill the row", () => {
@@ -599,10 +679,10 @@ describe("scoopEvents, by program", () => {
   });
 });
 
-describe("speed", () => {
-  // Benchmark (Nov 21, 2026, M-series laptop): 300 rows, 12 dates each,
-  // build + narrow + carousel in about 20 ms. The bound is loose for CI.
-  it("builds 300 rows' programs well under a frame budget", () => {
+describe("work done", () => {
+  // Wall-clock bounds flake; count the expensive part instead: Pacific
+  // wall-time reads (Intl formatting), which every date's end needs.
+  it("reads each date's time a bounded number of times, and filters for free", () => {
     const rows = Array.from({ length: 300 }, (_, i) =>
       row(i % 3 ? "series" : "one_off", {
         title: `Program ${i % 40}`,
@@ -613,10 +693,21 @@ describe("speed", () => {
         })),
       }),
     );
-    const t = performance.now();
+    const dates = rows.reduce((n, r) => n + r.data.dates.length, 0);
+    const reads = vi.spyOn(
+      // format is a getter on the prototype (it hands back a bound function).
+      Intl.DateTimeFormat.prototype as unknown as { format: object },
+      "format",
+      "get",
+    );
     const ps = buildPrograms(rows, NOW);
+    const built = reads.mock.calls.length;
+    expect(built).toBeGreaterThan(dates / 2);
+    // dateEnds and a regular's 2-hour end: at most 2 tries each (DST).
+    expect(built).toBeLessThanOrEqual(dates * 4);
     narrowPrograms(ps, (r) => r.id % 2 === 0, TODAY);
-    scoopEvents(rows, NOW);
-    expect(performance.now() - t).toBeLessThan(500);
+    narrowPrograms(ps, (r) => r.data.venue.town === "Bend", TODAY);
+    expect(reads.mock.calls.length).toBe(built);
+    reads.mockRestore();
   });
 });

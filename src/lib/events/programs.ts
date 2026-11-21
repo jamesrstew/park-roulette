@@ -6,10 +6,11 @@ import {
   type EventRow,
   groupBounds,
   keyStem,
-  listingDates,
+  listingEnds,
   pacificToday,
   shortDate,
   slugify,
+  upcomingDates,
   venueKey,
 } from "./model";
 import { listed, nextStatus } from "./state";
@@ -68,10 +69,20 @@ function stemKey(r: EventRow): string {
   return `${domainOf(r.data.url)}|${keyStem(r.data.title)}`;
 }
 
-/** A special's own key: the full title and the venue. */
+/**
+ * A special's own key: the site and the full title, so "Family Movie:
+ * Elf" and "Frozen" stay two. One program at several library branches is
+ * one card ("3 libraries"); anywhere else the venue joins the key, so two
+ * theaters' Nutcrackers stay apart.
+ */
 function specialKey(r: EventRow): string {
-  return `${domainOf(r.data.url)}|${slugify(r.data.title)}|${venueKey(r.data.venue)}`;
+  const base = `${domainOf(r.data.url)}|${slugify(r.data.title)}`;
+  return isLibrary(r) ? base : `${base}|${venueKey(r.data.venue)}`;
 }
+
+/** Words that make a run a season's special, not a class. */
+export const SEASONAL =
+  /\b(holiday|christmas|xmas|santa|lights?|light show|winter ?fest(ival)?|halloween|trick[- ]or[- ]treat|thanksgiving|hanukkah|chanukah|kwanzaa|new year'?s?|nutcracker|train man|polar express|easter|egg hunt|pumpkin|harvest fest(ival)?|solstice|tree lighting|carols?|reindeer|gingerbread)\b/i;
 
 /** Monday of the day's week (weeks run Monday to Sunday). */
 function mondayOf(day: string): string {
@@ -97,27 +108,18 @@ function median(xs: number[]): number {
   return s[Math.floor((s.length - 1) / 2)];
 }
 
-/** Share of days with a neighbor the day before or after (runs, weekend pairs). */
-function clustered(days: string[]): number {
-  if (days.length < 2) return 1;
-  const g = gapsOf(days);
-  return (
-    days.filter((_, i) => (g[i - 1] ?? 99) <= 1 || (g[i] ?? 99) <= 1).length /
-    days.length
-  );
-}
-
 /**
  * Special or regular, from every stored date of the program's rows (past
  * ones too, so a weekly program near the end of what we know stays put):
  * 1. Any annual row, or only one-offs: special.
  * 2. A short run (everything within 14 days, mostly back-to-back days, or
  *    one day): special.
- * 3. A seasonal run away from a library (within 45 days, at least 60% of
- *    days next to another: a month of nightly lights, four weekends of a
- *    train ride): special.
+ * 3. A seasonal run (within 45 days, and its title or description names a
+ *    holiday or season: a month of holiday lights, a Polar Express train
+ *    on four weekends): special.
  * 4. At a library with more than one date: regular.
- * 5. Dates in 3 or more different weeks: regular.
+ * 5. Dates in 3 or more different weeks: regular (Mon–Fri clubs, swim
+ *    lessons, weekend classes, daily open swim).
  * 6. Otherwise: special.
  */
 export function programKind(rows: readonly EventRow[]): ProgramKind {
@@ -130,7 +132,12 @@ export function programKind(rows: readonly EventRow[]): ProgramKind {
   if (span <= 14 && (days.length === 1 || median(gapsOf(days)) <= 2))
     return "special";
   const library = rows.some(isLibrary);
-  if (!library && span <= 45 && clustered(days) >= 0.6) return "special";
+  if (
+    !library &&
+    span <= 45 &&
+    rows.some((r) => SEASONAL.test(`${r.data.title} ${r.data.what}`))
+  )
+    return "special";
   if (library) return "regular";
   if (new Set(days.map(mondayOf)).size >= 3) return "regular";
   return "special";
@@ -205,44 +212,60 @@ const byDay = (a: Program, b: Program) =>
 
 /**
  * The listing's programs, unfiltered: listed rows (each row's dates worked
- * out once; a start with no end is over 2 hours later), the next date's
- * status, merged and classified. Soonest first.
+ * out once), the next date's status, merged and classified. A regular's
+ * series rows merge by stem across branches; its one-off and annual rows
+ * ("Family Story Time: Pajama Party") come out as specials. A regular's
+ * date with a start and no end leaves 2 hours after it starts; a special
+ * stays until its printed end or the end of its day. Soonest first.
  */
 export function buildPrograms(rows: readonly EventRow[], now: Date): Program[] {
   const today = pacificToday(now);
   const byStem = new Map<string, Live[]>();
   for (const r of rows) {
-    const upcoming = listingDates(r.data, now);
+    // A one-day date from before today is over, whatever its clock says.
+    const upcoming = upcomingDates(r.data, now).filter(
+      (d) => d.day >= today || (d.end_day ?? d.day) >= today,
+    );
     if (!listed(r, now, upcoming)) continue;
     const row = { ...r, status: nextStatus(r, now, upcoming) };
     const k = stemKey(row);
     byStem.set(k, [...(byStem.get(k) ?? []), { row, upcoming }]);
   }
   const out: Program[] = [];
+  const specials: Live[] = [];
   for (const [key, lives] of byStem) {
-    const rowsHere = lives.map((l) => l.row);
-    const kind = programKind(rowsHere);
-    if (kind === "regular") {
-      const p = programOf(key, kind, false, branchesOf(lives), today);
-      if (p) out.push(p);
+    const series = lives.filter((l) => l.row.kind === "series");
+    if (!series.length || programKind(series.map((l) => l.row)) !== "regular") {
+      specials.push(...lives);
       continue;
     }
-    // Specials merge only on the same title at the same venue.
-    const bySpecial = new Map<string, Live[]>();
-    for (const l of lives) {
-      const k = specialKey(l.row);
-      bySpecial.set(k, [...(bySpecial.get(k) ?? []), l]);
-    }
-    for (const [k, group] of bySpecial) {
-      const p = programOf(
-        k,
-        "special",
-        group.some((l) => l.row.kind === "annual"),
-        branchesOf(group),
-        today,
-      );
-      if (p) out.push(p);
-    }
+    specials.push(...lives.filter((l) => l.row.kind !== "series"));
+    const trimmed = series
+      .map((l) => {
+        const upcoming = l.upcoming.filter((d) => listingEnds(d) > now);
+        return {
+          row: { ...l.row, status: nextStatus(l.row, now, upcoming) },
+          upcoming,
+        };
+      })
+      .filter((l) => l.upcoming.length);
+    const p = programOf(key, "regular", false, branchesOf(trimmed), today);
+    if (p) out.push(p);
+  }
+  const bySpecial = new Map<string, Live[]>();
+  for (const l of specials) {
+    const k = specialKey(l.row);
+    bySpecial.set(k, [...(bySpecial.get(k) ?? []), l]);
+  }
+  for (const [k, group] of bySpecial) {
+    const p = programOf(
+      k,
+      "special",
+      group.some((l) => l.row.kind === "annual"),
+      branchesOf(group),
+      today,
+    );
+    if (p) out.push(p);
   }
   return out.sort(byDay);
 }

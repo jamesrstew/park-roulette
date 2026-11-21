@@ -232,9 +232,9 @@ export function upcomingDates(e: StoredEvent, now: Date): EventDate[] {
 export const UNTIMED_END_HOURS = 2;
 
 /**
- * When a date leaves the listing: like dateEnds, except a one-day date
- * with a start and no end is over 2 hours after it starts (a 10 am story
- * time isn't offered at 4 pm).
+ * When a regular's date leaves the listing: like dateEnds, except a
+ * one-day date with a start and no end is over 2 hours after it starts (a
+ * 10 am story time isn't offered at 4 pm).
  */
 export function listingEnds(d: EventDate): Date {
   if (d.start && !d.end && (!d.end_day || d.end_day === d.day))
@@ -242,11 +242,6 @@ export function listingEnds(d: EventDate): Date {
       pacificAt(d.day, d.start).getTime() + UNTIMED_END_HOURS * 3_600_000,
     );
   return dateEnds(d);
-}
-
-/** The listing's dates not over yet (listingEnds), soonest first. */
-export function listingDates(e: StoredEvent, now: Date): EventDate[] {
-  return [...e.dates].filter((d) => listingEnds(d) > now).sort(byWhen);
 }
 
 /** The latest moment any date ends (for "passed" and the sitemap). */
