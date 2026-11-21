@@ -1,0 +1,18 @@
+#!/bin/sh
+# Runs CI's checks before a push to main, so a red run never reaches
+# GitHub (and James's inbox). Bypass only in an emergency: --no-verify.
+while read -r _local _sha remote_ref _rsha; do
+  case "$remote_ref" in
+    refs/heads/main) run=1 ;;
+  esac
+done
+[ -z "$run" ] && exit 0
+echo "pre-push: lint, typecheck, format and tests (same as CI)..."
+pnpm next typegen >/dev/null &&
+  pnpm -s lint &&
+  pnpm -s typecheck &&
+  pnpm -s format:check &&
+  pnpm -s test || {
+  echo "pre-push: blocked. Fix the failure above; CI would fail the same way."
+  exit 1
+}

@@ -16,7 +16,8 @@
     "db:seed": "tsx --env-file=.env.local scripts/seed.mts",
     "db:studio": "drizzle-kit studio",
     "db:local": "bash scripts/local-db.sh",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm format:check"
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm format:check",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@react-leaflet/core": "3.0.0",

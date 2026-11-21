@@ -56,12 +56,12 @@ Leave blank; these fields are optional.
 
 ### Message Contents
 
-| Checkbox | Selection |
-| --- | --- |
-| Embedded links | Check |
-| Phone numbers in message content | Unchecked |
+| Checkbox                            | Selection |
+| ----------------------------------- | --------- |
+| Embedded links                      | Check     |
+| Phone numbers in message content    | Unchecked |
 | Direct lending or loan arrangements | Unchecked |
-| Age-gated content | Unchecked |
+| Age-gated content                   | Unchecked |
 
 ### Privacy Policy URL
 
