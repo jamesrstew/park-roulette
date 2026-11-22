@@ -230,7 +230,7 @@ function ungroundedGlance(
  * picnic area, a lawn, shade, benches or a pond on its own.
  */
 const COMMON_TRAIT = new Set(
-  "trail trails path paths walking walk loop picnic picnics table tables playground playgrounds play equipment structure structures open space grass grassy lawn lawns field fields shade shady tree trees bench benches pond lake water scenic view views paved area areas swing swings slide slides court courts basketball park"
+  "trail trails path paths walking walk loop picnic picnics table tables climb climbing climber climbers playground playgrounds play equipment structure structures open space grass grassy lawn lawns field fields shade shady tree trees bench benches pond lake water scenic view views paved area areas swing swings slide slides court courts basketball park"
     .split(" ")
     .map(stem),
 );
@@ -249,6 +249,15 @@ describe("google_places traits are distinctive", () => {
             `${slug}: ${t.text} is a common feature`,
           ).toBe(true);
   });
+  it("never takes a fence or accessibility trait from Google (it could never back a post's claim)", () => {
+    for (const [slug, p] of PROFILES)
+      for (const t of p.traits)
+        if (t.source === "google_places")
+          expect(
+            ["fenced", "all_abilities"].includes(t.kind),
+            `${slug}: ${t.text}`,
+          ).toBe(false);
+  });
   it("catches the common ones", () => {
     const common = (k: string) =>
       words(k).every((w) => NOT_KEYS.has(w) || COMMON_TRAIT.has(stem(w)));
@@ -262,9 +271,16 @@ describe("google_places traits are distinctive", () => {
       "shade trees",
       "benches",
       "playground",
+      "climbing",
+      "climbers",
     ])
       expect(common(k), k).toBe(true);
-    for (const k of ["concrete forest", "hillside slide", "climbing wall"])
+    for (const k of [
+      "concrete forest",
+      "hillside slide",
+      "climbing wall",
+      "rock climbing",
+    ])
       expect(common(k), k).toBe(false);
   });
 });
@@ -377,8 +393,12 @@ describe("matching", () => {
       hook("Bend's treehouse playground", "rockridge-park-bend"),
     ).not.toBeNull();
     expect(
-      hook("A fence all the way around", "quince-park-redmond"),
+      hook("A concrete forest in Redmond", "quince-park-redmond"),
     ).not.toBeNull();
+    // A Google summary can't back a fence: no fence trait, no fence hook.
+    expect(
+      hook("A fence all the way around", "quince-park-redmond"),
+    ).toBeNull();
   });
   it("refuses the reviewer's holes", () => {
     const hook = (s: string, slug: string) => traitIn(s, live(slug).traits);

@@ -263,14 +263,6 @@
         "verified_on": "2026-11-21"
       },
       {
-        "text": "A mostly fenced playground",
-        "keys": ["fenced", "fence"],
-        "kind": "fenced",
-        "source": "google_places",
-        "evidence": [],
-        "verified_on": "2026-11-21"
-      },
-      {
         "text": "Near the Deschutes River Trail and the canal trail",
         "keys": ["deschutes river trail", "canal trail"],
         "kind": "nearby",
@@ -2985,18 +2977,10 @@
           }
         ],
         "verified_on": "2026-11-21"
-      },
-      {
-        "text": "Climbing areas for both little and big kids",
-        "keys": ["climbing", "climb", "climbers"],
-        "kind": "signature_structure",
-        "source": "google_places",
-        "evidence": [],
-        "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "Skate dots and climbing areas for both little and big kids",
-    "glance": "Skate dots, horseshoe pits and climbing areas for both little and big kids, with a covered picnic spot.",
+    "one_liner": "Skate dots and horseshoe pits next to the playground",
+    "glance": "Skate dots and horseshoe pits beside the playground, with a covered picnic spot.",
     "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
@@ -3017,14 +3001,6 @@
         "verified_on": "2026-11-21"
       },
       {
-        "text": "Fenced play areas, one just for little kids",
-        "keys": ["fenced", "fence"],
-        "kind": "fenced",
-        "source": "google_places",
-        "evidence": [],
-        "verified_on": "2026-11-21"
-      },
-      {
         "text": "A level path for bikes and strollers",
         "keys": ["level path", "flat path"],
         "kind": "paved_loop",
@@ -3033,9 +3009,9 @@
         "verified_on": "2026-11-21"
       }
     ],
-    "one_liner": "A forest-themed play area built from concrete, plus a play area just for little kids",
+    "one_liner": "A forest-themed play area built from concrete, plus a level path for bikes and strollers",
     "glance": "A forest-themed concrete play area, a play area just for little kids and a level path for bikes and strollers.",
-    "glance_source": "traits",
+    "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
