@@ -417,6 +417,23 @@ describe("the card's one-liner", () => {
     });
   });
 
+  it("drops logistics and rules for the venue (Gingerbread House Day)", () => {
+    for (const what of [
+      "No registration needed; families must bring their own candy and frosting to share.",
+      "Registration is required for this class.",
+      "Bring your own mat and water bottle.",
+      "Kids can't bring food into the gallery.",
+    ])
+      expect(scoopLine(what, "Sunriver Nature Center"), what).toEqual({
+        kind: "where",
+        text: "Sunriver Nature Center",
+      });
+    // Ordinary sentences stay (no false hits on "know", "not" inside words).
+    expect(scoopLine("Kids learn knots and make a keychain.", "X").kind).toBe(
+      "what",
+    );
+  });
+
   it("falls back to where it is: nothing printed, or a sentence too long", () => {
     for (const what of [
       undefined,

@@ -55,7 +55,7 @@ export function firstSentence(
 const QUALIFIER = /^[\s,;:–—-]*(but|except|unless)\b/i;
 
 /** A negation or a rule: not what kids do, and wrong without the rest. */
-const RULE =
+export const RULE =
   /\b(not|no|never|only|must|required|requires?|mandatory|cannot)\b|n't\b/i;
 
 /**
@@ -93,3 +93,12 @@ export function shortWhat(what: string | undefined): string | null {
   }
   return ok(best);
 }
+
+/**
+ * Logistics, not what kids do: the roundup's negation and rule guard plus
+ * sign-up and bring-your-own words. A card shows no such sentence.
+ */
+export const LOGISTICS = new RegExp(
+  `${RULE.source}|\\b(registration|register|registering|sign[- ]?ups?|tickets?|reservations?|reserve|bring your own|space is limited|limited space|first come)\\b`,
+  "i",
+);

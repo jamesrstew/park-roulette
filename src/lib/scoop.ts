@@ -20,7 +20,7 @@ import {
   venueLine,
   type Program,
 } from "@/lib/events/programs";
-import { firstSentence } from "@/lib/events/short-what";
+import { firstSentence, LOGISTICS } from "@/lib/events/short-what";
 import { dayName, dayTier, type TextPeriod, type Tier } from "@/lib/news/tiers";
 import { addDays, pacific, shortDay } from "@/lib/news/time";
 
@@ -194,11 +194,14 @@ export type ScoopLine = { text: string; kind: "what" | "where" };
 /**
  * The card's line, never empty: the whole first sentence of the stored
  * `what` when it's 140 characters or fewer (never a clause cut, never an
- * ellipsis); else where it is.
+ * ellipsis) and says what kids do, not logistics ("No registration
+ * needed", "must bring"); else where it is.
  */
 export function scoopLine(what: string | undefined, venue: string): ScoopLine {
   const text = firstSentence(what, SCOOP_LINE_MAX);
-  return text ? { text, kind: "what" } : { text: venue, kind: "where" };
+  return text && !LOGISTICS.test(text)
+    ? { text, kind: "what" }
+    : { text: venue, kind: "where" };
 }
 
 /** At most this many cards, then the See all card. */
