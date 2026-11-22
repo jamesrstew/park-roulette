@@ -15,8 +15,6 @@ import {
   roughLine,
   scoopEvents,
   scoopLine,
-  lineBudget,
-  SCOOP_LINE_LONG,
   scoopWeather,
   scoopWhen,
   shortCondition,
@@ -407,7 +405,7 @@ describe("issueRow", () => {
 });
 
 describe("the card's one-liner", () => {
-  it("says what kids do, trimmed for a card", () => {
+  it("is the whole first sentence of what kids do", () => {
     expect(
       scoopLine(
         "Kids roll dice, invent their own heroes and team up for a silly one-sitting tabletop adventure led by a librarian.",
@@ -415,16 +413,15 @@ describe("the card's one-liner", () => {
       ),
     ).toEqual({
       kind: "what",
-      text: "Kids roll dice, invent their own heroes and team up",
+      text: "Kids roll dice, invent their own heroes and team up for a silly one-sitting tabletop adventure led by a librarian",
     });
   });
 
-  it("falls back to where it is, never an empty line", () => {
+  it("falls back to where it is: nothing printed, or a sentence too long", () => {
     for (const what of [
       undefined,
       "",
-      "No registration needed; families must bring their own candy.",
-      "Supercalifragilisticexpialidociousness-themed extravaganzaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      `Kids ${"build and paint and glue ".repeat(6)}all afternoon long at the big table.`,
     ])
       expect(scoopLine(what, "Sunriver Nature Center")).toEqual({
         kind: "where",
@@ -456,27 +453,5 @@ describe("the card's one-liner", () => {
       },
       place: "The Village at Sunriver",
     });
-  });
-});
-
-describe("the card's line budget", () => {
-  it("a one-line title leaves room for a fourth line", () => {
-    const what =
-      "Kids bring a favorite book, curl up with snacks and read quietly together, sometimes chatting or crafting after.";
-    expect(lineBudget("Kids' Silent Book Club")).toBe(SCOOP_LINE_LONG);
-    expect(scoopLine(what, "Central Library", lineBudget("Book Club"))).toEqual(
-      {
-        kind: "what",
-        text: "Kids bring a favorite book, curl up with snacks and read quietly together, sometimes chatting or crafting after",
-      },
-    );
-    // Under a two-line title: the shorter budget, never a fragment.
-    expect(
-      scoopLine(
-        what,
-        "Central Library",
-        lineBudget("Creativebug Workshop: Gifts, Wrapping Paper, and Cards!"),
-      ).text,
-    ).toBe("Kids bring a favorite book");
   });
 });

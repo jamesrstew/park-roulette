@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Chip } from "@/components/events/EventBits";
 import { Icon } from "@/components/icons";
-import { SCOOP_TITLE_LINE, type ScoopEvent } from "@/lib/scoop";
+import type { ScoopEvent } from "@/lib/scoop";
 import { Carousel } from "./Carousel";
 
 /**
@@ -9,7 +9,7 @@ import { Carousel } from "./Carousel";
  * row stretches them alike). The skeleton uses a typical height.
  */
 export const CARD = "w-[16.25rem] shrink-0";
-export const CARD_SKELETON = "h-[12.5rem] w-[16.25rem] shrink-0";
+export const CARD_SKELETON = "h-[16rem] w-[16.25rem] shrink-0";
 
 /** The block's heading row: "Kids' events" and See all. */
 export function EventsHeading() {
@@ -59,7 +59,7 @@ export function ScoopEvents({ events }: { events: ScoopEvent[] }) {
       {events.map((e, i) => {
         const chips = [
           e.price ? (
-            <Chip key="p" tint={/free/i.test(e.price) ? "free" : "cost"}>
+            <Chip key="p" tint={e.price === "Free" ? "free" : "cost"}>
               {e.price}
             </Chip>
           ) : null,
@@ -96,11 +96,16 @@ export function ScoopEvents({ events }: { events: ScoopEvent[] }) {
                 e.title,
                 e.annual ? "once a year" : null,
                 e.regular ? "a regular" : null,
-                e.when.replace(" · ", " at "),
+                e.when,
                 e.line.kind === "what" ? e.line.text : null,
                 e.place,
                 e.age,
                 e.price,
+                e.setting === "indoor"
+                  ? "Indoor"
+                  : e.setting === "outdoor"
+                    ? "Outdoor"
+                    : null,
               ]
                 .filter(Boolean)
                 .join(", ")}
@@ -122,11 +127,8 @@ export function ScoopEvents({ events }: { events: ScoopEvent[] }) {
                   {e.title}
                 </p>
                 {e.line.kind === "what" ? (
-                  <p
-                    className={`text-[0.9rem] leading-snug ${e.title.length <= SCOOP_TITLE_LINE ? "line-clamp-4" : "line-clamp-3"}`}
-                  >
-                    {e.line.text}
-                  </p>
+                  // The whole first sentence (140 characters at most): never clamped.
+                  <p className="text-[0.9rem] leading-snug">{e.line.text}</p>
                 ) : (
                   <>
                     <p className="flex items-center gap-1 font-hand text-lg leading-snug">
@@ -145,7 +147,8 @@ export function ScoopEvents({ events }: { events: ScoopEvent[] }) {
                 <div className="flex flex-col gap-1 border-t-2 border-dashed border-ink/20 bg-[color-mix(in_srgb,var(--color-crayon-yellow)_12%,#fffdf7)] px-3.5 py-2">
                   {e.line.kind === "what" ? place : null}
                   {chips.length ? (
-                    <div className="flex h-7 flex-nowrap gap-1.5 overflow-hidden">
+                    // Chips that don't fit wrap out of sight whole (never a clipped chip).
+                    <div className="flex h-7 flex-wrap gap-1.5 overflow-hidden">
                       {chips}
                     </div>
                   ) : null}

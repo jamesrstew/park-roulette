@@ -1,78 +1,61 @@
 import { describe, expect, it } from "vitest";
 import * as roundup from "@/lib/social/roundup";
+import pins from "./__fixtures__/short-what-pins.json";
+import whats from "./__fixtures__/prod-whats.json";
 import { DESC_MAX, firstSentence, shortWhat } from "./short-what";
 
-describe("the shared descriptor trimmer", () => {
+describe("the shared descriptor module", () => {
   it("is the one the social roundup uses (moved, not forked)", () => {
     expect(roundup.shortWhat).toBe(shortWhat);
     expect(roundup.firstSentence).toBe(firstSentence);
     expect(roundup.DESC_MAX).toBe(DESC_MAX);
   });
 
-  it("keeps the slide's 70 by default and allows a longer card line", () => {
-    const what =
-      "Little ones paint, color, glue and snip their way through a simple craft while working on shapes.";
-    // At 70 there's no cut that doesn't break the list: no line.
-    expect(shortWhat(what)).toBeNull();
-    expect(shortWhat(what, 84)).toBe(
-      "Little ones paint, color, glue and snip their way through a simple craft",
+  it("the roundup's slide lines are unchanged (outputs as of 890ec22)", () => {
+    for (const [what, line] of pins as [string, string | null][])
+      expect(shortWhat(what), what).toBe(line);
+  });
+});
+
+describe("a card's whole first sentence", () => {
+  it("is the first sentence, period dropped, or null past 140", () => {
+    expect(
+      firstSentence(
+        "Kids bring a favorite book, curl up with snacks and read quietly together. Snacks provided.",
+        140,
+      ),
+    ).toBe(
+      "Kids bring a favorite book, curl up with snacks and read quietly together",
     );
+    expect(firstSentence("x".repeat(141) + ".", 140)).toBeNull();
+    expect(firstSentence(undefined, 140)).toBeNull();
+    expect(firstSentence("   ", 140)).toBeNull();
   });
 
-  it("never stops halfway through a list", () => {
+  it("never splits after an abbreviation, and never ends on one", () => {
     expect(
-      shortWhat(
-        "Kids splash through an afternoon open swim with the slide, rope swing, diving boards and lazy river while school is out.",
-        84,
+      firstSentence(
+        "Celebrate Dr. Seuss with stories at 10 a.m. Saturday on Mt. Bachelor Drive. More later.",
+        140,
       ),
-    ).toBe("Kids splash through an afternoon open swim");
-    expect(
-      shortWhat(
-        "Kids build whatever they dream up with LEGO bricks, Magna-Tiles and other building toys at the library.",
-        84,
-      ),
-    ).toBe("Kids build whatever they dream up");
+    ).toBe(
+      "Celebrate Dr. Seuss with stories at 10 a.m. Saturday on Mt. Bachelor Drive",
+    );
+    expect(firstSentence("Meet Dr.", 140)).toBeNull();
   });
 
-  it("never leaves a fragment (real summaries, November 2026)", () => {
-    const cases: [string, string | null][] = [
-      [
-        "Kids bring a favorite book, curl up with snacks and read quietly together, sometimes chatting or crafting after.",
-        "Kids bring a favorite book",
-      ],
-      [
-        "Families sing along to lively holiday songs and stories in a big, festive stage show at the downtown theater.",
-        "Families sing along to lively holiday songs and stories",
-      ],
-      [
-        "Kids getting ready for school practice circle time: sitting together, listening to stories, singing and playing games.",
-        "Kids getting ready for school practice circle time",
-      ],
-      [
-        "Kids paint small train-themed pictures that go up in the library's big holiday model train display.",
-        "Kids paint small train-themed pictures",
-      ],
-      [
-        "A kid and a grown-up team up at the clay table to shape and decorate ornaments, which get fired in the kiln for gifting.",
-        "A kid and a grown-up team up",
-      ],
-      [
-        "Families try 3D printers, sewing machines, button makers and Cricut cutters in a Spanish-language makerspace session.",
-        null,
-      ],
-    ];
-    for (const [what, line] of cases) expect(shortWhat(what), what).toBe(line);
-    // "...and work it" stops mid-action: no line rather than a fragment.
-    expect(
-      shortWhat(
-        "Kids pick colorful wool and work it with soapy water into a soft felted bowl they carry home the same day.",
-      ) ?? "",
-    ).not.toMatch(/work it$/);
-  });
-
-  it("never returns a rule or a negation, at any length", () => {
-    expect(
-      shortWhat("No registration needed; families must bring candy.", 84),
-    ).toBeNull();
+  it("real summaries: a complete sentence or nothing, never a cut", () => {
+    for (const what of whats as string[]) {
+      const s = firstSentence(what, 140);
+      if (s === null) continue;
+      // It's the start of the summary, up to a sentence end (or all of it).
+      const rest = what.replace(/\s+/g, " ").trim().slice(s.length);
+      expect(rest === "" || /^[.!?](\s|$)/.test(rest), what).toBe(true);
+      expect(s.length).toBeLessThanOrEqual(140);
+      expect(s).not.toMatch(/…|\.\.\./);
+    }
+    // Most real summaries fit.
+    const fit = (whats as string[]).filter((w) => firstSentence(w, 140));
+    expect(fit.length / whats.length).toBeGreaterThan(0.85);
   });
 });

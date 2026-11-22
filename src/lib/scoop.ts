@@ -20,7 +20,7 @@ import {
   venueLine,
   type Program,
 } from "@/lib/events/programs";
-import { shortWhat } from "@/lib/events/short-what";
+import { firstSentence } from "@/lib/events/short-what";
 import { dayName, dayTier, type TextPeriod, type Tier } from "@/lib/news/tiers";
 import { addDays, pacific, shortDay } from "@/lib/news/time";
 
@@ -185,32 +185,19 @@ export function cardPlace(r: EventRow): string {
     : r.data.venue.town;
 }
 
-/** A card's one-liner: three short lines at most. */
-export const SCOOP_LINE_MAX = 84;
-/** Four lines, under a title that fits on one line. */
-export const SCOOP_LINE_LONG = 112;
-/** About as many title characters as fit on one card line. */
-export const SCOOP_TITLE_LINE = 22;
+/** The longest first sentence a card prints (about 5 lines; never cut). */
+export const SCOOP_LINE_MAX = 140;
 
-/** The one-liner's budget: longer under a short title, so cards fill alike. */
-export const lineBudget = (title: string) =>
-  title.length <= SCOOP_TITLE_LINE ? SCOOP_LINE_LONG : SCOOP_LINE_MAX;
-
-/** What kids do (the trimmed `what`), else the venue ("At Tower Theatre"). */
+/** What kids do (the first sentence of `what`), else the venue. */
 export type ScoopLine = { text: string; kind: "what" | "where" };
 
 /**
- * The card's one-liner, never empty: the shared descriptor trimmer's line
- * from the stored `what`; when it gives none (too long to cut cleanly, a
- * rule, or nothing printed), where it is instead.
+ * The card's line, never empty: the whole first sentence of the stored
+ * `what` when it's 140 characters or fewer (never a clause cut, never an
+ * ellipsis); else where it is.
  */
-export function scoopLine(
-  what: string | undefined,
-  venue: string,
-  /** A one-line title leaves room for a fourth line. */
-  max = SCOOP_LINE_MAX,
-): ScoopLine {
-  const text = shortWhat(what, max);
+export function scoopLine(what: string | undefined, venue: string): ScoopLine {
+  const text = firstSentence(what, SCOOP_LINE_MAX);
   return text ? { text, kind: "what" } : { text: venue, kind: "where" };
 }
 
@@ -334,7 +321,7 @@ export function scoopEvents(
       free: free(p),
       regular: false,
       annual: p.annual,
-      line: scoopLine(r.data.what, r.data.venue.name, lineBudget(r.data.title)),
+      line: scoopLine(r.data.what, r.data.venue.name),
       place: p.branches.length > 1 ? placesLabel(p.branches) : cardPlace(r),
       price: costChip(r.data),
       setting: r.data.setting ?? null,
@@ -349,7 +336,7 @@ export function scoopEvents(
       free: free(p),
       regular: true,
       annual: false,
-      line: scoopLine(r.data.what, r.data.venue.name, lineBudget(p.title)),
+      line: scoopLine(r.data.what, r.data.venue.name),
       place: p.branches.length > 1 ? placesLabel(p.branches) : cardPlace(r),
       price: free(p) ? "Free" : costChip(r.data),
       setting: r.data.setting ?? null,
