@@ -174,9 +174,9 @@ function chipRows(chips: readonly string[]): number {
   return rows;
 }
 
-/** The venue line's size (ink), and the quieter host line's (gray, 0.9x). */
+/** The venue line's size (ink), and the quieter host line's (gray, 0.85x the venue). */
 export const venueSize = (body: number) => body + 2;
-export const hostSize = (body: number) => Math.round(body * 0.9);
+export const hostSize = (body: number) => Math.round(venueSize(body) * 0.85);
 
 export function eventHeight(s: EventCopy, title: number, body: number): number {
   // What it is, from the top: the title, its scribble, the descriptor.
@@ -208,7 +208,7 @@ const descLines = (s: EventCopy, body: number) =>
   s.desc ? lines(s.desc, body, CONTENT.width) : 0;
 
 /** A title always reads as the title: at least this much bigger than the body. */
-export const TITLE_OVER_BODY = 1.3;
+export const TITLE_OVER_BODY = 1.35;
 
 /**
  * The largest sizes that fit: the title gives way first, the body text

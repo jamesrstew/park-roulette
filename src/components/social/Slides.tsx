@@ -34,6 +34,10 @@ export const INK = "#2b2a33";
 export const PAPER = "#fffaf0";
 const CARD = "#fffdf7";
 const SOFT = "#5d5a6b";
+/** The event slide's host line: one step darker than SOFT, still quieter than ink. */
+const HOST_GRAY = "#4a4756";
+/** The date tile's height on an event slide (header, date, borders). */
+const DATE_TILE_HEIGHT = 196;
 const MARKER = "rgba(247, 201, 51, 0.8)";
 const TAPE = "rgba(247, 201, 51, 0.55)";
 
@@ -348,6 +352,9 @@ export function townLines(towns: readonly string[], max = 30): string[] {
     if (wrap(limit).length === n) return wrap(limit);
   return wrap(max);
 }
+
+/** A line never breaks right before "&": it stays with the word before it. */
+const keepAmp = (t: string) => t.replace(/ &/g, "\u00a0&");
 
 /**
  * A width that wraps these words into balanced lines (never a last word
@@ -951,7 +958,11 @@ function EventSlide({
             display: "flex",
             flexDirection: "column",
             flex: 1,
-            marginTop: 4,
+            // With "Also": both lines from the tile's top. Without: the
+            // time alone, centered on the tile's height.
+            ...(s.also
+              ? { marginTop: 4 }
+              : { height: DATE_TILE_HEIGHT, justifyContent: "center" }),
           }}
         >
           <div
@@ -1005,7 +1016,7 @@ function EventSlide({
             display: "flex",
             flexWrap: "wrap",
             width: balancedWidth(
-              s.title.split(/\s+/),
+              keepAmp(s.title).split(/ +/),
               fit.title,
               fit.title * 0.24,
               EVENT.titleWidth,
@@ -1015,9 +1026,11 @@ function EventSlide({
             columnGap: fit.title * 0.24,
           }}
         >
-          {s.title.split(/\s+/).map((w, i) => (
-            <span key={i}>{w}</span>
-          ))}
+          {keepAmp(s.title)
+            .split(/ +/)
+            .map((w, i) => (
+              <span key={i}>{w}</span>
+            ))}
         </div>
         <div style={{ display: "flex", marginTop: -2 }}>
           <Scribble width={340} color={color} />
@@ -1032,7 +1045,7 @@ function EventSlide({
               textWrap: "balance",
             }}
           >
-            {s.desc}
+            {keepAmp(s.desc)}
           </div>
         ) : null}
         <div
@@ -1054,20 +1067,20 @@ function EventSlide({
             textWrap: "balance",
           }}
         >
-          {place}
+          {keepAmp(place)}
         </div>
         {s.host ? (
           <div
             style={{
               display: "flex",
               fontSize: hostSize(fit.body),
-              color: SOFT,
+              color: HOST_GRAY,
               marginTop: EVENT.hostGap,
               lineHeight: 1.15,
               textWrap: "balance",
             }}
           >
-            {`Hosted by ${s.host}`}
+            {keepAmp(`Hosted by ${s.host}`)}
           </div>
         ) : null}
         <div
@@ -1098,7 +1111,18 @@ function CtaSlide({
 }) {
   return (
     <Frame page={page} color={CRAYONS.blue}>
-      <div style={{ display: "flex", justifyContent: "center", marginTop: 20 }}>
+      {/*
+        The roundup's close (with fine print) is one group centered on the
+        card: icon, line, link, tagline, fine print, then the button close
+        under it. Other closes keep the button at the foot.
+      */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          marginTop: s.fine ? "auto" : 20,
+        }}
+      >
         <SlideIcon name={s.icon ?? "mail"} size={s.url ? 190 : 230} />
       </div>
       <div
@@ -1165,8 +1189,8 @@ function CtaSlide({
       <div
         style={{
           display: "flex",
-          marginTop: "auto",
-          marginBottom: 60,
+          marginTop: s.fine ? 40 : "auto",
+          marginBottom: s.fine ? "auto" : 60,
           alignSelf: "center",
           fontSize: 56,
           background: CRAYONS.yellow,
