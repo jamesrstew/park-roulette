@@ -7,7 +7,8 @@ import { ingestOk, json, nope, readJson } from "@/lib/news/http";
  * /api/events): {short}. The same checks as a hand-in (lib/events/
  * short.ts) run against that event's own `what` and title; only `short`
  * changes, and the old and new lines are logged. 422 with the problems
- * when it fails; the event is untouched.
+ * when it fails; 409 when the event's summary changed meanwhile; the event
+ * is untouched either way.
  */
 const Body = z.strictObject({ short: z.string().min(1).max(200) });
 

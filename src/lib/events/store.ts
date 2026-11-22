@@ -293,7 +293,8 @@ export async function upsertEvents(
   return out;
 }
 
-async function upsertOne(
+/** One hand-in, under its page's lock (exported for the race tests; callers use upsertEvents). */
+export async function upsertOne(
   v: EventVerdict,
   opts: { network: boolean; newLeft?: number },
 ): Promise<{ slug: string; created: boolean; changed: boolean }> {
@@ -359,6 +360,15 @@ async function upsertOne(
           kind =
             old.kind === "annual" || kind === "annual" ? "annual" : "series";
       }
+      // A short set meanwhile (PATCH /api/events/<slug>/short) survives a
+      // hand-in that doesn't carry one, read from the locked row, while
+      // it's still grounded in this hand-in's own words.
+      if (
+        data.short === undefined &&
+        prev.short &&
+        checkShort(prev.short, { what: data.what, title: data.title }).short
+      )
+        data = { ...data, short: prev.short };
       // Status is sticky per date: only a status hand-in changes it.
       data = {
         ...data,
@@ -568,42 +578,88 @@ export async function knownEvents(
 
 /**
  * Set one stored event's `short` (PATCH /api/events/<slug>/short): checked
- * against that event's own `what` and title, and nothing else changes. The
- * old and new lines are logged.
+ * against that event's own `what` and title, under the page's hand-in lock,
+ * and written only while that `what` is unchanged; nothing else changes.
+ * The old and new lines go to the server log, the only trail: `short` is
+ * a cosmetic field (a slide's descriptor), not a fact, so it has no edit
+ * table row.
  */
 export async function setShort(
   slug: string,
   raw: string,
 ): Promise<
   | { ok: true; slug: string; short: string; previous: string | null }
-  | { ok: false; status: 404 | 422; error: string; problems?: string[] }
+  | { ok: false; status: 404 | 409 | 422; error: string; problems?: string[] }
 > {
-  const [row] = await db
-    .select({ id: kidEvents.id, data: kidEvents.data })
-    .from(kidEvents)
-    .where(eq(kidEvents.slug, slug));
-  if (!row) return { ok: false, status: 404, error: "No such event." };
-  const e = row.data as StoredEvent;
-  const sc = checkShort(raw, { what: e.what, title: e.title });
-  if (!sc.short)
+  const r = await db.transaction(async (tx) => {
+    const [found] = await tx
+      .select({ seriesKey: kidEvents.seriesKey })
+      .from(kidEvents)
+      .where(eq(kidEvents.slug, slug));
+    if (!found)
+      return {
+        ok: false as const,
+        status: 404 as const,
+        error: "No such event.",
+      };
+    // The same lock a hand-in for this page takes (upsertOne), so the two
+    // never interleave.
+    await tx.execute(
+      sql`select pg_advisory_xact_lock(hashtext(${`event:${found.seriesKey}`}))`,
+    );
+    const [row] = await tx
+      .select({ id: kidEvents.id, data: kidEvents.data })
+      .from(kidEvents)
+      .where(eq(kidEvents.slug, slug));
+    if (!row)
+      return {
+        ok: false as const,
+        status: 404 as const,
+        error: "No such event.",
+      };
+    const e = row.data as StoredEvent;
+    const sc = checkShort(raw, { what: e.what, title: e.title });
+    if (!sc.short)
+      return {
+        ok: false as const,
+        status: 422 as const,
+        error: "That short doesn't pass the checks.",
+        problems: sc.problems.length ? sc.problems : ["It's empty."],
+      };
+    // Only while the summary is still the one the line was checked against.
+    const done = await tx
+      .update(kidEvents)
+      .set({
+        data: sql`jsonb_set(${kidEvents.data}, '{short}', to_jsonb(${sc.short}::text))`,
+        updatedAt: sql`now()`,
+      })
+      .where(
+        and(
+          eq(kidEvents.id, row.id),
+          sql`${kidEvents.data}->>'what' = ${e.what}`,
+        ),
+      )
+      .returning({ id: kidEvents.id });
+    if (!done.length)
+      return {
+        ok: false as const,
+        status: 409 as const,
+        error: "The event's summary changed meanwhile. Check the line again.",
+      };
     return {
-      ok: false,
-      status: 422,
-      error: "That short doesn't pass the checks.",
-      problems: sc.problems.length ? sc.problems : ["It's empty."],
+      ok: true as const,
+      slug,
+      short: sc.short,
+      previous: e.short ?? null,
     };
-  await db
-    .update(kidEvents)
-    .set({
-      data: sql`jsonb_set(${kidEvents.data}, '{short}', to_jsonb(${sc.short}::text))`,
-      updatedAt: sql`now()`,
-    })
-    .where(eq(kidEvents.id, row.id));
-  console.info(
-    `[events] short for ${slug}: ${JSON.stringify(e.short ?? null)} -> ${JSON.stringify(sc.short)}`,
-  );
-  expireEvents();
-  return { ok: true, slug, short: sc.short, previous: e.short ?? null };
+  });
+  if (r.ok) {
+    console.info(
+      `[events] short for ${slug}: ${JSON.stringify(r.previous)} -> ${JSON.stringify(r.short)}`,
+    );
+    expireEvents();
+  }
+  return r;
 }
 
 export async function eventBySlug(slug: string): Promise<EventRow | null> {

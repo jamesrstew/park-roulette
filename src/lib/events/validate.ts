@@ -925,12 +925,14 @@ export async function validateEvents(
       // The short line: checked against this event's own words, dropped
       // with a warning when it fails (never the event).
       if (e.short !== undefined) {
-        const sc = checkShort(e.short, { what: e.what, title: e.title });
-        if (sc.short) e.short = sc.short;
-        else {
-          delete e.short;
-          if (sc.problems.length)
-            warn.push(`Left out short: ${sc.problems.join(" ")}`);
+        const raw = e.short;
+        delete e.short;
+        if (typeof raw !== "string")
+          warn.push("Left out short: it must be text (one phrase).");
+        else if (raw.trim()) {
+          const sc = checkShort(raw, { what: e.what, title: e.title });
+          if (sc.short) e.short = sc.short;
+          else warn.push(`Left out short: ${sc.problems.join(" ")}`);
         }
       }
       const { problems, checkQuote, targets } = checkEvent(e, ctx);

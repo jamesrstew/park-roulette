@@ -821,6 +821,41 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
       expect(rest).toEqual(before.data);
     });
 
+    it("a short set while a hand-in was being prepared survives the hand-in (the race)", async () => {
+      await store.upsertEvents([verdict("Baby Songs", "2026-11-21")], {
+        network: true,
+      });
+      // The harvest prepared its hand-in (no short) before the PATCH landed.
+      const rehand = verdict("Baby Songs", "2026-11-28");
+      const { slug } = await stored();
+      expect(
+        (
+          await store.setShort(
+            slug,
+            "Songs and a picture book for the littlest listeners",
+          )
+        ).ok,
+      ).toBe(true);
+      // upsertOne alone (no adoption step): the locked row's short is kept.
+      await store.upsertOne(rehand, { network: true });
+      expect((await stored()).data.short).toBe(
+        "Songs and a picture book for the littlest listeners",
+      );
+      // A hand-in with a new summary the short no longer fits: it goes.
+      await store.upsertOne(
+        verdict(
+          "Baby Songs",
+          "2026-12-05",
+          {},
+          {
+            what: "Bouncy rhymes and lap games for babies and their grown-ups.",
+          },
+        ),
+        { network: true },
+      );
+      expect((await stored()).data.short).toBeUndefined();
+    });
+
     it("a re-hand without a short keeps the stored one while it's still grounded", async () => {
       await store.upsertEvents(
         [

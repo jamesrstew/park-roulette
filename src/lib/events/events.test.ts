@@ -1118,4 +1118,19 @@ describe("a hand-in's short line", () => {
     expect(bad.events[0].event?.short).toBeUndefined();
     expect(bad.events[0].warnings.join(" ")).toMatch(/Left out short/);
   });
+  it("a short over 120 characters, or not text at all, never refuses the event", async () => {
+    for (const short of [
+      "Kids meet the porcupines up close ".repeat(5),
+      null,
+      42,
+    ]) {
+      const r = await validateEvents(
+        { events: [base({ short } as Partial<EventInput>)] },
+        ctx(),
+      );
+      expect(r.events[0].ok, String(short)).toBe(true);
+      expect(r.events[0].event?.short).toBeUndefined();
+      expect(r.events[0].warnings.join(" ")).toMatch(/Left out short/);
+    }
+  });
 });

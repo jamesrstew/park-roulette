@@ -1570,10 +1570,12 @@ describe("the roundup's descriptor: the event's short, else its whole first sent
     const rows = ["a", "b", "c", "d"].map((slug, i) =>
       ev({ slug, day: `2026-11-2${5 + i}` }),
     );
-    rows[0].data.what = "We read stories and sing songs with the babies.";
+    // The fallback sentence passes the short's own rules, but the roundup's
+    // text rules drop it ("vote" reads as politics), and the log says why.
+    rows[0].data.what = "Kids vote for the best gingerbread house.";
     const r = pickWeekEvents(rows, w, now);
     expect(r.events.find((e) => e.slug === "a")!.desc).toBeNull();
-    expect(r.left.join(" ")).toMatch(/a: descriptor dropped \(.*first person/);
+    expect(r.left.join(" ")).toMatch(/a: descriptor dropped \(.*politics/);
   });
 });
 

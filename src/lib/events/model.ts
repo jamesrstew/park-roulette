@@ -102,9 +102,11 @@ export const EventInput = z.strictObject({
    * What kids do there, as one complete phrase of 70 characters or fewer,
    * in the summary's own words ("Kids sculpt air-dry clay into a little
    * creature"). Checked by lib/events/short.ts; a failing one is dropped
-   * with a warning. The Tuesday roundup prints it under the title.
+   * with a warning, never the event: anything here parses (a null, a number,
+   * 500 characters), and lib/events/validate.ts keeps only a short that
+   * passes. The Tuesday roundup prints it under the title.
    */
-  short: z.string().trim().max(120).optional(),
+  short: z.unknown().optional(),
   /** The official page (organizer, venue, city, parks, library, USFS). */
   url: Https,
   organizer: z.strictObject({ name: Text(80), url: Https }).optional(),
@@ -137,7 +139,9 @@ export type EventInput = z.infer<typeof EventInput>;
 export type EventDate = EventInput["dates"][number];
 
 /** What a page shows: the input, plus what code worked out. */
-export type StoredEvent = Omit<EventInput, "discovery_url"> & {
+export type StoredEvent = Omit<EventInput, "discovery_url" | "short"> & {
+  /** The checked short line (lib/events/short.ts), when it passed. */
+  short?: string;
   ages: Ages | null;
   /** The venue's point (from its park on our map, or the writer's pin). */
   point: { lat: number; lng: number } | null;
@@ -903,7 +907,15 @@ export function storedFrom(
   point: { lat: number; lng: number } | null,
   checkQuote: string,
 ): StoredEvent {
-  const { discovery_url: _drop, ...rest } = input;
+  const { discovery_url: _drop, short, ...rest } = input;
   void _drop;
-  return { ...rest, ages: ageTags(input.ages_text), point, checkQuote };
+  return {
+    ...rest,
+    // Only text gets here as a short (the validator checked it); anything
+    // else is left out.
+    ...(typeof short === "string" ? { short } : {}),
+    ages: ageTags(input.ages_text),
+    point,
+    checkQuote,
+  };
 }

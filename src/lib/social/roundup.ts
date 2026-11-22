@@ -9,11 +9,16 @@ import {
   upcomingDates,
 } from "@/lib/events/model";
 import { ALL_AGES } from "@/lib/events/ages";
-import { checkShort } from "@/lib/events/short";
+import { checkShort, FIRST_PERSON, MONEY } from "@/lib/events/short";
 import { DESC_MAX, firstSentence, LOGISTICS } from "@/lib/events/short-what";
 import { listed } from "@/lib/events/state";
 import { addDays, weekdayOf } from "@/lib/news/time";
-import { composeEventsWeek, placeLine, type WeekEvent } from "./compose";
+import {
+  composeEventsWeek,
+  placeLine,
+  slideTitle,
+  type WeekEvent,
+} from "./compose";
 import {
   CAPTION_MAX,
   DATED_LEAD_HOURS,
@@ -70,8 +75,14 @@ export function eventDescriptor(e: {
     const sc = checkShort(e.short, { what: e.what, title: e.title });
     if (sc.short) return { text: sc.short, from: "short" };
   }
+  // The fallback is the summary's own sentence, held to the short's word
+  // rules too: no logistics, no price or "free", no first person.
   const s = firstSentence(e.what, DESC_MAX);
-  return s && s.length >= 12 && !LOGISTICS.test(s)
+  return s &&
+    s.length >= 12 &&
+    !LOGISTICS.test(s) &&
+    !MONEY.test(s) &&
+    !FIRST_PERSON.test(s)
     ? { text: s, from: "sentence" }
     : null;
 }
@@ -237,6 +248,8 @@ export function pickWeekEvents(
     // takes, and leave out an event whose words still don't fit.
     const copy = (desc: string | null) => ({
       ...c,
+      // Measured as the slide prints it ("B.U.R.S.T. - X" → "B.U.R.S.T. X").
+      title: slideTitle(c.title),
       desc,
       place: placeLine(c.venue, c.town),
       chips: [...c.ages, ...(c.cost ? [c.cost] : [])],

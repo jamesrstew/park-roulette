@@ -112,7 +112,84 @@ describe("the short validator", () => {
   });
 });
 
+describe("the review's tightenings", () => {
+  const museum = {
+    title: "Pop-Up Exhibits",
+    what: "Kids play hands-on with traveling exhibits from the children's museum, with a hidden room to find.",
+  };
+  it("grounds three-letter words too", () => {
+    expect(
+      shortProblems(
+        "Kids play with the museum's exhibits and a cat",
+        museum,
+      ).join(" "),
+    ).toMatch(/"cat" isn't in/);
+  });
+  it("refuses pay, paid, donation, complimentary, no charge, at no cost", () => {
+    for (const s of [
+      "Kids play with exhibits, no charge",
+      "Kids play with exhibits at no cost",
+      "Complimentary exhibits for kids to play with",
+      "Kids play with exhibits for a donation",
+      "Kids play with exhibits families pay for",
+    ])
+      expect(shortProblems(s, museum).join(" "), s).toMatch(/price/);
+  });
+  it("refuses an end on a possessive or a word that needs a noun", () => {
+    expect(
+      shortProblems("Kids play with the children's museum's", museum).join(" "),
+    ).toMatch(/possessive/);
+    expect(
+      shortProblems("Kids play with the museum's hidden", museum).join(" "),
+    ).toMatch(/needs a noun/);
+  });
+  it("refuses two items joined by a bare comma", () => {
+    expect(
+      shortProblems("Stories, songs for babies", {
+        title: "Baby Time",
+        what: "Stories and songs for babies and their grown-ups.",
+      }).join(" "),
+    ).toMatch(/missing its "and"/);
+    // A clause after the comma is fine.
+    expect(shortProblems("Kids play, then find a hidden room", museum)).toEqual(
+      [],
+    );
+  });
+  it("allows a list of verbs, a verb with its in, and decorate", () => {
+    const src = {
+      title: "Movers",
+      what: "Kids sing, dance and learn; families drop in to decorate cookies.",
+    };
+    expect(shortProblems("Kids sing, dance and learn", src)).toEqual([]);
+    expect(shortProblems("Families with kids drop in", src)).toEqual([]);
+    expect(shortProblems("Kids sing, dance and decorate", src)).toEqual([]);
+  });
+  it("grounds irregular verb forms (made from make, built from build)", () => {
+    expect(
+      shortProblems("Kids show off the robots they made and built", {
+        title: "Maker Show",
+        what: "Kids make and build robots, then show them off.",
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe("the roundup's descriptor: short, else the whole first sentence, else none", () => {
+  it("the fallback sentence is held to the price and first-person rules", () => {
+    expect(
+      eventDescriptor({
+        title: "X",
+        what: "We read picture books with babies.",
+      }),
+    ).toBeNull();
+    expect(
+      eventDescriptor({
+        title: "X",
+        what: "Kids paint a mug for a $5 donation.",
+      }),
+    ).toBeNull();
+  });
+
   it("prefers a checked short", () => {
     expect(
       eventDescriptor({

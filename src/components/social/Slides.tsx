@@ -1014,6 +1014,7 @@ function EventSlide({
         <div
           style={{
             display: "flex",
+            flexShrink: 0,
             flexWrap: "wrap",
             width: balancedWidth(
               keepAmp(s.title).split(/ +/),
@@ -1032,13 +1033,14 @@ function EventSlide({
               <span key={i}>{w}</span>
             ))}
         </div>
-        <div style={{ display: "flex", marginTop: -2 }}>
+        <div style={{ display: "flex", flexShrink: 0, marginTop: -2 }}>
           <Scribble width={340} color={color} />
         </div>
         {s.desc ? (
           <div
             style={{
               display: "flex",
+              flexShrink: 0,
               fontSize: fit.body,
               lineHeight: 1.2,
               marginTop: EVENT.descGap,
@@ -1051,6 +1053,7 @@ function EventSlide({
         <div
           style={{
             display: "flex",
+            flexShrink: 0,
             width: 120,
             height: 6,
             borderRadius: 3,
@@ -1062,6 +1065,7 @@ function EventSlide({
         <div
           style={{
             display: "flex",
+            flexShrink: 0,
             fontSize: venueSize(fit.body),
             lineHeight: 1.15,
             textWrap: "balance",
@@ -1073,6 +1077,7 @@ function EventSlide({
           <div
             style={{
               display: "flex",
+              flexShrink: 0,
               fontSize: hostSize(fit.body),
               color: HOST_GRAY,
               marginTop: EVENT.hostGap,
@@ -1086,6 +1091,7 @@ function EventSlide({
         <div
           style={{
             display: "flex",
+            flexShrink: 0,
             flexWrap: "wrap",
             alignItems: "center",
             gap: 18,
