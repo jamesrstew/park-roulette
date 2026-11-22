@@ -35,7 +35,9 @@ import type { MediaFile } from "./render";
  *
  * Only the cover that went out is used (the stored JPEG), so a post that
  * drew the crayon card because of the photo check echoes the same card.
- * If the cover's photo was flagged since, the crayon cover is drawn.
+ * The photo check is asked again before every create and every publish:
+ * flagged before the container, the crayon cover is drawn; flagged once a
+ * container with the photo exists, it is skipped and never published.
  * The Friday Story is never echoed. Facebook gets no echo: the Story
  * path doesn't cross-post (crossPost skips Stories).
  */
@@ -46,6 +48,8 @@ type PostRow = typeof socialPosts.$inferSelect;
 
 /** A null echo looks back this far, so an old one is closed as skipped. */
 const LOOKBACK_DAYS = 7;
+/** The cron allows 300 s; echoes stop after this much of a run is gone. */
+export const ECHO_BUDGET_MS = 200_000;
 
 const echoUrl = (f: EchoFile) => `${SITE_URL}/social/m/${f.sha}.${f.ext}`;
 
@@ -98,16 +102,23 @@ async function coverFlagged(spec: PostSpec): Promise<boolean> {
   return rows.some((r) => r.verdict !== "clear");
 }
 
+/** Does the cover name a photo at all? */
+const coverHasPhoto = (spec: PostSpec) => {
+  const s = spec.slides[0];
+  return !!(s && "photo" in s && s.photo);
+};
+
 /** Draw and store the Story from the post's cleared cover. */
 async function drawEcho(post: PostRow): Promise<EchoFile> {
   const spec = post.spec as PostSpec;
   const media = post.media as MediaFile[];
   if (!media[0] || !spec.slides[0]) throw new Error("The post has no cover");
   const R = await echoRender();
-  const cover = (await coverFlagged(spec))
+  const flagged = await coverFlagged(spec);
+  const cover = flagged
     ? await R.crayonCover(spec.slides)
     : await R.storedBytes(media[0]);
-  return R.storeEcho(
+  const file = await R.storeEcho(
     await R.renderEcho(
       spec.kind as PostKind,
       echoLine(spec),
@@ -115,6 +126,33 @@ async function drawEcho(post: PostRow): Promise<EchoFile> {
       spec.slides[0].t === "headline",
     ),
   );
+  return { ...file, photoFree: flagged || !coverHasPhoto(spec) };
+}
+
+/** Would this Story show a photo that is flagged now? */
+async function flaggedNow(post: PostRow, file: EchoFile | null) {
+  return !file?.photoFree && (await coverFlagged(post.spec as PostSpec));
+}
+
+/**
+ * Asked right before every media_publish: a Story whose photo was flagged
+ * after its container was made is skipped, never published.
+ */
+async function safeToPublish(post: PostRow, notes: string[]) {
+  if (!(await flaggedNow(post, post.echoMedia as EchoFile | null))) return true;
+  await setEcho(post.id, {
+    echoStatus: "skipped",
+    echoReason: "Photo flagged after the Story was made; never published.",
+  });
+  if (post.echoStatus === "publishing")
+    // An earlier publish didn't answer: it may be up.
+    tellEcho(
+      post,
+      "photo flagged",
+      "The cover photo was flagged after an earlier publish of its Story didn't answer. Check @park_roulette's Stories and delete it if it's up.",
+    );
+  notes.push(`${post.id}: echo skipped (photo flagged)`);
+  return false;
 }
 
 /**
@@ -126,7 +164,13 @@ export async function runEchoes(
   now: Date,
   live: GraphOpts | null,
   notes: string[],
+  startedAt = Date.now(),
 ): Promise<void> {
+  const outOfTime = () => Date.now() - startedAt > ECHO_BUDGET_MS;
+  if (outOfTime()) {
+    notes.push("echo: out of time, the next run goes on");
+    return;
+  }
   const rows = await db
     .select()
     .from(socialPosts)
@@ -146,6 +190,10 @@ export async function runEchoes(
     .orderBy(socialPosts.publishAt);
   let quota: number | null | undefined;
   for (const post of rows) {
+    if (outOfTime()) {
+      notes.push("echo: out of time, the next run goes on");
+      return;
+    }
     try {
       if (post.echoStatus == null) {
         if (tooOld(post, now)) {
@@ -159,7 +207,7 @@ export async function runEchoes(
             tellEcho(
               post,
               "skipped",
-              `It never went out (last error: ${post.echoReason}), and the post is now over 6 hours old.`,
+              `No publisher run got it out in time: the cron runs only in each post's window, and 6 hours after the post it still hadn't gone (last error: ${post.echoReason}). It was skipped; no Story went out.`,
             );
           continue;
         }
@@ -193,12 +241,12 @@ export async function runEchoes(
         if (tooOld(post, now)) {
           await setEcho(post.id, {
             echoStatus: "skipped",
-            echoReason: "Not ready 6 hours after the post.",
+            echoReason: "No publisher run in time (6 hours).",
           });
           tellEcho(
             post,
             "skipped",
-            "Meta hadn't finished the Story 6 hours after the post, so it was skipped. No Story went out.",
+            "No publisher run got the Story out in time: the cron runs only in each post's window, and 6 hours after the post it still wasn't published. It was skipped; no Story went out.",
           );
           continue;
         }
@@ -222,7 +270,10 @@ async function createEcho(
   notes: string[],
   now: Date,
 ) {
-  const file = (post.echoMedia as EchoFile | null) ?? (await drawEcho(post));
+  const old = post.echoMedia as EchoFile | null;
+  // The photo check, again: a flagged photo is redrawn as the crayon card.
+  const file =
+    old && !(await flaggedNow(post, old)) ? old : await drawEcho(post);
   // Recorded before Meta is asked, so a crash never draws a second one.
   await setEcho(post.id, { echoStatus: "creating", echoMedia: file });
   try {
@@ -261,6 +312,7 @@ async function publishEchoStep(post: PostRow, o: GraphOpts, notes: string[]) {
     });
     return;
   }
+  if (!(await safeToPublish(post, notes))) return;
   // Claim it, so no other run ever publishes the same Story.
   const claimed = await db
     .update(socialPosts)
@@ -279,6 +331,7 @@ async function publishEchoStep(post: PostRow, o: GraphOpts, notes: string[]) {
  * retryable error goes back to creating, unclear waits, anything else fails.
  */
 async function publishEcho(post: PostRow, o: GraphOpts, notes: string[]) {
+  if (!(await safeToPublish(post, notes))) return;
   try {
     const mediaId = await publishContainer(post.echoContainerId!, o);
     await setEcho(post.id, {
@@ -290,6 +343,15 @@ async function publishEcho(post: PostRow, o: GraphOpts, notes: string[]) {
     notes.push(`${post.id}: echo published ${mediaId}`);
   } catch (e) {
     const err = e as GraphError;
+    if (/already (been )?published/i.test(err?.message ?? "")) {
+      await setEcho(post.id, {
+        echoStatus: "published",
+        echoPublishedAt: new Date(),
+        echoReason: null,
+      });
+      notes.push(`${post.id}: echo published (Meta: already published)`);
+      return;
+    }
     let status;
     try {
       status = await containerStatus(post.echoContainerId!, o);

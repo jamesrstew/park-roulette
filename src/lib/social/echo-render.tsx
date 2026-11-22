@@ -22,6 +22,8 @@ export type EchoFile = {
   ext: "jpg";
   width: number;
   height: number;
+  /** True when no photo is in it (the cover was the crayon card). */
+  photoFree?: boolean;
 };
 
 /** Each post type's crayon on the Story (the label and the underline). */

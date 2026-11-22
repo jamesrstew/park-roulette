@@ -72,7 +72,11 @@ const calls: Call[] = [];
 let containerState = "FINISHED";
 /** The container's status once a publish was tried (null: containerState). */
 let afterPublish: string | null = null;
-let publishFails: "no" | "timeout" | "rate" | "bad" = "no";
+let publishFails: "no" | "timeout" | "rate" | "bad" | "5xx" | "already" = "no";
+/** A Story container create that times out (Meta may or may not have it). */
+let storyCreateFails = false;
+/** Runs when a container's status is read (another worker, mid-run). */
+let onStatus: ((id: string) => Promise<void>) | null = null;
 let quota = 1;
 let comments: { id: string; text: string; from: { id: string } }[] = [];
 const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
@@ -94,22 +98,49 @@ const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
         { error: { message: "bad", code: 100 } },
         { status: 400 },
       );
+    if (publishFails === "5xx")
+      return Response.json(
+        { error: { message: "oops", code: 1 } },
+        { status: 502 },
+      );
+    if (publishFails === "already")
+      return Response.json(
+        {
+          error: {
+            message: "The media has already been published",
+            code: 9,
+            error_subcode: 2207051,
+          },
+        },
+        { status: 400 },
+      );
     return Response.json({ id: "IGMEDIA1" });
   }
-  if (path.endsWith("/media")) return Response.json({ id: `C${calls.length}` });
+  if (path.endsWith("/media")) {
+    if (storyCreateFails && body.get("media_type") === "STORIES")
+      throw new Error("timeout");
+    return Response.json({ id: `C${calls.length}` });
+  }
   if (path.endsWith("/photos"))
     return Response.json({ id: `P${calls.length}` });
   if (path.endsWith("/feed")) return Response.json({ id: "FBPOST1" });
   if (path.endsWith("/comments")) return Response.json({ data: comments });
   if (path.endsWith("/conversations")) return Response.json({ data: [] });
   if (path.endsWith("/messages")) return Response.json({ recipient_id: "x" });
-  if (/^C\d+$/.test(path))
+  if (/^C\d+$/.test(path)) {
+    await onStatus?.(path);
     return Response.json({
       status_code:
-        afterPublish && calls.some((c) => c.path.endsWith("/media_publish"))
+        afterPublish &&
+        calls.some(
+          (c) =>
+            c.path.endsWith("/media_publish") &&
+            c.body.get("creation_id") === path,
+        )
           ? afterPublish
           : containerState,
     });
+  }
   return new Response("no", { status: 404 });
 };
 
@@ -152,6 +183,8 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     containerState = "FINISHED";
     afterPublish = null;
     publishFails = "no";
+    storyCreateFails = false;
+    onStatus = null;
     quota = 1;
     comments = [];
     delete process.env.SOCIAL_PUBLISH;
@@ -1074,5 +1107,181 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     const told = alerts.filter((a) => /Story echo failed/.test(a.subject));
     expect(told).toHaveLength(1);
     expect(told[0].key).toBe(`social:echo failed:${id}`);
+  });
+
+  /** A live park post that is out, with its echo container made (creating). */
+  async function echoCreating() {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    await store.runSocial(MON_1215, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row).toMatchObject({ status: "published", echo_status: "creating" });
+    expect(row.echo_container_id).toBeTruthy();
+    return { id, container: String(row.echo_container_id) };
+  }
+  const echoPublishes = (container: string) =>
+    calls.filter(
+      (c) =>
+        c.path.endsWith("/media_publish") &&
+        c.body.get("creation_id") === container,
+    );
+
+  it("echo: a photo flagged after the container is made never publishes it", async () => {
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const { id, container } = await echoCreating();
+    expect(echoes.at(-1)?.cover).toMatch(/^stored:/);
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
+    ]);
+    await store.runSocial(MON_1230, { fetchImpl });
+    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
+    const row = await (
+      await q(
+        `select echo_status, echo_reason from social_posts where id = ${id}`,
+      )
+    )[0];
+    expect(row).toMatchObject({ echo_status: "skipped" });
+    expect(String(row.echo_reason)).toMatch(/photo flagged/i);
+    expect(echoPublishes(container)).toHaveLength(0);
+  });
+
+  it("echo: a photo flagged after a timed-out create is redrawn as the crayon card", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    storyCreateFails = true;
+    await store.runSocial(MON_1215, { fetchImpl });
+    let row = await echoRow(id);
+    expect(row).toMatchObject({
+      echo_status: "creating",
+      echo_container_id: null,
+    });
+    expect(echoes.at(-1)?.cover).toMatch(/^stored:/);
+    storyCreateFails = false;
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
+    ]);
+    await store.runSocial(MON_1230, { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("creating");
+    expect(row.echo_container_id).toBeTruthy();
+    expect(echoes.at(-1)?.cover).toBe("crayon");
+    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("published");
+  });
+
+  it("echo: a create that times out is made again next run", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    storyCreateFails = true;
+    await store.runSocial(MON_1215, { fetchImpl });
+    expect(await echoRow(id)).toMatchObject({
+      echo_status: "creating",
+      echo_container_id: null,
+    });
+    storyCreateFails = false;
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect((await echoRow(id)).echo_container_id).toBeTruthy();
+    expect(echoes).toHaveLength(1);
+    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+  });
+
+  it("echo: a publish that times out but went out is settled as published, never sent again", async () => {
+    const { id, container } = await echoCreating();
+    publishFails = "timeout";
+    afterPublish = "PUBLISHED";
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("published");
+    publishFails = "no";
+    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
+    expect(echoPublishes(container)).toHaveLength(1);
+  });
+
+  it("echo: a 5xx publish whose container is still FINISHED waits, then goes out next run", async () => {
+    const { id, container } = await echoCreating();
+    publishFails = "5xx";
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("publishing");
+    publishFails = "no";
+    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
+    expect(await echoRow(id)).toMatchObject({
+      echo_status: "published",
+      echo_media_id: "IGMEDIA1",
+    });
+    expect(echoPublishes(container)).toHaveLength(2);
+    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+  });
+
+  it("echo: Meta's 'already published' counts as published", async () => {
+    const { id } = await echoCreating();
+    publishFails = "already";
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("published");
+    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+  });
+
+  it("echo: only the run that claims it (creating to publishing) publishes", async () => {
+    const { id, container } = await echoCreating();
+    onStatus = async (c) => {
+      if (c === container)
+        await q(
+          `update social_posts set echo_status = 'publishing' where id = ${id}`,
+        );
+    };
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect(echoPublishes(container)).toHaveLength(0);
+  });
+
+  it("echo: skipped when Meta's daily publishing limit is used up", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await q(
+      `update social_posts set status = 'published', published_at = '${MON_1215.toISOString()}' where id = ${id}`,
+    );
+    quota = 50;
+    await store.runSocial(MON_1230, { fetchImpl });
+    const [row] = await q(
+      `select echo_status, echo_reason from social_posts where id = ${id}`,
+    );
+    expect(row).toMatchObject({
+      echo_status: "skipped",
+      echo_reason: "Daily publishing limit reached.",
+    });
+    expect(calls.filter((c) => c.method === "POST")).toEqual([]);
+  });
+
+  it("echo: a Story waiting when the account flips to dry run waits, then goes out once back live", async () => {
+    const { id, container } = await echoCreating();
+    await settings.setSocialSettings({ dryRun: true });
+    const before = calls.length;
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect(calls.length).toBe(before);
+    expect((await echoRow(id)).echo_status).toBe("creating");
+    await settings.setSocialSettings({ dryRun: false });
+    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("published");
+    expect(echoPublishes(container)).toHaveLength(1);
+  });
+
+  it("echo: no echo work once the run is out of time", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await q(
+      `update social_posts set status = 'published', published_at = '${MON_1215.toISOString()}' where id = ${id}`,
+    );
+    const { runEchoes } = await import("./echo");
+    const notes: string[] = [];
+    const live = settings.graphOpts(fetchImpl)!;
+    await runEchoes(MON_1230, live, notes, Date.now() - 201_000);
+    expect(notes.join(" ")).toMatch(/out of time/);
+    expect(calls).toEqual([]);
+    expect((await echoRow(id)).echo_status).toBeNull();
   });
 });

@@ -1058,6 +1058,7 @@ export async function runSocial(
         envKilled() ? "SOCIAL_PUBLISH is off." : "The kill switch is on.",
       ],
     };
+  const startedAt = Date.now();
   const owner = randomUUID();
   if (!(await takeLease(owner)))
     return { action: "busy", notes: ["Another run has the lease."] };
@@ -1217,7 +1218,7 @@ export async function runSocial(
         await resolvePublishing(post, live, notes, now);
     }
     // After the feed posts, never before: an echo can't hold one up.
-    await runEchoes(now, live, notes).catch((e) =>
+    await runEchoes(now, live, notes, startedAt).catch((e) =>
       notes.push(`echo: failed (${(e as Error).message})`),
     );
     return { action: "ran", notes };
