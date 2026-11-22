@@ -355,7 +355,12 @@ export function townLines(towns: readonly string[], max = 30): string[] {
  * slack, capped at the card. Words are flex items here, so CSS balance
  * can't do it.
  */
-function balancedWidth(words: string[], size: number, gap: number): number {
+function balancedWidth(
+  words: string[],
+  size: number,
+  gap: number,
+  max: number = CONTENT.width,
+): number {
   // The font's own widths, no safety margin: this aims for balance, and
   // the box is never wider than the card, so nothing can overflow.
   const widths = words.map((w) => textWidth(w, size, 1));
@@ -370,12 +375,12 @@ function balancedWidth(words: string[], size: number, gap: number): number {
     }
     return n;
   };
-  const n = linesAt(CONTENT.width);
-  if (n <= 1) return CONTENT.width;
+  const n = linesAt(max);
+  if (n <= 1) return max;
   // The narrowest box that still wraps into the same number of lines.
   let box = Math.max(...widths);
-  while (box < CONTENT.width && linesAt(box) > n) box += 4;
-  return Math.min(CONTENT.width, box + 6);
+  while (box < max && linesAt(box) > n) box += 4;
+  return Math.min(max, box + 6);
 }
 
 /** Headline size by length: as big as fits in the safe width. */
@@ -972,27 +977,47 @@ function EventSlide({
           ) : null}
         </div>
       </div>
-      {/* What it is: the title, its scribble, and the descriptor close under it. */}
+      {/*
+        One connected block under the date and time: what it is (title,
+        scribble, descriptor), a short rule, then where and for whom (venue,
+        host, chips), with fixed gaps inside. It sits centered between the
+        header and the footer, so spare room falls evenly above and below.
+      */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
+          justifyContent: "center",
           position: "absolute",
           left: 0,
           right: 0,
           top: EVENT.top,
+          bottom: EVENT.foot,
         }}
       >
+        {/*
+          Words as items, broken only at spaces ("Sing-Along" never splits
+          at its hyphen; the font has no non-breaking hyphen), in balanced
+          lines no wider than the title measure.
+        */}
         <div
           style={{
             display: "flex",
-            width: EVENT.titleWidth,
+            flexWrap: "wrap",
+            width: balancedWidth(
+              s.title.split(/\s+/),
+              fit.title,
+              fit.title * 0.24,
+              EVENT.titleWidth,
+            ),
             fontSize: fit.title,
             lineHeight: 1.06,
-            textWrap: "balance",
+            columnGap: fit.title * 0.24,
           }}
         >
-          {s.title}
+          {s.title.split(/\s+/).map((w, i) => (
+            <span key={i}>{w}</span>
+          ))}
         </div>
         <div style={{ display: "flex", marginTop: -2 }}>
           <Scribble width={340} color={color} />
@@ -1004,28 +1029,12 @@ function EventSlide({
               fontSize: fit.body,
               lineHeight: 1.2,
               marginTop: EVENT.descGap,
-              textWrap: "pretty",
+              textWrap: "balance",
             }}
           >
             {s.desc}
           </div>
         ) : null}
-      </div>
-      {/*
-        Where, who and for whom, pinned to the card's foot: the venue and
-        its host as a pair, then the chips last, so the chips sit at the
-        same height on every slide of the carousel.
-      */}
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          position: "absolute",
-          left: 0,
-          right: 0,
-          bottom: EVENT.foot,
-        }}
-      >
         <div
           style={{
             display: "flex",
@@ -1033,6 +1042,7 @@ function EventSlide({
             height: 6,
             borderRadius: 3,
             background: tint(SOFT, 0.45),
+            marginTop: EVENT.ruleGap,
             marginBottom: EVENT.rule - 6,
           }}
         />
@@ -1041,7 +1051,7 @@ function EventSlide({
             display: "flex",
             fontSize: venueSize(fit.body),
             lineHeight: 1.15,
-            textWrap: "pretty",
+            textWrap: "balance",
           }}
         >
           {place}
@@ -1054,7 +1064,7 @@ function EventSlide({
               color: SOFT,
               marginTop: EVENT.hostGap,
               lineHeight: 1.15,
-              textWrap: "pretty",
+              textWrap: "balance",
             }}
           >
             {`Hosted by ${s.host}`}

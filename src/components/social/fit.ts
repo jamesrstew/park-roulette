@@ -126,8 +126,11 @@ export function ideaFit(
 // --- The roundup's event slide ------------------------------------------------
 
 export const EVENT = {
-  /** Where the title block starts, under the date block. */
-  top: 270,
+  /**
+   * Where the block's space starts, under the date block (which ends near
+   * 205): about 50 px clear, matching the space to the footer's logo.
+   */
+  top: 256,
   title: [116, 104, 92, 80, 72, 68, 64],
   /** The descriptor, the venue, then "Hosted by" and "Also". */
   body: [68, 66, 64, 62, 60, 58, 56, 54, 52],
@@ -137,17 +140,14 @@ export const EVENT = {
   /** Venue to "Hosted by" (a pair), then to the chips. */
   hostGap: 14,
   chipGap: 24,
-  /** The facts group sits this far above the card's foot (clear of the footer). */
+  /** The block keeps at least this far above the card's foot (clear of the footer). */
   foot: 24,
   /** A short crayon rule above the venue, so the space between reads as a pause. */
   rule: 30,
   /** Titles stop short of the right edge, matching the left margin. */
   titleWidth: 860,
-  /**
-   * At least this much air between what it is (top) and where (foot),
-   * plus the rule's own 30 px above the venue.
-   */
-  split: 24,
+  /** The descriptor (or title) to the short rule: a fixed gap, never a hole. */
+  ruleGap: 32,
 } as const;
 
 export type EventCopy = {
@@ -197,7 +197,9 @@ export function eventHeight(s: EventCopy, title: number, body: number): number {
   const foot = s.host
     ? lines(`Hosted by ${s.host}`, h, CONTENT.width) * h * 1.15 + EVENT.hostGap
     : 0;
-  return EVENT.top + t + desc + EVENT.split + venue + foot + chips + EVENT.foot;
+  return (
+    EVENT.top + t + desc + EVENT.ruleGap + venue + foot + chips + EVENT.foot
+  );
 }
 
 /** The descriptor is one or two lines, never three (a third reads as a paragraph). */
