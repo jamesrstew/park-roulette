@@ -16,7 +16,7 @@ import {
   venueKey,
 } from "./model";
 import { machinePrintsDay, machinePrintsTime } from "./machine-time";
-import { lineNamesEvent, namesByPhrase } from "./binding";
+import { flat, lineNamesEvent, namesByPhrase } from "./binding";
 import { onPage } from "./structured";
 import {
   aliasPathProblem,
@@ -573,6 +573,48 @@ const STATUS_WORD = {
 const NEGATED =
   /\bno (cancel|postpon|reschedul)|\bnot (been )?(cancel|postpon|reschedul)|\bwithout (cancel|postpon)|\bnever (cancel|postpon)|\bunless (cancel|postpon)|\bif (it'?s |we )?(cancel|postpon)|\bin case of (cancel|postpon)|\brain or shine\b/i;
 
+/**
+ * Is this link one of the known multi-program pages (catalog
+ * shared_calendar_pages: the library's calendar and its kids' programs
+ * list)? Compared by host and path, any query or fragment aside.
+ */
+export function onMultiProgramPage(
+  url: string,
+  pages: readonly string[],
+): boolean {
+  const key = (u: string) => {
+    try {
+      const x = new URL(u);
+      return `${x.hostname.replace(/^www\./, "")}${x.pathname.replace(/\/$/, "")}`;
+    } catch {
+      return u;
+    }
+  };
+  const k = key(url);
+  return pages.some((p) => key(p) === k);
+}
+
+/**
+ * A line from a page of many programs proves a fact only when it names
+ * this event and its venue: the kids' programs list prints "Nov 30 Story
+ * Time Preschool Story Time 10:30 AM ● Central Library", which is never
+ * Family Story Time's date, and a Redmond Library line is never Central
+ * Library's (Family Story Time, Nov 22).
+ */
+export function lineNamesEventAt(
+  line: string,
+  title: string,
+  venue: string,
+): boolean {
+  if (!lineNamesEvent(line, title)) return false;
+  // The venue after the program's name: the list prints "Title 9:30 AM ●
+  // Branch", and the line before it ends "Find <its branch>".
+  const l = flat(line);
+  const stem = flat(title.split(/[:(|]| - | – /)[0]);
+  const at = stem ? ` ${l} `.indexOf(` ${stem} `) : -1;
+  return lineNamesEvent(at >= 0 ? l.slice(at + stem.length) : l, venue);
+}
+
 /** Everything that can be checked without the network. */
 export function checkEvent(
   e: EventInput,
@@ -591,11 +633,15 @@ export function checkEvent(
     !!onList(u, ctx.catalog.listing_domains ?? []);
   // A listing page lists dozens of events: its quotes prove a date, a
   // weekly pattern or a time only next to the event's name.
-  const proof = e.evidence
-    .filter(
-      (x) => !(listing && onListing(x.url)) || lineNamesEvent(x.quote, e.title),
-    )
-    .map((x) => x.quote);
+  // A page of many programs (the library's kids' programs list): only
+  // next to its name and venue.
+  const multi = (u: string) =>
+    onMultiProgramPage(u, ctx.catalog.shared_calendar_pages ?? []);
+  const proves = (x: { url: string; quote: string }) =>
+    multi(x.url)
+      ? lineNamesEventAt(x.quote, e.title, e.venue.name)
+      : !(listing && onListing(x.url)) || lineNamesEvent(x.quote, e.title);
+  const proof = e.evidence.filter(proves).map((x) => x.quote);
   const today = pacificToday(ctx.now);
   // Quotes under 12 characters only when they print a date and a time
   // ("Dec 6 · 10:30am"), or a price or "free" with a date or time.
@@ -624,6 +670,15 @@ export function checkEvent(
     )
       p.push(
         `The short quote "${x.quote}" must come from the event's own page (${e.url}) or name the event.`,
+      );
+  for (const x of e.evidence)
+    if (
+      multi(x.url) &&
+      !lineNamesEventAt(x.quote, e.title, e.venue.name) &&
+      e.dates.some((d) => quotePrintsDate(x.quote, d.day))
+    )
+      p.push(
+        `The quote "${x.quote.slice(0, 60)}" is from a page of many programs and doesn't name "${e.title}" at ${e.venue.name}: quote the line for this program and venue, or its own page.`,
       );
   if (kindOf(e) === "one_off" && e.evidence.length > MAX_ONE_OFF_QUOTES)
     p.push(
@@ -932,7 +987,10 @@ export function checkEvent(
   const mine = listing
     ? e.evidence
     : e.evidence.filter((x) => org(x.url) === site);
+  const good = mine.filter(proves);
   const target = (day: string) =>
+    good.find((x) => quotePrintsDate(x.quote, day)) ??
+    good.find((x) => datePrinted([x.quote], day, true)) ??
     mine.find((x) => quotePrintsDate(x.quote, day)) ??
     mine.find((x) => datePrinted([x.quote], day, true)) ??
     mine[0] ??

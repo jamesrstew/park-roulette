@@ -61,6 +61,8 @@ Open the official page and copy quotes **verbatim** (the checker re-fetches ever
 - every price ($13.50 needs its cents), and "free" only in an admission sense ("free admission", "no cost", or "Free" next to the event's title or date);
 - ages exactly as printed, if you give them; registration, if you set sign-up; parking, if you give it; and the status ("canceled", "postponed", "rescheduled") if it has one.
 
+**A page of many programs proves only its own line.** A quote from the library's `/calendar/` or `/kids/programs` page must name the program and its branch after it ("Nov 30 Story Time Family Story Time 9:30 AM - 10:00 AM ● Central Library"): another program's line, or another branch's, never proves a date, at hand-in or at night. Prefer each occurrence's own `/event/{id}` page.
+
 **Quote the page text the way the checker reads it.** The checker drops the tags; a block's end (a paragraph, a heading, a list item, a table cell) or a `<br>` is a space. Where one inline element ends and the next starts with nothing between them, a digit meeting a letter or a digit gets a space, and letters stay joined: JCLD's date tile `<span>Dec</span><span>4</span><span>2026</span>` reads "Dec 4 2026 3:30-4:30 PM" (quote that, never "Dec42026"), while Bend Buzz's `<b>When</b><span>Saturday</span>` still reads "WhenSaturday". Dashes are "-" and curly quotes straight.
 
 ### 3a. Ages and cost: copy what the organizer prints

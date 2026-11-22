@@ -5,7 +5,7 @@ import { type FetchResult, pageText } from "@/lib/news/validate";
 import { RetroSchema } from "@/lib/news/lessons";
 import { dedupe, type KnownEvent, samePage, titlesDiffer } from "./dedupe";
 import { type EventInput } from "./model";
-import { judgeListing } from "./state";
+import { judge, judgeListing } from "./state";
 import { onPage } from "./structured";
 import {
   type EventsContext,
@@ -394,5 +394,93 @@ describe("the events retro's rule_changes (November 22 refusal)", () => {
       cmd.slice(cmd.indexOf("## 6. Retro")),
     )![1];
     expect(RetroSchema.safeParse(JSON.parse(json)).success).toBe(true);
+  });
+});
+
+// --- 5. Lines from a page of many programs (Family Story Time, id 3) ------
+
+describe("a multi-program page's line proves only its own program and branch", () => {
+  const family = (quote: string, day = "2026-11-30", start = "10:30") =>
+    preschool({
+      title: "Family Story Time",
+      ages_text: undefined,
+      dates: [{ day, start }],
+      evidence: [{ url: KIDS, quote }],
+    });
+  const c = (): EventsContext => ({
+    ...libCtx(),
+    catalog: { ...libCtx().catalog, shared_calendar_pages: [CAL, KIDS] },
+  });
+  const PRESCHOOL_LINE =
+    "Nov 30 Story Time Preschool Story Time 10:30 AM - 11:00 AM ● Central Library - Youth Programing (2nd Floor) Stories, songs and rhymes to develop early literacy skills.";
+  const REDMOND_LINE =
+    "Dec 1 Story Time Family Story Time 9:30 AM - 10:00 AM ● Redmond Library - Community 1 Interactive story time with books, songs and rhymes.";
+  const CENTRAL_LINE =
+    "Nov 30 Story Time Family Story Time 9:30 AM - 10:00 AM ● Central Library - Youth Programing (2nd Floor) Interactive story time with books, songs and rhymes.";
+
+  it("Preschool Story Time's line never proves Family Story Time's date", async () => {
+    const v = (await validateEvents({ events: [family(PRESCHOOL_LINE)] }, c()))
+      .events[0];
+    expect(v.ok).toBe(false);
+    expect(v.problems.join(" ")).toMatch(/page of many programs/);
+    expect(v.problems.join(" ")).toMatch(/No evidence quote prints 2026-11-30/);
+  });
+
+  it("Redmond Library's line never proves Central Library's date", async () => {
+    const v = (
+      await validateEvents(
+        { events: [family(REDMOND_LINE, "2026-12-01", "09:30")] },
+        c(),
+      )
+    ).events[0];
+    expect(v.ok).toBe(false);
+    expect(v.problems.join(" ")).toMatch(/page of many programs/);
+    // The branch before it ("Find Central Library") doesn't count.
+    const prefixed = (
+      await validateEvents(
+        {
+          events: [
+            family(
+              `Find Central Library ${REDMOND_LINE}`,
+              "2026-12-01",
+              "09:30",
+            ),
+          ],
+        },
+        c(),
+      )
+    ).events[0];
+    expect(prefixed.ok).toBe(false);
+  });
+
+  it("the program's own line at its own branch still proves it", async () => {
+    const v = (
+      await validateEvents(
+        { events: [family(CENTRAL_LINE, "2026-11-30", "09:30")] },
+        c(),
+      )
+    ).events[0];
+    expect(v.problems).toEqual([]);
+  });
+
+  it("the nightly check never counts another program's line as seen", () => {
+    const r = { status: 200, text: `${PRESCHOOL_LINE} ${CENTRAL_LINE}` };
+    const at = { venue: "Central Library" };
+    expect(
+      judge(r, PRESCHOOL_LINE, {
+        title: "Family Story Time",
+        multiProgram: at,
+      }),
+    ).toBe("unknown");
+    expect(
+      judge(r, REDMOND_LINE, { title: "Family Story Time", multiProgram: at }),
+    ).toBe("unknown");
+    expect(
+      judge(r, CENTRAL_LINE, { title: "Family Story Time", multiProgram: at }),
+    ).toBe("seen");
+    // Anywhere else, unchanged.
+    expect(judge(r, PRESCHOOL_LINE, { title: "Family Story Time" })).toBe(
+      "seen",
+    );
   });
 });

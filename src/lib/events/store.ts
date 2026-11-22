@@ -15,6 +15,7 @@ import {
   screenEdits,
 } from "./dedupe";
 import {
+  type EventDate,
   type EventInput,
   type EventRow,
   type EventStatus,
@@ -40,7 +41,12 @@ import {
   judgeListing,
   listingUnseenDays,
 } from "./state";
-import { eventDomains, HOST_GAP_MS, pagePool } from "./validate";
+import {
+  eventDomains,
+  HOST_GAP_MS,
+  onMultiProgramPage,
+  pagePool,
+} from "./validate";
 import { siteOf } from "@/lib/news/validate";
 
 export {
@@ -735,6 +741,9 @@ export async function recheckEvents(
         : judge(page, target!.quote, {
             walled: !!onList(target!.url, CATALOG.walled_hosts),
             title,
+            ...(onMultiProgramPage(target!.url, CATALOG.shared_calendar_pages)
+              ? { multiProgram: { venue: (r.data as StoredEvent).venue.name } }
+              : {}),
           });
       // A non-scheduled event whose page is gone stays as it is.
       if (target!.status !== "scheduled" && outcome === "miss")
@@ -957,27 +966,45 @@ async function lockedRow(
 }
 
 /**
+ * What a trim would do to one event, without writing: the occurrences it
+ * takes off and the data left, or why it can't (pure; trimEventDates and
+ * scripts/trim-event-dates.mts share it).
+ */
+export function planTrim(
+  e: StoredEvent,
+  occurrences: readonly string[],
+):
+  | { ok: true; hit: EventDate[]; next: StoredEvent }
+  | { ok: false; error: string } {
+  const remove = new Set(occurrences);
+  const hit = e.dates.filter((d) => remove.has(occurrenceId(d)));
+  if (!hit.length) return { ok: false, error: "Pick a date to take off." };
+  const next = withoutDates(e, remove);
+  if (!next.dates.length)
+    return {
+      ok: false,
+      error: "That's every date. Use Remove for the whole event.",
+    };
+  return { ok: true, hit, next };
+}
+
+/**
  * Trim dates: take chosen occurrences off one event (a date that was
- * never this event's). Taking every date off is a remove. Logged.
+ * never this event's). Taking every date off is a remove. Logged, with
+ * the reason when one is given (a script's repair).
  */
 export async function trimEventDates(
   id: number,
   occurrences: readonly string[],
   by: number | null,
+  reason?: string,
 ): Promise<EditResult> {
-  const remove = new Set(occurrences);
   const res = await db.transaction(async (tx): Promise<EditResult> => {
     const row = await lockedRow(tx, id);
     if (!row) return { ok: false, error: "That event is gone." };
-    const e = row.data as StoredEvent;
-    const hit = e.dates.filter((d) => remove.has(occurrenceId(d)));
-    if (!hit.length) return { ok: false, error: "Pick a date to take off." };
-    const next = withoutDates(e, remove);
-    if (!next.dates.length)
-      return {
-        ok: false,
-        error: "That's every date. Use Remove for the whole event.",
-      };
+    const plan = planTrim(row.data as StoredEvent, occurrences);
+    if (!plan.ok) return plan;
+    const { hit, next } = plan;
     await tx
       .update(kidEvents)
       .set({
@@ -995,6 +1022,7 @@ export async function trimEventDates(
         occurrences: hit.map(occurrenceId),
         removed: hit,
         left: next.dates.length,
+        ...(reason ? { reason } : {}),
       },
       byExplorerId: by,
     });

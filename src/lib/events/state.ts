@@ -1,7 +1,7 @@
 import { addDays, pacific } from "@/lib/news/time";
 import { lineNamesEvent } from "./binding";
 import { onPage } from "./structured";
-import { organizerVerdict, pageNamesEvent } from "./validate";
+import { lineNamesEventAt, organizerVerdict, pageNamesEvent } from "./validate";
 import {
   type EventDate,
   type EventRow,
@@ -59,9 +59,24 @@ export function looksLikeChallenge(text: string): boolean {
 export function judge(
   r: { status: number; text: string; data?: string; blocked?: string } | null,
   quote: string,
-  opts: { walled?: boolean; title?: string } = {},
+  opts: {
+    walled?: boolean;
+    title?: string;
+    /**
+     * The quote is from a page of many programs: it proves nothing
+     * unless it names the event at its venue, so it's never "seen"
+     * (unknown: after 7 days unseen the page leaves the listing).
+     */
+    multiProgram?: { venue: string };
+  } = {},
 ): CheckOutcome {
   if (!r || r.blocked) return "unknown";
+  if (
+    opts.multiProgram &&
+    opts.title &&
+    !lineNamesEventAt(quote, opts.title, opts.multiProgram.venue)
+  )
+    return "unknown";
   if (r.status === 404 || r.status === 410) return "miss";
   if (r.status !== 200) return "unknown";
   if (!r.text && !r.data) return "unknown"; // empty, or over the size cap

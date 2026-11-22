@@ -1,0 +1,20 @@
+{
+  "reason": "Other programs' or branches' times on the library's kids' programs list (Preschool, Toddler, Redmond, Sisters, Sunriver, La Pine) were stored as Family Story Time at Central Library; the list shows no Central Family Story Time at these times (checked Nov 22, 2026).",
+  "events": [
+    {
+      "slug": "family-story-time-central-library",
+      "days": [
+        "2026-11-30-1030",
+        "2026-12-01-0930",
+        "2026-12-01-1030",
+        "2026-12-02-1030",
+        "2026-12-03-1030",
+        "2026-12-07-1030",
+        "2026-12-08-0930",
+        "2026-12-08-1030",
+        "2026-12-09-1030",
+        "2026-12-10-1115"
+      ]
+    }
+  ]
+}

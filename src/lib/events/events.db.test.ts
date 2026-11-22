@@ -1,6 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { testDbOn } from "@/lib/local-db";
-import type { EventInput } from "./model";
+import type { EventInput, StoredEvent } from "./model";
 import type { EventVerdict } from "./validate";
 
 /**
@@ -578,6 +578,46 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
         7,
       ),
     ).toMatchObject({ ok: false });
+  });
+
+  it("a script's trim matches its plan and logs its reason (scripts/trim-event-dates.mts)", async () => {
+    const v = verdict("Family Story Time", "2026-11-21");
+    v.event!.dates = [
+      { day: "2026-11-30", start: "09:30" },
+      { day: "2026-11-30", start: "10:30" },
+      { day: "2026-12-01", start: "09:30" },
+    ];
+    await store.upsertEvents([v], { network: true });
+    const [{ id, data }] = await q("select id, data from kid_events");
+    const occ = ["2026-11-30-1030", "2026-12-01-0930"];
+    const plan = store.planTrim(data as StoredEvent, occ);
+    expect(plan.ok).toBe(true);
+    const r = await store.trimEventDates(
+      id as number,
+      occ,
+      null,
+      "Another program's line on the kids' programs list.",
+    );
+    expect(r).toMatchObject({ ok: true, removed: occ });
+    const [row] = await q("select data from kid_events");
+    expect(row.data).toEqual(plan.ok ? plan.next : null);
+    const [log] = await q(
+      "select action, by_explorer_id, detail from kid_event_edits",
+    );
+    expect(log).toMatchObject({
+      action: "trim",
+      by_explorer_id: null,
+      detail: {
+        occurrences: occ,
+        reason: "Another program's line on the kids' programs list.",
+      },
+    });
+    // The last date left is a remove, never a trim.
+    expect(
+      store.planTrim(row.data as StoredEvent, ["2026-11-30-0930"]),
+    ).toMatchObject({
+      ok: false,
+    });
   });
 
   it("splits other branches' dates onto their own page, then removes a wrong row", async () => {
