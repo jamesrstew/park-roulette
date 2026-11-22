@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, gte, lt, ne, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { newsletterIssues } from "@/db/schema";
+import { alertLog, newsletterIssues } from "@/db/schema";
 import { pacific } from "@/lib/news/time";
 import { GMAIL_FORWARDING_SOURCE } from "./accept";
 import { type IssueLink, keepLink } from "./extract";
@@ -172,7 +172,24 @@ export async function pruneIssues(now = new Date()): Promise<number> {
       ),
     )
     .returning({ id: newsletterIssues.id });
+  // Temp-fail counters (tempFailCount) a week old are done with.
+  await db.execute(
+    sql`delete from ${alertLog} where ${alertLog.key} like 'inbox:tempfail:%' and ${alertLog.sentAt} < now() - interval '7 days'`,
+  );
   return gone.length;
+}
+
+/**
+ * Count one more temporary failure (a DKIM key lookup) for this email,
+ * across servers (a counter row in alert_log); returns the count.
+ */
+export async function tempFailCount(emailId: string): Promise<number> {
+  const [r] = await db.execute<{ n: number }>(sql`
+    insert into ${alertLog} (key, sent_at, suppressed)
+    values (${`inbox:tempfail:${emailId}`}, now(), 1)
+    on conflict (key) do update set suppressed = ${alertLog.suppressed} + 1
+    returning suppressed as n`);
+  return Number(r?.n ?? 0);
 }
 
 /** Rows stored (tests and logs). */

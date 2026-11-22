@@ -155,6 +155,50 @@ describe("DKIM we verify ourselves", () => {
     expect(r.v).toMatchObject({ kind: "drop", suspicious: true });
   });
 
+  it("never takes a platform header signed by someone else's domain (the reviewer's probe)", async () => {
+    // Genuine sender signature (List-Unsubscribe covered), plus a real,
+    // verifying signature by an attacker's own domain over X-Beehiiv-Ids.
+    const msg = issue(DAILY);
+    const raw = forwardedBy(
+      OWNER,
+      INBOX,
+      await signed(msg, [
+        {
+          domain: "daily-news.example",
+          headers: ["From", "Date", "List-Unsubscribe"],
+        },
+        { domain: "attacker.example", headers: ["From", "x-beehiiv-ids"] },
+      ]),
+    );
+    const dkim = await verifyDkim(Buffer.from(raw), testResolver);
+    expect(dkim.verified.map((v) => v.domain).sort()).toEqual([
+      "attacker.example",
+      "daily-news.example",
+    ]);
+    const beehiiv = {
+      ...cfg,
+      senders: parseSenders(`daily:${DAILY}:beehiiv`),
+    };
+    expect(
+      decide(email(DAILY), parseRawHeaders(raw), beehiiv, dkim),
+    ).toMatchObject({ kind: "drop", suspicious: true });
+    // The sender's own signature over it does count.
+    const own = forwardedBy(
+      OWNER,
+      INBOX,
+      await signed(msg, [
+        {
+          domain: "daily-news.example",
+          headers: ["From", "Date", "List-Unsubscribe", "x-beehiiv-ids"],
+        },
+      ]),
+    );
+    const ownDkim = await verifyDkim(Buffer.from(own), testResolver);
+    expect(
+      decide(email(DAILY), parseRawHeaders(own), beehiiv, ownDkim),
+    ).toMatchObject({ kind: "issue" });
+  });
+
   it("drops an issue whose body was changed after signing", async () => {
     const raw = forwardedBy(
       OWNER,

@@ -13,7 +13,7 @@ import {
 import { type DnsResolver, liveResolver, verifyDkim } from "./dkim";
 import { cleanIssue } from "./extract";
 import { fetchRaw, fetchReceived } from "./resend";
-import { MAX_PER_DAY, saveIssue } from "./store";
+import { MAX_PER_DAY, saveIssue, tempFailCount } from "./store";
 
 /**
  * One email.received delivery: fetch the email and its raw message from
@@ -48,6 +48,8 @@ export type InboundResult = {
 };
 
 const DAY = 24 * 60;
+/** Temporary failures for one email before the owner hears about it. */
+export const TEMP_FAIL_ALERT_AFTER = 3;
 
 export async function handleReceived(
   emailId: string,
@@ -75,8 +77,17 @@ export async function handleReceived(
   const dkim = await verifyDkim(raw.raw, resolver);
   const v = decide(e, parseRawHeaders(raw.raw.toString("utf8")), cfg, dkim);
   if (v.kind === "drop" && v.retry) {
-    // DNS let us down: nothing stored, Resend tries again later.
+    // DNS let us down: nothing stored, Resend tries again later. Past
+    // 3 tries for one email, tell the owner (once a day).
     console.warn(`[inbox] ${emailId}: ${v.reason}`);
+    const tries = await tempFailCount(emailId).catch(() => 0);
+    if (tries > TEMP_FAIL_ALERT_AFTER)
+      alertLater({
+        key: "inbox:tempfail",
+        subject: "The newsletter inbox keeps failing to check an email",
+        text: `An email has failed its DKIM key lookup ${tries} times (${v.reason}). Nothing is stored until a retry succeeds. If DNS is fine, check the Vercel logs for [inbox].`,
+        everyMinutes: DAY,
+      });
     return { status: 503, outcome: "failed", reason: v.reason };
   }
   if (v.kind === "drop")

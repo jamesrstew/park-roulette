@@ -120,6 +120,22 @@ describe.skipIf(!local)("newsletter_issues, against Postgres", () => {
     });
   });
 
+  it("counts temporary failures per email, and prunes old counters", async () => {
+    await q("delete from alert_log where key like 'inbox:tempfail:%'");
+    expect(await store.tempFailCount("e1")).toBe(1);
+    expect(await store.tempFailCount("e1")).toBe(2);
+    expect(await store.tempFailCount("e2")).toBe(1);
+    await q(
+      "update alert_log set sent_at = now() - interval '8 days' where key = 'inbox:tempfail:e1'",
+    );
+    await store.pruneIssues();
+    expect(
+      (
+        await q("select key from alert_log where key like 'inbox:tempfail:%'")
+      ).map((r) => r.key),
+    ).toEqual(["inbox:tempfail:e2"]);
+  });
+
   it("prunes issues over 120 days old (by when they arrived)", async () => {
     const idOf = (r: import("./store").SaveResult) => (r.saved ? r.id : 0);
     const old = idOf(await store.saveIssue(issue()));

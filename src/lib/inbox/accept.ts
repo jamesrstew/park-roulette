@@ -321,8 +321,17 @@ export function decide(
       dkim.verified.some((v) =>
         marks.dkim.some((m) => underDomain(v.domain, m)),
       ) ||
+      // Its header counts only under a verified signature by the sender
+      // or the platform itself: an attacker's own domain can sign anything.
       marks.headers.some(
-        (n) => names.has(n) && dkim.verified.some((v) => v.headers.includes(n)),
+        (n) =>
+          names.has(n) &&
+          dkim.verified.some(
+            (v) =>
+              v.headers.includes(n) &&
+              (underDomain(domain, v.domain) ||
+                marks.dkim.some((m) => underDomain(v.domain, m))),
+          ),
       );
     if (!marked) return unverified(`no verified ${p} marks on ${from}`, dkim);
   }

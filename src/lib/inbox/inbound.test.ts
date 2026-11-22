@@ -1,6 +1,11 @@
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type InboxConfig, parseSenders, type ReceivedEmail } from "./accept";
-import { forwardedBy, signed, testResolver } from "./dkim.testkit";
+import {
+  downResolver,
+  forwardedBy,
+  signed,
+  testResolver,
+} from "./dkim.testkit";
 
 /**
  * One email.received delivery, end to end with Resend and the database
@@ -13,8 +18,13 @@ type Saved = Record<string, unknown>;
 const saved: Saved[] = [];
 let recentCount = 0;
 const alerts: { key: string; subject: string; text: string }[] = [];
+const tempFails = new Map<string, number>();
 vi.mock("./store", () => ({
   MAX_PER_DAY: 2,
+  tempFailCount: async (id: string) => {
+    tempFails.set(id, (tempFails.get(id) ?? 0) + 1);
+    return tempFails.get(id)!;
+  },
   saveIssue: async (i: Saved, opts: { maxPerDay?: number } = {}) => {
     if (saved.some((s) => s.source === i.source && s.messageId === i.messageId))
       return { saved: false, why: "duplicate" };
@@ -281,6 +291,19 @@ describe("handleReceived", () => {
     expect(
       (await handleReceived(ID, resend(email()), cfg, testResolver)).status,
     ).toBe(502);
+  });
+
+  it("answers 503 while DNS is down, and alerts past 3 tries for one email", async () => {
+    tempFails.clear();
+    const { handleReceived } = await import("./inbound");
+    for (let i = 1; i <= 3; i++)
+      expect(
+        await handleReceived(ID, resend(email()), cfg, downResolver),
+      ).toMatchObject({ status: 503, outcome: "failed" });
+    expect(alerts).toEqual([]);
+    await handleReceived(ID, resend(email()), cfg, downResolver);
+    expect(alerts.map((a) => a.key)).toEqual(["inbox:tempfail"]);
+    expect(saved).toEqual([]);
   });
 
   it("never fetches a raw link off Resend's hosts, or a raw message over 1 MB", async () => {
