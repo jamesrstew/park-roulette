@@ -71,29 +71,35 @@ export function titleOverlap(a: string, b: string): number {
   return n / Math.min(x.size, y.size);
 }
 
-/** Who a program is for, from its title: its qualifiers, and "family". */
+/**
+ * Who a program is for, from its title: its audience qualifiers and
+ * "family" (ages and grades aside: "Ages 3-5" narrows a program, it
+ * doesn't make another).
+ */
 function audience(title: string): Set<string> {
-  const a = new Set(qualifiers(title));
+  const a = new Set(
+    qualifiers(title).filter((q) => !/^(ages|grades)-/.test(q)),
+  );
   if (/\bfamil(y|ies)\b/i.test(title)) a.add("family");
   return a;
 }
 
 /**
  * Two titles that name different programs even though their words
- * overlap: both say who they're for, and say it differently ("Preschool
- * Story Time" and "Family Story Time", lesson 57; libraries run programs
- * in different rooms at one time). "Story Time" and "Preschool Story
- * Time" may be one program; "Santa Flies In" and "Santa Flies In by
- * AirLink" are one.
+ * overlap: both say who they're for, and neither audience holds the
+ * other ("Preschool Story Time" and "Family Story Time", lesson 57;
+ * libraries run programs in different rooms at one time). "Story Time"
+ * and "Preschool Story Time" may be one program; so may "Bilingual Story
+ * Time" and "Spanish Bilingual Story Time", or "Family Story Time" and
+ * "Family Story Time (Ages 0-5)".
  */
 export function titlesDiffer(a: string, b: string): boolean {
   const x = audience(a);
   const y = audience(b);
-  return (
-    x.size > 0 &&
-    y.size > 0 &&
-    (x.size !== y.size || [...x].some((w) => !y.has(w)))
-  );
+  if (!x.size || !y.size) return false;
+  const within = (p: Set<string>, q: Set<string>) =>
+    [...p].every((w) => q.has(w));
+  return !within(x, y) && !within(y, x);
 }
 
 const minutes = (t?: string) => {
@@ -122,12 +128,15 @@ const norm = (u: string) => u.replace(/#.*$/, "").replace(/\/$/, "");
  * Do two events share an official page? A known multi-program page
  * (catalog shared_calendar_pages: the library links every program to
  * deschuteslibrary.org/calendar/, and its kids' programs page lists
- * sixteen programs) never counts, in the link or in the per-date pages:
- * it lists dozens of programs, so two programs at one branch and time are
- * two pages, and their titles decide (lessons 33, 47 and 57). A per-date
- * page of its own (dpl.libnet.info/event/{id}) or any other shared link
- * does count. A newsletter issue is never one event's page (it lists
- * dozens), so listing evidence pages don't count either.
+ * sixteen programs) as a per-date check page never counts: its line
+ * proves only its own program and branch (lineNamesEventAt). As the
+ * event's link it doesn't count when both events have per-date checks of
+ * their own (dpl.libnet.info/event/{id}, or their own lines on the kids'
+ * programs page), so two programs at one branch and time are two pages
+ * and their titles decide (lessons 33, 47 and 57); when either has none,
+ * the shared link still counts. Any other shared link counts. A
+ * newsletter issue is never one event's page (it lists dozens), so
+ * listing evidence pages don't count either.
  */
 export function samePage(
   a: Pick<KnownEvent, "url" | "targetUrls">,
@@ -136,10 +145,13 @@ export function samePage(
   calendars: readonly string[] = CATALOG.shared_calendar_pages,
 ): boolean {
   const shared = new Set(calendars.map(norm));
-  const pages = (k: typeof a) =>
-    [k.url, ...k.targetUrls.filter((u) => !onList(u, listingDomains))]
-      .map(norm)
-      .filter((u) => !shared.has(u));
+  const own = (k: typeof a) =>
+    k.targetUrls.filter((u) => !onList(u, listingDomains)).map(norm);
+  const both = own(a).length > 0 && own(b).length > 0;
+  const pages = (k: typeof a) => [
+    ...(both && shared.has(norm(k.url)) ? [] : [norm(k.url)]),
+    ...own(k).filter((u) => !shared.has(u)),
+  ];
   const mine = new Set(pages(a));
   return pages(b).some((u) => mine.has(u));
 }

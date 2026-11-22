@@ -1,13 +1,21 @@
 import { addDays, pacific } from "@/lib/news/time";
 import { lineNamesEvent } from "./binding";
 import { onPage } from "./structured";
-import { lineNamesEventAt, organizerVerdict, pageNamesEvent } from "./validate";
+import {
+  lineNamesEventAt,
+  onMultiProgramPage,
+  organizerVerdict,
+  pageNamesEvent,
+  quotePrintsTime,
+} from "./validate";
 import {
   type EventDate,
   type EventRow,
   type EventStatus,
   lastEnd,
+  occurrenceId,
   pacificAt,
+  type StoredEvent,
   statusOn,
   upcomingDates,
 } from "./model";
@@ -71,15 +79,15 @@ export function judge(
   } = {},
 ): CheckOutcome {
   if (!r || r.blocked) return "unknown";
+  if (r.status === 404 || r.status === 410) return "miss";
+  if (r.status !== 200) return "unknown";
+  if (!r.text && !r.data) return "unknown"; // empty, or over the size cap
   if (
     opts.multiProgram &&
     opts.title &&
     !lineNamesEventAt(quote, opts.title, opts.multiProgram.venue)
   )
     return "unknown";
-  if (r.status === 404 || r.status === 410) return "miss";
-  if (r.status !== 200) return "unknown";
-  if (!r.text && !r.data) return "unknown"; // empty, or over the size cap
   // A data line counts only when it names the event (lib/events/binding.ts).
   if (onPage(r, quote, opts.title)) return "seen";
   if (opts.title && cancellationOf(r, opts.title)) return "canceled";
@@ -355,4 +363,45 @@ export function townEventsChangedAt(
         t.push(e.stateChangedAt.getTime());
       return t;
     });
+}
+
+/**
+ * Dates a stored event can no longer prove under today's rules: its
+ * day's check target is a line on a page of many programs that doesn't
+ * name the event at its venue (other_program: the nightly check leaves
+ * the page unknown), or is its line for another start that day
+ * (other_time: a day keeps one check line, so a second showing is
+ * expected here; check it's real). Run it
+ * (scripts/scan-unprovable-targets.mts) after any change to how evidence
+ * is judged, before the change ships: the nightly check would leave such
+ * a page unknown, and after 7 days it leaves the listing. Fix each by a
+ * re-hand with the right line (or the date's own page), or a trim when
+ * the date was never the event's. Pure.
+ */
+export function unprovableTargets(
+  e: Pick<StoredEvent, "title" | "venue" | "dates" | "targets">,
+  multiProgramPages: readonly string[],
+  today: string,
+): {
+  occurrence: string;
+  url: string;
+  quote: string;
+  /** other_program: never this event's line; other_time: its line, another start. */
+  why: "other_program" | "other_time";
+}[] {
+  const out: ReturnType<typeof unprovableTargets> = [];
+  for (const d of e.dates) {
+    if ((d.end_day ?? d.day) < today) continue;
+    const t = e.targets?.[d.day];
+    if (!t || !onMultiProgramPage(t.url, multiProgramPages)) continue;
+    const named = lineNamesEventAt(t.quote, e.title, e.venue.name);
+    if (named && (!d.start || quotePrintsTime(t.quote, d.start))) continue;
+    out.push({
+      occurrence: occurrenceId(d),
+      url: t.url,
+      quote: t.quote,
+      why: named ? "other_time" : "other_program",
+    });
+  }
+  return out;
 }

@@ -16,7 +16,7 @@ import {
   venueKey,
 } from "./model";
 import { machinePrintsDay, machinePrintsTime } from "./machine-time";
-import { flat, lineNamesEvent, namesByPhrase } from "./binding";
+import { lineNamesEvent, namesByPhrase } from "./binding";
 import { onPage } from "./structured";
 import {
   aliasPathProblem,
@@ -285,7 +285,7 @@ export function printedSpans(
   year: number,
 ): { from: string; to: string }[] {
   const q = quote.toLowerCase();
-  const mon = `(${MONTHS3.join("|")})[a-z]*\\.?`;
+  const mon = MONTH_WORD;
   const re = new RegExp(
     `\\b${mon}\\s+(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|to|through|until)\\s*(?:${mon}\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\b`,
     "g",
@@ -301,6 +301,81 @@ export function printedSpans(
 }
 
 /**
+ * A month as printed: its full name or a standard abbreviation ("Dec",
+ * "Dec.", "Sept"), a whole word ("Junior", "Market", "Novel" and
+ * "Decorate" are never months). Group 1 is the month's first three
+ * letters.
+ */
+const MONTH_WORD =
+  "(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)(?:uary|ruary|ch|il|e|y|ust|t|tember|ober|ember)?\\.?(?![a-z])";
+const MONTH_NAMES = new Set([
+  "jan",
+  "january",
+  "feb",
+  "february",
+  "mar",
+  "march",
+  "apr",
+  "april",
+  "may",
+  "jun",
+  "june",
+  "jul",
+  "july",
+  "aug",
+  "august",
+  "sep",
+  "sept",
+  "september",
+  "oct",
+  "october",
+  "nov",
+  "november",
+  "dec",
+  "december",
+]);
+/** Is this printed word a month ("Dec.", "Sept", "December")? */
+const isMonth = (w: string) =>
+  MONTH_NAMES.has(w.toLowerCase().replace(/\.$/, ""));
+
+/** A run's match in a text, where it is, and its days. */
+type Run = { from: string; to: string; at: number; end: number; year: boolean };
+
+function runsIn(text: string, year: number): Run[] {
+  const q = text.toLowerCase();
+  const re = new RegExp(
+    `\\b${MONTH_WORD}\\s+0?(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|to|through|thru)\\s*(?:${MONTH_WORD}\\s+)?0?(\\d{1,2})(?:st|nd|rd|th)?(?![\\d:]|\\s*[ap]\\.?\\s?m\\b)(?:,?\\s+(20\\d{2})\\b)?`,
+    "g",
+  );
+  const iso = (y: number, mm: number, dd: number) =>
+    `${y}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  const out: Run[] = [];
+  for (const x of q.matchAll(re)) {
+    // The words as printed must be months ("dec" in "decorate" is not).
+    const words = x[0].match(/[a-z]+\.?/g) ?? [];
+    if (!isMonth(words[0] ?? "") || (x[3] && !words.slice(1).some(isMonth)))
+      continue;
+    const m1 = MONTHS3.indexOf(x[1]) + 1;
+    const m2 = x[3] ? MONTHS3.indexOf(x[3]) + 1 : m1;
+    const d1 = Number(x[2]);
+    const d2 = Number(x[4]);
+    const y2 = x[5] ? Number(x[5]) : m2 < m1 ? year + 1 : year;
+    const y1 = m2 < m1 ? y2 - 1 : y2;
+    const from = iso(y1, m1, d1);
+    const to = iso(y2, m2, d2);
+    if (d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31 && from <= to)
+      out.push({
+        from,
+        to,
+        at: x.index ?? 0,
+        end: (x.index ?? 0) + x[0].length,
+        year: !!x[5],
+      });
+  }
+  return out;
+}
+
+/**
  * A run of dates as the organizer prints it, with its year: "December
  * 3–20, 2026" or "Nov 27 – Dec 6, 2026" (en dashes read as "-"). A year
  * after the run is the end's; with none printed, the run is read in the
@@ -311,68 +386,118 @@ export function printedRuns(
   text: string,
   year: number,
 ): { from: string; to: string }[] {
-  const q = normalizeText(text).toLowerCase();
-  const mon = `(${MONTHS3.join("|")})[a-z]*\\.?`;
-  const re = new RegExp(
-    `\\b${mon}\\s+0?(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|to|through|thru)\\s*(?:${mon}\\s+)?0?(\\d{1,2})(?:st|nd|rd|th)?(?![\\d:]|\\s*[ap]\\.?\\s?m\\b)(?:,?\\s+(20\\d{2})\\b)?`,
-    "g",
-  );
-  const iso = (y: number, mm: number, dd: number) =>
-    `${y}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
-  const out: { from: string; to: string }[] = [];
-  for (const x of q.matchAll(re)) {
-    const m1 = MONTHS3.indexOf(x[1]) + 1;
-    const m2 = x[3] ? MONTHS3.indexOf(x[3]) + 1 : m1;
-    const d1 = Number(x[2]);
-    const d2 = Number(x[4]);
-    const y2 = x[5] ? Number(x[5]) : m2 < m1 ? year + 1 : year;
-    const y1 = m2 < m1 ? y2 - 1 : y2;
-    const from = iso(y1, m1, d1);
-    const to = iso(y2, m2, d2);
-    if (d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31 && from <= to)
-      out.push({ from, to });
+  return runsIn(normalizeText(text), year).map(({ from, to }) => ({
+    from,
+    to,
+  }));
+}
+
+/** Weekdays a text names ("Thursdays", "Thu-Sun", "Fri & Sat"), 0 = Sunday. */
+export function namedWeekdays(text: string): Set<number> {
+  const t = text.toLowerCase();
+  const day =
+    "(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(?:day|nesday|sday|urday)?s?\\.?(?![a-z])";
+  const idx = (w: string) =>
+    ["sun", "mon", "tue", "wed", "thu", "fri", "sat"].indexOf(w.slice(0, 3));
+  const out = new Set<number>();
+  const range = new RegExp(`\\b${day}\\s*(?:-|to|through|thru)\\s*${day}`, "g");
+  for (const m of t.matchAll(range)) {
+    const a = idx(m[1]);
+    const b = idx(m[2]);
+    for (let i = a; ; i = (i + 1) % 7) {
+      out.add(i);
+      if (i === b) break;
+    }
   }
+  for (const m of t.matchAll(new RegExp(`\\b${day}`, "g"))) out.add(idx(m[1]));
   return out;
 }
 
+/** The event's title, or its stem, where the text prints it. */
+function titleSpots(
+  text: string,
+  title: string,
+): { at: number; end: number }[] {
+  const phrase = (x: string) =>
+    x
+      .toLowerCase()
+      .normalize("NFKD")
+      .replace(/[̀-ͯ]/g, "")
+      .replace(/&/g, " and ")
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+  const re = (words: string[]) =>
+    new RegExp(`(?<![a-z0-9])${words.join("[^a-z0-9]+")}(?![a-z0-9])`, "g");
+  const t = text.toLowerCase();
+  const out: { at: number; end: number }[] = [];
+  for (const w of [phrase(title), phrase(title.split(/[:(|]| - | – /)[0])])
+    if (w.length)
+      for (const m of t.matchAll(re(w)))
+        out.push({ at: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+  return out;
+}
+
+/** How near a run must be to the event's name: the same item. */
+export const RUN_NEAR_TITLE = 150;
+
 /**
- * Does an organizer's page print this date inside a run of dates ("December
- * 3–20, 2026") for this event? A run proves a date only for its own event:
- * - the run sits in a sentence (or data record) that names the event; or
- * - a listing quote names the event and prints this exact date, and the
- *   run sits in the sentence just before or after one that names it,
- *   with no run next to the event's name that leaves the date out.
- * Lessons 56 and 64: Cascades Theatrical prints its Scrooge show as
- * "December 3–20, 2026 By Gordon Greenberg & Steve Rosen Ebenezer
- * Scrooge's Big Bend Christmas Show!". A run alone, or one away from the
- * event's name, never proves a date.
+ * Does an organizer's page print this date inside the event's run of dates
+ * ("December 3–20, 2026", lessons 56 and 64)? Only as a cross-check of a
+ * listing quote that names the event and prints this exact date: a run
+ * never proves a date alone. The run must sit in the event's own item,
+ * within 150 characters of its name with no other date, run or item
+ * break (●, |) between; when that item names weekdays ("Thursdays",
+ * "Thu-Sun"), the date's must be one; and a run with no year counts only
+ * when the page prints the event's year and no other.
  */
 export function runCoversDate(
-  chunks: readonly string[],
+  page: { text: string; data?: string },
   day: string,
   title: string,
   listingQuotes: readonly string[] = [],
 ): boolean {
-  const year = Number(day.slice(0, 4));
-  const covers = (c: string) =>
-    [...printedRuns(c, year), ...printedRuns(c, year - 1)].some(
-      (r) => r.from <= day && day <= r.to,
-    );
-  const named = (c: string) =>
-    c.length <= 300 ? lineNamesEvent(c, title) : namesByPhrase(c, title);
-  const own = chunks.filter((c) => named(c) && printedRuns(c, year).length);
-  if (own.some(covers)) return true;
-  // The event's own run says otherwise: never another show's run.
-  if (own.length) return false;
-  const listed = listingQuotes.some(
-    (q) => lineNamesEvent(q, title) && quotePrintsDate(q, day),
-  );
-  return (
-    listed &&
-    chunks.some(
-      (c, i) => covers(c) && [i - 1, i + 1].some((j) => named(chunks[j] ?? "")),
+  if (
+    !listingQuotes.some(
+      (q) => lineNamesEvent(q, title) && quotePrintsDate(q, day),
     )
+  )
+    return false;
+  const year = Number(day.slice(0, 4));
+  const weekday = new Date(`${day}T12:00:00Z`).getUTCDay();
+  const texts = [page.text ?? "", ...(page.data ? page.data.split("\n") : [])];
+  const allText = texts.join("\n");
+  const years = new Set(allText.match(/\b20\d{2}\b/g) ?? []);
+  const yearOk = years.size === 1 && years.has(String(year));
+  const DATEISH = new RegExp(
+    `\\b${MONTH_WORD}\\s+\\d{1,2}\\b|\\b\\d{1,2}/\\d{1,2}\\b|[●|]`,
+    "i",
   );
+  for (const raw of texts) {
+    const text = normalizeText(raw);
+    const titles = titleSpots(text, title);
+    for (const y of [year, year - 1])
+      for (const r of runsIn(text, y)) {
+        if (!(r.from <= day && day <= r.to)) continue;
+        if (!r.year && !yearOk) continue;
+        for (const t of titles) {
+          const gap =
+            t.end <= r.at ? text.slice(t.end, r.at) : text.slice(r.end, t.at);
+          if (t.end > r.at && t.at < r.end) continue;
+          if (gap.length > RUN_NEAR_TITLE || DATEISH.test(gap)) continue;
+          // The item: from the first of the two to 150 characters past the
+          // last, up to the next item break or date.
+          const start = Math.min(t.at, r.at);
+          const last = Math.max(t.end, r.end);
+          let tail = text.slice(last, last + RUN_NEAR_TITLE);
+          const stop = tail.search(DATEISH);
+          if (stop >= 0) tail = tail.slice(0, stop);
+          const days = namedWeekdays(text.slice(start, last) + tail);
+          if (days.size && !days.has(weekday)) continue;
+          return true;
+        }
+      }
+  }
+  return false;
 }
 
 /**
@@ -607,12 +732,22 @@ export function lineNamesEventAt(
   venue: string,
 ): boolean {
   if (!lineNamesEvent(line, title)) return false;
-  // The venue after the program's name: the list prints "Title 9:30 AM ●
-  // Branch", and the line before it ends "Find <its branch>".
-  const l = flat(line);
-  const stem = flat(title.split(/[:(|]| - | – /)[0]);
-  const at = stem ? ` ${l} `.indexOf(` ${stem} `) : -1;
-  return lineNamesEvent(at >= 0 ? l.slice(at + stem.length) : l, venue);
+  // Only the first venue marker after the program's name counts: the list
+  // prints "Title 9:30 AM ● Branch ...", and the line before it ends
+  // "Find <its branch>", the line after it starts with the next date.
+  const text = normalizeText(line);
+  const spot = titleSpots(text, title)[0];
+  let rest = spot ? text.slice(spot.end) : text;
+  const NEXT = new RegExp(`\\b${MONTH_WORD}\\s+\\d{1,2}\\b`, "i");
+  const dot = rest.indexOf("●");
+  if (dot >= 0) {
+    rest = rest.slice(dot + 1);
+    const next = rest.indexOf("●");
+    if (next >= 0) rest = rest.slice(0, next);
+  }
+  const date = rest.search(NEXT);
+  if (date >= 0) rest = rest.slice(0, date);
+  return lineNamesEvent(rest, venue);
 }
 
 /** Everything that can be checked without the network. */
@@ -1211,7 +1346,7 @@ export function organizerVerdict(
   for (const d of ev.dates)
     if (
       !datePrinted(chunks, d.day, !!ev.recurring) &&
-      !runCoversDate(chunks, d.day, ev.title, ev.listingQuotes)
+      !runCoversDate(r, d.day, ev.title, ev.listingQuotes)
     )
       return cut(
         `names "${ev.title}" but doesn't print ${d.day}. Check the date`,

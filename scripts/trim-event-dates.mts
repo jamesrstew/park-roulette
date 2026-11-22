@@ -13,6 +13,12 @@
  * (day and start, as /admin shows it) or a bare day (every occurrence that
  * day). Without --apply it only reads (a read-only session) and prints the
  * plan. --apply on a database that isn't local also needs --prod.
+ *
+ * The app has no revalidate route: /events and the event pages show the
+ * trim within about an hour (the events cache, cacheLife "hours"), or at
+ * once when any app write expires the events tag (a hand-in, an /admin
+ * edit). The nightly check and the hand-in screen read the database, so
+ * they see it at once.
  */
 import { readFileSync } from "node:fs";
 import postgres from "postgres";
@@ -118,4 +124,7 @@ for (const t of todo) {
       : `${t.slug}: ${r.error}`,
   );
 }
+console.log(
+  "\n/events shows this within about an hour (the events cache), or at once after the next hand-in or /admin edit.",
+);
 process.exit(0);

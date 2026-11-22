@@ -1,0 +1,98 @@
+{
+  "events": [
+    {
+      "title": "Family Story Time",
+      "dates": [
+        {
+          "day": "2026-11-30",
+          "start": "09:30",
+          "end": "10:00"
+        },
+        {
+          "day": "2026-11-30",
+          "start": "17:30",
+          "end": "17:55"
+        },
+        {
+          "day": "2026-12-02",
+          "start": "09:30",
+          "end": "09:55"
+        },
+        {
+          "day": "2026-12-03",
+          "start": "09:30",
+          "end": "09:50"
+        },
+        {
+          "day": "2026-12-05",
+          "start": "10:30",
+          "end": "10:55"
+        },
+        {
+          "day": "2026-12-07",
+          "start": "09:30",
+          "end": "10:00"
+        },
+        {
+          "day": "2026-12-07",
+          "start": "17:30",
+          "end": "17:55"
+        },
+        {
+          "day": "2026-12-09",
+          "start": "09:30",
+          "end": "09:55"
+        }
+      ],
+      "venue": {
+        "name": "Central Library",
+        "town": "Bend",
+        "postal": "97702",
+        "street": "61956 SE Santorini St"
+      },
+      "setting": "indoor",
+      "what": "Little kids and their grown-ups share picture books, sing songs and do action rhymes together in a short, lively circle.",
+      "short": "Little kids and grown-ups share picture books, songs and rhymes",
+      "ages_text": "0-5 yrs.",
+      "organizer": {
+        "url": "https://www.deschuteslibrary.org/",
+        "name": "Deschutes Public Library"
+      },
+      "url": "https://www.deschuteslibrary.org/calendar/",
+      "evidence": [
+        {
+          "url": "https://www.deschuteslibrary.org/kids/programs",
+          "quote": "Nov 30 Story Time Family Story Time 9:30 AM - 10:00 AM ● Central Library - Youth Programing (2nd Floor) Interactive story time with books, songs and rhymes. 0-5 yrs."
+        },
+        {
+          "url": "https://www.deschuteslibrary.org/kids/programs",
+          "quote": "Nov 30 Story Time Family Story Time 5:30 PM - 5:55 PM ● Central Library - Youth Programing (2nd Floor) Interactive story time with books, songs and rhymes. 0-5 yrs."
+        },
+        {
+          "url": "https://www.deschuteslibrary.org/kids/programs",
+          "quote": "Dec 2 Story Time Family Story Time 9:30 AM - 9:55 AM ● Central Library - Youth Programing (2nd Floor) Interactive story time with books, songs and rhymes. 0-5 yrs."
+        },
+        {
+          "url": "https://www.deschuteslibrary.org/kids/programs",
+          "quote": "Dec 3 Family Program Story Time Family Story Time 9:30 AM - 9:50 AM ● Central Library Interactive story time with books, songs and rhymes. 0-5 yrs."
+        },
+        {
+          "url": "https://www.deschuteslibrary.org/kids/programs",
+          "quote": "Dec 5 Family Program Story Time Family Story Time 10:30 AM - 10:55 AM ● Central Library - Youth Programing (2nd Floor) Interactive story time with books, songs and rhymes. 0-5 yrs."
+        },
+        {
+          "url": "https://www.deschuteslibrary.org/kids/programs",
+          "quote": "Dec 7 Story Time Family Story Time 9:30 AM - 10:00 AM ● Central Library - Youth Programing (2nd Floor) Interactive story time with books, songs and rhymes. 0-5 yrs."
+        },
+        {
+          "url": "https://www.deschuteslibrary.org/kids/programs",
+          "quote": "Dec 7 Story Time Family Story Time 5:30 PM - 5:55 PM ● Central Library - Youth Programing (2nd Floor) Interactive story time with books, songs and rhymes. 0-5 yrs."
+        },
+        {
+          "url": "https://www.deschuteslibrary.org/kids/programs",
+          "quote": "Dec 9 Story Time Family Story Time 9:30 AM - 9:55 AM ● Central Library - Youth Programing (2nd Floor) Interactive story time with books, songs and rhymes. 0-5 yrs."
+        }
+      ]
+    }
+  ]
+}

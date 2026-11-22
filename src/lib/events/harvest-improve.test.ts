@@ -5,15 +5,15 @@ import { type FetchResult, pageText } from "@/lib/news/validate";
 import { RetroSchema } from "@/lib/news/lessons";
 import { dedupe, type KnownEvent, samePage, titlesDiffer } from "./dedupe";
 import { type EventInput } from "./model";
-import { judge, judgeListing } from "./state";
+import { judge, judgeListing, unprovableTargets } from "./state";
 import { onPage } from "./structured";
 import {
   type EventsContext,
   organizerVerdict,
-  pageChunks,
   printedRuns,
   quotePrintsDate,
   quotePrintsTime,
+  lineNamesEventAt,
   runCoversDate,
   validateEvents,
 } from "./validate";
@@ -46,12 +46,19 @@ const LISTED = (day: string, when: string) =>
   `${SCROOGE} | ${day}T${when}:00-08:00 | Cascades Theatrical Company`;
 
 describe("a date inside the organizer's printed run (lessons 56 and 64)", () => {
+  const listing = [LISTED("2026-12-12", "14:00")];
+  const at = (text: string, day = "2026-12-12", quotes = listing) =>
+    runCoversDate({ text }, day, SCROOGE, quotes);
+
   it("reads 'Month D–D, YYYY' and 'Month D – Month D, YYYY' as runs", () => {
     expect(printedRuns("December 3–20, 2026", 2026)).toEqual([
       { from: "2026-12-03", to: "2026-12-20" },
     ]);
     expect(printedRuns("Nov 27 – Dec 6, 2026", 2026)).toEqual([
       { from: "2026-11-27", to: "2026-12-06" },
+    ]);
+    expect(printedRuns("Sept. 4 - 6, 2026", 2026)).toEqual([
+      { from: "2026-09-04", to: "2026-09-06" },
     ]);
     expect(printedRuns("December 28 – January 3, 2027", 2026)).toEqual([
       { from: "2026-12-28", to: "2027-01-03" },
@@ -61,47 +68,93 @@ describe("a date inside the organizer's printed run (lessons 56 and 64)", () => 
     expect(printedRuns("Dec 6 10-11 am", 2026)).toEqual([]);
   });
 
-  it("passes a listing date inside the run when the run names the event (the real page)", () => {
+  it("never reads a word that starts like a month as one", () => {
+    for (const t of [
+      "Junior 8-12",
+      "Market 5 to 7",
+      "Novel 1-3",
+      "Decorate 2 to 4",
+      "Mayor 3-4",
+    ])
+      expect(printedRuns(t, 2026)).toEqual([]);
+  });
+
+  it("passes the real page's run only with the listing's exact date", () => {
     const r = page(CTC, { text: CTC_TEXT });
+    const dates = [{ day: "2026-12-03" }, { day: "2026-12-12" }];
     expect(
       organizerVerdict(r, {
         title: SCROOGE,
-        dates: [{ day: "2026-12-03" }, { day: "2026-12-12" }],
+        dates,
+        listingQuotes: [
+          LISTED("2026-12-03", "19:00"),
+          LISTED("2026-12-12", "14:00"),
+        ],
       }),
     ).toEqual({});
-    // Outside the run: cut, as before.
+    // The run alone, even beside the name: cut.
+    expect(organizerVerdict(r, { title: SCROOGE, dates }).cut).toMatch(
+      /doesn't print 2026-12-12/,
+    );
+    // Outside the run: cut.
     expect(
-      organizerVerdict(r, { title: SCROOGE, dates: [{ day: "2026-12-21" }] })
-        .cut,
+      organizerVerdict(r, {
+        title: SCROOGE,
+        dates: [{ day: "2026-12-21" }],
+        listingQuotes: [LISTED("2026-12-21", "19:00")],
+      }).cut,
     ).toMatch(/doesn't print 2026-12-21/);
   });
 
-  it("passes it next to the event's name when the listing prints that exact date", () => {
-    const text = `Now playing: ${SCROOGE}. December 3–20, 2026. Directed by Marilyn Magness.`;
-    const chunks = pageChunks({ text });
-    const listing = [LISTED("2026-12-12", "14:00")];
-    expect(runCoversDate(chunks, "2026-12-12", SCROOGE, listing)).toBe(true);
-    // Without the listing's exact date, a run in another sentence proves nothing.
-    expect(runCoversDate(chunks, "2026-12-12", SCROOGE)).toBe(false);
+  it("needs the run in the event's own item", () => {
     expect(
-      runCoversDate(chunks, "2026-12-12", SCROOGE, [
+      at(`${SCROOGE}. December 3–20, 2026. Directed by Marilyn Magness.`),
+    ).toBe(true);
+    // A listing quote that doesn't name the event, or no listing quote.
+    expect(at(`${SCROOGE} December 3–20, 2026`, "2026-12-12", [])).toBe(false);
+    expect(
+      at(`${SCROOGE} December 3–20, 2026`, "2026-12-12", [
         "Holiday shows | 2026-12-12T14:00:00-08:00",
       ]),
+    ).toBe(false);
+    // Over 150 characters away.
+    expect(
+      at(`${SCROOGE}. ${"Our cast and crew. ".repeat(9)}December 3–20, 2026.`),
     ).toBe(false);
   });
 
   it("never lets another show's run prove the date", () => {
-    const listing = [LISTED("2026-12-12", "14:00")];
-    // The event's own run leaves the date out.
-    const own = pageChunks({
-      text: `${SCROOGE} runs December 3–6, 2026. Then The Nutcracker runs December 10–20, 2026.`,
-    });
-    expect(runCoversDate(own, "2026-12-12", SCROOGE, listing)).toBe(false);
-    // A run far from the event's name.
-    const far = pageChunks({
-      text: `${SCROOGE}. Our cast. Our crew. Season tickets. Coming up: The Nutcracker, December 10–20, 2026.`,
-    });
-    expect(runCoversDate(far, "2026-12-12", SCROOGE, listing)).toBe(false);
+    // Another date (the event's own run) sits between the name and the run.
+    expect(
+      at(
+        `${SCROOGE} runs December 3–6, 2026. Then The Nutcracker runs December 10–20, 2026.`,
+      ),
+    ).toBe(false);
+    // Another item (●) between them.
+    expect(at(`${SCROOGE} ● The Nutcracker December 10–20, 2026`)).toBe(false);
+  });
+
+  it("holds the date to the weekdays the item names", () => {
+    const run = `${SCROOGE} December 3–20, 2026, Thursdays to Sundays at 7 pm`;
+    expect(at(run, "2026-12-12")).toBe(true); // a Saturday
+    const mon = [LISTED("2026-12-14", "19:00")];
+    expect(at(run, "2026-12-14", mon)).toBe(false); // a Monday
+    expect(
+      at(`${SCROOGE} December 3–20, 2026 · Thu-Sun`, "2026-12-14", mon),
+    ).toBe(false);
+    expect(
+      at(`${SCROOGE} December 3–20, 2026 · Fridays & Saturdays`, "2026-12-12"),
+    ).toBe(true);
+  });
+
+  it("takes a run with no year only when the page prints the event's year and no other", () => {
+    expect(at(`${SCROOGE} December 3–20. Tickets for the 2026 season.`)).toBe(
+      true,
+    );
+    expect(at(`${SCROOGE} December 3–20.`)).toBe(false);
+    expect(
+      at(`${SCROOGE} December 3–20. Tickets for the 2026 season. © 2025`),
+    ).toBe(false);
   });
 
   it("stores every listing date in the run end to end (before: all but opening night cut)", async () => {
@@ -226,6 +279,19 @@ describe("two programs at one venue, day and start (lessons 2, 26 and 57)", () =
       false,
     );
     expect(titlesDiffer("Family Story Time", "Family Storytime!")).toBe(false);
+    // One audience inside the other, or only ages apart: maybe one program.
+    expect(
+      titlesDiffer("Bilingual Story Time", "Spanish Bilingual Story Time"),
+    ).toBe(false);
+    expect(
+      titlesDiffer("Family Story Time", "Family Story Time (Ages 0-5)"),
+    ).toBe(false);
+    expect(
+      titlesDiffer(
+        "Toddler Story Time Ages 1-2",
+        "Toddler Story Time Ages 2-3",
+      ),
+    ).toBe(false);
   });
 
   it("warns, not cuts, Preschool Story Time against Family Story Time at Central Library", async () => {
@@ -249,6 +315,7 @@ describe("two programs at one venue, day and start (lessons 2, 26 and 57)", () =
         cal,
       ),
     ).toBe(false);
+    // Neither has a page of its own: the shared link still counts.
     expect(
       samePage(
         { url: CAL, targetUrls: [] },
@@ -256,7 +323,16 @@ describe("two programs at one venue, day and start (lessons 2, 26 and 57)", () =
         [],
         cal,
       ),
-    ).toBe(false);
+    ).toBe(true);
+    // One has no per-date check of its own: the shared link counts.
+    expect(
+      samePage(
+        { url: CAL, targetUrls: [] },
+        { url: CAL, targetUrls: ["https://dpl.libnet.info/event/1"] },
+        [],
+        cal,
+      ),
+    ).toBe(true);
     // One occurrence page is one event.
     expect(
       samePage(
@@ -453,6 +529,20 @@ describe("a multi-program page's line proves only its own program and branch", (
     expect(prefixed.ok).toBe(false);
   });
 
+  it("reads only the first venue after the program's name", () => {
+    // Two items in one quote: Family at Redmond, then Toddler at Central.
+    const two = `${REDMOND_LINE} Add to Calendar Find Redmond Library Dec 1 Story Time Toddler Story Time 10:30 AM - 10:55 AM ● Central Library - Youth Programing (2nd Floor)`;
+    expect(lineNamesEventAt(two, "Family Story Time", "Central Library")).toBe(
+      false,
+    );
+    expect(lineNamesEventAt(two, "Family Story Time", "Redmond Library")).toBe(
+      true,
+    );
+    expect(
+      lineNamesEventAt(CENTRAL_LINE, "Family Story Time", "Central Library"),
+    ).toBe(true);
+  });
+
   it("the program's own line at its own branch still proves it", async () => {
     const v = (
       await validateEvents(
@@ -478,9 +568,73 @@ describe("a multi-program page's line proves only its own program and branch", (
     expect(
       judge(r, CENTRAL_LINE, { title: "Family Story Time", multiProgram: at }),
     ).toBe("seen");
+    // A page that's gone is still a miss.
+    expect(
+      judge({ status: 404, text: "" }, PRESCHOOL_LINE, {
+        title: "Family Story Time",
+        multiProgram: at,
+      }),
+    ).toBe("miss");
     // Anywhere else, unchanged.
     expect(judge(r, PRESCHOOL_LINE, { title: "Family Story Time" })).toBe(
       "seen",
     );
+  });
+});
+
+describe("a stored target that stops proving its date is found before a deploy", () => {
+  const stored = {
+    title: "Family Story Time",
+    venue: { name: "Central Library", town: "Bend" },
+    dates: [
+      { day: "2026-11-30", start: "09:30" },
+      { day: "2026-12-02", start: "09:30" },
+      { day: "2026-12-12", start: "10:30" },
+      { day: "2026-11-20", start: "10:30" },
+    ],
+    targets: {
+      "2026-11-30": {
+        url: KIDS,
+        quote:
+          "Nov 30 Story Time Preschool Story Time 10:30 AM - 11:00 AM ● Central Library - Youth Programing (2nd Floor)",
+      },
+      "2026-12-02": {
+        url: KIDS,
+        quote:
+          "Dec 2 Story Time Family Story Time 9:30 AM - 9:55 AM ● Central Library - Youth Programing (2nd Floor)",
+      },
+      "2026-12-12": {
+        url: "https://dpl.libnet.info/event/16862854",
+        quote: "Saturday, December 12 10:30am - 10:55am",
+      },
+      "2026-11-20": {
+        url: KIDS,
+        quote: "Nov 20 Story Time Toddler Story Time",
+      },
+    },
+  };
+
+  it("lists the dates whose check line is another program's (id 3 after its trim)", () => {
+    expect(unprovableTargets(stored, [CAL, KIDS], "2026-11-22")).toEqual([
+      expect.objectContaining({
+        occurrence: "2026-11-30-0930",
+        url: KIDS,
+        why: "other_program",
+      }),
+    ]);
+    // Its own line at another time doesn't prove this start either.
+    expect(
+      unprovableTargets(
+        { ...stored, dates: [{ day: "2026-12-02", start: "17:30" }] },
+        [CAL, KIDS],
+        "2026-11-22",
+      ),
+    ).toEqual([expect.objectContaining({ why: "other_time" })]);
+  });
+
+  it("the scan script runs it on every stored event, read-only", () => {
+    const src = readFileSync("scripts/scan-unprovable-targets.mts", "utf8");
+    expect(src).toContain("unprovableTargets(");
+    expect(src).toContain("default_transaction_read_only: true");
   });
 });
