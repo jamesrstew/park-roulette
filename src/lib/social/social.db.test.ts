@@ -1284,4 +1284,32 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(calls).toEqual([]);
     expect((await echoRow(id)).echo_status).toBeNull();
   });
+
+  it("echo: a photo flagged while a publish is unanswered is never published again, and James is told", async () => {
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const { id, container } = await echoCreating();
+    expect(echoes.at(-1)?.cover).toMatch(/^stored:/);
+    publishFails = "5xx";
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("publishing");
+    expect(echoPublishes(container)).toHaveLength(1);
+    publishFails = "no";
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
+    ]);
+    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
+    const [row] = await q(
+      `select echo_status, echo_reason from social_posts where id = ${id}`,
+    );
+    expect(row.echo_status).toBe("skipped");
+    expect(String(row.echo_reason)).toMatch(/photo flagged/i);
+    expect(echoPublishes(container)).toHaveLength(1);
+    const told = alerts.filter((a) =>
+      /Story echo photo flagged/.test(a.subject),
+    );
+    expect(told).toHaveLength(1);
+    expect(told[0].key).toBe(`social:echo photo flagged:${id}`);
+  });
 });
