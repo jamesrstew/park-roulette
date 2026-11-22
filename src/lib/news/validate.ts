@@ -588,6 +588,10 @@ export function outingEventEvidence(
     return `The event "${w.event}" isn't a kids' event. Leave this outing out.`;
   if (row.confirm !== "ok")
     return `The event "${w.event}" couldn't be confirmed on its page lately. Quote the official page instead.`;
+  // Its evidence is a newsletter's listing (a page, or an issue in our
+  // inbox): never an issue's evidence.
+  if (e.verified_via === "listing")
+    return `The event "${w.event}" stands on a newsletter's listing. Quote the official page instead.`;
   const target = e.targets?.[date.day];
   const all = [
     ...(target ? [target] : []),

@@ -1,4 +1,5 @@
 import "server-only";
+import { issueForEvidence } from "@/lib/inbox/store";
 import { CATALOG } from "@/lib/news/catalog";
 import { fetchPage } from "@/lib/news/fetcher";
 import { publicParks } from "@/lib/seo-data";
@@ -17,6 +18,8 @@ export async function eventsContext(opts: {
       parks.map((p) => [p.slug, { lat: p.lat, lng: p.lng, name: p.name }]),
     ),
     fetcher: opts.network ? fetchPage : undefined,
+    // Newsletter issues in our inbox ("issue:<id>" evidence).
+    issue: opts.network ? issueForEvidence : undefined,
     ownHost: new URL(SITE_URL).hostname.replace(/^www\./, ""),
     now: opts.now ?? new Date(),
   };

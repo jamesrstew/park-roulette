@@ -5,6 +5,7 @@ import {
   type EventInput,
   EventInput as EventInputSchema,
   eventSlug,
+  issueId,
   kindOf,
   pacificToday,
   seriesKey,
@@ -72,6 +73,12 @@ export type EventsContext = {
   ownHost?: string;
   /** Gap between fetches on one host (tests set 0). */
   fetchGapMs?: number;
+  /**
+   * A stored newsletter issue (lib/inbox/store.ts), for "issue:<id>"
+   * evidence: its text and the day it was sent (Pacific). Set with the
+   * fetcher; null when it isn't stored (never stored, or pruned).
+   */
+  issue?: (id: number) => Promise<{ text: string; day: string } | null>;
   now: Date;
 };
 
@@ -764,8 +771,9 @@ export function checkEvent(
   const domains = eventDomains(ctx.catalog.link_domains, own);
   const quotes = e.evidence.map((x) => x.quote);
   const listing = e.verified_via === "listing";
+  // A newsletter's own page, or one of its issues in our inbox.
   const onListing = (u: string) =>
-    !!onList(u, ctx.catalog.listing_domains ?? []);
+    issueId(u) != null || !!onList(u, ctx.catalog.listing_domains ?? []);
   // A listing page lists dozens of events: its quotes prove a date, a
   // weekly pattern or a time only next to the event's name.
   // A page of many programs (the library's kids' programs list): only
@@ -921,6 +929,13 @@ export function checkEvent(
     p.push(
       'verified_via "listing" needs the newsletter\'s own listing of the event as evidence.',
     );
+  // An issue in our inbox lists dozens of events: every quote from it
+  // names the event (its date, time, price or ages only next to its name).
+  for (const x of e.evidence)
+    if (issueId(x.url) != null && !lineNamesEvent(x.quote, e.title))
+      p.push(
+        `The quote from ${x.url} "${x.quote.slice(0, 60)}" must name the event ("${e.title}").`,
+      );
   // A newsletter page lists dozens of events: a date from it proves this
   // event's date only next to its name (a listing event page's JSON-LD or
   // its "Title When Saturday, Nov 28 · 4pm", an issue's day line through
@@ -1410,6 +1425,60 @@ export function unreadable(
   };
 }
 
+/** Days an issue may run ahead of the event it lists. */
+export const ISSUE_MAX_AHEAD_DAYS = 42;
+
+/**
+ * Evidence from a newsletter issue in our inbox ("issue:<id>"), with the
+ * listing rules: the issue is stored, the quote is in its text (the same
+ * normalization as a web page), it names the event (checkEvent), a
+ * printed weekday is the date's own (checkEvent), and the issue was sent
+ * within 6 weeks before each date it proves (printed, or by a weekly
+ * pattern; the first date for a quote that proves none). Our "what" is
+ * never the issue's words. Returns the issue's day when it's stored and
+ * the quote is in it (networkChecks caps the event's dates with it).
+ */
+async function issueChecks(
+  e: EventInput,
+  x: EventInput["evidence"][number],
+  ctx: EventsContext,
+  problems: string[],
+): Promise<string | null> {
+  const id = issueId(x.url)!;
+  const issue = ctx.issue ? await ctx.issue(id) : null;
+  if (!issue) {
+    problems.push(
+      `${x.url} isn't a stored newsletter issue (GET /api/events/issues lists them).`,
+    );
+    return null;
+  }
+  if (!onPage({ text: issue.text }, x.quote)) {
+    problems.push(`The quote "${x.quote.slice(0, 60)}" isn't in ${x.url}.`);
+    return null;
+  }
+  if (EXCLUSIVE.test(x.quote))
+    problems.push(
+      `${x.url} says "${e.title}" is for guests, owners or members only. Leave it out.`,
+    );
+  const recurring = kindOf(e) === "series" || !!e.series_id;
+  const proven = e.dates.filter((d) =>
+    datePrinted([x.quote], d.day, recurring),
+  );
+  const first = [...e.dates].sort((a, b) => a.day.localeCompare(b.day))[0];
+  for (const d of proven.length ? proven : [first]) {
+    const ahead = daysBetween(issue.day, d.day);
+    if (ahead < 0 || ahead > ISSUE_MAX_AHEAD_DAYS)
+      problems.push(
+        `${x.url} (sent ${issue.day}) isn't within 6 weeks before ${d.day}.`,
+      );
+  }
+  if (containment(e.what, issue.text) >= COPY_LIMIT.discovery)
+    problems.push(
+      "The what-kids-do line is too close to the listing. Say it in our own words.",
+    );
+  return issue.day;
+}
+
 async function networkChecks(
   e: EventInput,
   ctx: EventsContext,
@@ -1443,7 +1512,7 @@ async function networkChecks(
       url: e.url,
       recurring: kindOf(e) === "series" || !!e.series_id,
       listingQuotes: e.evidence
-        .filter((x) => !!onList(x.url, listingHosts))
+        .filter((x) => issueId(x.url) != null || !!onList(x.url, listingHosts))
         .map((x) => x.quote),
     });
     if (why.cut) problems.push(why.cut);
@@ -1456,7 +1525,13 @@ async function networkChecks(
     problems.push(u.problem);
     blocked ??= u.blocked;
   }
+  const issueDays: string[] = [];
   for (const x of e.evidence) {
+    if (issueId(x.url) != null) {
+      const day = await issueChecks(e, x, ctx, problems);
+      if (day) issueDays.push(day);
+      continue;
+    }
     const onListing = listing && !!onList(x.url, listingHosts);
     const r = await get(
       x.url,
@@ -1520,6 +1595,16 @@ async function networkChecks(
       }
     }
   }
+  // An event standing on an issue: no date past 6 weeks after it (a
+  // series' later dates need a later issue, or another source).
+  if (issueDays.length) {
+    const cap = addDays(issueDays.sort().at(-1)!, ISSUE_MAX_AHEAD_DAYS);
+    for (const d of e.dates)
+      if (d.day > cap)
+        problems.push(
+          `${d.day} is more than 6 weeks after the issue it stands on (${cap} at most).`,
+        );
+  }
   // Our own words: never the listing's.
   if (listing)
     for (const x of e.evidence) {
@@ -1539,7 +1624,18 @@ async function networkChecks(
     problems.push(
       "The what-kids-do line copies the official page. Say it in our own words.",
     );
-  if (e.discovery_url) {
+  const discoveryIssue = e.discovery_url ? issueId(e.discovery_url) : null;
+  if (discoveryIssue != null) {
+    const d = ctx.issue ? await ctx.issue(discoveryIssue) : null;
+    if (!d)
+      problems.push(
+        `${e.discovery_url} isn't a stored issue, so the copy check couldn't run.`,
+      );
+    else if (containment(e.what, d.text) >= COPY_LIMIT.discovery)
+      problems.push(
+        "The what-kids-do line is too close to where we found the event. Write it from the official page.",
+      );
+  } else if (e.discovery_url) {
     const d = await get(e.discovery_url, [host(e.discovery_url)]);
     // A discovery page we can't read can't clear the copy check.
     if (!d || d.status !== 200)

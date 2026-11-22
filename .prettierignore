@@ -3,3 +3,4 @@ drizzle/meta
 data/raw
 .next
 src/lib/events/fixtures/*.html
+src/lib/inbox/__fixtures__

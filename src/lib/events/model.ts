@@ -19,8 +19,23 @@ const Text = (max: number, min = 1) => z.string().trim().min(min).max(max);
  * date and a time ("Dec 6 · 10:30am"), or a price or "free" with a date
  * or time ("Free · Dec 6", "$5 · 10 am").
  */
+/**
+ * A family newsletter's issue in our own inbox (lib/inbox), cited as
+ * evidence for a listing event: "issue:<id>". Never public: the checker
+ * reads the stored issue, and no page ever links or shows it.
+ */
+export const ISSUE_REF = /^issue:([1-9]\d{0,9})$/;
+const IssueRef = z.string().regex(ISSUE_REF, "Use issue:<id>");
+
+/** The stored issue's id when a link is an issue reference, else null. */
+export function issueId(u: string): number | null {
+  const m = ISSUE_REF.exec(u);
+  return m ? Number(m[1]) : null;
+}
+
 export const EventEvidence = z.strictObject({
-  url: Https,
+  /** The page, or a stored newsletter issue ("issue:<id>", listing events). */
+  url: z.union([Https, IssueRef]),
   quote: Text(400, 8),
 });
 
@@ -115,12 +130,16 @@ export const EventInput = z.strictObject({
    * or one organizer JSON or .ics record per date).
    */
   evidence: z.array(EventEvidence).min(1).max(30),
-  /** Where the writer found it (a roundup): never shown or linked. */
-  discovery_url: Https.optional(),
+  /**
+   * Where the writer found it (a roundup, or a stored newsletter issue as
+   * "issue:<id>"): never shown or linked.
+   */
+  discovery_url: z.union([Https, IssueRef]).optional(),
   /**
    * "listing": the organizer's site keeps our checker out (a bot wall, a
    * reset, a timeout), so the event stands on a local newsletter's own
-   * listing of it (its evidence), with the organizer's link as `url`.
+   * listing of it (its evidence: the newsletter's page, or its issue in
+   * our inbox as "issue:<id>"), with the organizer's link as `url`.
    * Never shown; the newsletter is never named or linked.
    */
   verified_via: z.enum(["listing"]).optional(),

@@ -1,5 +1,11 @@
 import { CATALOG, onList } from "@/lib/news/catalog";
-import { type EventDate, occurrenceId, qualifiers, venueKey } from "./model";
+import {
+  type EventDate,
+  issueId,
+  occurrenceId,
+  qualifiers,
+  venueKey,
+} from "./model";
 import { titleWords, type EventVerdict } from "./validate";
 
 /**
@@ -136,7 +142,8 @@ const norm = (u: string) => u.replace(/#.*$/, "").replace(/\/$/, "");
  * and their titles decide (lessons 33, 47 and 57); when either has none,
  * the shared link still counts. Any other shared link counts. A
  * newsletter issue is never one event's page (it lists dozens), so
- * listing evidence pages don't count either.
+ * listing evidence pages, and issues in our inbox ("issue:<id>"), don't
+ * count either.
  */
 export function samePage(
   a: Pick<KnownEvent, "url" | "targetUrls">,
@@ -146,7 +153,9 @@ export function samePage(
 ): boolean {
   const shared = new Set(calendars.map(norm));
   const own = (k: typeof a) =>
-    k.targetUrls.filter((u) => !onList(u, listingDomains)).map(norm);
+    k.targetUrls
+      .filter((u) => !onList(u, listingDomains) && issueId(u) == null)
+      .map(norm);
   const both = own(a).length > 0 && own(b).length > 0;
   const pages = (k: typeof a) => [
     ...(both && shared.has(norm(k.url)) ? [] : [norm(k.url)]),

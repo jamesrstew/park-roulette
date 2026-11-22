@@ -4,6 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 import { db } from "@/db";
 import { media } from "@/db/schema";
 import { alertLater } from "@/lib/alerts";
+import { pruneIssues } from "@/lib/inbox/store";
 import { newsDailyChecks } from "@/lib/news/sender";
 import { sweep } from "@/lib/sms";
 
@@ -14,6 +15,7 @@ import { sweep } from "@/lib/sms";
  * with no review. Anything over a day old with no `media` row goes.
  * Also Bend Playground Passport's part: alert if Thursday's sender never
  * ran, and delete old send logs, webhook ids and confirmation records.
+ * And the newsletter inbox's: stored issues over 120 days old go.
  */
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -50,6 +52,12 @@ async function cleanup() {
   await newsDailyChecks().catch((e) =>
     console.error("[cleanup] news checks failed", (e as Error)?.name),
   );
+  // Newsletter issues are kept 120 days (lib/inbox/store.ts).
+  const pruned = await pruneIssues().catch((e) => {
+    console.error("[cleanup] issue prune failed", (e as Error)?.name);
+    return 0;
+  });
+  if (pruned) console.info(`[cleanup] pruned ${pruned} newsletter issue(s)`);
   let cursor: string | undefined;
   let checked = 0;
   let deleted = 0;

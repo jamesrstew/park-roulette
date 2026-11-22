@@ -176,6 +176,13 @@
       "when": 1795317200410,
       "tag": "0024_story_echo",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795363643802,
+      "tag": "0025_newsletter_issues",
+      "breakpoints": true
     }
   ]
 }

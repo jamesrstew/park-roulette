@@ -1165,3 +1165,44 @@ export const parkEvidenceChecks = pgTable(
     ),
   ],
 );
+
+/**
+ * The two local family newsletters, as they arrive by email (lib/inbox):
+ * the owner's Gmail forwards only their two senders to our private
+ * inbound address, Resend receives it, and /api/inbound/email stores each
+ * issue here. The daily events harvest reads them (GET
+ * /api/events/issues, the ingest token), and an event verified on one
+ * cites it as `issue:<id>`. Never shown or linked anywhere public. Kept
+ * 120 days (pruned by the daily cleanup). `source` is an INBOX_SENDERS id,
+ * or "gmail-forwarding" for Gmail's forwarding-confirmation email (its
+ * code, for setup). One row per source and Message-ID.
+ */
+export const newsletterIssues = pgTable(
+  "newsletter_issues",
+  {
+    id: serial("id").primaryKey(),
+    source: text("source").notNull(),
+    /** The email's Message-ID header (a resend:<id> stand-in without one). */
+    messageId: text("message_id").notNull(),
+    subject: text("subject").notNull(),
+    /** The email's own Date header (when the newsletter sent it). */
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+    /** Cleaned: tracking pixels out, unsubscribe links cut, links unwrapped. */
+    html: text("html").notNull(),
+    /** The html as page text (lib/news/validate.ts pageText): quotes match it. */
+    text: text("text").notNull(),
+    /** Each link: its anchor text, then its target. */
+    links: jsonb("links")
+      .$type<{ text: string; url: string }[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    receivedAt: timestamp("received_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("newsletter_issues_message").on(t.source, t.messageId),
+    index("newsletter_issues_sent").on(t.sentAt),
+    index("newsletter_issues_received").on(t.receivedAt),
+  ],
+);

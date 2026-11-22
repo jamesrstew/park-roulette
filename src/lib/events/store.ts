@@ -5,6 +5,7 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { kidEventEdits, kidEventHandins, kidEvents } from "@/db/schema";
 import { fetchPage } from "@/lib/news/fetcher";
+import { issueForEvidence } from "@/lib/inbox/store";
 import { checkShort } from "./short";
 import { CATALOG, onList } from "@/lib/news/catalog";
 import type { EventVerdict } from "./validate";
@@ -20,6 +21,7 @@ import {
   type EventRow,
   type EventStatus,
   eventSlug,
+  issueId,
   keyStem,
   kindOf,
   lastEnd,
@@ -689,8 +691,15 @@ export const CHECK_BUDGET_MS = 240_000;
 export async function recheckEvents(
   now = new Date(),
   fetcher = fetchPage,
-  opts: { budgetMs?: number; concurrency?: number; gapMs?: number } = {},
+  opts: {
+    budgetMs?: number;
+    concurrency?: number;
+    gapMs?: number;
+    /** A stored newsletter issue ("issue:<id>" targets); tests stub it. */
+    issue?: typeof issueForEvidence;
+  } = {},
 ): Promise<{ checked: number; changed: string[]; left: number }> {
+  const loadIssue = opts.issue ?? issueForEvidence;
   const started = Date.now();
   const rows = await db
     .select()
@@ -721,11 +730,28 @@ export async function recheckEvents(
       const organizerUrl = (r.data as StoredEvent).url;
       // Both pages at once, so a listing check takes one fetch's time at
       // most, as the cron budget (lib/cron-budget.ts) assumes.
+      // An issue in our inbox is stable: while it's stored its text is
+      // the page (the quote is seen); once pruned, nothing answers
+      // (unknown, never a miss).
+      const inIssue = issueId(target!.url);
       const [page, organizer] = await Promise.all([
-        get(
-          target!.url,
-          listing ? [...domains, ...CATALOG.listing_domains] : domains,
-        ),
+        inIssue != null
+          ? loadIssue(inIssue)
+              .catch(() => null)
+              .then((i) =>
+                i
+                  ? {
+                      status: 200,
+                      finalUrl: target!.url,
+                      text: i.text,
+                      issued: i.day,
+                    }
+                  : null,
+              )
+          : get(
+              target!.url,
+              listing ? [...domains, ...CATALOG.listing_domains] : domains,
+            ),
         listing && target!.url !== organizerUrl
           ? get(organizerUrl, [...domains, siteOf(organizerUrl, domains)])
           : Promise.resolve(undefined),
@@ -762,7 +788,11 @@ export async function recheckEvents(
         listing
           ? listingUnseenDays(
               unseen,
-              page?.status === 200 ? issueDay(page.text) : null,
+              page && "issued" in page
+                ? page.issued
+                : page?.status === 200
+                  ? issueDay(page.text)
+                  : null,
               pacificToday(now),
             )
           : unseen,

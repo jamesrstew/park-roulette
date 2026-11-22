@@ -146,14 +146,19 @@ function Repair({ event: e }: { event: AdminEvent }) {
             <span>
               {d.day}
               {d.start ? ` ${d.start}` : ""}{" "}
-              <a
-                className="underline"
-                href={d.url}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                page
-              </a>
+              {d.url.startsWith("issue:") ? (
+                // A newsletter issue in our inbox: no public page to open.
+                <span>{d.url}</span>
+              ) : (
+                <a
+                  className="underline"
+                  href={d.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  page
+                </a>
+              )}
             </span>
           </label>
         ))}
