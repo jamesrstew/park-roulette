@@ -115,8 +115,9 @@ export const ParkProfile = z
     one_liner: z.string().trim().min(10).max(120).nullable(),
     /**
      * At a glance: one sentence, our words, what the park is like for a
-     * family with young kids (glanceProblems lists the rules). Shown on
-     * the park page when there's no one_liner.
+     * family with young kids (glanceProblems lists the rules). Park
+     * pages only, when there's no one_liner: never in posts, plans or
+     * the newsletter. Null when it would only repeat the feature list.
      */
     glance: z.string().trim().min(10).max(120).nullable().default(null),
     glance_source: z.enum(GLANCE_SOURCES).nullable().default(null),
@@ -375,8 +376,18 @@ const GLANCE_BANNED: [RegExp, string][] = [
     /\b(clean|cleanest|spotless|tidy|well[- ]maintained|well[- ]kept)\b/i,
     "an upkeep opinion",
   ],
-  [/\b(swim\w*|wad(e|ing)|lifeguards?)\b/i, "a swimming claim"],
+  [
+    /\b(swim\w*|wad(e|ing)|lifeguards?|tub(e|es|ing)|float\w*|surf\w*|kayak\w*|paddl\w*|raft\w*|shallow|gentle)\b/i,
+    "a water-activity claim",
+  ],
+  [
+    /\b(sunrises?|sunsets?|year[- ]round|seasonal|weekends?|permits?|calm|quiet|pretty|modern)\b/i,
+    "a timing, permit or opinion word",
+  ],
 ];
+
+/** "No" only as the lead of a park with no playground ("No playground: ..."). */
+export const NO_PLAYGROUND = /^No playground: /;
 
 /** Seasonal things a year-round glance never names (no splash pad in January). */
 export const SEASONAL_WORDS =
@@ -398,6 +409,8 @@ export function glanceProblems(
   if (/[.!?]\s+\S/.test(t) || t.includes(";"))
     out.push("more than one sentence");
   for (const [re, label] of GLANCE_BANNED) if (re.test(t)) out.push(label);
+  if (/\bno\b/i.test(t.replace(NO_PLAYGROUND, "")))
+    out.push('"no" (only a leading "No playground:")');
   for (const g of genericPhrases(t)) out.push(`generic: ${g}`);
   if (
     SEASONAL_WORDS.test(t) ||
@@ -431,6 +444,46 @@ export function genericPhrases(text: string): string[] {
   return GENERIC_PHRASES.filter(([re]) => re.test(t)).map(([, l]) => l);
 }
 
+/**
+ * Google-sourced traits and glances that age out within `days` (12
+ * months after they were written), for the monthly re-check email.
+ */
+export function expiringSoon(
+  profiles: ReadonlyMap<string, ParkProfile>,
+  now: Date,
+  days = 30,
+): { slug: string; what: string; until: string }[] {
+  const end = now.getTime() + days * 86_400_000;
+  const until = (day: string) => {
+    const d = new Date(`${day}T00:00:00Z`);
+    d.setUTCMonth(d.getUTCMonth() + GOOGLE_TRAIT_MONTHS);
+    return d;
+  };
+  const soon = (d: Date) => d.getTime() > now.getTime() && d.getTime() <= end;
+  const out: { slug: string; what: string; until: string }[] = [];
+  for (const [slug, p] of profiles) {
+    for (const t of p.traits)
+      if (t.source === "google_places" && soon(until(t.verified_on)))
+        out.push({
+          slug,
+          what: `trait: ${t.text}`,
+          until: until(t.verified_on).toISOString().slice(0, 10),
+        });
+    if (
+      p.glance &&
+      p.glance_on &&
+      p.glance_source !== "traits" &&
+      soon(until(p.glance_on))
+    )
+      out.push({
+        slug,
+        what: `glance: ${p.glance}`,
+        until: until(p.glance_on).toISOString().slice(0, 10),
+      });
+  }
+  return out;
+}
+
 /** Every evidence item in the profiles, for the monthly re-check. */
 export function allEvidence(
   profiles: ReadonlyMap<string, ParkProfile> = PROFILES,
@@ -451,7 +504,6 @@ export function planProfile(p: ParkProfile | undefined | null, month: number) {
   if (!p) return null;
   return {
     one_liner: oneLinerFor(p, month),
-    glance: glanceFor(p, month),
     traits: postTraits(p, month).map((t) => ({
       text: t.text,
       keys: t.keys,

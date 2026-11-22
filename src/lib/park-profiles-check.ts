@@ -11,6 +11,7 @@ import {
 } from "@/lib/news/validate";
 import {
   allEvidence,
+  expiringSoon,
   liveProfiles,
   type ParkProfile,
   PROFILES,
@@ -30,7 +31,8 @@ import {
  * trait drops out of posts, plans and park pages after 2 misses in a
  * row, and comes back the first time its quote is seen again. James gets
  * one rolling email (at most weekly) listing every dropped trait and
- * every page unknown 2 checks in a row; a notice the weekly window
+ * every page unknown 2 checks in a row (and, on the 1st, every
+ * Google-sourced trait or glance that ages out within 30 days); a notice the weekly window
  * swallowed goes out with the next allowed email.
  */
 
@@ -211,9 +213,14 @@ export type ProfileCheck = {
   unknown: string[];
   /** Pages unknown 2 checks in a row or more. */
   stuck: string[];
+  /** Google-sourced traits and glances aging out within 30 days. */
+  expiring: { slug: string; what: string; until: string }[];
   /** What happened to the email, when one was due. */
   notice: AlertOutcome | null;
 };
+
+/** The night the email also lists what's about to age out. */
+export const EXPIRY_DAY = 1;
 
 export const PROFILES_TAG = "park-evidence";
 
@@ -233,12 +240,14 @@ export async function recheckProfiles(
     store = dbStore,
     deadline = Date.now() + 60_000,
     notify = sendAlert,
+    now = new Date(),
   }: {
     fetcher?: Fetcher;
     profiles?: ReadonlyMap<string, ParkProfile>;
     store?: CheckStore;
     deadline?: number;
     notify?: (a: Alert) => Promise<AlertOutcome>;
+    now?: Date;
   } = {},
 ): Promise<ProfileCheck> {
   const pages = evidencePages(profiles);
@@ -269,12 +278,15 @@ export async function recheckProfiles(
     dropped: live.filter(confirmed).flatMap(traitsOn),
     unknown: results.filter((r) => r.status === "unknown").map((r) => r.url),
     stuck: live.filter(stuck).map((r) => r.url),
+    expiring: expiringSoon(profiles, now),
     notice: null,
   };
 
   // Email when something is due and not yet told; list everything open.
+  // On the 1st, anything Google-sourced that ages out within 30 days too.
   const told = live.filter((r) => confirmed(r) || stuck(r));
-  if (told.some((r) => !r.notifiedAt)) {
+  const expiryDue = dayOfMonth === EXPIRY_DAY && out.expiring.length > 0;
+  if (told.some((r) => !r.notifiedAt) || expiryDue) {
     out.notice = await notify({
       key: ALERT_KEY,
       subject: "Park signature traits need a look",
@@ -289,6 +301,12 @@ export async function recheckProfiles(
           ? [
               "These evidence pages couldn't be read 2 checks in a row or more (bot wall, timeout or error). Their traits still count:",
               ...out.stuck.map((u) => `- ${u}`),
+            ]
+          : []),
+        ...(out.expiring.length
+          ? [
+              "These were written from Google's summaries and stop showing on their date unless they're re-checked against a fresh fetch (scripts/park-profiles/google-places.mjs) and re-dated:",
+              ...out.expiring.map((e) => `- ${e.slug}: ${e.what} (${e.until})`),
             ]
           : []),
       ].join("\n"),

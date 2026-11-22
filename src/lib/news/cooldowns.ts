@@ -273,7 +273,9 @@ export function wheelPick(
   const month = Number(issueDate.slice(5, 7));
   const wheelLast = lastUsed(history, "wheel");
   const featuredLast = lastUsed(history, "featured");
-  const noPick = new Set(hints.filter((h) => h.no_pick).map((h) => h.slug));
+  const noPick = new Set(
+    hints.filter((h) => h.no_pick || h.closed).map((h) => h.slug),
+  );
   const snowOk = new Set(hints.filter((h) => h.snow_ok).map((h) => h.slug));
   const eligible = parks
     .filter(

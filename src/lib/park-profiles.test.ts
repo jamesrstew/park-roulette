@@ -4,12 +4,14 @@ import parks from "../../data/parks.json";
 import raw from "../../data/park-profiles.json";
 import { ATTRIBUTES } from "./features";
 import {
+  expiringSoon,
   glanceFor,
   glanceProblems,
   genericPhrases,
   hasKey,
   liveProfiles,
   MIN_POST_TRAITS,
+  NO_PLAYGROUND,
   NOT_KEYS,
   oneLinerFor,
   type ParkProfile,
@@ -25,6 +27,7 @@ import {
   words,
 } from "./park-profiles";
 import { postCandidates } from "./social/candidates";
+import { unbackedClaims } from "./social/validate";
 
 const ALL = parks as {
   slug: string;
@@ -32,6 +35,7 @@ const ALL = parks as {
   city: string;
   play: string;
   features: string[];
+  notes?: string | null;
 }[];
 const live = (slug: string) => PROFILES.get(slug)!;
 
@@ -179,7 +183,7 @@ describe("no shared 4-word runs with Google's text (local only)", () => {
           p.glance_source !== "traits" && existsSync(f)
             ? googleText(JSON.parse(readFileSync(f, "utf8")).details)
             : "";
-        const off = ungroundedGlance(slug, p, g);
+        const off = ungroundedGlance(parkOf(slug), p, g);
         if (off.length) bad.push(`${slug}: ${off.join(", ")}`);
       }
       expect(bad).toEqual([]);
@@ -192,21 +196,36 @@ describe("no shared 4-word runs with Google's text (local only)", () => {
  * (NOT_KEYS covers most; these are the rest).
  */
 const GLANCE_FILLER = new Set(
-  "no plus beside close toward as of or but there it's also kept named began home spot".split(
+  "no plus beside close toward as of or but there it's also kept named began home spot watch".split(
     " ",
   ),
 );
 
+/** Words that are claims even though NOT_KEYS lists them: sizes, "new", "best", numbers. */
+const GROUND_ALWAYS = new Set(
+  "small smaller smallest big bigger biggest large larger largest huge tiny giant new newer newest best one two three four five six seven eight nine ten".split(
+    " ",
+  ),
+);
+
+type GlancePark = {
+  name: string;
+  city: string;
+  play: string;
+  features: string[];
+  notes?: string | null;
+};
+
 /** Content words of a glance that none of its sources back (stems compared). */
 function ungroundedGlance(
-  slug: string,
-  p: ParkProfile,
+  park: GlancePark,
+  p: Pick<ParkProfile, "glance" | "traits">,
   google: string,
 ): string[] {
-  const park = ALL.find((x) => x.slug === slug)!;
   const ours = [
     park.name,
     park.city,
+    park.notes ?? "",
     park.play === "none" ? "no playground" : "",
     ...park.features.flatMap((f) => [
       f.replace(/_/g, " "),
@@ -217,12 +236,56 @@ function ungroundedGlance(
   const have = new Set(words(`${ours} ${google}`).map(stem));
   return words(p.glance ?? "").filter(
     (w) =>
-      !NOT_KEYS.has(w) &&
-      !GLANCE_FILLER.has(w) &&
-      !/^\d/.test(w) &&
-      !have.has(stem(w)),
+      !have.has(stem(w)) &&
+      (GROUND_ALWAYS.has(w) ||
+        /^\d/.test(w) ||
+        (!NOT_KEYS.has(w) && !GLANCE_FILLER.has(w))),
   );
 }
+
+const parkOf = (slug: string) => ALL.find((x) => x.slug === slug)!;
+
+describe("glance grounding (the check itself)", () => {
+  const park: GlancePark = {
+    name: "Example Park",
+    city: "Bend",
+    play: "playground",
+    features: ["picnic", "dog_park"],
+    notes: "A three-acre lake.",
+  };
+  const traits = [
+    {
+      text: "A pirate ship to climb",
+      keys: ["pirate ship"],
+      kind: "signature_structure" as const,
+      source: "official" as const,
+      evidence: [],
+      verified_on: "2026-11-21",
+    },
+  ];
+  const off = (glance: string, google = "") =>
+    ungroundedGlance(park, { glance, traits }, google);
+  it("passes words from traits, features, labels and notes", () => {
+    expect(
+      off("A pirate ship to climb, a dog park and picnic tables."),
+    ).toEqual([]);
+    expect(off("A three-acre lake with picnic tables.")).toEqual([]);
+  });
+  it("fails a word no source has, and passes it once Google's text has it", () => {
+    expect(off("A pirate ship and a pond.")).toEqual(["pond"]);
+    expect(off("A pirate ship and a pond.", "featuring a pond")).toEqual([]);
+  });
+  it("fails sizes, numbers, new and best no source backs", () => {
+    expect(off("A big pirate ship.")).toEqual(["big"]);
+    expect(off("A small new pirate ship.")).toEqual(["small", "new"]);
+    expect(off("Two pirate ships.")).toEqual(["two"]);
+    expect(off("A 3-mile trail.")).toContain("3");
+    expect(off("The best pirate ship.")).toEqual(["best"]);
+  });
+  it("passes a number a source has", () => {
+    expect(off("A pirate ship and a three-acre lake.")).toEqual([]);
+  });
+});
 
 /**
  * What most parks have: a google_places trait is for something
@@ -286,8 +349,31 @@ describe("google_places traits are distinctive", () => {
 });
 
 describe("at a glance", () => {
-  it("has one for every profiled park", () => {
-    for (const [slug, p] of PROFILES) expect(p.glance, slug).not.toBeNull();
+  it('says "No playground:" exactly when the park has none', () => {
+    for (const [slug, p] of PROFILES)
+      if (p.glance)
+        expect(NO_PLAYGROUND.test(p.glance), `${slug}: ${p.glance}`).toBe(
+          parkOf(slug).play === "none",
+        );
+  });
+  it("claims nothing the park's record doesn't back (the social validator's check)", () => {
+    const bad: string[] = [];
+    for (const [slug, p] of PROFILES)
+      if (p.glance) {
+        const c = unbackedClaims(p.glance, parkOf(slug).features, p.traits);
+        if (c.length) bad.push(`${slug}: ${c.join(", ")}`);
+      }
+    expect(bad).toEqual([]);
+  });
+  it("lists what Google-sourced items age out within 30 days", () => {
+    const at = new Date("2027-11-01T12:00:00Z");
+    const soon = expiringSoon(PROFILES, at).map((e) => e.slug);
+    expect(soon).toContain("american-legion-community-park-redmond");
+    expect(expiringSoon(PROFILES, new Date("2027-01-01T12:00:00Z"))).toEqual(
+      [],
+    );
+    for (const e of expiringSoon(PROFILES, at))
+      expect(e.until).toBe("2027-11-21");
   });
   it("keeps every glance to the rules: one sentence, no banned claim, nothing generic or seasonal", () => {
     const bad: string[] = [];
@@ -301,7 +387,7 @@ describe("at a glance", () => {
     const bad: string[] = [];
     for (const [slug, p] of PROFILES)
       if (p.glance_source === "traits") {
-        const off = ungroundedGlance(slug, p, "");
+        const off = ungroundedGlance(parkOf(slug), p, "");
         if (off.length) bad.push(`${slug}: ${off.join(", ")}`);
       }
     expect(bad).toEqual([]);
@@ -326,6 +412,14 @@ describe("at a glance", () => {
       "A sledding hill for little kids.",
       "Fun for all ages.",
       "A slide. And a swing.",
+      "Tubing and floating on the river.",
+      "Kayaking from the beach.",
+      "A gentle current and a shallow beach.",
+      "A quiet park with pretty views.",
+      "Modern play structures.",
+      "Sunset views, year-round.",
+      "Busy on weekends, permit needed.",
+      "No shade on the playground.",
     ])
       expect(glanceProblems(s).length, s).toBeGreaterThan(0);
     expect(glanceProblems("No playground: a riverside trail.")).toEqual([]);
@@ -575,7 +669,8 @@ describe("which traits count", () => {
     expect(p.one_liner).toMatch(/pirate ship/i);
     expect(p.traits[0].keys).toContain("pirate ship");
     expect(p.traits[0].evidence[0]).toMatch(/^https:/);
-    expect(p.glance).toMatch(/pirate ship/i);
+    // Glances are for park pages only: never in a plan.
+    expect(JSON.stringify(p)).not.toMatch(/glance/);
     expect(JSON.stringify(p)).not.toMatch(/"quote"/);
     expect(planProfile(undefined, 11)).toBeNull();
   });

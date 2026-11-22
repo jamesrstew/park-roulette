@@ -23,7 +23,7 @@ export function postCandidates(
 ): string[] {
   const kinds = (slug: string) => postKinds(profiles.get(slug), month);
   const noPick = new Set(
-    CATALOG.parks.filter((p) => p.no_pick).map((p) => p.slug),
+    CATALOG.parks.filter((p) => p.no_pick || p.closed).map((p) => p.slug),
   );
   const score = (slug: string) =>
     createHash("sha256").update(`${seed}:${slug}`).digest().readUInt32BE(0);

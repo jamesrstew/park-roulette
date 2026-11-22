@@ -1,4 +1,5 @@
-import { glanceFor, oneLinerFor } from "@/lib/park-profiles";
+import { CATALOG } from "@/lib/news/catalog";
+import { glanceFor, NO_PLAYGROUND, oneLinerFor } from "@/lib/park-profiles";
 import { currentProfiles } from "@/lib/park-profiles-check";
 import { pacific } from "@/lib/news/time";
 import type { Metadata } from "next";
@@ -17,7 +18,7 @@ import { ParkJsonLd } from "@/components/seo/ParkJsonLd";
 import { publicParks, townPageHref, townsOf } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
 import { townSlug } from "@/lib/towns";
-import { isCrossedOff } from "@/lib/features";
+import { isCrossedOff, playOf } from "@/lib/features";
 import { formatStars } from "@/lib/rating";
 
 type Props = {
@@ -68,8 +69,17 @@ async function ParkLoader({ params, searchParams }: Props) {
   ]);
   const profile = profiles.get(detail.park.slug);
   const month = Number(pacific(now).date.slice(5, 7));
-  // The traits one-liner when there is one; otherwise the at-a-glance line.
-  const oneLiner = oneLinerFor(profile, month) ?? glanceFor(profile, month);
+  // The traits one-liner when there is one; otherwise the at-a-glance line
+  // (not "No playground: ..." once the park's play says otherwise).
+  const glance = glanceFor(profile, month);
+  const oneLiner =
+    oneLinerFor(profile, month) ??
+    (glance && NO_PLAYGROUND.test(glance) !== (playOf(detail.park) === "none")
+      ? null
+      : glance);
+  const closed = CATALOG.parks.find(
+    (h) => h.slug === detail.park.slug && h.closed,
+  );
   const town = townsOf(all).find((t) => t.slug === townSlug(detail.park.city));
   const townLink = town ? townPageHref(town) : "/towns";
   return (
@@ -86,6 +96,11 @@ async function ParkLoader({ params, searchParams }: Props) {
           }}
         />
       )}
+      {closed?.note ? (
+        <p className="doodle-box mb-4 px-4 py-3 font-body text-sm">
+          {closed.note}
+        </p>
+      ) : null}
       <ParkView
         detail={detail}
         fixes={fixes}

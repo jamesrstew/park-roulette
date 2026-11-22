@@ -719,6 +719,7 @@
     {
       "slug": "columbia-park-bend",
       "no_pick": true,
+      "closed": true,
       "note": "Closed for bridge work until early summer 2027 (Bend Park and Rec).",
       "photo": {
         "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Columbia-Park-Ship-051211-10-1024x685.jpg",
@@ -1055,6 +1056,7 @@
     {
       "slug": "sylvan-park-bend",
       "no_pick": true,
+      "closed": true,
       "note": "Playground closed for renovation until late spring 2027 (Bend Park and Rec).",
       "photo": {
         "src": "https://www.bendparksandrec.org/wp-content/uploads/2015/05/Sylvan-Park-1-e1712683247297.jpg",

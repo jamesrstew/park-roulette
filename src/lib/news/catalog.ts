@@ -201,6 +201,11 @@ const ParkHint = z.object({
   snow_ok: z.boolean().default(false),
   /** Never the Wheel Pick (say, a park that's mostly a ball field). */
   no_pick: z.boolean().default(false),
+  /**
+   * Closed for now (construction, a renovation): never a post or a pick,
+   * and the park page shows the note.
+   */
+  closed: z.boolean().default(false),
   note: z.string().optional(),
   /**
    * A photo the plan can offer for this park (bendparksandrec.org's own

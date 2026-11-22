@@ -224,6 +224,52 @@ describe("the monthly evidence re-check", () => {
     expect(r4.notice).toBeNull();
     expect(store.rows.get("https://example.org/b")!.unknownStreak).toBe(4);
   });
+  it("lists Google-sourced traits and glances aging out within 30 days, on the 1st only", async () => {
+    const base = profile("https://example.org/c", QA);
+    const profiles = new Map([
+      [
+        "c-park",
+        {
+          ...base,
+          traits: [
+            ...base.traits,
+            {
+              text: "A hillside slide",
+              keys: ["hillside slide"],
+              kind: "signature_structure" as const,
+              source: "google_places" as const,
+              evidence: [],
+              verified_on: "2025-12-10",
+            },
+          ],
+          glance: "A pirate ship and a hillside slide.",
+          glance_source: "both" as const,
+          glance_on: "2025-12-20",
+        },
+      ],
+    ]);
+    const store = memStore();
+    const fetcher = async (url: string) => res({ finalUrl: url, text: QA });
+    const sent: string[] = [];
+    const notify = async (a: { text: string }) => {
+      sent.push(a.text);
+      return "sent" as const;
+    };
+    const now = new Date("2026-12-01T12:00:00Z");
+    const opts = { fetcher, profiles, store, notify, now };
+    const r2 = await recheckProfiles(2, opts);
+    expect(r2.expiring).toHaveLength(2);
+    expect(sent).toEqual([]);
+    const r1 = await recheckProfiles(1, opts);
+    expect(r1.notice).toBe("sent");
+    expect(sent[0]).toMatch(/c-park: trait: A hillside slide \(2026-12-10\)/);
+    expect(sent[0]).toMatch(/c-park: glance: .* \(2026-12-20\)/);
+    const later = await recheckProfiles(1, {
+      ...opts,
+      now: new Date("2026-06-01T12:00:00Z"),
+    });
+    expect(later.expiring).toEqual([]);
+  });
   it("drops a trait whose quote is confirmed gone from the live profiles", async () => {
     const store = memStore();
     const now = new Date("2026-11-21T12:00:00Z");

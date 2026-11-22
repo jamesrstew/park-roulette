@@ -138,8 +138,8 @@
       }
     ],
     "one_liner": "Bend's first park bouldering area, a 0.9-mile paved loop and Cascade views",
-    "glance": "Boulders to climb, a 0.9-mile paved loop and Cascade views, with a dog park beside the playground.",
-    "glance_source": "both",
+    "glance": "Boulders to climb, a 0.9-mile paved loop, Cascade views and a dog park.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -154,9 +154,9 @@
     "place_id": "ChIJhVdvefPHuFQRanxLO-yqPsk",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a park with a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true
@@ -180,7 +180,7 @@
       }
     ],
     "one_liner": "A small playground with regional views to the south and east",
-    "glance": "A small neighborhood playground and picnic tables, with regional views to the south and east.",
+    "glance": "A neighborhood playground and picnic tables, with regional views to the south and east.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -194,7 +194,7 @@
     "place_id": "ChIJ53nNryzGuFQRF3EVH5AQvLc",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: three river channels of rapids for surfing and tubing, plus picnic tables.",
+    "glance": "No playground: a river park with 3 channels of rapids to watch, plus picnic tables.",
     "glance_source": "google_summary",
     "glance_on": "2026-11-21",
     "facts": {
@@ -235,7 +235,7 @@
       }
     ],
     "one_liner": "A pump track, bike skills course and BMX track next to the playground and a perimeter trail",
-    "glance": "A BMX track, pump track and dog park, plus a flat gravel perimeter trail around the playground.",
+    "glance": "A flat gravel perimeter trail around the whole park, plus a dog park and sports fields.",
     "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
@@ -277,7 +277,7 @@
       }
     ],
     "one_liner": "Big lawns under shade trees, near the Deschutes River Trail and the canal trail",
-    "glance": "A playground next to big lawns under shade trees, near the Deschutes River Trail and the canal trail.",
+    "glance": "A playground next to big lawns under shade trees.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -318,7 +318,7 @@
       }
     ],
     "one_liner": "Trails through rock outcroppings with mountain and desert views",
-    "glance": "A playground with trails through rock outcroppings and mountain and desert views.",
+    "glance": "A playground with rock outcroppings and mountain and desert views.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -332,8 +332,8 @@
     "place_id": "ChIJCx-zjZzIuFQRepsfTkU8v_g",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a riverfront lawn with memorials and picnic tables.",
-    "glance_source": "google_summary",
+    "glance": "No playground: home of the Bend Heroes Memorial plaza, with picnic tables.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -400,9 +400,9 @@
     "place_id": "ChIJ4wICWnu5uFQR244R4dPBMqw",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a natural area with a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -512,8 +512,8 @@
     "place_id": "ChIJm_62OmjIuFQRFFpWc5J8CKE",
     "traits": [],
     "one_liner": null,
-    "glance": "A walking trail around a small pond, with a dog park, courts and picnic tables.",
-    "glance_source": "both",
+    "glance": "A natural play area by a three-acre lake, with a walking trail, a dog park and courts.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -527,17 +527,17 @@
     "place_id": "ChIJt_jIyZzIuFQRftEyYXW6je0",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a river access spot.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {}
   },
   "drake-park-and-mirror-pond-bend": {
     "place_id": "ChIJ0X9o4ILIuFQR600tZYpGJXM",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: riverside walking paths and green spaces on Mirror Pond, with picnic tables.",
-    "glance_source": "both",
+    "glance": "No playground: flat paved paths along Mirror Pond, with picnic tables.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -762,9 +762,9 @@
     "place_id": "ChIJ0WrrDlXGuFQR7ZNwtLKh84g",
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood playground with shade and picnic tables.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -776,9 +776,9 @@
     "place_id": "ChIJ8T56JmXGuFQRT1jsw0fPjQo",
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood playground with shade and picnic tables close by.",
-    "glance_source": "both",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -891,9 +891,9 @@
     "place_id": "ChIJfUK6z9TIuFQRU8mgnw4Blgg",
     "traits": [],
     "one_liner": null,
-    "glance": "A grassy neighborhood spot with shade, picnic tables and a playground.",
-    "glance_source": "both",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -902,7 +902,7 @@
     }
   },
   "hillside-park-bend": {
-    "place_id": "ChIJV1F1n5PIuFQRmbCm4CY-Epk",
+    "place_id": null,
     "traits": [
       {
         "text": "Panoramic views from the side of Awbrey Butte",
@@ -954,9 +954,9 @@
     "place_id": "ChIJ_z7W24_IuFQR26XD1w3RM9c",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a shady park with a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -968,9 +968,9 @@
     "place_id": "ChIJQ-q6X9PHuFQRVvVeL9amnEQ",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a small neighborhood park.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -982,8 +982,8 @@
     "place_id": "ChIJSWoL4qvIuFQRrF70dzk0eoo",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a dog park, a restored barn and gardens, with a trail and picnic tables.",
-    "glance_source": "google_summary",
+    "glance": "No playground: an off-leash dog area, a historic barn and gardens, with a trail.",
+    "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -1010,9 +1010,9 @@
       }
     ],
     "one_liner": "Paths from the playground to the River Canyon Natural Area",
-    "glance": "A shady playground with paths to the River Canyon Natural Area.",
-    "glance_source": "both",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1219,7 +1219,7 @@
       }
     ],
     "one_liner": "A shady perimeter sidewalk loop around the playground",
-    "glance": "A shady perimeter sidewalk loop around the playground, plus courts and picnic tables.",
+    "glance": "A perimeter sidewalk loop, plus courts and picnic tables.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -1313,8 +1313,8 @@
     "place_id": "ChIJZz5fVdPHuFQRKrQUWcd90x8",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a riverside park with walking trails and Canada geese sculptures.",
-    "glance_source": "google_summary",
+    "glance": "No playground: a river beach next to the Whitewater Park, with Canada geese sculptures.",
+    "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -1370,7 +1370,7 @@
       }
     ],
     "one_liner": "Mountain and Pilot Butte views, with fully accessible walking trails",
-    "glance": "A playground with mountain and Pilot Butte views from its walking trails, plus a basketball court.",
+    "glance": "A playground with mountain and Pilot Butte views, plus a basketball court.",
     "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
@@ -1523,9 +1523,9 @@
     "place_id": "ChIJAyKDcfXJuFQRCk3mZXZ24K8",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: athletic fields and courts.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "wheelchair_accessible_entrance": true,
       "wheelchair_accessible_parking": true
@@ -1535,9 +1535,9 @@
     "place_id": "ChIJ01mOjZ7IuFQRYdEaYFaVd1Q",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a quiet park with a trail and pretty views.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1549,9 +1549,9 @@
     "place_id": "ChIJiYk8jIPIuFQRIvCG28aEbe4",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a shady park with picnic tables and pretty views.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1560,7 +1560,7 @@
     }
   },
   "pilot-butte-neighborhood-park-bend": {
-    "place_id": "ChIJEwH92xrGuFQRF91IBps6fxA",
+    "place_id": null,
     "traits": [
       {
         "text": "At the foot of the Pilot Butte scenic viewpoint",
@@ -1593,13 +1593,7 @@
     "glance": "A playground at the foot of Pilot Butte, at the Larkspur Trail trailhead.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
-    "facts": {
-      "allows_dogs": true,
-      "good_for_children": true,
-      "wheelchair_accessible_entrance": true,
-      "wheelchair_accessible_parking": true,
-      "wheelchair_accessible_restroom": true
-    }
+    "facts": {}
   },
   "pine-nursery-park-bend": {
     "place_id": "ChIJH9k4eT_PuFQRq646pxi59NM",
@@ -1662,7 +1656,7 @@
       }
     ],
     "one_liner": "An all-abilities playground beside a pond stocked with fish",
-    "glance": "A pond stocked with fish, a big off-leash dog area and a Wildside fort zone by the playground.",
+    "glance": "A pond stocked with fish, a 14-acre off-leash dog area and a Wildside fort zone.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -1705,8 +1699,8 @@
     "place_id": "ChIJkTfiw5jIuFQRXgeE0sXsWsA",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a riverfront walking trail, a footbridge and a rose garden.",
-    "glance_source": "google_summary",
+    "glance": "No playground: a riverfront picnic park next to the rose garden.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -1760,7 +1754,7 @@
       }
     ],
     "one_liner": "Two skateparks and the Coyner Trail to Juniper Park",
-    "glance": "Two skateparks, courts and the Coyner Trail to Juniper Park, beside the playground.",
+    "glance": "Two skateparks, courts and the Coyner Trail to Juniper Park.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -1775,9 +1769,9 @@
     "place_id": "ChIJ87kCDOTFuFQROlcYv_A1NBM",
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood playground with a basketball court and picnic tables.",
-    "glance_source": "both",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1803,7 +1797,7 @@
       }
     ],
     "one_liner": "Half the park kept as native conifer forest",
-    "glance": "Half the park kept as native conifer forest, with courts for basketball and pickleball by the playground.",
+    "glance": "Half the park kept as native conifer forest, with courts for basketball and pickleball.",
     "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
@@ -1830,8 +1824,8 @@
     "place_id": "ChIJ3WAIbojHuFQR61HPbm6NLJg",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a loop trail of 3 miles by the Deschutes River, under pine trees.",
-    "glance_source": "google_summary",
+    "glance": "No playground: a natural area under pines by the Deschutes.",
+    "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -1842,9 +1836,9 @@
     "place_id": "ChIJ7ykr9nm4uFQRpS_b99INdEI",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a park site with a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -1855,7 +1849,7 @@
     "place_id": "ChIJITacrs3HuFQRSH0bHZpQbss",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a sandy river beach on the Deschutes, with lawns, trails and a dog park.",
+    "glance": "No playground: river lawns and a picnic shelter in the Old Mill, with a sandy beach and a dog park.",
     "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
@@ -1869,8 +1863,8 @@
     "place_id": "ChIJz5L2oLnIuFQRMON-w92yCkI",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a fishing area with pretty views and picnic tables.",
-    "glance_source": "both",
+    "glance": "No playground: a fishing spot with views and picnic tables.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -2001,7 +1995,7 @@
       }
     ],
     "one_liner": "A canyon-rim playground with a trail down to the Deschutes River Trail",
-    "glance": "A canyon-rim playground with a trail down to the Deschutes River Trail.",
+    "glance": "A canyon-rim playground by a steep ravine, with a trail down.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -2015,8 +2009,8 @@
     "place_id": "ChIJNzW_rjbIuFQRnLICSeRHcPg",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a preserve of 652 acres with hiking trails and picnic sites.",
-    "glance_source": "google_summary",
+    "glance": "No playground: Bend's big forest park, with trails, Tumalo Creek and a fishing pond for kids.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -2169,9 +2163,9 @@
     "place_id": "ChIJWyWVpezIuFQRwy6dVirN8-4",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: courts, picnic tables and a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2183,9 +2177,9 @@
     "place_id": "ChIJe_ZpGarHuFQRPlVs-IhrpP0",
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood playground with shade, courts and picnic tables.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2197,9 +2191,9 @@
     "place_id": "ChIJ7xvIV3vIuFQRZFBSid2qqK4",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a park with a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true
@@ -2291,9 +2285,9 @@
     "place_id": "ChIJ62TSv2fLuFQRlphO7a9yIh4",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a small neighborhood park.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true
@@ -2358,9 +2352,9 @@
     "place_id": "ChIJSZIQQMjYvlQRoC8fcSnsq94",
     "traits": [],
     "one_liner": null,
-    "glance": "A playground at Crooked River Ranch.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2383,19 +2377,10 @@
           }
         ],
         "verified_on": "2026-11-21"
-      },
-      {
-        "text": "A summer splash pad",
-        "keys": ["splash pad"],
-        "kind": "splash_pad",
-        "source": "google_places",
-        "evidence": [],
-        "verified_on": "2026-11-21",
-        "season": [5, 6, 7, 8, 9]
       }
     ],
     "one_liner": "A new skate park and pump track, opened in 2025",
-    "glance": "A new skate park and pump track, plus courts and picnic tables near the playground.",
+    "glance": "A skate park and pump track, plus courts and picnic tables.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -2409,8 +2394,8 @@
     "place_id": "ChIJ07J40EZ9x1QRfnUZ5ZnttQ0",
     "traits": [],
     "one_liner": null,
-    "glance": "Playgrounds and picnic tables at a sports park with pickleball courts and baseball fields.",
-    "glance_source": "google_summary",
+    "glance": "A La Pine sports complex with pickleball courts, ball fields and playgrounds.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -2514,9 +2499,9 @@
       }
     ],
     "one_liner": "Water play features next to the playground",
-    "glance": "A playground with a little kid area, shade, courts and picnic tables.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2555,7 +2540,7 @@
       }
     ],
     "one_liner": "Crooked River access and a covered outdoor amphitheater",
-    "glance": "Crooked River access, a covered outdoor amphitheater and a dog park by the playground.",
+    "glance": "Crooked River access, a covered outdoor amphitheater and a dog park.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -2761,7 +2746,7 @@
     }
   },
   "stryker-park-prineville": {
-    "place_id": "ChIJH2qjyUEyuVQRQ8VOTf2WIQw",
+    "place_id": null,
     "traits": [
       {
         "text": "An inclusive playground added in 2024",
@@ -2814,7 +2799,7 @@
     "place_id": "ChIJWc7get4zuVQRBHMUUpGOeuI",
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood park with a big playground, shade and picnic tables.",
+    "glance": "A large playground in a neighborhood park, with shade and picnic tables.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
@@ -2872,9 +2857,9 @@
     "place_id": "ChIJVVVViC0rv1QRSrPAl2UQBr4",
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood playground with picnic tables and a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2886,9 +2871,9 @@
     "place_id": "ChIJY4EDyf0rv1QRfao4lObgIRw",
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a park with shade.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "good_for_children": true,
       "wheelchair_accessible_entrance": true,
@@ -2900,9 +2885,9 @@
     "place_id": "ChIJq6qqi4Uqv1QR3K3sEZz1A7Y",
     "traits": [],
     "one_liner": null,
-    "glance": "A playground with courts, picnic tables and a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2914,9 +2899,9 @@
     "place_id": "ChIJL8JWIx8rv1QRghnnBa2wimU",
     "traits": [],
     "one_liner": null,
-    "glance": "A quiet neighborhood playground with grassy space, courts, picnic tables and a trail.",
-    "glance_source": "both",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2928,9 +2913,9 @@
     "place_id": "ChIJ_zC1uE4rv1QRLARm4GqAxnU",
     "traits": [],
     "one_liner": null,
-    "glance": "Modern play structures with picnic tables in a neighborhood park.",
-    "glance_source": "google_summary",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -2954,9 +2939,9 @@
     "place_id": "ChIJAQAAGS8rv1QRfVyfiVY9xvQ",
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood playground with courts and picnic tables.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true
@@ -2980,7 +2965,7 @@
       }
     ],
     "one_liner": "Skate dots and horseshoe pits next to the playground",
-    "glance": "Skate dots and horseshoe pits beside the playground, with a covered picnic spot.",
+    "glance": "Skate dots, horseshoe pits and a covered picnic spot.",
     "glance_source": "both",
     "glance_on": "2026-11-21",
     "facts": {
@@ -3086,39 +3071,39 @@
     "place_id": null,
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood playground with picnic tables and a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {}
   },
   "umatilla-sports-complex-redmond": {
     "place_id": "ChIJq6qqVrLUuFQRysW56wpAmuM",
     "traits": [],
     "one_liner": null,
-    "glance": "A playground at the sports fields, with picnic tables and a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "wheelchair_accessible_entrance": true,
       "wheelchair_accessible_parking": true
     }
   },
   "varnish-park-redmond": {
-    "place_id": "ChIJt-O8f2Qqv1QRvZZ7sh-huvY",
+    "place_id": null,
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood playground with courts, picnic tables and a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {}
   },
   "west-canyon-rim-park-redmond": {
     "place_id": "ChIJVVWV7uUqv1QR0rb1bHSPhw0",
     "traits": [],
     "one_liner": null,
-    "glance": "A playground with courts and picnic tables, on a trail.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {
       "allows_dogs": true,
       "good_for_children": true,
@@ -3156,8 +3141,8 @@
       }
     ],
     "one_liner": "The first swing set in a Sisters city park, plus rotating cups",
-    "glance": "A quiet park with rotating cups, swings and slides, home to the first swing set in a Sisters city park.",
-    "glance_source": "both",
+    "glance": "Rotating cups, swings and slides, home to the first swing set in a Sisters city park.",
+    "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {
       "allows_dogs": true,
@@ -3170,9 +3155,9 @@
     "place_id": null,
     "traits": [],
     "one_liner": null,
-    "glance": "A playground next to the Coffield Community Center.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {}
   },
   "village-green-park-sisters": {
@@ -3266,9 +3251,9 @@
     "place_id": null,
     "traits": [],
     "one_liner": null,
-    "glance": "No playground: a state park with trails, shade and picnic tables.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {}
   },
   "sisters-community-park-sisters": {
@@ -3293,7 +3278,7 @@
       }
     ],
     "one_liner": "A new park (fall 2025) on the old Sisters Elementary School site",
-    "glance": "A new park on the old Sisters Elementary School site, with courts and picnic tables by the playground.",
+    "glance": "A park on the old Sisters Elementary School site, with a playground, courts and picnic tables.",
     "glance_source": "traits",
     "glance_on": "2026-11-21",
     "facts": {}
@@ -3302,9 +3287,9 @@
     "place_id": null,
     "traits": [],
     "one_liner": null,
-    "glance": "A neighborhood play structure with picnic tables.",
-    "glance_source": "traits",
-    "glance_on": "2026-11-21",
+    "glance": null,
+    "glance_source": null,
+    "glance_on": null,
     "facts": {}
   }
 }

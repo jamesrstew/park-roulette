@@ -193,13 +193,16 @@ describe("the Wheel Pick", () => {
     features: x === "b" ? ["shade"] : [],
   }));
   const hints: Catalog["parks"] = [
-    { slug: "c-park-bend", no_pick: true, snow_ok: false },
+    { slug: "c-park-bend", no_pick: true, snow_ok: false, closed: false },
+    { slug: "a-park-bend", no_pick: false, snow_ok: false, closed: true },
   ];
   it("is the same spin for the same date", () => {
     const a = wheelPick(parks, [], "2026-12-03", [], hints);
     const b = wheelPick(parks, [], "2026-12-03", [], hints);
     expect(a?.park.slug).toBe(b?.park.slug);
     expect(a?.park.slug).not.toBe("c-park-bend");
+    // A closed park (construction) is never the pick either.
+    expect(a?.park.slug).not.toBe("a-park-bend");
   });
   it("respects the 10-week Wheel Pick cooldown", () => {
     const history = ["a", "b", "d"].map((x, i) => ({
