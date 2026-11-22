@@ -330,6 +330,10 @@ export type SeasonThemes = z.infer<typeof SeasonThemes>;
 
 export const CATALOG: Catalog = CatalogSchema.parse(raw);
 
+/** Parks closed for now (construction, a renovation): never in a post or a pick. */
+export const isClosedPark = (slug: string, catalog: Catalog = CATALOG) =>
+  catalog.parks.some((p) => p.slug === slug && p.closed);
+
 /** Is this https link on a domain we allow (the domain or a subdomain)? */
 export function allowedLink(url: string, domains: readonly string[]): boolean {
   let u: URL;

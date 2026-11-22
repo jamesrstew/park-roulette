@@ -52,6 +52,7 @@ import {
   validateUnpack,
   voiceProblems,
 } from "./validate";
+import { listableParks } from "./candidates";
 
 const BPRD = "Photo: Bend Park & Recreation District";
 
@@ -959,6 +960,48 @@ describe("re-checks before publishing", () => {
         events: new Map([["no-school-open-rec-swim", canceled]]),
       }),
     ).toMatch(/isn't going ahead/);
+  });
+});
+
+describe("parks closed for now (catalog closed)", () => {
+  const closedCatalog = {
+    ...CATALOG,
+    parks: [
+      ...CATALOG.parks,
+      {
+        slug: "larkspur-park-bend",
+        no_pick: false,
+        snow_ok: false,
+        closed: true,
+      },
+    ],
+  };
+  it("leaves them out of the plan's Unpack park list", () => {
+    const c = ctx();
+    expect(
+      listableParks(c.parks, CATALOG, new Set()).map((p) => p.slug),
+    ).toContain("larkspur-park-bend");
+    expect(
+      listableParks(c.parks, closedCatalog, new Set()).map((p) => p.slug),
+    ).not.toContain("larkspur-park-bend");
+    // The real catalog: Columbia (construction) is never offered.
+    const columbia = park({
+      slug: "columbia-park-bend",
+      name: "Columbia Park",
+    });
+    expect(
+      listableParks(new Map([[columbia.slug, columbia]]), CATALOG, new Set()),
+    ).toEqual([]);
+  });
+  it("cuts them from an Unpack, refuses a park post, and skips at publish", async () => {
+    const c = ctx({ catalog: closedCatalog });
+    const u = await validateUnpack(unpack(), WEEK, c);
+    expect(u.cut.join(" ")).toMatch(/Larkspur Park is closed for now/);
+    const r = await validateParkPost(parkPost(), WEEK, c);
+    expect(r.errors.join(" ")).toMatch(/closed for now/);
+    const facts = { parks: ["larkspur-park-bend"], events: [], venues: [] };
+    expect(stillTrue({ ...facts, issue: null }, ctx())).toBeNull();
+    expect(stillTrue({ ...facts, issue: null }, c)).toMatch(/closed for now/);
   });
 });
 

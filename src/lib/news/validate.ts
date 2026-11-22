@@ -2,6 +2,7 @@ import {
   aliasPathProblem,
   allowedLink,
   type Catalog,
+  isClosedPark,
   leadMessage,
   onList,
   seasonalDefault,
@@ -931,7 +932,7 @@ export async function validateIssue(
     );
   const park = ctx.parks.get(wp);
   if (!park) flag("wheel_pick", "catalog", `No park "${wp}" on the map.`);
-  else if (park.status !== "active" || !park.approved)
+  else if (park.status !== "active" || !park.approved || isClosedPark(wp))
     flag(
       "wheel_pick",
       "catalog",
@@ -1236,7 +1237,7 @@ export async function validateIssue(
     if (w.park) {
       const p = ctx.parks.get(w.park);
       if (!p) flag(key, "catalog", `No park "${w.park}" on the map.`);
-      else if (p.status !== "active")
+      else if (p.status !== "active" || isClosedPark(w.park))
         flag(key, "catalog", `${p.name} isn't open on the map.`);
       if (w.park === wp)
         flag(key, "cooldown", "Already the Wheel Pick this week.");

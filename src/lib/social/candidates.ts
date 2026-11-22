@@ -1,11 +1,30 @@
 import { createHash } from "node:crypto";
-import { CATALOG } from "@/lib/news/catalog";
+import { CATALOG, type Catalog, isClosedPark } from "@/lib/news/catalog";
 import {
   MIN_POST_TRAITS,
   type ParkProfile,
   postKinds,
 } from "@/lib/park-profiles";
 import type { ParkInfo } from "./compose";
+
+/**
+ * Parks the plan offers for Unpack items: open on the map, with play,
+ * not closed for now in the catalog, outside the Instagram cooldown.
+ */
+export function listableParks(
+  all: ReadonlyMap<string, ParkInfo>,
+  catalog: Catalog,
+  cooling: ReadonlySet<string>,
+): ParkInfo[] {
+  return [...all.values()].filter(
+    (p) =>
+      p.approved &&
+      p.status === "active" &&
+      p.play !== "none" &&
+      !isClosedPark(p.slug, catalog) &&
+      !cooling.has(p.slug),
+  );
+}
 
 /**
  * Up to 3 park-post parks, code-picked: open, outside cooldowns, with

@@ -14,7 +14,7 @@ import { alertLater } from "@/lib/alerts";
 import { toRow } from "@/lib/events/store";
 import { listed } from "@/lib/events/state";
 import { pacificAt, upcomingDates } from "@/lib/events/model";
-import { CATALOG, type Catalog } from "@/lib/news/catalog";
+import { CATALOG, type Catalog, isClosedPark } from "@/lib/news/catalog";
 import { fetchPage } from "@/lib/news/fetcher";
 import { IssueSchema, type Issue } from "@/lib/news/issue";
 import { addDays, pacific } from "@/lib/news/time";
@@ -23,7 +23,7 @@ import { SITE_URL } from "@/lib/site";
 import { oneLinerFor, planProfile, postTraits } from "@/lib/park-profiles";
 import { currentProfiles } from "@/lib/park-profiles-check";
 import { type RecentIdea, themesFor } from "./at-home";
-import { postCandidates } from "./candidates";
+import { listableParks, postCandidates } from "./candidates";
 import { composeStory, composeTeaser, type ParkInfo } from "./compose";
 import { fitRoundup, pickWeekEvents, roundupWindow } from "./roundup";
 import {
@@ -426,26 +426,18 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
         hours_url: v.hours_url,
       })),
     events,
-    parks: [...ctx.parks.values()]
-      .filter(
-        (p) =>
-          p.approved &&
-          p.status === "active" &&
-          p.play !== "none" &&
-          !ctx.cooling.has(p.slug),
-      )
-      .map((p) => ({
-        ref: `park:${p.slug}`,
-        name: p.name,
-        town: p.city,
-        features: p.features,
-        signature: oneLinerFor(ctx.profiles.get(p.slug), month),
-        traits: postTraits(ctx.profiles.get(p.slug), month).map((t) => ({
-          text: t.text,
-          keys: t.keys,
-          kind: t.kind,
-        })),
+    parks: listableParks(ctx.parks, ctx.catalog, ctx.cooling).map((p) => ({
+      ref: `park:${p.slug}`,
+      name: p.name,
+      town: p.city,
+      features: p.features,
+      signature: oneLinerFor(ctx.profiles.get(p.slug), month),
+      traits: postTraits(ctx.profiles.get(p.slug), month).map((t) => ({
+        text: t.text,
+        keys: t.keys,
+        kind: t.kind,
       })),
+    })),
     at_home: {
       day: sat.date,
       themes: themesFor(sat.date, CATALOG.season_themes),
@@ -828,7 +820,12 @@ export async function ensureCodePost(
       : "waiting for the issue";
   const all = await parkInfos();
   const park = all.get(issue.wheel_pick.park);
-  if (!park || !park.approved || park.status !== "active")
+  if (
+    !park ||
+    !park.approved ||
+    park.status !== "active" ||
+    isClosedPark(park.slug)
+  )
     return skip(
       `The featured park ${issue.wheel_pick.park} isn't open on the map.`,
     );

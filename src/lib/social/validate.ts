@@ -1,4 +1,9 @@
-import { type Catalog, onList, type Venue } from "@/lib/news/catalog";
+import {
+  type Catalog,
+  isClosedPark,
+  onList,
+  type Venue,
+} from "@/lib/news/catalog";
 import { addDays, holidays } from "@/lib/news/time";
 import { unsafeText } from "@/lib/news/safety";
 import { blockedLink } from "@/lib/news/validate";
@@ -1071,6 +1076,8 @@ async function resolveItem(
   const p = ctx.parks.get(rest);
   if (!p || !p.approved || p.status !== "active")
     return { ok: false, cut: `${it.ref}: not an open park on the map.` };
+  if (isClosedPark(p.slug, ctx.catalog))
+    return { ok: false, cut: `${p.name} is closed for now (catalog).` };
   const traits = postTraits(ctx.profiles.get(p.slug), month);
   const claims = unbackedClaims(it.what, p.features, traits, month);
   const off = ungrounded(
@@ -1256,6 +1263,8 @@ export async function validateParkPost(
     );
   if (!park || !park.approved || park.status !== "active")
     r.errors.push(`${d.park} isn't an open park on the map.`);
+  if (isClosedPark(d.park, ctx.catalog))
+    r.errors.push(`${d.park} is closed for now (catalog).`);
   if (ctx.cooling.has(d.park))
     r.errors.push(`${d.park} was on Instagram in the last 8 weeks.`);
   const sentences = sentencesOf(d.story);
@@ -1588,6 +1597,7 @@ export function stillTrue(
     const p = ctx.parks.get(slug);
     if (!p || !p.approved || p.status !== "active")
       return `${slug} isn't open on the map any more.`;
+    if (isClosedPark(slug, ctx.catalog)) return `${slug} is closed for now.`;
   }
   for (const { slug, day, start, ages, cost } of facts.events) {
     const e = ctx.events.get(slug);
