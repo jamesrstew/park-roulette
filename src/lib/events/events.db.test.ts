@@ -727,14 +727,17 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
     await store.upsertEvents([verdict("Story Time", "2026-11-21")], {
       network: true,
     });
-    await q("update kid_events set last_seen_at = now() - interval '8 days'");
+    // A fixed clock: with the real one, the Nov 21 date has passed.
+    await q(
+      "update kid_events set last_seen_at = '2026-11-20T12:00:00Z'::timestamptz - interval '8 days'",
+    );
     const walled = async () => ({
       status: 403,
       finalUrl: PAGE,
       text: "",
       blocked: "a Cloudflare bot check",
     });
-    await store.recheckEvents(new Date(), walled);
+    await store.recheckEvents(new Date("2026-11-20T12:00:00Z"), walled);
     expect((await q("select confirm from kid_events"))[0].confirm).toBe(
       "unconfirmed",
     );

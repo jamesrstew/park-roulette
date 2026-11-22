@@ -12,11 +12,10 @@ import {
   type EventRow,
   pacificAt,
   statusOn,
-  whenLine,
 } from "@/lib/events/model";
 import { listed } from "@/lib/events/state";
 // A cycle (roundup uses eventTextProblem): both only call at run time.
-import { roundupAges } from "./roundup";
+import { eventDayChip, roundupAges, venueChip } from "./roundup";
 import {
   CONTEXT_KINDS,
   genericPhrases,
@@ -1054,10 +1053,10 @@ async function resolveItem(
         what: it.what,
         icon: it.icon ?? "calendar",
         facts: [
-          whenLine(date),
+          eventDayChip(e.data.dates, day),
           e.data.ages_text ?? null,
           costChip(e.data),
-          e.data.venue.town,
+          venueChip(e.data.venue.name, e.data.venue.town),
         ].filter((x): x is string => !!x),
       },
       fact: {

@@ -55,7 +55,10 @@
     "visitcentraloregon.com"
   ],
   "evidence_domains": ["api.live.onaws.letsway.com"],
-  "shared_calendar_pages": ["https://www.deschuteslibrary.org/calendar/"],
+  "shared_calendar_pages": [
+    "https://www.deschuteslibrary.org/calendar/",
+    "https://www.deschuteslibrary.org/kids/programs"
+  ],
   "listing_domains": [
     "bendbuzz.com",
     "bendbuzz.beehiiv.com",

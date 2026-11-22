@@ -61,6 +61,14 @@ export const BLOCKED_KINDS = [
   "not_allowlisted",
 ] as const;
 
+/** What a rule change is about (events-harvest.md §6 lists them). */
+export const RULE_TARGETS = [
+  "validator",
+  "command",
+  "catalog",
+  "plan",
+] as const;
+
 export const RetroSchema = z.strictObject({
   run: z.strictObject({
     kind: z.enum(["writer", "events", "maintainer", "social"]),
@@ -111,7 +119,11 @@ export const RetroSchema = z.strictObject({
   rule_changes: z
     .array(
       z.strictObject({
-        target: z.enum(["command", "validator", "catalog", "plan"]),
+        target: z.preprocess(
+          // The routines call the validator "the checker" (Nov 22 retro).
+          (v) => (v === "checker" ? "validator" : v),
+          z.enum(RULE_TARGETS),
+        ),
         section: Str(80),
         current: Str(300),
         proposed: Str(300),

@@ -288,10 +288,20 @@ describe("high 5: de-duplication", () => {
     dedupe(again.events, [known({ url: CAL, targetUrls: [EV] })]);
     expect(again.events[0].ok).toBe(false);
 
-    // A stored page with no per-date pages: the link still counts.
+    // A stored page with no per-date pages: the calendar link lists dozens
+    // of programs, so the titles decide (lesson 57): Lego Club and Family
+    // Story Time are two programs, a warning.
     const old = await validateEvents({ events: [story()] }, ctx());
     dedupe(old.events, [known({ url: CAL, targetUrls: [] })]);
-    expect(old.events[0].ok).toBe(false);
+    expect(old.events[0].ok).toBe(true);
+    expect(old.events[0].warnings.join(" ")).toMatch(
+      /same venue, day and start/,
+    );
+    const like = await validateEvents({ events: [story()] }, ctx());
+    dedupe(like.events, [
+      known({ title: "Family Story Time!", url: CAL, targetUrls: [] }),
+    ]);
+    expect(like.events[0].ok).toBe(false);
   });
 
   it("never lets a legacy row's (other venues') dates block", async () => {

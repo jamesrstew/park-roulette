@@ -704,7 +704,7 @@ describe("the Unpack carousel", () => {
       (x) => x.t === "item" && x.name === "No School Open Rec Swim",
     );
     expect(swim).toMatchObject({
-      facts: ["Fri, Nov 27 · 1 pm to 3 pm", "$4 kids", "Madras"],
+      facts: ["Fri, Nov 27 · 1 pm to 3 pm", "$4 kids", "Madras Aquatic Center"],
     });
     const lark = s.slides.find(
       (x) => x.t === "item" && x.name === "Larkspur Park",
@@ -1460,5 +1460,94 @@ describe("signature traits lead the park post", () => {
     expect(unbackedClaims("The spray park opens soon", [])).toEqual([
       "a splash pad",
     ]);
+  });
+});
+
+describe("Unpack event chips (lesson 50)", () => {
+  it("print every showing that day, a start alone as a time, and the venue", async () => {
+    const { eventDayChip, showTimes, venueChip } = await import("./roundup");
+    expect(showTimes(["18:00", "13:30"])).toBe("1:30 and 6 pm");
+    expect(showTimes(["12:00", "15:30"])).toBe("noon and 3:30 pm");
+    expect(showTimes(["11:00", "13:30"])).toBe("11 am and 1:30 pm");
+    expect(showTimes(["10:00", "11:30", "13:00"])).toBe(
+      "10, 11:30 am and 1 pm",
+    );
+    const nut = [
+      { day: "2026-11-28", start: "13:30" },
+      { day: "2026-11-28", start: "18:00" },
+      { day: "2026-11-29", start: "12:00" },
+      { day: "2026-11-29", start: "15:30" },
+    ];
+    expect(eventDayChip(nut, "2026-11-28")).toBe("Sat, Nov 28 · 1:30 and 6 pm");
+    expect(eventDayChip(nut, "2026-11-29")).toBe(
+      "Sun, Nov 29 · noon and 3:30 pm",
+    );
+    expect(
+      eventDayChip([{ day: "2026-11-28", start: "13:30" }], "2026-11-28"),
+    ).toBe("Sat, Nov 28 · 1:30 pm");
+    expect(
+      eventDayChip(
+        [{ day: "2026-11-27", start: "13:00", end: "15:00" }],
+        "2026-11-27",
+      ),
+    ).toBe("Fri, Nov 27 · 1 pm to 3 pm");
+    expect(venueChip("Tower Theatre", "Bend")).toBe("Tower Theatre, Bend");
+    expect(venueChip("Redmond Library", "Redmond")).toBe("Redmond Library");
+    expect(venueChip("Old Mill District West Event Lawn", "Bend")).toBe(
+      "Old Mill District West Event Lawn, Bend",
+    );
+    expect(
+      venueChip("Deschutes County Fair & Expo Center Hall", "Redmond"),
+    ).toBe("Deschutes County Fair & Expo Center Hall");
+  });
+
+  it("an event slide's chips name the venue and every showing", async () => {
+    const nut = event({
+      title: "The Nutcracker",
+      dates: [
+        { day: "2026-11-28", start: "13:30" },
+        { day: "2026-11-28", start: "18:00" },
+        { day: "2026-11-29", start: "12:00" },
+      ],
+      venue: { name: "Tower Theatre", town: "Bend" },
+      what: "A holiday ballet with dancing toy soldiers, snow and a sugar plum fairy.",
+    });
+    const items = unpack().items.map((i) =>
+      i.ref.startsWith("event:")
+        ? {
+            ref: "event:no-school-open-rec-swim@2026-11-28",
+            what: "A holiday ballet with dancing toy soldiers and snow.",
+          }
+        : i.ref.startsWith("venue:")
+          ? { ...i, holiday_evidence: HDM_EVIDENCE }
+          : i,
+    );
+    const r = await validateUnpack(
+      unpack({ items }),
+      WEEK,
+      ctx({
+        events: new Map([["no-school-open-rec-swim", nut]]),
+        evidence: async () => true,
+      }),
+    );
+    const slide = r.spec?.slides.find(
+      (x) => x.t === "item" && x.name === "The Nutcracker",
+    );
+    expect(slide).toMatchObject({
+      facts: ["Sat, Nov 28 · 1:30 and 6 pm", "$4 kids", "Tower Theatre, Bend"],
+    });
+    expect(JSON.stringify(r.spec)).not.toMatch(/Start time/);
+  });
+
+  it("the Sunday writer picks the park from the plan it fetches after the photo checks (lessons 48, 52)", async () => {
+    const { readFileSync } = await import("node:fs");
+    const cmd = readFileSync(".claude/commands/social-week.md", "utf8");
+    const photo = cmd.slice(cmd.indexOf("## 2."), cmd.indexOf("## 3."));
+    expect(photo).toMatch(
+      /Then fetch the plan again:\*\* `GET https:\/\/parkroulette\.quest\/api\/social\/plan\?week_of=/,
+    );
+    const monday = cmd.slice(cmd.indexOf("## 3."), cmd.indexOf("## 4."));
+    expect(monday).toMatch(/from the plan you fetched after the photo checks/);
+    expect(cmd).not.toMatch(/from the plan fetched in step 1/);
   });
 });

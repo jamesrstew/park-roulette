@@ -468,14 +468,30 @@ function codePoint(n: number): string {
   return String.fromCodePoint(n);
 }
 
-/** An HTML page as plain text (scripts and styles removed). */
+/** Where one element closes and the next opens, with no text between. */
+const SEAM = "\u0001";
+
+/**
+ * An HTML page as plain text (scripts and styles removed). Block ends and
+ * <br> are spaces. Where one inline element closes and the next opens
+ * with nothing between them, a digit meeting a letter or a digit gets a
+ * space ("<span>Dec</span><span>4</span><span>2026</span>" is "Dec 4
+ * 2026", lesson 5); letters stay joined, so a word split by its styling
+ * ("<b>Win</b><i>ter</i>") stays one word. The events routine quotes
+ * page text the same way (events-harvest.md §3).
+ */
 export function pageText(html: string): string {
   return normalizeText(
     html
+      .replaceAll(SEAM, "")
       .replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, " ")
       .replace(/<!--[\s\S]*?-->/g, " ")
       .replace(/<br\s*\/?>|<\/(p|div|li|h\d|td|tr)>/gi, " ")
-      .replace(/<[^>]+>/g, ""),
+      .replace(/(?:<[^>]+>)+/g, (run) =>
+        /<\/[^>]*>[\s\S]*<[a-z]/i.test(run) ? SEAM : "",
+      )
+      .replace(/([a-z0-9])\u0001(?=\d)|(\d)\u0001(?=[a-z])/gi, "$1$2 ")
+      .replaceAll(SEAM, ""),
   );
 }
 

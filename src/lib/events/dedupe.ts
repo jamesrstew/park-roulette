@@ -1,12 +1,13 @@
 import { CATALOG, onList } from "@/lib/news/catalog";
-import { type EventDate, occurrenceId, venueKey } from "./model";
+import { type EventDate, occurrenceId, qualifiers, venueKey } from "./model";
 import { titleWords, type EventVerdict } from "./validate";
 
 /**
  * De-duplication across pages (pure; the route feeds it the stored rows).
  * The series key decides which page a hand-in joins. On top of that:
- * - the same venue, day and start time already on another page is the
- *   same event under another title: refused, naming the page;
+ * - the same venue, day and start time already on another page, on the
+ *   same official page or under a title like its own, is the same event:
+ *   refused, naming the page; two programs (titlesDiffer) are a warning;
  * - the same official URL on another page is a warning (a calendar page
  *   can list several programs); when both have per-date pages, those
  *   decide, not a shared calendar link (samePage);
@@ -70,6 +71,31 @@ export function titleOverlap(a: string, b: string): number {
   return n / Math.min(x.size, y.size);
 }
 
+/** Who a program is for, from its title: its qualifiers, and "family". */
+function audience(title: string): Set<string> {
+  const a = new Set(qualifiers(title));
+  if (/\bfamil(y|ies)\b/i.test(title)) a.add("family");
+  return a;
+}
+
+/**
+ * Two titles that name different programs even though their words
+ * overlap: both say who they're for, and say it differently ("Preschool
+ * Story Time" and "Family Story Time", lesson 57; libraries run programs
+ * in different rooms at one time). "Story Time" and "Preschool Story
+ * Time" may be one program; "Santa Flies In" and "Santa Flies In by
+ * AirLink" are one.
+ */
+export function titlesDiffer(a: string, b: string): boolean {
+  const x = audience(a);
+  const y = audience(b);
+  return (
+    x.size > 0 &&
+    y.size > 0 &&
+    (x.size !== y.size || [...x].some((w) => !y.has(w)))
+  );
+}
+
 const minutes = (t?: string) => {
   if (!t) return null;
   const [h, m] = t.split(":").map(Number);
@@ -93,13 +119,15 @@ function closeInTime(a: EventDate[], b: EventDate[]): string | null {
 const norm = (u: string) => u.replace(/#.*$/, "").replace(/\/$/, "");
 
 /**
- * Do two events share an official page? A known multi-program calendar
- * page (catalog shared_calendar_pages: the library links every program
- * to deschuteslibrary.org/calendar/) doesn't count when both events have
- * per-date pages of their own (dpl.libnet.info/event/{id}), so two programs
- * at one branch and time are two pages (lessons 33 and 47). Any other
- * shared link does. A newsletter issue is never one event's page (it
- * lists dozens), so listing evidence pages don't count either.
+ * Do two events share an official page? A known multi-program page
+ * (catalog shared_calendar_pages: the library links every program to
+ * deschuteslibrary.org/calendar/, and its kids' programs page lists
+ * sixteen programs) never counts, in the link or in the per-date pages:
+ * it lists dozens of programs, so two programs at one branch and time are
+ * two pages, and their titles decide (lessons 33, 47 and 57). A per-date
+ * page of its own (dpl.libnet.info/event/{id}) or any other shared link
+ * does count. A newsletter issue is never one event's page (it lists
+ * dozens), so listing evidence pages don't count either.
  */
 export function samePage(
   a: Pick<KnownEvent, "url" | "targetUrls">,
@@ -108,11 +136,10 @@ export function samePage(
   calendars: readonly string[] = CATALOG.shared_calendar_pages,
 ): boolean {
   const shared = new Set(calendars.map(norm));
-  const own = (k: typeof a) =>
-    k.targetUrls.filter((u) => !onList(u, listingDomains));
-  const both = own(a).length > 0 && own(b).length > 0;
   const pages = (k: typeof a) =>
-    [...(both && shared.has(norm(k.url)) ? [] : [k.url]), ...own(k)].map(norm);
+    [k.url, ...k.targetUrls.filter((u) => !onList(u, listingDomains))]
+      .map(norm)
+      .filter((u) => !shared.has(u));
   const mine = new Set(pages(a));
   return pages(b).some((u) => mine.has(u));
 }
@@ -159,14 +186,17 @@ export function dedupe(
             k.dates.some((x) => x.day === d.day && x.start === d.start),
         ),
     );
-    // The same event only when the titles overlap (Jaccard 0.5 or more)
-    // or it's the same official page; two programs in two rooms at 10:30
-    // are two events. A legacy row (series:<id> alone) may hold other
-    // venues' dates, so it never blocks.
+    // The same event when it's the same official page, or when the
+    // titles overlap (Jaccard 0.5 or more) without naming two programs
+    // (titlesDiffer); two programs in two rooms at 10:30 are two events,
+    // a warning (lessons 2, 26 and 57). A legacy row (series:<id> alone)
+    // may hold other venues' dates, so it never blocks.
     const same = clashes.find(
       (k) =>
         !k.legacy &&
-        (titleJaccard(me.title, k.title) >= SAME_TITLE_JACCARD || sharesUrl(k)),
+        (sharesUrl(k) ||
+          (titleJaccard(me.title, k.title) >= SAME_TITLE_JACCARD &&
+            !titlesDiffer(me.title, k.title))),
     );
     for (const k of clashes)
       if (k !== same)

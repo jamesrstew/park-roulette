@@ -301,6 +301,81 @@ export function printedSpans(
 }
 
 /**
+ * A run of dates as the organizer prints it, with its year: "December
+ * 3–20, 2026" or "Nov 27 – Dec 6, 2026" (en dashes read as "-"). A year
+ * after the run is the end's; with none printed, the run is read in the
+ * given year (and one that wraps the new year ends in the next). Each run
+ * is an inclusive span of days, never a list of performance dates.
+ */
+export function printedRuns(
+  text: string,
+  year: number,
+): { from: string; to: string }[] {
+  const q = normalizeText(text).toLowerCase();
+  const mon = `(${MONTHS3.join("|")})[a-z]*\\.?`;
+  const re = new RegExp(
+    `\\b${mon}\\s+0?(\\d{1,2})(?:st|nd|rd|th)?\\s*(?:-|to|through|thru)\\s*(?:${mon}\\s+)?0?(\\d{1,2})(?:st|nd|rd|th)?(?![\\d:]|\\s*[ap]\\.?\\s?m\\b)(?:,?\\s+(20\\d{2})\\b)?`,
+    "g",
+  );
+  const iso = (y: number, mm: number, dd: number) =>
+    `${y}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  const out: { from: string; to: string }[] = [];
+  for (const x of q.matchAll(re)) {
+    const m1 = MONTHS3.indexOf(x[1]) + 1;
+    const m2 = x[3] ? MONTHS3.indexOf(x[3]) + 1 : m1;
+    const d1 = Number(x[2]);
+    const d2 = Number(x[4]);
+    const y2 = x[5] ? Number(x[5]) : m2 < m1 ? year + 1 : year;
+    const y1 = m2 < m1 ? y2 - 1 : y2;
+    const from = iso(y1, m1, d1);
+    const to = iso(y2, m2, d2);
+    if (d1 >= 1 && d1 <= 31 && d2 >= 1 && d2 <= 31 && from <= to)
+      out.push({ from, to });
+  }
+  return out;
+}
+
+/**
+ * Does an organizer's page print this date inside a run of dates ("December
+ * 3–20, 2026") for this event? A run proves a date only for its own event:
+ * - the run sits in a sentence (or data record) that names the event; or
+ * - a listing quote names the event and prints this exact date, and the
+ *   run sits in the sentence just before or after one that names it,
+ *   with no run next to the event's name that leaves the date out.
+ * Lessons 56 and 64: Cascades Theatrical prints its Scrooge show as
+ * "December 3–20, 2026 By Gordon Greenberg & Steve Rosen Ebenezer
+ * Scrooge's Big Bend Christmas Show!". A run alone, or one away from the
+ * event's name, never proves a date.
+ */
+export function runCoversDate(
+  chunks: readonly string[],
+  day: string,
+  title: string,
+  listingQuotes: readonly string[] = [],
+): boolean {
+  const year = Number(day.slice(0, 4));
+  const covers = (c: string) =>
+    [...printedRuns(c, year), ...printedRuns(c, year - 1)].some(
+      (r) => r.from <= day && day <= r.to,
+    );
+  const named = (c: string) =>
+    c.length <= 300 ? lineNamesEvent(c, title) : namesByPhrase(c, title);
+  const own = chunks.filter((c) => named(c) && printedRuns(c, year).length);
+  if (own.some(covers)) return true;
+  // The event's own run says otherwise: never another show's run.
+  if (own.length) return false;
+  const listed = listingQuotes.some(
+    (q) => lineNamesEvent(q, title) && quotePrintsDate(q, day),
+  );
+  return (
+    listed &&
+    chunks.some(
+      (c, i) => covers(c) && [i - 1, i + 1].some((j) => named(chunks[j] ?? "")),
+    )
+  );
+}
+
+/**
  * Is this date printed? Its month and day (or M/D), or, for a series, a
  * recurrence on its weekday ("every Saturday", "Saturdays") inside a span
  * the page prints ("Nov 4 to Dec 16").
@@ -1033,6 +1108,8 @@ export function organizerVerdict(
     dates: readonly { day: string; end_day?: string }[];
     url?: string;
     recurring?: boolean;
+    /** The listing's quotes: an exact date there lets a printed run agree. */
+    listingQuotes?: readonly string[];
   },
 ): { cut?: string; trusted?: string } {
   const cut = (why: string) => ({ cut: `The organizer's page ${why}.` });
@@ -1070,10 +1147,14 @@ export function organizerVerdict(
         ? "prints nothing we can read without JavaScript. Quote its own data (JSON-LD, CMS), or leave it out"
         : `loaded and doesn't name "${ev.title}". Link the event's own page, or leave it out`,
     );
-  // It names the event: its dates must be the page's too.
+  // It names the event: its dates must be the page's too, each printed,
+  // or inside the event's printed run (runCoversDate).
   const chunks = pageChunks(r);
   for (const d of ev.dates)
-    if (!datePrinted(chunks, d.day, !!ev.recurring))
+    if (
+      !datePrinted(chunks, d.day, !!ev.recurring) &&
+      !runCoversDate(chunks, d.day, ev.title, ev.listingQuotes)
+    )
       return cut(
         `names "${ev.title}" but doesn't print ${d.day}. Check the date`,
       );
@@ -1168,6 +1249,9 @@ async function networkChecks(
       dates: e.dates,
       url: e.url,
       recurring: kindOf(e) === "series" || !!e.series_id,
+      listingQuotes: e.evidence
+        .filter((x) => !!onList(x.url, listingHosts))
+        .map((x) => x.quote),
     });
     if (why.cut) problems.push(why.cut);
     else if (why.trusted)

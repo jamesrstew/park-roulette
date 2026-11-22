@@ -5,8 +5,10 @@ import {
   type EventRow,
   monthDay,
   pacificAt,
+  shortDate,
   statusOn,
   upcomingDates,
+  whenLine,
 } from "@/lib/events/model";
 import { ALL_AGES } from "@/lib/events/ages";
 import { checkShort, FIRST_PERSON, MONEY } from "@/lib/events/short";
@@ -55,6 +57,52 @@ export function timeLine(d: Pick<EventDate, "start" | "end">): string {
   const b = clock(d.end);
   const m = /^(.+) (am|pm)$/.exec(a);
   return m && b.endsWith(` ${m[2]}`) ? `${m[1]} to ${b}` : `${a} to ${b}`;
+}
+
+/**
+ * Every showing's start, one am/pm for a run that shares it: "1:30 and 6
+ * pm", "noon and 3:30 pm", "11 am and 1:30 pm", "10, 11:30 am and 1 pm".
+ */
+export function showTimes(starts: readonly string[]): string {
+  const t = [...new Set(starts)].sort().map((s) => {
+    const c = clock(s);
+    const m = /^(.+) (am|pm)$/.exec(c);
+    return m ? { n: m[1], ap: m[2] } : { n: c, ap: "" };
+  });
+  const words = t.map((x, i) =>
+    x.ap && t[i + 1]?.ap !== x.ap ? `${x.n} ${x.ap}` : x.n,
+  );
+  return words.length > 1
+    ? `${words.slice(0, -1).join(", ")} and ${words.at(-1)}`
+    : (words[0] ?? "");
+}
+
+/**
+ * An event's day chip on the Unpack carousel (lesson 50): "Sat, Nov 21 ·
+ * 10 am to 2 pm", "Sat, Nov 21 · 1:30 pm" (a start alone, no "Start
+ * time"), and every showing that day: "Sat, Nov 28 · 1:30 and 6 pm".
+ */
+export function eventDayChip(dates: readonly EventDate[], day: string): string {
+  const own = dates.filter((d) => d.day === day);
+  const first = own[0];
+  if (!first) return "";
+  if (first.end_day && first.end_day !== first.day) return whenLine(first);
+  const head = shortDate(day);
+  const shows = own.filter((d) => d.start && !d.end_day);
+  if (shows.length > 1)
+    return `${head} · ${showTimes(shows.map((d) => d.start!))}`;
+  if (first.start && !first.end) return `${head} · ${clock(first.start)}`;
+  return whenLine(first);
+}
+
+/**
+ * The venue chip: "Central Library, Bend", or "Redmond Library" alone
+ * when the name says the town; a long name drops the town so the chip
+ * stays on one line (40 characters fill the slide at 48 px).
+ */
+export function venueChip(venue: string, town: string): string {
+  const chip = placeLine(venue, town).replace(/^At /, "");
+  return chip.length > 40 ? venue : chip;
 }
 
 // The descriptor trimmer is shared with The Scoop's event cards.

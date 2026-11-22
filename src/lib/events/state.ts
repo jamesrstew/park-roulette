@@ -98,6 +98,7 @@ export function judgeListing(
     title,
     dates: [{ day }],
     recurring: true,
+    listingQuotes: [quote],
   });
   if (org.cut) return "miss";
   if (!org.trusted) return "seen";
