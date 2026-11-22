@@ -169,6 +169,13 @@
       "when": 1795275108380,
       "tag": "0023_park_evidence_checks",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1795317200410,
+      "tag": "0024_story_echo",
+      "breakpoints": true
     }
   ]
 }

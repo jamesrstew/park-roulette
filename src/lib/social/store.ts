@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gte, inArray, lt, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   kidEvents,
@@ -25,6 +25,7 @@ import { currentProfiles } from "@/lib/park-profiles-check";
 import { type RecentIdea, themesFor } from "./at-home";
 import { listableParks, postCandidates } from "./candidates";
 import { composeStory, composeTeaser, type ParkInfo } from "./compose";
+import { runEchoes } from "./echo";
 import { fitRoundup, pickWeekEvents, roundupWindow } from "./roundup";
 import {
   containerStatus,
@@ -1215,6 +1216,10 @@ export async function runSocial(
       if (post.status === "publishing")
         await resolvePublishing(post, live, notes, now);
     }
+    // After the feed posts, never before: an echo can't hold one up.
+    await runEchoes(now, live, notes).catch((e) =>
+      notes.push(`echo: failed (${(e as Error).message})`),
+    );
     return { action: "ran", notes };
   } finally {
     await releaseLease(owner);
@@ -1511,7 +1516,10 @@ export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
     .where(
       and(
         inArray(socialPosts.status, LIVE),
-        sql`${socialPosts.media} @> ${JSON.stringify([{ sha, ext }])}::jsonb`,
+        or(
+          sql`${socialPosts.media} @> ${JSON.stringify([{ sha, ext }])}::jsonb`,
+          sql`${socialPosts.echoMedia} @> ${JSON.stringify({ sha, ext })}::jsonb`,
+        ),
       ),
     )
     .limit(1);

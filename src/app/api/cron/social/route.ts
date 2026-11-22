@@ -6,7 +6,8 @@ import { runSocial } from "@/lib/social/store";
  * Instagram's publisher (vercel.json: every 15 minutes in each post's
  * window, in UTC). Makes Thursday's teaser and Friday's Story from the
  * sent issue, creates each due post's container 30 minutes ahead, and
- * publishes it in a later run once Meta says FINISHED. Kill switch,
+ * publishes it in a later run once Meta says FINISHED, then echoes each
+ * feed post that went out as one Story (lib/social/echo.ts). Kill switch,
  * SOCIAL_PUBLISH=off and dry run (the default) are checked in code.
  */
 export const maxDuration = 300;

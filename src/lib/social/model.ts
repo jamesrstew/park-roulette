@@ -629,3 +629,33 @@ export type PostSpec = {
 export function wordCount(s: string): number {
   return s.trim().split(/\s+/).filter(Boolean).length;
 }
+
+// --- The Story echo (lib/social/echo.ts) -----------------------------------
+
+/** A feed post older than this (since it went out) gets no Story echo. */
+export const ECHO_MAX_AGE_MIN = 6 * 60;
+
+/**
+ * The Story echo's one line, written by code from the post type (and its
+ * slide count). Never promises a tap: Graph API Stories carry no link.
+ */
+export function echoLine(spec: Pick<PostSpec, "kind" | "slides">): string {
+  const count = (t: SlideSpec["t"]) =>
+    spec.slides.filter((s) => s.t === t).length;
+  const n = (k: number, one: string, many: string) =>
+    `${k} ${k === 1 ? one : many}`;
+  switch (spec.kind) {
+    case "park_post":
+      return "This week's park pick";
+    case "events_week":
+      return `${n(count("event"), "event", "events")} for kids this week`;
+    case "unpack":
+      return `${n(count("item"), "thing", "things")} for kids this week`;
+    case "teaser":
+      return "Our Weekend Pick";
+    case "at_home":
+      return `${n(count("idea"), "idea", "ideas")} for inside`;
+    case "story":
+      return "";
+  }
+}

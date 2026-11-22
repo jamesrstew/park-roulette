@@ -42,6 +42,22 @@ vi.mock("./render", () => ({
   },
   storeMedia: async (files: { file: unknown }[]) => files.map((f) => f.file),
 }));
+/** What the Story echo was drawn from (the stub records the cover). */
+const echoes: { kind: string; line: string; cover: string }[] = [];
+let echoBreaks = false;
+vi.mock("./echo-render", () => ({
+  storedBytes: async (f: { sha: string }) => Buffer.from(`stored:${f.sha}`),
+  crayonCover: async () => Buffer.from("crayon"),
+  renderEcho: async (kind: string, line: string, cover: Uint8Array) => {
+    if (echoBreaks) throw new Error("drawing broke");
+    echoes.push({ kind, line, cover: Buffer.from(cover).toString() });
+    return {
+      bytes: Buffer.from("echo"),
+      file: { sha: "e".repeat(64), ext: "jpg", width: 1080, height: 1920 },
+    };
+  },
+  storeEcho: async (r: { file: unknown }) => r.file,
+}));
 vi.mock("@vercel/blob", () => ({
   get: async () => ({
     stream: new Blob(["jpeg"]).stream(),
@@ -130,6 +146,8 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     calls.length = 0;
     alerts.length = 0;
     drawn.length = 0;
+    echoes.length = 0;
+    echoBreaks = false;
     photoLoads = true;
     containerState = "FINISHED";
     afterPublish = null;
@@ -230,12 +248,17 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(calls.some((c) => c.path.endsWith("/media_publish"))).toBe(false);
     await store.runSocial(MON_1215, { fetchImpl });
     await store.runSocial(new Date("2026-11-23T20:30:00Z"), { fetchImpl });
-    expect(calls.filter((c) => c.path.endsWith("/media_publish"))).toHaveLength(
-      1,
-    );
     const [row] = await q(
-      `select status, ig_media_id from social_posts where id = ${id}`,
+      `select status, ig_media_id, container_id from social_posts where id = ${id}`,
     );
+    // The feed post's own container (the Story echo publishes its own).
+    expect(
+      calls.filter(
+        (c) =>
+          c.path.endsWith("/media_publish") &&
+          c.body.get("creation_id") === row.container_id,
+      ),
+    ).toHaveLength(1);
     expect(row).toMatchObject({ status: "published", ig_media_id: "IGMEDIA1" });
   });
 
@@ -875,5 +898,181 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       { store: false },
     );
     expect(later[0].errors.join(" ")).toMatch(/too close to "Snow paint"/);
+  });
+
+  // --- The Story echo ------------------------------------------------------
+
+  const MON_1230 = new Date("2026-11-23T20:30:00Z");
+  const storyCreates = () =>
+    calls.filter(
+      (c) =>
+        c.path.endsWith("/media") && c.body.get("media_type") === "STORIES",
+    );
+  const echoRow = async (id: number) =>
+    (
+      await q(
+        `select status, echo_status, echo_container_id, echo_media_id, echo_media->>'sha' as echo_sha, media->0->>'sha' as cover_sha from social_posts where id = ${id}`,
+      )
+    )[0];
+
+  it("echo: once the feed post is out, one Story from its cover goes out, never twice", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    expect(storyCreates()).toHaveLength(0);
+    await store.runSocial(MON_1215, { fetchImpl });
+    let row = await echoRow(id);
+    expect(row.status).toBe("published");
+    expect(row.echo_status).toBe("creating");
+    expect(storyCreates()).toHaveLength(1);
+    expect(storyCreates()[0].body.get("image_url")).toBe(
+      `https://parkroulette.quest/social/m/${"e".repeat(64)}.jpg`,
+    );
+    expect(storyCreates()[0].body.get("caption")).toBeNull();
+    expect(echoes).toEqual([
+      {
+        kind: "park_post",
+        line: "This week's park pick",
+        cover: `stored:${row.cover_sha}`,
+      },
+    ]);
+    await store.runSocial(MON_1230, { fetchImpl });
+    row = await echoRow(id);
+    expect(row).toMatchObject({
+      echo_status: "published",
+      echo_media_id: "IGMEDIA1",
+    });
+    expect(
+      calls.filter(
+        (c) =>
+          c.path.endsWith("/media_publish") &&
+          c.body.get("creation_id") === row.echo_container_id,
+      ),
+    ).toHaveLength(1);
+    for (const t of ["20:45", "21:00", "21:15"])
+      await store.runSocial(new Date(`2026-11-23T${t}:00Z`), { fetchImpl });
+    expect(storyCreates()).toHaveLength(1);
+    expect(calls.filter((c) => c.path.endsWith("/media_publish"))).toHaveLength(
+      2,
+    );
+    expect(echoes).toHaveLength(1);
+    // Meta may fetch the echo's JPEG; the feed post's status is untouched.
+    const { GET } = await import("@/app/social/m/[file]/route");
+    const file = `${"e".repeat(64)}.jpg`;
+    const res = await GET(new Request(`http://x/social/m/${file}`), {
+      params: Promise.resolve({ file }),
+    });
+    expect(res.status).toBe(200);
+    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+  });
+
+  it("echo: none when the feed post fails or is skipped", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    publishFails = "bad";
+    await store.runSocial(MON_1215, { fetchImpl });
+    publishFails = "no";
+    await store.runSocial(MON_1230, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row.status).toBe("failed");
+    expect(row.echo_status).toBeNull();
+    expect(storyCreates()).toHaveLength(0);
+    expect(echoes).toHaveLength(0);
+  });
+
+  it("echo: the crayon cover when the post drew it, or when its photo was flagged since", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    photoLoads = false; // the photo didn't load: the post is the crayon card
+    let id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    await store.runSocial(MON_1215, { fetchImpl });
+    let row = await echoRow(id);
+    expect(echoes.at(-1)?.cover).toBe(`stored:${row.cover_sha}`);
+    expect(drawn.at(-1)).toEqual([null]);
+
+    // A photo post, published, then a person is seen in the photo.
+    await q("truncate social_posts restart identity cascade");
+    photoLoads = true;
+    id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    await q(
+      `update social_posts set status = 'published', published_at = '${MON_1215.toISOString()}' where id = ${id}`,
+    );
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "f".repeat(64), verdict: "people" },
+    ]);
+    await store.runSocial(MON_1230, { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("creating");
+    expect(echoes.at(-1)?.cover).toBe("crayon");
+  });
+
+  it("echo: dry run draws it once and never calls Meta", async () => {
+    const id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    await store.runSocial(MON_1215, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row).toMatchObject({ status: "dry_run", echo_status: "dry_run" });
+    expect(row.echo_sha).toBe("e".repeat(64));
+    expect(echoes).toHaveLength(1);
+    expect(calls).toEqual([]);
+  });
+
+  it("echo: the kill switch and SOCIAL_PUBLISH=off stop it too", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await q(
+      `update social_posts set status = 'published', published_at = '${MON_1215.toISOString()}' where id = ${id}`,
+    );
+    await settings.setSocialSettings({ enabled: false });
+    await store.runSocial(MON_1230, { fetchImpl });
+    await settings.setSocialSettings({ enabled: true });
+    process.env.SOCIAL_PUBLISH = "off";
+    await store.runSocial(MON_1230, { fetchImpl });
+    delete process.env.SOCIAL_PUBLISH;
+    expect(calls).toEqual([]);
+    expect((await echoRow(id)).echo_status).toBeNull();
+  });
+
+  it("echo: none for the Friday Story, and none for a post over 6 hours old", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await q(
+      `update social_posts set kind = 'story', status = 'published', published_at = '${MON_1215.toISOString()}' where id = ${id}`,
+    );
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBeNull();
+    await q(`update social_posts set kind = 'park_post' where id = ${id}`);
+    await store.runSocial(new Date("2026-11-24T03:00:00Z"), { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("skipped");
+    expect(storyCreates()).toHaveLength(0);
+    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+  });
+
+  it("echo: a broken drawing retries and never touches the feed post; Meta's no fails once and tells James", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    echoBreaks = true;
+    const r = await store.runSocial(MON_1215, { fetchImpl });
+    expect(r.notes.join(" ")).toMatch(/echo retry \(drawing broke\)/);
+    let row = await echoRow(id);
+    expect(row).toMatchObject({ status: "published", echo_status: null });
+    echoBreaks = false;
+    await store.runSocial(MON_1230, { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("creating");
+    containerState = "ERROR";
+    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
+    await store.runSocial(new Date("2026-11-23T21:00:00Z"), { fetchImpl });
+    row = await echoRow(id);
+    expect(row).toMatchObject({ status: "published", echo_status: "failed" });
+    const told = alerts.filter((a) => /Story echo failed/.test(a.subject));
+    expect(told).toHaveLength(1);
+    expect(told[0].key).toBe(`social:echo failed:${id}`);
   });
 });

@@ -1022,6 +1022,18 @@ export const socialPosts = pgTable(
     /** Why it was skipped or failed (shown on /admin, mailed to James). */
     reason: text("reason"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    /**
+     * The Story echo (lib/social/echo.ts): one Instagram Story per feed
+     * post once it's out (or in dry run). Null: not tried yet. Then
+     * creating -> publishing -> published, or skipped / failed / dry_run.
+     */
+    echoStatus: text("echo_status"),
+    /** The echo's 1080 x 1920 JPEG ({ sha, ext, width, height }). */
+    echoMedia: jsonb("echo_media"),
+    echoContainerId: text("echo_container_id"),
+    echoMediaId: text("echo_media_id"),
+    echoReason: text("echo_reason"),
+    echoPublishedAt: timestamp("echo_published_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -1042,6 +1054,10 @@ export const socialPosts = pgTable(
     check(
       "social_posts_status",
       sql`${t.status} in ('queued', 'creating', 'publishing', 'published', 'skipped', 'failed', 'dry_run', 'replaced')`,
+    ),
+    check(
+      "social_posts_echo_status",
+      sql`${t.echoStatus} in ('creating', 'publishing', 'published', 'skipped', 'failed', 'dry_run')`,
     ),
   ],
 );

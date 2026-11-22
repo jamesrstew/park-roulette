@@ -18,7 +18,8 @@ import {
   composeUnpack,
   type ParkInfo,
 } from "../src/lib/social/compose";
-import { AtHomeDraft, slotFor } from "../src/lib/social/model";
+import { AtHomeDraft, echoLine, slotFor } from "../src/lib/social/model";
+import { renderEcho } from "../src/lib/social/echo-render";
 import { CATALOG } from "../src/lib/news/catalog";
 import { validateAtHome } from "../src/lib/social/validate";
 import { photosFor, renderPost } from "../src/lib/social/render";
@@ -579,6 +580,17 @@ async function main() {
         f.bytes.length,
         "bytes",
       );
+    }
+    // The Story echo: the cover that went out, on the 9:16 crayon card.
+    if (spec.kind !== "story" && files[0]) {
+      const echo = await renderEcho(
+        spec.kind,
+        echoLine(spec),
+        files[0].bytes,
+        spec.slides[0].t === "headline",
+      );
+      await writeFile(join(out, `${name}-echo-story.jpg`), echo.bytes);
+      console.log(`${name}-echo-story.jpg`, echoLine(spec));
     }
     await writeFile(
       join(out, `${name}-caption.txt`),
