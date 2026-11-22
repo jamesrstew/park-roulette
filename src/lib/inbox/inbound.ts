@@ -10,6 +10,7 @@ import {
   parseSenders,
   sentAt,
 } from "./accept";
+import { type DnsResolver, liveResolver, verifyDkim } from "./dkim";
 import { cleanIssue } from "./extract";
 import { fetchRaw, fetchReceived } from "./resend";
 import { MAX_PER_DAY, saveIssue } from "./store";
@@ -52,6 +53,7 @@ export async function handleReceived(
   emailId: string,
   fetchImpl: typeof fetch = fetch,
   cfg: InboxConfig = inboxConfig(),
+  resolver: DnsResolver = liveResolver,
 ): Promise<InboundResult> {
   const failed = (error: string, retry = true): InboundResult => {
     console.error(`[inbox] couldn't read ${emailId}: ${error}`);
@@ -70,7 +72,13 @@ export async function handleReceived(
   const e = got.email;
   const raw = await fetchRaw(e.raw?.download_url, fetchImpl);
   if (!raw.ok) return failed(raw.error, raw.retry);
-  const v = decide(e, parseRawHeaders(raw.raw), cfg);
+  const dkim = await verifyDkim(raw.raw, resolver);
+  const v = decide(e, parseRawHeaders(raw.raw.toString("utf8")), cfg, dkim);
+  if (v.kind === "drop" && v.retry) {
+    // DNS let us down: nothing stored, Resend tries again later.
+    console.warn(`[inbox] ${emailId}: ${v.reason}`);
+    return { status: 503, outcome: "failed", reason: v.reason };
+  }
   if (v.kind === "drop")
     return dropped(e.from, v.reason, v.suspicious, v.setup);
 

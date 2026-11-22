@@ -26,6 +26,7 @@
     "canvas-confetti": "^1.9.4",
     "drizzle-orm": "^0.45.4",
     "leaflet": "^1.9.4",
+    "mailauth": "^8.1.0",
     "nanoid": "^6.0.2",
     "next": "16.4.5",
     "postgres": "^4.1.0",

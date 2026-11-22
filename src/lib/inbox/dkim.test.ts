@@ -1,0 +1,195 @@
+import { describe, expect, it } from "vitest";
+import {
+  decide,
+  type InboxConfig,
+  parseRawHeaders,
+  parseSenders,
+  type ReceivedEmail,
+} from "./accept";
+import { verifyDkim } from "./dkim";
+import {
+  downResolver,
+  forwardedBy,
+  signed,
+  testResolver,
+} from "./dkim.testkit";
+
+/**
+ * DKIM verified by us on the raw message: only a signature that verifies
+ * counts. Messages are built in the shape of the real newsletters (a
+ * beehiiv issue sent through SendGrid, signed by the sender's domain and
+ * by sendgrid.info; a beehiiv issue signed by mail.beehiiv.com), signed
+ * with a throwaway key whose lookup is stubbed. Names are synthetic.
+ */
+const INBOX = "issues-test@in.example.org";
+const OWNER = "owner@gmail.com";
+const DAILY = "hello@daily-news.example";
+const WEEKLY = "weekly@mail.beehiiv.com";
+const cfg: InboxConfig = {
+  address: INBOX,
+  forwarder: OWNER,
+  senders: parseSenders(`daily:${DAILY}:sendgrid,weekly:${WEEKLY}:beehiiv`),
+};
+/** The headers the real newsletters' signatures cover (h=). */
+const H = [
+  "Content-Type",
+  "Date",
+  "From",
+  "Mime-Version",
+  "Subject",
+  "Reply-To",
+  "Feedback-ID",
+  "List-Unsubscribe",
+  "List-Unsubscribe-Post",
+  "To",
+];
+
+const issue = (from: string) =>
+  [
+    'Content-Type: text/html; charset="utf-8"',
+    "Date: Fri, 20 Nov 2026 14:02:38 +0000",
+    `From: The Newsletter <${from}>`,
+    "Mime-Version: 1.0",
+    "Message-ID: <synthetic-1@mta.example>",
+    "Subject: Synthetic issue",
+    `Reply-To: The Newsletter <${from}>`,
+    "Feedback-ID: SYNTHETIC:newsletter",
+    "List-Unsubscribe: <mailto:SYNTHETIC@unsub.beehiiv.com>",
+    "List-Unsubscribe-Post: List-Unsubscribe=One-Click",
+    'x-beehiiv-ids: {"campaign_id":"SYNTHETIC"}',
+    "x-beehiiv-type: newsletter",
+    "X-SG-EID: SYNTHETIC",
+    `To: ${OWNER}`,
+    "",
+    "<p>Saturday 11/21 Winter Lights 12-7pm</p>",
+    "",
+  ].join("\r\n");
+
+const email = (from: string): ReceivedEmail => ({
+  id: "00000000-0000-4000-8000-000000000001",
+  from,
+  to: [OWNER],
+  received_for: [INBOX],
+  subject: "Synthetic issue",
+  html: "<p>x</p>",
+  text: "x",
+  headers: { from: `The Newsletter <${from}>` },
+  created_at: "2026-11-20T14:02:41.000Z",
+  message_id: "<synthetic-1@mta.example>",
+  authentication: { spf: "pass", dkim: "pass", dmarc: "pass" },
+});
+
+const check = async (raw: string, from: string, resolver = testResolver) => {
+  const dkim = await verifyDkim(Buffer.from(raw), resolver);
+  return { dkim, v: decide(email(from), parseRawHeaders(raw), cfg, dkim) };
+};
+
+describe("DKIM we verify ourselves", () => {
+  it("keeps a forwarded issue shaped like the real ones", async () => {
+    const daily = forwardedBy(
+      OWNER,
+      INBOX,
+      await signed(issue(DAILY), [
+        { domain: "daily-news.example", headers: H },
+        { domain: "sendgrid.info", headers: H },
+      ]),
+    );
+    const d = await check(daily, DAILY);
+    expect(d.dkim.verified.map((x) => x.domain)).toEqual([
+      "daily-news.example",
+      "sendgrid.info",
+    ]);
+    expect(d.v).toMatchObject({ kind: "issue", source: "daily" });
+
+    const weekly = forwardedBy(
+      OWNER,
+      INBOX,
+      await signed(issue(WEEKLY), [
+        { domain: "bhmta.beehiiv.com", headers: H },
+        { domain: "mail.beehiiv.com", headers: H },
+      ]),
+    );
+    expect((await check(weekly, WEEKLY)).v).toMatchObject({
+      kind: "issue",
+      source: "weekly",
+    });
+  });
+
+  it("drops the reviewer's probe: a staff reply with a forged signature header", async () => {
+    // A genuine reply from the newsletter's staff: signed, but not a
+    // newsletter (no List-Unsubscribe under its signature).
+    const reply = await signed(
+      [
+        "Date: Fri, 20 Nov 2026 14:02:38 +0000",
+        `From: Staff <${DAILY}>`,
+        "Subject: Re: your question",
+        `To: ${OWNER}`,
+        "",
+        "Thanks!",
+        "",
+      ].join("\r\n"),
+      [
+        {
+          domain: "daily-news.example",
+          headers: ["From", "To", "Subject", "Date"],
+        },
+      ],
+    );
+    const probe = forwardedBy(
+      OWNER,
+      INBOX,
+      [
+        "DKIM-Signature: v=1; a=rsa-sha256; d=daily-news.example; s=s1; h=from:list-unsubscribe; bh=FORGED=; b=FORGED",
+        "DKIM-Signature: v=1; a=rsa-sha256; d=sendgrid.info; s=s1; h=from:list-unsubscribe; bh=FORGED=; b=FORGED",
+        "List-Unsubscribe: <mailto:x@unsub.beehiiv.com>",
+        'X-Beehiiv-Ids: {"campaign_id":"FORGED"}',
+        "X-SG-EID: FORGED",
+        reply,
+      ].join("\r\n"),
+    );
+    const r = await check(probe, DAILY);
+    // Only the staff signature verifies; the forged ones don't count.
+    expect(r.dkim.verified).toHaveLength(1);
+    expect(r.dkim.verified[0].domain).toBe("daily-news.example");
+    expect(r.dkim.verified[0].headers).not.toContain("list-unsubscribe");
+    expect(r.v).toMatchObject({ kind: "drop", suspicious: true });
+  });
+
+  it("drops an issue whose body was changed after signing", async () => {
+    const raw = forwardedBy(
+      OWNER,
+      INBOX,
+      await signed(issue(DAILY), [
+        { domain: "daily-news.example", headers: H },
+        { domain: "sendgrid.info", headers: H },
+      ]),
+    ).replace("Winter Lights", "Winter Nights");
+    const r = await check(raw, DAILY);
+    expect(r.dkim.verified).toEqual([]);
+    expect(r.v).toMatchObject({ kind: "drop", suspicious: true });
+  });
+
+  it("never counts a signature that covers only part of the body (l=)", async () => {
+    const raw = forwardedBy(
+      OWNER,
+      INBOX,
+      await signed(issue(DAILY), [
+        { domain: "daily-news.example", headers: H, maxBodyLength: 10 },
+      ]),
+    );
+    expect((await check(raw, DAILY)).dkim.verified).toEqual([]);
+  });
+
+  it("drops for a retry when DNS is down (fail closed)", async () => {
+    const raw = forwardedBy(
+      OWNER,
+      INBOX,
+      await signed(issue(DAILY), [
+        { domain: "daily-news.example", headers: H },
+      ]),
+    );
+    const r = await check(raw, DAILY, downResolver);
+    expect(r.dkim).toEqual({ verified: [], temporary: true });
+    expect(r.v).toMatchObject({ kind: "drop", retry: true });
+  });
+});

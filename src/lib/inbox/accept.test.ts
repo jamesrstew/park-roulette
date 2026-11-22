@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { DkimCheck } from "./dkim";
 import {
   decide,
   forwardingDetails,
@@ -25,9 +26,7 @@ const WEEKLY = "weekly@mail.beehiiv.com";
 const cfg: InboxConfig = {
   address: INBOX,
   forwarder: OWNER,
-  senders: parseSenders(
-    `daily:${DAILY}:beehiiv+sendgrid, weekly:${WEEKLY}:beehiiv`,
-  ),
+  senders: parseSenders(`daily:${DAILY}:sendgrid, weekly:${WEEKLY}:beehiiv`),
 };
 const ARRIVED = "2026-11-20T14:02:41.000Z";
 
@@ -76,11 +75,32 @@ const forwarded = (over: Partial<ReceivedEmail> = {}): ReceivedEmail => ({
   authentication: { spf: "pass", dkim: "pass", dmarc: "gray" },
   ...over,
 });
+/**
+ * decide() gets the signatures lib/inbox/dkim.ts verified. Here, by
+ * default, the raw message's DKIM-Signature headers stand in for them (as
+ * if each verified); dkim.test.ts signs and verifies real ones.
+ */
+const asVerified = (r: string): DkimCheck => ({
+  temporary: false,
+  verified: parseRawHeaders(r)
+    .filter((h) => h.name === "dkim-signature")
+    .map((h) => {
+      const tag = (t: string) =>
+        h.value
+          .replace(/\s+/g, "")
+          .match(new RegExp(`(?:^|;)${t}=([^;]*)`))?.[1] ?? "";
+      return {
+        domain: tag("d").toLowerCase(),
+        headers: tag("h").toLowerCase().split(":"),
+      };
+    }),
+});
 const go = (
   e: ReceivedEmail = forwarded(),
   r: string = raw(),
   c: InboxConfig = cfg,
-) => decide(e, parseRawHeaders(r), c);
+  dkim: DkimCheck = asVerified(r),
+) => decide(e, parseRawHeaders(r), c, dkim);
 
 const weekly = () => {
   const e = forwarded({
@@ -285,7 +305,58 @@ describe("one From, three ways", () => {
   });
 });
 
-describe("newsletter traits", () => {
+describe("newsletter traits (verified signatures only)", () => {
+  it("never takes a DKIM-Signature header nobody verified (the reviewer's probe)", () => {
+    // A real reply from the newsletter's staff (no List-Unsubscribe in
+    // its verified signature), with a forged extra signature header,
+    // List-Unsubscribe and platform headers added.
+    const r = raw({
+      add: [
+        "DKIM-Signature: d=daily-news.example; h=from:list-unsubscribe; b=FORGED",
+      ],
+    });
+    const staff: DkimCheck = {
+      temporary: false,
+      verified: [
+        { domain: "daily-news.example", headers: ["from", "to", "subject"] },
+      ],
+    };
+    expect(go(forwarded(), r, cfg, staff)).toMatchObject({
+      kind: "drop",
+      suspicious: true,
+    });
+  });
+  it("never takes a bare platform header: it must be under a verified h=", () => {
+    const own: DkimCheck = {
+      temporary: false,
+      verified: [
+        {
+          domain: "daily-news.example",
+          headers: ["from", "list-unsubscribe"],
+        },
+      ],
+    };
+    const c = { ...cfg, senders: parseSenders(`daily:${DAILY}:beehiiv`) };
+    expect(go(forwarded(), raw(), c, own)).toMatchObject({ kind: "drop" });
+    const covered: DkimCheck = {
+      temporary: false,
+      verified: [
+        {
+          domain: "daily-news.example",
+          headers: ["from", "list-unsubscribe", "x-beehiiv-type"],
+        },
+      ],
+    };
+    expect(go(forwarded(), raw(), c, covered)).toMatchObject({
+      kind: "issue",
+    });
+  });
+  it("drops for a retry when a key lookup failed", () => {
+    expect(
+      go(forwarded(), raw(), cfg, { temporary: true, verified: [] }),
+    ).toMatchObject({ kind: "drop", retry: true, suspicious: false });
+  });
+
   it("needs List-Unsubscribe", () => {
     expect(go(forwarded(), raw({ drop: ["list-unsubscribe"] }))).toMatchObject({
       kind: "drop",
@@ -302,28 +373,36 @@ describe("newsletter traits", () => {
       suspicious: true,
     });
   });
-  it("needs every platform marker the sender is configured with", () => {
-    expect(go(forwarded(), raw({ drop: ["x-beehiiv"] }))).toMatchObject({
-      kind: "drop",
-      suspicious: true,
-    });
-    // SendGrid: its headers or its DKIM domain will do.
+  it("needs every platform's verified mark the sender is configured with", () => {
+    // SendGrid by its own verified signature (d=sendgrid.info)...
     expect(go(forwarded(), raw({ drop: ["x-sg"] }))).toMatchObject({
       kind: "issue",
+    });
+    // ...or by its header under a verified h=; a bare header never.
+    const noSg = raw({
+      drop: ["dkim-signature: v=1; a=rsa-sha256; d=sendgrid"],
+    });
+    expect(go(forwarded(), noSg)).toMatchObject({
+      kind: "drop",
+      suspicious: true,
     });
     expect(
       go(
         forwarded(),
-        raw({
-          drop: ["x-sg", "dkim-signature: v=1; a=rsa-sha256; d=sendgrid"],
-        }),
+        noSg.replace(
+          "list-unsubscribe-post;",
+          "list-unsubscribe-post:x-sg-eid;",
+        ),
       ),
-    ).toMatchObject({ kind: "drop", suspicious: true });
-    // beehiiv: its DKIM domain stands in for its headers.
+    ).toMatchObject({ kind: "issue" });
+    // beehiiv by a verified beehiiv.com signature.
     const w = weekly();
-    expect(go(w.e, w.r.replace(/x-beehiiv-[^\r]*\r\n/gi, ""))).toMatchObject({
-      kind: "issue",
-    });
+    expect(go(w.e, w.r)).toMatchObject({ kind: "issue" });
+    const both = {
+      ...cfg,
+      senders: parseSenders(`daily:${DAILY}:beehiiv+sendgrid`),
+    };
+    expect(go(forwarded(), raw(), both)).toMatchObject({ kind: "drop" });
   });
 });
 
@@ -371,7 +450,13 @@ describe("Gmail's forwarding confirmation", () => {
       authentication: { spf: "pass", dkim: "pass", dmarc: "pass" },
       ...over,
     });
-  const graw = raw({ from: `Gmail Team <${G}>`, drop: ["x-forwarded"] });
+  const graw = raw({
+    from: `Gmail Team <${G}>`,
+    drop: ["x-forwarded", "dkim-signature: v=1; a="],
+    add: [
+      "DKIM-Signature: v=1; d=google.com; h=from:to:subject:date; b=SYNTHETIC=",
+    ],
+  });
 
   it("keeps it with its code, link and requester", () => {
     expect(go(confirm(), graw)).toEqual({

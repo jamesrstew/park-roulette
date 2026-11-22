@@ -33,14 +33,14 @@ export type FetchReceived =
   | { ok: true; email: ReceivedEmail }
   | { ok: false; status: number; error: string };
 
-/** A response body as text, or null past `max` bytes. */
-async function capped(res: Response, max: number): Promise<string | null> {
+/** A response body as bytes, or null past `max` bytes. */
+async function cappedBytes(res: Response, max: number): Promise<Buffer | null> {
   const declared = Number(res.headers.get("content-length") ?? "0");
   if (declared > max) {
     await res.body?.cancel().catch(() => {});
     return null;
   }
-  if (!res.body) return "";
+  if (!res.body) return Buffer.alloc(0);
   const reader = res.body.getReader();
   const parts: Uint8Array[] = [];
   let size = 0;
@@ -54,7 +54,7 @@ async function capped(res: Response, max: number): Promise<string | null> {
     }
     parts.push(value);
   }
-  return Buffer.concat(parts).toString("utf8");
+  return Buffer.concat(parts);
 }
 
 export async function fetchReceived(
@@ -76,7 +76,7 @@ export async function fetchReceived(
   } catch (e) {
     return { ok: false, status: 0, error: (e as Error).name };
   }
-  const body = await capped(res, MAX_JSON_BYTES);
+  const body = (await cappedBytes(res, MAX_JSON_BYTES))?.toString("utf8");
   if (body == null) return { ok: false, status: res.status, error: "too_big" };
   let json: (ReceivedEmail & { name?: string }) | null = null;
   try {
@@ -94,7 +94,8 @@ export async function fetchReceived(
 }
 
 export type FetchRaw =
-  { ok: true; raw: string } | { ok: false; error: string; retry: boolean };
+  /** The exact bytes (DKIM is verified on them). */
+  { ok: true; raw: Buffer } | { ok: false; error: string; retry: boolean };
 
 /** The raw MIME message, at most 1 MB, from Resend's own download link. */
 export async function fetchRaw(
@@ -127,7 +128,7 @@ export async function fetchRaw(
     await res.body?.cancel().catch(() => {});
     return { ok: false, error: `raw_http_${res.status}`, retry: true };
   }
-  const raw = await capped(res, MAX_RAW_BYTES);
+  const raw = await cappedBytes(res, MAX_RAW_BYTES);
   if (raw == null) return { ok: false, error: "raw over 1 MB", retry: false };
   return { ok: true, raw };
 }

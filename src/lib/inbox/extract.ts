@@ -75,8 +75,38 @@ export function isTracker(u: string): boolean {
     /^url\d+\./.test(h) ||
     /^\/(ls\/click|wf\/click)\b/i.test(path) ||
     /^\/(ss\/c|v2\/c)\//i.test(path) ||
-    /^\/c\/[A-Za-z0-9_.~-]{16,}/.test(path)
+    opaqueClick(path)
   );
+}
+
+/**
+ * A /c/<token> path whose token is opaque (digits, mixed case, or 16+
+ * characters), on any host or subdomain: a click tracker's, not a page
+ * like /c/family.
+ */
+function opaqueClick(path: string): boolean {
+  const m = path.match(/^\/c\/([^/]+)/);
+  if (!m) return false;
+  const t = m[1];
+  return t.length >= 16 || /\d/.test(t) || (/[a-z]/.test(t) && /[A-Z]/.test(t));
+}
+
+/**
+ * A link the harvest may follow: not a tracker, unless its anchor prints
+ * the very page it opens (an organizer's address, "example.org/c/x1").
+ */
+export function keepLink(url: string, text: string): boolean {
+  if (!isTracker(url)) return true;
+  if (!opaqueClick(new URL(url).pathname)) return false;
+  const shown = text
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/$/, "");
+  const real = url
+    .replace(/^https?:\/\//i, "")
+    .replace(/[?#].*$/, "")
+    .replace(/\/$/, "");
+  return !!shown && shown.replace(/^www\./, "") === real.replace(/^www\./, "");
 }
 
 function decodeOnce(s: string): string {
@@ -262,6 +292,14 @@ function scrubAddresses(
     const re = a && addressPattern(a);
     if (re) out = out.replace(re, "[subscriber]");
   }
+  // Any address in a greeting ("Hi jane@example.com,") is the subscriber's.
+  out = out.replace(
+    new RegExp(
+      `\\b${GREETING}([,!]?\\s+)[^\\s@<>"']+(?:@|%40)[^\\s<>,!;"']+`,
+      "gi",
+    ),
+    "$1$2there",
+  );
   for (const n of names) {
     const name = n.trim();
     if (!name) continue;
@@ -310,7 +348,11 @@ export function cleanIssue(input: {
       const before = normalizeText(
         plainText(plain.slice(Math.max(0, (m.index ?? 0) - 400), m.index)),
       );
-      if (!isHttp(url) || isTracker(url) || isPrivateLink(url, text, before))
+      if (
+        !isHttp(url) ||
+        !keepLink(url, text) ||
+        isPrivateLink(url, text, before)
+      )
         continue;
       links.push({ text: scrubAddresses(text, scrub, names), url });
     }
@@ -359,7 +401,7 @@ export function cleanIssue(input: {
         return without;
       // A click tracker we couldn't resolve stays in the html (it's never
       // shown) but never in the links the harvest reads.
-      if (!isTracker(url)) links.push({ text, url });
+      if (keepLink(url, text)) links.push({ text, url });
       return whole.replace(m[0], `href="${attrEncode(url)}"`);
     },
   );

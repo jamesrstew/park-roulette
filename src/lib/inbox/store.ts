@@ -4,7 +4,7 @@ import { db } from "@/db";
 import { newsletterIssues } from "@/db/schema";
 import { pacific } from "@/lib/news/time";
 import { GMAIL_FORWARDING_SOURCE } from "./accept";
-import { type IssueLink, isTracker } from "./extract";
+import { type IssueLink, keepLink } from "./extract";
 
 /**
  * The stored newsletter issues (newsletter_issues): saved by the inbound
@@ -110,7 +110,7 @@ const summary = (r: Omit<Row, "html" | "messageId" | "receivedAt">) => ({
   sent_day: pacific(r.sentAt).date,
   text: r.text,
   // Never a click tracker (they'd count as the owner's clicks).
-  links: r.links.filter((l) => !isTracker(l.url)),
+  links: r.links.filter((l) => keepLink(l.url, l.text)),
 });
 
 const cols = {

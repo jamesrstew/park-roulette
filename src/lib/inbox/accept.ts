@@ -1,4 +1,5 @@
 import "server-only";
+import type { DkimCheck } from "./dkim";
 
 /**
  * Which inbound emails the private newsletter inbox keeps (pure).
@@ -17,9 +18,14 @@ import "server-only";
  *    forge) found a passing DKIM signature for the From domain, and DMARC
  *    didn't fail.
  * 4. Gmail's X-Forwarded-For names INBOX_FORWARDER.
- * 5. Newsletter traits: a List-Unsubscribe header, covered (h=) by a
- *    DKIM signature of the From domain, and every sending platform's
- *    marker the sender is configured with (PLATFORMS).
+ * 5. Newsletter traits, from DKIM signatures WE verified on the raw
+ *    message (lib/inbox/dkim.ts; a DKIM-Signature header alone proves
+ *    nothing): a List-Unsubscribe header, covered (h=) by a verified
+ *    signature whose d= is the From domain (or its parent), and, for
+ *    every sending platform the sender is configured with (PLATFORMS),
+ *    a verified signature by the platform's domain, or one of its
+ *    headers covered by a verified signature. A failed key lookup (DNS)
+ *    drops the email for Resend to retry.
  * 6. Its Date is at most 3 days before it reached us and at most 1 day
  *    after. Never replaced by the arrival time.
  *
@@ -102,6 +108,8 @@ export type Verdict =
       suspicious: boolean;
       /** The inbox isn't configured: every email drops until it is. */
       setup?: boolean;
+      /** A DNS failure kept us from verifying: a retry may succeed. */
+      retry?: boolean;
     };
 
 /** local@domain: one @, dot-separated labels, no trailing dot. */
@@ -181,16 +189,6 @@ export function parseRawHeaders(raw: string): RawHeader[] {
 const all = (h: readonly RawHeader[], name: string) =>
   h.filter((x) => x.name === name).map((x) => x.value);
 
-/** A DKIM-Signature's tags (whitespace removed, names lowercase). */
-function dkimTags(value: string): Record<string, string> {
-  const tags: Record<string, string> = {};
-  for (const part of value.replace(/\s+/g, "").split(";")) {
-    const i = part.indexOf("=");
-    if (i > 0) tags[part.slice(0, i).toLowerCase()] = part.slice(i + 1);
-  }
-  return tags;
-}
-
 const underDomain = (host: string, d: string) =>
   host === d || host.endsWith(`.${d}`);
 
@@ -200,6 +198,17 @@ const drop = (reason: string, suspicious = false, setup = false): Verdict => ({
   suspicious,
   ...(setup ? { setup } : {}),
 });
+
+/** No verified signature that does the job: retry on a DNS failure. */
+const unverified = (reason: string, dkim: DkimCheck): Verdict =>
+  dkim.temporary
+    ? {
+        kind: "drop",
+        reason: `${reason} (a DKIM key lookup failed: retry)`,
+        suspicious: false,
+        retry: true,
+      }
+    : drop(reason, true);
 
 /** Days an issue's Date may run before its arrival, or after it. */
 export const DATE_BEFORE_DAYS = 3;
@@ -228,6 +237,7 @@ export function decide(
   e: ReceivedEmail,
   raw: readonly RawHeader[],
   cfg: InboxConfig,
+  dkim: DkimCheck,
 ): Verdict {
   const inbox = parseAddress(cfg.address);
   if (!inbox) return drop("INBOX_ADDRESS isn't set", false, true);
@@ -262,6 +272,12 @@ export function decide(
   if (from === GMAIL_FORWARDING) {
     if (!dkimPass || dmarcFail)
       return drop("a Gmail forwarding email without a passing signature", true);
+    if (
+      !dkim.verified.some(
+        (v) => v.domain === "google.com" && v.headers.includes("from"),
+      )
+    )
+      return unverified("no verified google.com signature", dkim);
     return { kind: "gmail-forwarding", ...forwardingDetails(e) };
   }
 
@@ -283,34 +299,32 @@ export function decide(
   if (!by.includes(forwarder))
     return drop("not forwarded by the owner's Gmail (X-Forwarded-For)", true);
 
-  // Newsletter traits.
+  // Newsletter traits, from signatures we verified ourselves.
   if (!all(raw, "list-unsubscribe").some((v) => v.trim()))
     return drop(`no List-Unsubscribe from ${from}`, true);
   const domain = from.split("@")[1];
-  const sigs = all(raw, "dkim-signature").map(dkimTags);
-  const covered = sigs.some((t) => {
-    const d = (t.d ?? "").toLowerCase();
-    const h = (t.h ?? "").toLowerCase().split(":");
-    return (
-      !!d &&
-      underDomain(domain, d) &&
-      h.includes("from") &&
-      h.includes("list-unsubscribe")
-    );
-  });
+  const covered = dkim.verified.some(
+    (v) =>
+      underDomain(domain, v.domain) &&
+      v.headers.includes("from") &&
+      v.headers.includes("list-unsubscribe"),
+  );
   if (!covered)
-    return drop(
-      `List-Unsubscribe isn't covered by a DKIM signature of ${domain}`,
-      true,
+    return unverified(
+      `no verified DKIM signature of ${domain} covering List-Unsubscribe`,
+      dkim,
     );
   const names = new Set(raw.map((x) => x.name));
-  const signers = sigs.map((t) => (t.d ?? "").toLowerCase()).filter(Boolean);
   for (const p of sender.platforms) {
     const marks = PLATFORMS[p];
     const marked =
-      marks.headers.some((n) => names.has(n)) ||
-      signers.some((d) => marks.dkim.some((m) => underDomain(d, m)));
-    if (!marked) return drop(`no ${p} marks on ${from}`, true);
+      dkim.verified.some((v) =>
+        marks.dkim.some((m) => underDomain(v.domain, m)),
+      ) ||
+      marks.headers.some(
+        (n) => names.has(n) && dkim.verified.some((v) => v.headers.includes(n)),
+      );
+    if (!marked) return unverified(`no verified ${p} marks on ${from}`, dkim);
   }
 
   const dates = all(raw, "date");

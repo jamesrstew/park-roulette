@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { type InboxConfig, parseSenders, type ReceivedEmail } from "./accept";
+import { forwardedBy, signed, testResolver } from "./dkim.testkit";
 
 /**
  * One email.received delivery, end to end with Resend and the database
@@ -35,26 +36,45 @@ const FROM = "hello@daily-news.example";
 const cfg: InboxConfig = {
   address: INBOX,
   forwarder: OWNER,
-  senders: parseSenders(`daily:${FROM}:beehiiv`),
+  senders: parseSenders(`daily:${FROM}:sendgrid`),
 };
 const ID = "00000000-0000-4000-8000-000000000001";
 const RAW_URL = "https://d1example.cloudfront.net/raw/SYNTHETIC?sig=x";
 
-const rawFor = (from: string, extra = "") =>
-  [
-    `X-Forwarded-For: ${OWNER} ${INBOX}`,
-    `X-Forwarded-To: ${INBOX}`,
-    "DKIM-Signature: v=1; d=daily-news.example; h=from:date:list-unsubscribe; b=SYNTHETIC=",
+/** A signed message forwarded by the owner's Gmail (real DKIM, test key). */
+async function rawFor(from: string, extra = ""): Promise<string> {
+  const domain = from.match(/@([^>]+)>?$/)![1];
+  const msg = [
     "Date: Fri, 20 Nov 2026 14:02:38 +0000",
     `From: ${from}`,
+    "Subject: Synthetic issue",
     "List-Unsubscribe: <mailto:unsub-SYNTHETIC@unsub.beehiiv.com>",
-    "x-beehiiv-type: newsletter",
-    extra,
+    ...(extra ? [extra] : []),
+    `To: ${OWNER}`,
     "",
     "<p>body</p>",
-  ]
-    .filter((l, i, a) => l || i === a.length - 2)
-    .join("\r\n");
+    "",
+  ].join("\r\n");
+  const H = ["From", "Date", "Subject", "List-Unsubscribe", "To"];
+  return forwardedBy(
+    OWNER,
+    INBOX,
+    await signed(msg, [
+      { domain, headers: H },
+      ...(domain === "google.com"
+        ? []
+        : [{ domain: "sendgrid.info", headers: H }]),
+    ]),
+  );
+}
+let DAILY_RAW = "";
+let EVIL_RAW = "";
+let GMAIL_RAW = "";
+beforeAll(async () => {
+  DAILY_RAW = await rawFor(`The Daily <${FROM}>`);
+  EVIL_RAW = await EVIL_RAW;
+  GMAIL_RAW = await rawFor("Gmail Team <forwarding-noreply@google.com>");
+});
 
 const email = (over: Partial<ReceivedEmail> = {}): ReceivedEmail => ({
   id: ID,
@@ -78,13 +98,14 @@ const email = (over: Partial<ReceivedEmail> = {}): ReceivedEmail => ({
 const resend =
   (
     e: ReceivedEmail | null,
-    raw: string = rawFor(`The Daily <${FROM}>`),
+    raw?: string,
     status = 200,
     rawStatus = 200,
   ): typeof fetch =>
   async (input) => {
     const u = String(input);
-    if (u === RAW_URL) return new Response(raw, { status: rawStatus });
+    if (u === RAW_URL)
+      return new Response(raw ?? DAILY_RAW, { status: rawStatus });
     expect(u).toBe(
       `https://api.resend.com/emails/receiving/${ID}?html_format=cid`,
     );
@@ -104,7 +125,7 @@ beforeEach(() => {
 describe("handleReceived", () => {
   it("stores a newsletter issue, cleaned and scrubbed, once", async () => {
     const { handleReceived } = await import("./inbound");
-    const r = await handleReceived(ID, resend(email()), cfg);
+    const r = await handleReceived(ID, resend(email()), cfg, testResolver);
     expect(r).toMatchObject({ status: 200, outcome: "stored" });
     expect(saved[0]).toMatchObject({
       source: "daily",
@@ -115,7 +136,9 @@ describe("handleReceived", () => {
     expect((saved[0].sentAt as Date).toISOString()).toBe(
       "2026-11-20T14:02:38.000Z",
     );
-    expect(await handleReceived(ID, resend(email()), cfg)).toMatchObject({
+    expect(
+      await handleReceived(ID, resend(email()), cfg, testResolver),
+    ).toMatchObject({
       outcome: "duplicate",
     });
     expect(saved).toHaveLength(1);
@@ -129,6 +152,7 @@ describe("handleReceived", () => {
         ID,
         resend(email({ message_id: `<m${n}@mta.example>` })),
         cfg,
+        testResolver,
       );
     expect(saved).toHaveLength(2);
     expect(alerts.map((a) => a.key)).toEqual(["inbox:volume"]);
@@ -140,6 +164,7 @@ describe("handleReceived", () => {
       ID,
       resend(email({ authentication: { dkim: "fail", dmarc: "fail" } })),
       cfg,
+      testResolver,
     );
     expect(r).toMatchObject({ status: 200, outcome: "dropped" });
     expect(saved).toEqual([]);
@@ -150,8 +175,9 @@ describe("handleReceived", () => {
     const { handleReceived } = await import("./inbound");
     const r = await handleReceived(
       ID,
-      resend(email(), rawFor(`The Daily <${FROM}>`, "From: x <evil@evil.com>")),
+      resend(email(), EVIL_RAW),
       cfg,
+      testResolver,
     );
     expect(r.outcome).toBe("dropped");
     expect(saved).toEqual([]);
@@ -159,10 +185,15 @@ describe("handleReceived", () => {
 
   it("fails closed without INBOX_FORWARDER, with a setup alert", async () => {
     const { handleReceived } = await import("./inbound");
-    const r = await handleReceived(ID, resend(email()), {
-      ...cfg,
-      forwarder: undefined,
-    });
+    const r = await handleReceived(
+      ID,
+      resend(email()),
+      {
+        ...cfg,
+        forwarder: undefined,
+      },
+      testResolver,
+    );
     expect(r.outcome).toBe("dropped");
     expect(alerts.map((a) => a.key)).toEqual(["inbox:setup"]);
   });
@@ -171,10 +202,17 @@ describe("handleReceived", () => {
     const { handleReceived } = await import("./inbound");
     const big = `<p>${"x".repeat(1024 * 1024 + 1)}</p>`;
     expect(
-      (await handleReceived(ID, resend(email({ html: big })), cfg)).outcome,
+      (
+        await handleReceived(
+          ID,
+          resend(email({ html: big })),
+          cfg,
+          testResolver,
+        )
+      ).outcome,
     ).toBe("dropped");
     const long = `<p>${"word ".repeat(60_000)}</p>`;
-    await handleReceived(ID, resend(email({ html: long })), cfg);
+    await handleReceived(ID, resend(email({ html: long })), cfg, testResolver);
     expect((saved[0].text as string).length).toBe(200 * 1024);
   });
 
@@ -187,11 +225,16 @@ describe("handleReceived", () => {
       headers: { from: "Gmail Team <forwarding-noreply@google.com>" },
       message_id: `<g-${requester}@google.com>`,
     });
-  const graw = rawFor("Gmail Team <forwarding-noreply@google.com>");
+  const graw = () => GMAIL_RAW;
 
   it("emails the owner Gmail's code when the owner's account asked", async () => {
     const { handleReceived } = await import("./inbound");
-    const r = await handleReceived(ID, resend(gmail(OWNER), graw), cfg);
+    const r = await handleReceived(
+      ID,
+      resend(gmail(OWNER), graw()),
+      cfg,
+      testResolver,
+    );
     expect(r.outcome).toBe("forwarding");
     expect(saved[0]).toMatchObject({ source: "gmail-forwarding" });
     expect(alerts).toHaveLength(1);
@@ -205,7 +248,12 @@ describe("handleReceived", () => {
 
   it("only warns, without the code or link, when another account asked", async () => {
     const { handleReceived } = await import("./inbound");
-    await handleReceived(ID, resend(gmail("stranger@gmail.com"), graw), cfg);
+    await handleReceived(
+      ID,
+      resend(gmail("stranger@gmail.com"), graw()),
+      cfg,
+      testResolver,
+    );
     expect(alerts).toHaveLength(1);
     expect(alerts[0].key).toBe("inbox:gmail-forwarding");
     expect(alerts[0].text).not.toMatch(/123456789|mail-settings|stranger/);
@@ -214,16 +262,25 @@ describe("handleReceived", () => {
 
   it("asks Resend to retry when it can't read the email or its raw message", async () => {
     const { handleReceived } = await import("./inbound");
-    expect(await handleReceived(ID, resend(null, "", 500), cfg)).toMatchObject({
+    expect(
+      await handleReceived(ID, resend(null, "", 500), cfg, testResolver),
+    ).toMatchObject({
       status: 502,
       outcome: "failed",
     });
     expect(
-      await handleReceived(ID, resend(email(), "", 200, 503), cfg),
+      await handleReceived(
+        ID,
+        resend(email(), "", 200, 503),
+        cfg,
+        testResolver,
+      ),
     ).toMatchObject({ status: 502 });
     expect(alerts.map((a) => a.key)).toContain("inbox:fetch-failed");
     delete process.env.RESEND_INBOUND_API_KEY;
-    expect((await handleReceived(ID, resend(email()), cfg)).status).toBe(502);
+    expect(
+      (await handleReceived(ID, resend(email()), cfg, testResolver)).status,
+    ).toBe(502);
   });
 
   it("never fetches a raw link off Resend's hosts, or a raw message over 1 MB", async () => {
@@ -231,13 +288,14 @@ describe("handleReceived", () => {
     const off = email({
       raw: { download_url: "https://evil.example.com/raw" },
     });
-    expect((await handleReceived(ID, resend(off), cfg)).outcome).toBe(
-      "dropped",
-    );
-    const huge = rawFor(`The Daily <${FROM}>`) + "x".repeat(1024 * 1024);
-    expect((await handleReceived(ID, resend(email(), huge), cfg)).outcome).toBe(
-      "dropped",
-    );
+    expect(
+      (await handleReceived(ID, resend(off), cfg, testResolver)).outcome,
+    ).toBe("dropped");
+    const huge = DAILY_RAW + "x".repeat(1024 * 1024);
+    expect(
+      (await handleReceived(ID, resend(email(), huge), cfg, testResolver))
+        .outcome,
+    ).toBe("dropped");
     expect(saved).toEqual([]);
   });
 });

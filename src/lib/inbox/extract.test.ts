@@ -9,6 +9,7 @@ import {
   isPixel,
   isPrivateLink,
   isTracker,
+  keepLink,
   plainLinks,
   unwrapLink,
 } from "./extract";
@@ -86,6 +87,43 @@ describe("trackers", () => {
       "https://www.example-museum.org/events/popup",
     ])
       expect(isTracker(u), u).toBe(false);
+  });
+});
+
+describe("opaque /c/ links", () => {
+  it("drops them on any host or subdomain, unless the anchor prints the page", () => {
+    for (const u of [
+      "https://go.the-daily.example/c/Ab12xY",
+      "https://news.example-parks.org/c/k9",
+      "https://www.example-parks.org/c/AbCdEf",
+    ]) {
+      expect(isTracker(u), u).toBe(true);
+      expect(keepLink(u, "More info"), u).toBe(false);
+    }
+    expect(
+      keepLink("https://www.example-parks.org/c/k9", "example-parks.org/c/k9"),
+    ).toBe(true);
+    expect(keepLink("https://www.example-parks.org/c/family", "Family")).toBe(
+      true,
+    );
+    const r = cleanIssue({
+      html: '<p>Fun <a href="https://go.the-daily.example/c/Ab12xY">More info</a> and <a href="https://www.example-parks.org/c/kids">Kids</a></p>',
+    });
+    expect(r.links).toEqual([
+      { text: "Kids", url: "https://www.example-parks.org/c/kids" },
+    ]);
+  });
+});
+
+describe("greeting lines", () => {
+  it("scrub any address in a greeting, and the subscriber's names", () => {
+    const r = cleanIssue({
+      html: "<p>Hi jane.q@example.net, welcome back!</p><p>Good morning, Pat!</p><p>Write to hello@the-daily.example any time.</p>",
+      names: ["Pat"],
+    });
+    expect(r.text).toBe(
+      "Hi there, welcome back! Good morning, there! Write to hello@the-daily.example any time.",
+    );
   });
 });
 
