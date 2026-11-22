@@ -8,6 +8,7 @@ import {
   clock,
   type EventDate,
   type EventRow,
+  costChip,
   isFree,
   monthDay,
   statusOn,
@@ -16,8 +17,10 @@ import {
   bigness,
   buildPrograms,
   placesLabel,
+  venueLine,
   type Program,
 } from "@/lib/events/programs";
+import { shortWhat } from "@/lib/events/short-what";
 import { dayName, dayTier, type TextPeriod, type Tier } from "@/lib/news/tiers";
 import { addDays, pacific, shortDay } from "@/lib/news/time";
 
@@ -159,7 +162,44 @@ export type ScoopEvent = {
   href: string;
   /** A regular (story time, club), not a special event. */
   regular: boolean;
+  /** An annual event (the "Once a year" tape, as on /events). */
+  annual: boolean;
+  /** The one-liner under the title: what kids do, or where it is. */
+  line: ScoopLine;
+  /** "Tower Theatre, Bend", "5 libraries". */
+  place: string;
+  /** The printed price chip: "Free", "$5 kids", "$10 to $15"; or null. */
+  price: string | null;
+  setting: "indoor" | "outdoor" | null;
 };
+
+/** The longest place a card prints whole (one line, no ellipsis). */
+const PLACE_MAX = 28;
+
+/** "Tower Theatre, Bend"; too long: "Crook County Library"; else the town. */
+export function cardPlace(r: EventRow): string {
+  const line = venueLine(r);
+  if (line.length <= PLACE_MAX) return line;
+  return r.data.venue.name.length <= PLACE_MAX
+    ? r.data.venue.name
+    : r.data.venue.town;
+}
+
+/** A card's one-liner: three short lines at most. */
+export const SCOOP_LINE_MAX = 84;
+
+/** What kids do (the trimmed `what`), else the venue ("At Tower Theatre"). */
+export type ScoopLine = { text: string; kind: "what" | "where" };
+
+/**
+ * The card's one-liner, never empty: the shared descriptor trimmer's line
+ * from the stored `what`; when it gives none (too long to cut cleanly, a
+ * rule, or nothing printed), where it is instead.
+ */
+export function scoopLine(what: string | undefined, venue: string): ScoopLine {
+  const text = shortWhat(what, SCOOP_LINE_MAX);
+  return text ? { text, kind: "what" } : { text: venue, kind: "where" };
+}
 
 /** At most this many cards, then the See all card. */
 export const SCOOP_EVENTS = 8;
@@ -280,6 +320,11 @@ export function scoopEvents(
       age: ageChip(ages(p)),
       free: free(p),
       regular: false,
+      annual: p.annual,
+      line: scoopLine(r.data.what, r.data.venue.name),
+      place: p.branches.length > 1 ? placesLabel(p.branches) : cardPlace(r),
+      price: costChip(r.data),
+      setting: r.data.setting ?? null,
     })),
     ...regulars.map(({ r, next, p }) => ({
       slug: r.slug,
@@ -290,6 +335,11 @@ export function scoopEvents(
       age: ageChip(ages(p)),
       free: free(p),
       regular: true,
+      annual: false,
+      line: scoopLine(r.data.what, r.data.venue.name),
+      place: p.branches.length > 1 ? placesLabel(p.branches) : cardPlace(r),
+      price: free(p) ? "Free" : costChip(r.data),
+      setting: r.data.setting ?? null,
     })),
   ];
 }

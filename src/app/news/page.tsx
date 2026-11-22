@@ -49,7 +49,7 @@ export default function NewsPage() {
         <Suspense
           fallback={
             <div>
-              <div className="flex gap-3 overflow-hidden pt-1 pb-3">
+              <div className="flex gap-3 overflow-hidden pt-3 pb-3">
                 <Placeholder className={CARD} />
                 <Placeholder className={CARD} />
               </div>

@@ -14,6 +14,7 @@ import {
   roughDay,
   roughLine,
   scoopEvents,
+  scoopLine,
   scoopWeather,
   scoopWhen,
   shortCondition,
@@ -219,6 +220,11 @@ describe("scoopEvents", () => {
       free: true,
       href: expect.stringMatching(/^\/events\//),
       regular: false,
+      annual: false,
+      line: { kind: "what", text: "Something fun for kids to do" },
+      place: "Library, Redmond",
+      price: "Free",
+      setting: null,
     });
   });
 });
@@ -394,6 +400,59 @@ describe("issueRow", () => {
       kind: "issue",
       subject: "Farewell Bend before the snow",
       issueDate: "2026-11-19",
+    });
+  });
+});
+
+describe("the card's one-liner", () => {
+  it("says what kids do, trimmed for a card", () => {
+    expect(
+      scoopLine(
+        "Kids roll dice, invent their own heroes and team up for a silly one-sitting tabletop adventure led by a librarian.",
+        "Sunriver Library",
+      ),
+    ).toEqual({
+      kind: "what",
+      text: "Kids roll dice, invent their own heroes and team up",
+    });
+  });
+
+  it("falls back to where it is, never an empty line", () => {
+    for (const what of [
+      undefined,
+      "",
+      "No registration needed; families must bring their own candy.",
+      "Supercalifragilisticexpialidociousness-themed extravaganzaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ])
+      expect(scoopLine(what, "Sunriver Nature Center")).toEqual({
+        kind: "where",
+        text: "Sunriver Nature Center",
+      });
+  });
+
+  it("every carousel card carries a line, a place and its tapes", () => {
+    const [card] = scoopEvents(
+      [
+        row(
+          {
+            title: "Winter Fest",
+            dates: [{ day: "2026-11-21", start: "11:00" }],
+            what: "Snow games, cocoa and carolers on the Village green.",
+            venue: { name: "The Village at Sunriver", town: "Sunriver" },
+          },
+          { kind: "annual" },
+        ),
+      ],
+      NOW,
+    );
+    expect(card).toMatchObject({
+      annual: true,
+      regular: false,
+      line: {
+        kind: "what",
+        text: "Snow games, cocoa and carolers on the Village green",
+      },
+      place: "The Village at Sunriver",
     });
   });
 });
