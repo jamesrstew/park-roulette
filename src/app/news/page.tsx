@@ -6,7 +6,7 @@ import { Icon } from "@/components/icons";
 import { PageTitle } from "@/components/PageTitle";
 import { JoinNudge } from "@/components/park/JoinNudge";
 import {
-  CARD,
+  CARD_SKELETON,
   EventsHeading,
   ScoopEvents,
 } from "@/components/news/scoop/ScoopEvents";
@@ -50,8 +50,8 @@ export default function NewsPage() {
           fallback={
             <div>
               <div className="flex gap-3 overflow-hidden pt-3 pb-3">
-                <Placeholder className={CARD} />
-                <Placeholder className={CARD} />
+                <Placeholder className={CARD_SKELETON} />
+                <Placeholder className={CARD_SKELETON} />
               </div>
               {/* With a mouse, the carousel's arrows sit under it. */}
               <div className="mt-1 hidden h-11 [@media(pointer:fine)]:block" />

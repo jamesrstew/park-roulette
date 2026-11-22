@@ -187,6 +187,14 @@ export function cardPlace(r: EventRow): string {
 
 /** A card's one-liner: three short lines at most. */
 export const SCOOP_LINE_MAX = 84;
+/** Four lines, under a title that fits on one line. */
+export const SCOOP_LINE_LONG = 112;
+/** About as many title characters as fit on one card line. */
+export const SCOOP_TITLE_LINE = 22;
+
+/** The one-liner's budget: longer under a short title, so cards fill alike. */
+export const lineBudget = (title: string) =>
+  title.length <= SCOOP_TITLE_LINE ? SCOOP_LINE_LONG : SCOOP_LINE_MAX;
 
 /** What kids do (the trimmed `what`), else the venue ("At Tower Theatre"). */
 export type ScoopLine = { text: string; kind: "what" | "where" };
@@ -196,8 +204,13 @@ export type ScoopLine = { text: string; kind: "what" | "where" };
  * from the stored `what`; when it gives none (too long to cut cleanly, a
  * rule, or nothing printed), where it is instead.
  */
-export function scoopLine(what: string | undefined, venue: string): ScoopLine {
-  const text = shortWhat(what, SCOOP_LINE_MAX);
+export function scoopLine(
+  what: string | undefined,
+  venue: string,
+  /** A one-line title leaves room for a fourth line. */
+  max = SCOOP_LINE_MAX,
+): ScoopLine {
+  const text = shortWhat(what, max);
   return text ? { text, kind: "what" } : { text: venue, kind: "where" };
 }
 
@@ -321,7 +334,7 @@ export function scoopEvents(
       free: free(p),
       regular: false,
       annual: p.annual,
-      line: scoopLine(r.data.what, r.data.venue.name),
+      line: scoopLine(r.data.what, r.data.venue.name, lineBudget(r.data.title)),
       place: p.branches.length > 1 ? placesLabel(p.branches) : cardPlace(r),
       price: costChip(r.data),
       setting: r.data.setting ?? null,
@@ -336,7 +349,7 @@ export function scoopEvents(
       free: free(p),
       regular: true,
       annual: false,
-      line: scoopLine(r.data.what, r.data.venue.name),
+      line: scoopLine(r.data.what, r.data.venue.name, lineBudget(p.title)),
       place: p.branches.length > 1 ? placesLabel(p.branches) : cardPlace(r),
       price: free(p) ? "Free" : costChip(r.data),
       setting: r.data.setting ?? null,

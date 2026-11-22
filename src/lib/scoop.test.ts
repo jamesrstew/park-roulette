@@ -15,6 +15,8 @@ import {
   roughLine,
   scoopEvents,
   scoopLine,
+  lineBudget,
+  SCOOP_LINE_LONG,
   scoopWeather,
   scoopWhen,
   shortCondition,
@@ -454,5 +456,27 @@ describe("the card's one-liner", () => {
       },
       place: "The Village at Sunriver",
     });
+  });
+});
+
+describe("the card's line budget", () => {
+  it("a one-line title leaves room for a fourth line", () => {
+    const what =
+      "Kids bring a favorite book, curl up with snacks and read quietly together, sometimes chatting or crafting after.";
+    expect(lineBudget("Kids' Silent Book Club")).toBe(SCOOP_LINE_LONG);
+    expect(scoopLine(what, "Central Library", lineBudget("Book Club"))).toEqual(
+      {
+        kind: "what",
+        text: "Kids bring a favorite book, curl up with snacks and read quietly together, sometimes chatting or crafting after",
+      },
+    );
+    // Under a two-line title: the shorter budget, never a fragment.
+    expect(
+      scoopLine(
+        what,
+        "Central Library",
+        lineBudget("Creativebug Workshop: Gifts, Wrapping Paper, and Cards!"),
+      ).text,
+    ).toBe("Kids bring a favorite book");
   });
 });

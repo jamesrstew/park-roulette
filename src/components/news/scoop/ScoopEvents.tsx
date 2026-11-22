@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { Chip } from "@/components/events/EventBits";
 import { Icon } from "@/components/icons";
-import type { ScoopEvent } from "@/lib/scoop";
+import { SCOOP_TITLE_LINE, type ScoopEvent } from "@/lib/scoop";
 import { Carousel } from "./Carousel";
 
-/** Card size, shared with the skeleton so nothing moves when it streams. */
-export const CARD = "h-[13.5rem] w-[16.25rem] shrink-0";
+/**
+ * A card's width; its height follows the tallest card in the row (the
+ * row stretches them alike). The skeleton uses a typical height.
+ */
+export const CARD = "w-[16.25rem] shrink-0";
+export const CARD_SKELETON = "h-[12.5rem] w-[16.25rem] shrink-0";
 
 /** The block's heading row: "Kids' events" and See all. */
 export function EventsHeading() {
@@ -34,7 +38,7 @@ export function EventsHeading() {
 export function ScoopEvents({ events }: { events: ScoopEvent[] }) {
   if (!events.length)
     return (
-      <div className="doodle-box-alt flex h-[13.5rem] items-center gap-3 p-4">
+      <div className="doodle-box-alt flex h-[12.5rem] items-center gap-3 p-4">
         <Icon name="calendar" size={40} />
         <div className="flex-1 leading-snug">
           <p className="font-hand text-xl">
@@ -102,46 +106,51 @@ export function ScoopEvents({ events }: { events: ScoopEvent[] }) {
                 .join(", ")}
               className={`${i % 2 ? "doodle-box-alt" : "doodle-box"} flex h-full flex-col overflow-hidden transition-transform active:scale-[0.98]`}
             >
-              <div className="flex shrink-0 flex-col gap-1 px-3.5 pt-3 pb-2.5">
+              {/*
+                Cards stretch to the row's tallest. Any spare room is split
+                between the when, title and line (no one hollow band).
+              */}
+              <div className="flex flex-1 flex-col justify-evenly gap-1 px-3.5 pt-3 pb-2">
                 <p
                   className={`font-hand text-[1.05rem] leading-none ${/^(Next: )?(Today|Tomorrow)/.test(e.when) ? "text-ink" : "text-ink-soft"}`}
                 >
                   {e.when}
                 </p>
                 <p
-                  className={`font-hand leading-[1.1] ${e.title.length > 40 ? "line-clamp-2 text-[1.12rem]" : "line-clamp-2 text-[1.3rem]"}`}
+                  className={`line-clamp-2 font-hand leading-[1.1] ${e.title.length > 40 ? "text-[1.12rem]" : "text-[1.3rem]"}`}
                 >
                   {e.title}
                 </p>
                 {e.line.kind === "what" ? (
-                  <p className="line-clamp-3 text-[0.9rem] leading-snug">
+                  <p
+                    className={`text-[0.9rem] leading-snug ${e.title.length <= SCOOP_TITLE_LINE ? "line-clamp-4" : "line-clamp-3"}`}
+                  >
                     {e.line.text}
                   </p>
                 ) : (
-                  <p className="flex items-center gap-1 font-hand text-lg leading-snug">
-                    <Icon name="pin" size={18} className="shrink-0" />
-                    <span className="truncate">{e.place}</span>
-                  </p>
+                  <>
+                    <p className="flex items-center gap-1 font-hand text-lg leading-snug">
+                      <Icon name="pin" size={18} className="shrink-0" />
+                      <span className="truncate">{e.place}</span>
+                    </p>
+                    {/* No line to show: a doodle and a nudge. */}
+                    <p className="flex items-center gap-2 font-hand text-lg leading-tight text-ink-soft">
+                      <Icon name="sparkles" size={30} className="shrink-0" />
+                      Tap for what&apos;s on
+                    </p>
+                  </>
                 )}
               </div>
-              {/* The footer takes the rest, so any spare room is a tinted band, not a gap. */}
-              <div
-                className={`flex flex-1 flex-col gap-1 ${e.line.kind === "where" ? "justify-center" : ""} border-t-2 border-dashed border-ink/20 bg-[color-mix(in_srgb,var(--color-crayon-yellow)_12%,#fffdf7)] px-3.5 pt-2 pb-2`}
-              >
-                {e.line.kind === "what" ? place : null}
-                {chips.length ? (
-                  <div className="flex h-7 flex-nowrap gap-1.5 overflow-hidden">
-                    {chips}
-                  </div>
-                ) : null}
-                {e.line.kind === "where" ? (
-                  // No line to show: a doodle and a nudge, not an empty band.
-                  <p className="flex items-center justify-center gap-2 font-hand text-xl leading-tight">
-                    <Icon name="sparkles" size={40} className="shrink-0" />
-                    Tap for what&apos;s on
-                  </p>
-                ) : null}
-              </div>
+              {e.line.kind === "what" || chips.length ? (
+                <div className="flex flex-col gap-1 border-t-2 border-dashed border-ink/20 bg-[color-mix(in_srgb,var(--color-crayon-yellow)_12%,#fffdf7)] px-3.5 py-2">
+                  {e.line.kind === "what" ? place : null}
+                  {chips.length ? (
+                    <div className="flex h-7 flex-nowrap gap-1.5 overflow-hidden">
+                      {chips}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
             </Link>
           </li>
         );
