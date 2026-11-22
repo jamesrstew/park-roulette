@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { beforeAll, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { ageTags } from "@/lib/events/ages";
 import type { EventRow } from "@/lib/events/model";
 import { CATALOG } from "@/lib/news/catalog";
@@ -1537,59 +1537,7 @@ describe("nothing overflows: the longest allowed copy fits at the larger type", 
   });
 });
 
-describe("the roundup's short descriptor, from the stored what", () => {
-  let shortWhat: (w: string | undefined) => string | null;
-  beforeAll(async () => {
-    shortWhat = (await import("./roundup")).shortWhat;
-  });
-
-  it("uses a short first sentence as it is", () => {
-    expect(
-      shortWhat(
-        "Stories, songs and rhymes for babies. Stay after to play with toys.",
-      ),
-    ).toBe("Stories, songs and rhymes for babies");
-  });
-
-  it("cuts a long sentence before a clause or place phrase, never mid-thought", () => {
-    const d = shortWhat(
-      "Stories, songs and rhymes for babies and their grown-ups at the Downtown Bend Library, followed by free play.",
-    )!;
-    expect(d.length).toBeLessThanOrEqual(70);
-    expect(d).toBe("Stories, songs and rhymes for babies and their grown-ups");
-    expect(d).not.toMatch(/…|\.\.\.|\b(and|with|the|at|for)$/);
-    expect(
-      shortWhat(
-        "Kids build and launch paper rockets with the museum's educators, then test which design flies farthest outside.",
-      ),
-    ).toBe("Kids build and launch paper rockets with the museum's educators");
-    // Real summaries from the events table (December 2026).
-    expect(
-      shortWhat(
-        "Kids squish and sculpt air-dry clay into a new little creature or treat each week and bring it home.",
-      ),
-    ).toBe("Kids squish and sculpt air-dry clay into a new little creature");
-    expect(
-      shortWhat(
-        "Kids and a grown-up dip ornaments and cards into floating paint to make swirly marbled holiday keepsakes together.",
-      ),
-    ).toBe("Kids and a grown-up dip ornaments and cards into floating paint");
-    expect(
-      shortWhat(
-        "Kids mix painting with a little science, working through a hands-on art project with a licensed teacher.",
-      ),
-    ).toBe("Kids mix painting with a little science");
-  });
-
-  it("no clean cut: no line (never an ellipsis)", () => {
-    expect(
-      shortWhat(
-        "Supercalifragilisticexpialidociousness-themed extravaganzaaaaaaaaaaaaaaaaaaaaaaaaa celebrationnnnnnnn",
-      ),
-    ).toBeNull();
-    expect(shortWhat(undefined)).toBeNull();
-  });
-
+describe("the roundup's descriptor: the event's short, else its whole first sentence", () => {
   it("appears under the title on the slide and in the caption", async () => {
     const { composeEventsWeek } = await import("./compose");
     const tue = slotFor("events_week", WEEK);
@@ -1613,70 +1561,6 @@ describe("the roundup's short descriptor, from the stored what", () => {
     expect(spec.caption).toContain(
       "A kids' event for the tests, with enough words in it.",
     );
-  });
-});
-
-// --- Final review (release/b7b) ------------------------------------------------
-
-describe("descriptors: abbreviations, qualifiers, rules", () => {
-  let shortWhat: (w: string | undefined) => string | null;
-  beforeAll(async () => {
-    shortWhat = (await import("./roundup")).shortWhat;
-  });
-
-  it("never splits a sentence after Dr., Mt., St., a.m. or an initial", () => {
-    expect(
-      shortWhat("Celebrate Dr. Seuss's birthday with stories and hat crafts."),
-    ).toBe("Celebrate Dr. Seuss's birthday with stories and hat crafts");
-    expect(
-      shortWhat(
-        "Crafts and games at Mt. Bachelor's lodge for little skiers. Bring mittens.",
-      ),
-    ).toBe("Crafts and games at Mt. Bachelor's lodge for little skiers");
-    expect(
-      shortWhat(
-        "Doors open at 10 a.m. for families to build gingerbread houses.",
-      ),
-    ).toBe("Doors open at 10 a.m. for families to build gingerbread houses");
-    expect(shortWhat("Story time with J. Smith and her puppet friends.")).toBe(
-      "Story time with J. Smith and her puppet friends",
-    );
-  });
-
-  it("a first sentence that ends on an abbreviation is no line", () => {
-    expect(shortWhat("Hat crafts and stories to celebrate Dr.")).toBeNull();
-    expect(shortWhat("Sledding and cocoa near the base of Mt.")).toBeNull();
-  });
-
-  it("a cut never ends on Dr, Mt or St", () => {
-    const d = shortWhat(
-      "Kids build tiny snow forts and race sleds near Mt Bachelor's lodge with ski patrol volunteers.",
-    );
-    expect(d).not.toMatch(/\b(Dr|Mt|St)$/);
-  });
-
-  it("never cuts just before but, except or unless", () => {
-    const d = shortWhat(
-      "Kids paint winter scenes with watercolors and glitter glue, but grown-ups stay with kids under five.",
-    );
-    expect(d).not.toBe(
-      "Kids paint winter scenes with watercolors and glitter glue",
-    );
-    expect(
-      shortWhat(
-        "Open play in the big gym with balls and hoops for everyone, except on holiday weekends.",
-      ),
-    ).not.toBe("Open play in the big gym with balls and hoops for everyone");
-  });
-
-  it("no negation or rule in a descriptor", () => {
-    for (const w of [
-      "Only kids registered in advance can join the gingerbread build.",
-      "No experience needed for this clay class.",
-      "A grown-up must stay for the whole class.",
-      "Kids can't bring food into the gallery.",
-    ])
-      expect(shortWhat(w), w).toBeNull();
   });
 
   it("a descriptor that breaks a text rule is dropped, and the log says why", () => {
@@ -1794,5 +1678,54 @@ describe("venues, ages and the top row after review", () => {
     expect(oneLine("1 to 3 pm", TOP_ROW.time, TOP_ROW.width)).toBe(
       TOP_ROW.time,
     );
+  });
+});
+
+describe("roundup slide polish", () => {
+  it("a spaced dash in a title never hangs at a line's end", async () => {
+    const { slideTitle } = await import("./compose");
+    expect(slideTitle("B.U.R.S.T. - Wonderful Winter!")).toBe(
+      "B.U.R.S.T. Wonderful Winter!",
+    );
+    expect(slideTitle("Pop-Up Exhibits - Sisters")).toBe(
+      "Pop-Up Exhibits: Sisters",
+    );
+    expect(slideTitle("Pop-Up Exhibits")).toBe("Pop-Up Exhibits");
+  });
+
+  it("the cover's towns break into even lines, never one town alone", async () => {
+    const { townLines } = await import("@/components/social/Slides");
+    expect(townLines(["Bend", "Sisters", "Sunriver", "Redmond"])).toEqual([
+      "Bend · Sisters",
+      "Sunriver · Redmond",
+    ]);
+    for (const l of townLines([
+      "Bend",
+      "Madras",
+      "Sisters",
+      "La Pine",
+      "Redmond",
+      "Prineville",
+    ]))
+      expect(l.split(" · ").length).toBeGreaterThan(1);
+  });
+});
+
+describe("the descriptor stays within two lines", () => {
+  it("a size counts as fitting only when the descriptor wraps to two lines at most", async () => {
+    const { eventFit, lines, CONTENT } =
+      await import("@/components/social/fit");
+    const desc =
+      "Babies and grown-ups share stories, songs and rhymes on a parachute";
+    const f = eventFit({
+      title: "Baby Story Time",
+      desc,
+      place: "At Central Library, Bend",
+      chips: ["Ages 0 to 1"],
+      host: "Deschutes Public Library",
+      also: null,
+    });
+    expect(f.fits).toBe(true);
+    expect(lines(desc, f.body, CONTENT.width)).toBeLessThanOrEqual(2);
   });
 });

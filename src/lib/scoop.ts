@@ -20,6 +20,7 @@ import {
   venueLine,
   type Program,
 } from "@/lib/events/programs";
+import { checkShort } from "@/lib/events/short";
 import { firstSentence, LOGISTICS } from "@/lib/events/short-what";
 import { dayName, dayTier, type TextPeriod, type Tier } from "@/lib/news/tiers";
 import { addDays, pacific, shortDay } from "@/lib/news/time";
@@ -195,13 +196,22 @@ export type ScoopLine = { text: string; kind: "what" | "where" };
  * The card's line, never empty: the whole first sentence of the stored
  * `what` when it's 140 characters or fewer (never a clause cut, never an
  * ellipsis) and says what kids do, not logistics ("No registration
- * needed", "must bring"); else where it is.
+ * needed", "must bring"); else the event's checked `short` (the line the
+ * Tuesday roundup prints); else where it is. A card has room for the
+ * fuller sentence, so it leads; the short is the honest fallback.
  */
-export function scoopLine(what: string | undefined, venue: string): ScoopLine {
+export function scoopLine(
+  what: string | undefined,
+  venue: string,
+  short?: { short?: string; title: string },
+): ScoopLine {
   const text = firstSentence(what, SCOOP_LINE_MAX);
-  return text && !LOGISTICS.test(text)
-    ? { text, kind: "what" }
-    : { text: venue, kind: "where" };
+  if (text && !LOGISTICS.test(text)) return { text, kind: "what" };
+  if (short?.short && what) {
+    const sc = checkShort(short.short, { what, title: short.title });
+    if (sc.short) return { text: sc.short, kind: "what" };
+  }
+  return { text: venue, kind: "where" };
 }
 
 /** At most this many cards, then the See all card. */
@@ -324,7 +334,7 @@ export function scoopEvents(
       free: free(p),
       regular: false,
       annual: p.annual,
-      line: scoopLine(r.data.what, r.data.venue.name),
+      line: scoopLine(r.data.what, r.data.venue.name, r.data),
       place: p.branches.length > 1 ? placesLabel(p.branches) : cardPlace(r),
       price: costChip(r.data),
       setting: r.data.setting ?? null,
@@ -339,7 +349,7 @@ export function scoopEvents(
       free: free(p),
       regular: true,
       annual: false,
-      line: scoopLine(r.data.what, r.data.venue.name),
+      line: scoopLine(r.data.what, r.data.venue.name, r.data),
       place: p.branches.length > 1 ? placesLabel(p.branches) : cardPlace(r),
       price: free(p) ? "Free" : costChip(r.data),
       setting: r.data.setting ?? null,

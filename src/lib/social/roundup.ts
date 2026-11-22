@@ -9,7 +9,8 @@ import {
   upcomingDates,
 } from "@/lib/events/model";
 import { ALL_AGES } from "@/lib/events/ages";
-import { shortWhat } from "@/lib/events/short-what";
+import { checkShort } from "@/lib/events/short";
+import { DESC_MAX, firstSentence, LOGISTICS } from "@/lib/events/short-what";
 import { listed } from "@/lib/events/state";
 import { addDays, weekdayOf } from "@/lib/news/time";
 import { composeEventsWeek, placeLine, type WeekEvent } from "./compose";
@@ -52,7 +53,28 @@ export function timeLine(d: Pick<EventDate, "start" | "end">): string {
 }
 
 // The descriptor trimmer is shared with The Scoop's event cards.
-export { DESC_MAX, firstSentence, shortWhat } from "@/lib/events/short-what";
+export { DESC_MAX, firstSentence } from "@/lib/events/short-what";
+
+/**
+ * The descriptor under an event's title, in order: its checked `short`
+ * (written by the harvest, one complete phrase); else the whole first
+ * sentence of `what` when it's 70 characters or fewer and isn't
+ * logistics; else none. Never a clause cut.
+ */
+export function eventDescriptor(e: {
+  short?: string;
+  what: string;
+  title: string;
+}): { text: string; from: "short" | "sentence" } | null {
+  if (e.short) {
+    const sc = checkShort(e.short, { what: e.what, title: e.title });
+    if (sc.short) return { text: sc.short, from: "short" };
+  }
+  const s = firstSentence(e.what, DESC_MAX);
+  return s && s.length >= 12 && !LOGISTICS.test(s)
+    ? { text: s, from: "sentence" }
+    : null;
+}
 
 /** The oldest youngest-age a roundup event may print (a family event, not a teen one). */
 export const ROUNDUP_MAX_YOUNGEST = 10;
@@ -182,7 +204,7 @@ export function pickWeekEvents(
       ),
     ];
     const descResult = descOk(
-      shortWhat(e.data.what),
+      eventDescriptor(e.data)?.text ?? null,
       Number(window.firstDay.slice(5, 7)),
     );
     if (descResult.why)
@@ -241,12 +263,23 @@ export function pickWeekEvents(
   const pool = [...candidates];
   const towns = new Map<string, number>();
   const days = new Map<string, number>();
+  // The same program at another branch ("Family Story Time" in four
+  // towns) reads as one slide repeated: each repeat costs two.
+  const titles = new Map<string, number>();
+  const titleKey = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
   while (chosen.length < EVENTS_MAX && pool.length) {
     let best = 0;
     let bestScore = Infinity;
     pool.forEach((c, i) => {
       const t = towns.get(c.town) ?? 0;
-      const score = (c.town === "Bend" ? t / 2 : t) + (days.get(c.day) ?? 0);
+      const score =
+        (c.town === "Bend" ? t / 2 : t) +
+        (days.get(c.day) ?? 0) +
+        2 * (titles.get(titleKey(c.title)) ?? 0);
       if (score < bestScore) {
         best = i;
         bestScore = score;
@@ -256,6 +289,7 @@ export function pickWeekEvents(
     chosen.push(c);
     towns.set(c.town, (towns.get(c.town) ?? 0) + 1);
     days.set(c.day, (days.get(c.day) ?? 0) + 1);
+    titles.set(titleKey(c.title), (titles.get(titleKey(c.title)) ?? 0) + 1);
   }
   for (const c of pool) left.push(`${c.slug}: over ${EVENTS_MAX} (spread)`);
   chosen.sort((a, b) => a.at - b.at || a.slug.localeCompare(b.slug));

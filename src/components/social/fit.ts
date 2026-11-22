@@ -24,13 +24,13 @@ const ADVANCE = [
 const MARGIN = 1.06;
 
 /** A text's width in px at this size. */
-export function textWidth(text: string, size: number): number {
+export function textWidth(text: string, size: number, margin = MARGIN): number {
   let em = 0;
   for (const ch of text) {
     const c = ch.codePointAt(0)!;
     em += c >= 32 && c < 127 ? ADVANCE[c - 32] : 0.75;
   }
-  return em * size * MARGIN;
+  return em * size * margin;
 }
 
 /** The card's content box (Frame: left 90, right 100, top 92, bottom 170). */
@@ -128,10 +128,26 @@ export function ideaFit(
 export const EVENT = {
   /** Where the title block starts, under the date block. */
   top: 270,
-  title: [104, 92, 80, 72, 68, 64],
+  title: [116, 104, 92, 80, 72, 68, 64],
   /** The descriptor, the venue, then "Hosted by" and "Also". */
-  body: [62, 60, 58, 56, 54, 52],
+  body: [68, 66, 64, 62, 60, 58, 56, 54, 52],
   chip: 48,
+  /** Title to descriptor: tight, so they read as one thought. */
+  descGap: 8,
+  /** Venue to "Hosted by" (a pair), then to the chips. */
+  hostGap: 14,
+  chipGap: 24,
+  /** The facts group sits this far above the card's foot (clear of the footer). */
+  foot: 24,
+  /** A short crayon rule above the venue, so the space between reads as a pause. */
+  rule: 30,
+  /** Titles stop short of the right edge, matching the left margin. */
+  titleWidth: 860,
+  /**
+   * At least this much air between what it is (top) and where (foot),
+   * plus the rule's own 30 px above the venue.
+   */
+  split: 24,
 } as const;
 
 export type EventCopy = {
@@ -158,23 +174,36 @@ function chipRows(chips: readonly string[]): number {
   return rows;
 }
 
+/** The venue line's size (ink), and the quieter host line's (gray, 0.9x). */
+export const venueSize = (body: number) => body + 2;
+export const hostSize = (body: number) => Math.round(body * 0.9);
+
 export function eventHeight(s: EventCopy, title: number, body: number): number {
-  const t = lines(s.title, title, CONTENT.width) * title * 1.06 + 38;
+  // What it is, from the top: the title, its scribble, the descriptor.
+  const t = lines(s.title, title, EVENT.titleWidth) * title * 1.06 + 32;
   const desc = s.desc
-    ? lines(s.desc, body, CONTENT.width) * body * 1.2 + 14
+    ? lines(s.desc, body, CONTENT.width) * body * 1.2 + EVENT.descGap
     : 0;
-  const venue = lines(s.place, body + 4, CONTENT.width) * (body + 4) * 1.2 + 14;
+  // Where and for whom, from the foot: rule, venue, host, chips.
+  const v = venueSize(body);
+  const venue = EVENT.rule + lines(s.place, v, CONTENT.width) * v * 1.15;
   // A chip: its line, 16 px of padding and a 5 px border top and bottom.
-  const chips = chipRows(s.chips) * (EVENT.chip * 1.2 + 26 + 18) + 36;
+  const chips =
+    chipRows(s.chips) * (EVENT.chip * 1.2 + 26) +
+    (chipRows(s.chips) - 1) * 18 +
+    EVENT.chipGap;
   // "Also Sat, Sun" sits up top under the time, so only the host is here.
+  const h = hostSize(body);
   const foot = s.host
-    ? lines(`Hosted by ${s.host}`, body - 4, CONTENT.width) *
-        (body - 4) *
-        1.25 +
-      26
+    ? lines(`Hosted by ${s.host}`, h, CONTENT.width) * h * 1.15 + EVENT.hostGap
     : 0;
-  return EVENT.top + t + desc + venue + chips + foot;
+  return EVENT.top + t + desc + EVENT.split + venue + foot + chips + EVENT.foot;
 }
+
+/** The descriptor is one or two lines, never three (a third reads as a paragraph). */
+export const DESC_LINES = 2;
+const descLines = (s: EventCopy, body: number) =>
+  s.desc ? lines(s.desc, body, CONTENT.width) : 0;
 
 /** A title always reads as the title: at least this much bigger than the body. */
 export const TITLE_OVER_BODY = 1.3;
@@ -187,23 +216,30 @@ export const TITLE_OVER_BODY = 1.3;
 export function eventFit(
   s: EventCopy,
   bodies: readonly number[] = EVENT.body,
+  titles: readonly number[] = EVENT.title,
 ): {
   title: number;
   body: number;
   fits: boolean;
 } {
   for (const body of bodies)
-    for (const title of EVENT.title)
+    for (const title of titles)
       if (
         title >= body * TITLE_OVER_BODY &&
+        descLines(s, body) <= DESC_LINES &&
         eventHeight(s, title, body) <= CONTENT.height
       )
         return { title, body, fits: true };
   const body = bodies[bodies.length - 1];
   const title =
-    [...EVENT.title].reverse().find((t) => t >= body * TITLE_OVER_BODY) ??
-    EVENT.title[0];
-  return { title, body, fits: eventHeight(s, title, body) <= CONTENT.height };
+    [...titles].reverse().find((t) => t >= body * TITLE_OVER_BODY) ?? titles[0];
+  return {
+    title,
+    body,
+    fits:
+      descLines(s, body) <= DESC_LINES &&
+      eventHeight(s, title, body) <= CONTENT.height,
+  };
 }
 
 /**

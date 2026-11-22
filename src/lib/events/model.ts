@@ -98,6 +98,13 @@ export const EventInput = z.strictObject({
   parking: Text(120).optional(),
   /** Our own one or two sentences, from the primary page only. */
   what: Text(240, 20),
+  /**
+   * What kids do there, as one complete phrase of 70 characters or fewer,
+   * in the summary's own words ("Kids sculpt air-dry clay into a little
+   * creature"). Checked by lib/events/short.ts; a failing one is dropped
+   * with a warning. The Tuesday roundup prints it under the title.
+   */
+  short: z.string().trim().max(120).optional(),
   /** The official page (organizer, venue, city, parks, library, USFS). */
   url: Https,
   organizer: z.strictObject({ name: Text(80), url: Https }).optional(),

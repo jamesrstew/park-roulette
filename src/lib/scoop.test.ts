@@ -434,6 +434,35 @@ describe("the card's one-liner", () => {
     );
   });
 
+  it("prefers the whole first sentence, then the event's checked short, then the venue", () => {
+    const what =
+      "No registration needed. Kids squish and sculpt air-dry clay into a little creature to bring home.";
+    // The first sentence is logistics: the short stands in.
+    expect(
+      scoopLine(what, "TEAL", {
+        title: "Clay Creations",
+        short: "Kids sculpt air-dry clay into a little creature",
+      }),
+    ).toEqual({
+      kind: "what",
+      text: "Kids sculpt air-dry clay into a little creature",
+    });
+    // A short that fails its checks is never printed.
+    expect(
+      scoopLine(what, "TEAL", {
+        title: "Clay Creations",
+        short: "Kids sculpt air-dry clay into",
+      }),
+    ).toEqual({ kind: "where", text: "TEAL" });
+    // A good first sentence still leads (a card has room for it).
+    expect(
+      scoopLine("Kids learn knots and make a keychain.", "X", {
+        title: "Knots",
+        short: "Kids learn knots",
+      }).text,
+    ).toBe("Kids learn knots and make a keychain");
+  });
+
   it("falls back to where it is: nothing printed, or a sentence too long", () => {
     for (const what of [
       undefined,

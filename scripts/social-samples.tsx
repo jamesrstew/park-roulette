@@ -228,6 +228,79 @@ const SAMPLE_EVENTS: EventRow[] = [
   }),
 ];
 
+/**
+ * The worst case the roundup can meet: long titles, the longest short
+ * lines, long venues and hosts, a week of repeats and a price range, on
+ * every slide.
+ */
+function worstSample() {
+  const long = [
+    [
+      "Winter Wildlife Walk for Families with the Naturalists",
+      "Families follow a naturalist on a snowy trail to spot animal tracks",
+      "Deschutes Public Library, Downtown Bend Branch",
+      "Bend",
+      "Bend Park & Recreation District Youth Programs",
+    ],
+    [
+      "Hydro Dipping Ornaments and Cards Playshop for Families",
+      "Kids and a grown-up dip ornaments and cards into swirly floating paint",
+      "TEAL Tea + Art Lounge",
+      "Bend",
+      "Tea, Explore and Art Learning Studio Collective",
+    ],
+    [
+      "Gingerbread Junction: A Holiday House Tour for Families",
+      "Kids wander a room full of gingerbread houses built by local families",
+      "High Desert Museum Brooks Hall",
+      "Bend",
+      "Central Oregon Builders Association Foundation",
+    ],
+    [
+      "Creativebug Workshop: DIY Gifts, Wrapping Paper and Cards",
+      "Kids make handmade presents, decorate wrapping paper and craft cards",
+      "Redmond Public Library Community Room",
+      "Redmond",
+      "Deschutes Public Library Youth Services Team",
+    ],
+  ];
+  const rows = long.map(([title, , venue, town, host], i) =>
+    sampleEvent({
+      slug: `worst-${i}`,
+      title,
+      day: `2026-11-2${5 + i}`,
+      start: "13:15",
+      end: "14:45",
+      more: ["2026-11-28", "2026-11-29", "2026-11-30"].filter(
+        (d) => d > `2026-11-2${5 + i}`,
+      ),
+      venue,
+      town,
+      ages: "Ages 10 to 18",
+      cost: { text: "$12.50 to $20 kids", kids: 12.5 },
+      host,
+    }),
+  );
+  rows.forEach((r, i) => {
+    r.data.short = long[i][1];
+    r.data.what = `${long[i][1]}.`;
+    r.data.cost = {
+      text: "$12.50 to $20 kids",
+      free: false,
+      prices: [
+        { label: "kids", amount: 12.5 },
+        { label: "kids", amount: 20 },
+      ],
+    };
+  });
+  const tue = slotFor("events_week", "2026-11-23");
+  const w = roundupWindow(tue.date, tue.publishAt);
+  const now = new Date(tue.publishAt.getTime() - 45 * 60_000);
+  const pick = pickWeekEvents(rows, w, now);
+  console.log("worst case left out:", pick.left.join("; ") || "(none)");
+  return composeEventsWeek(pick.events, w, false);
+}
+
 function roundupSample() {
   const tue = slotFor("events_week", "2026-11-23");
   const w = roundupWindow(tue.date, tue.publishAt);
@@ -488,6 +561,7 @@ async function main() {
     story: composeStory(issue, harvest, false),
     at_home: await atHomeSample(),
     events_week: roundupSample(),
+    events_worst: worstSample(),
   };
   for (const [name, spec] of Object.entries(posts)) {
     if (only && !only.includes(name)) continue;

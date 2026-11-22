@@ -20,7 +20,7 @@ You keep parkroulette.quest/events full of kids' events in Central Oregon: at le
 
 ## 1. Read the state
 
-1. `GET https://parkroulette.quest/api/events/known?days=60`. It lists every stored event with a date in the next 60 days: `slug`, `key` (the series key), `title`, `venue` (in full), `url`, `target_urls` (the pages its dates are checked on), `kind`, `confirm`, `dates`, and the facts it was stored with: `what`, `setting`, `cost`, `ages_text`, `signup`, `parking`, `series_id`, `organizer`, `annual`, `series` (each only when stored). Keep it at hand. **Skip any event whose (venue, day, start) is already there, or whose own page (the event's `url`, not a shared calendar page or a newsletter issue) is already one of `url`/`target_urls`**, unless you're adding new dates to that same page (same venue and title) or adding the ages or cost its page prints (§3a).
+1. `GET https://parkroulette.quest/api/events/known?days=60`. It lists every stored event with a date in the next 60 days: `slug`, `key` (the series key), `title`, `venue` (in full), `url`, `target_urls` (the pages its dates are checked on), `kind`, `confirm`, `dates`, and the facts it was stored with: `what`, `short`, `setting`, `cost`, `ages_text`, `signup`, `parking`, `series_id`, `organizer`, `annual`, `series` (each only when stored). Keep it at hand. **Skip any event whose (venue, day, start) is already there, or whose own page (the event's `url`, not a shared calendar page or a newsletter issue) is already one of `url`/`target_urls`**, unless you're adding new dates to that same page (same venue and title) or adding the ages or cost its page prints (§3a).
 2. (No lessons read here: lessons are for the Thursday writer and the maintainer.) Carry on.
 3. Count where you stand: listed pages (`confirm: "ok"`), pages per town, and pages with a date this coming Friday to Sunday. The response's `coverage` block counts the community target for you: `community` (listed one-off and annual pages with a date in the next 30 days) against `community_target` (10), and `library` (listed library pages in the same window).
 4. **Add printed ages and cost to known pages first** (§3a, "Adding ages and cost to known pages"), before you discover anything new: past 300 new pages a day `POST /api/events` answers 429 to every hand-in, so enrichment that waits for the end of a big run can't go in.
@@ -86,7 +86,7 @@ What the sources print (November 2026):
 
 1. **Which pages:** a known page with no `ages_text` whose official page prints ages now. Add `cost` too only for sources that print prices (TEAL, Tower Theatre, High Desert Museum); the libraries print none. A page with no `ages_text` that prints none stays as it is: don't re-hand it.
 2. **Re-hand only to add a field** the page lacks (or new dates, as before), never to repeat what's stored.
-3. **The hand-in:** `title` and `venue` exactly as known, so the key stays the same; `annual` and `series` exactly as known (they set the key and the kind); `series_id`, `organizer`, `setting`, `signup` and `parking` as known; `what` as known (don't rewrite it); at least the page's next upcoming date with that date's quote; and the new `ages_text` and/or `cost` with the quote that prints the ages or the price.
+3. **The hand-in:** `title` and `venue` exactly as known, so the key stays the same; `annual` and `series` exactly as known (they set the key and the kind); `series_id`, `organizer`, `setting`, `signup` and `parking` as known; `what` and `short` as known (don't rewrite them; write a `short` if it has none); at least the page's next upcoming date with that date's quote; and the new `ages_text` and/or `cost` with the quote that prints the ages or the price.
 4. **Every hand-in for a known page, new dates included, carries the page's known `ages_text` and `cost` again** (with the quote that prints them) when its page still prints them: leaving either out erases it.
 5. Never guess to fill a gap. These hand-ins count toward the 40 per batch; note how many pages gained ages or cost in the report.
 
@@ -122,6 +122,14 @@ What the checker does with a listing event:
 **One record, one event.** A quote from data counts only from a line (one JSON, JSON-LD or .ics record) that also names the event (its title, or the title's stem). Bookkeeping times (modified, updated, created, published) are dropped and never prove a date.
 
 **What kids do.** `what` is one or two of **our own** sentences about what kids do there (20 to 240 characters). Never copy the official page, its data or a lead (all are checked for overlap), and no weather.
+
+**The short line (with every hand-in).** `short` is one complete phrase, 70 characters at most, saying what kids do there, built only from words in your own `what` and the title. It's printed under the title on the Tuesday Instagram roundup, so it must read as a whole thought on its own:
+
+- Good: "Kids sculpt air-dry clay into a little creature to take home", "Stories, songs and rhymes for babies and their grown-ups", "Kids and a grown-up dip ornaments into floating paint".
+- Bad: "Babies through preschoolers dig" (cut off mid-sentence), "Stories, songs, rhymes" (a list with no "and"), "Crafts and games at the" (ends on a preposition), "No registration needed" (logistics), "Free crafts for kids" (no price or "free"), "We paint ornaments" (no first person).
+- Every content word must appear in the event's `what` or title (kids, children, families and grown-ups are always fine). No negations or rules (not, no, only, must, required), no sign-up or ticket words, no newsletter names, no links or emoji. Start with a capital letter; no final period.
+
+The checker drops a `short` that fails (with a warning) and keeps the event; the roundup then prints the first sentence of `what` if it's short enough, or nothing.
 
 ## 4. Build the hand-ins
 
@@ -166,7 +174,7 @@ What the checker does with a listing event:
 }
 ```
 
-Notes on the fields (limits: `title` 80 characters, `what` 20 to 240, `cost.text` 160 with up to 6 `prices`, `ages_text` 80, `venue.name` 100, `dates` 1 to 30 per event and none more than 60 days out):
+Notes on the fields (limits: `title` 80 characters, `what` 20 to 240, `short` 12 to 70, `cost.text` 160 with up to 6 `prices`, `ages_text` 80, `venue.name` 100, `dates` 1 to 30 per event and none more than 60 days out):
 
 - Times are 24-hour `HH:MM`. Leave `start` out if the page prints no time (the page then says the date only).
 - A multi-day event with daily hours is one date with `end_day`.

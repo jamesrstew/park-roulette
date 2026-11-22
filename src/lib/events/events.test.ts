@@ -1099,3 +1099,23 @@ describe("guardrails end to end: validateEvents (review M6)", () => {
     );
   });
 });
+
+describe("a hand-in's short line", () => {
+  it("stores a good short, and drops a bad one with a warning, keeping the event", async () => {
+    const good = await validateEvents(
+      { events: [base({ short: "Kids meet the porcupines up close" })] },
+      ctx(),
+    );
+    expect(good.events[0].ok).toBe(true);
+    expect(good.events[0].event?.short).toBe(
+      "Kids meet the porcupines up close",
+    );
+    const bad = await validateEvents(
+      { events: [base({ short: "Kids meet the porcupines, then make" })] },
+      ctx(),
+    );
+    expect(bad.events[0].ok).toBe(true);
+    expect(bad.events[0].event?.short).toBeUndefined();
+    expect(bad.events[0].warnings.join(" ")).toMatch(/Left out short/);
+  });
+});

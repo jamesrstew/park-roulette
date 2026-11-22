@@ -1,19 +1,15 @@
 import { describe, expect, it } from "vitest";
 import * as roundup from "@/lib/social/roundup";
-import pins from "./__fixtures__/short-what-pins.json";
 import whats from "./__fixtures__/prod-whats.json";
-import { DESC_MAX, firstSentence, shortWhat } from "./short-what";
+import { DESC_MAX, firstSentence } from "./short-what";
 
 describe("the shared descriptor module", () => {
+  it("the clause cutter is gone: the roundup exports no shortWhat", () => {
+    expect("shortWhat" in roundup).toBe(false);
+  });
   it("is the one the social roundup uses (moved, not forked)", () => {
-    expect(roundup.shortWhat).toBe(shortWhat);
     expect(roundup.firstSentence).toBe(firstSentence);
     expect(roundup.DESC_MAX).toBe(DESC_MAX);
-  });
-
-  it("the roundup's slide lines are unchanged (outputs as of 890ec22)", () => {
-    for (const [what, line] of pins as [string, string | null][])
-      expect(shortWhat(what), what).toBe(line);
   });
 });
 

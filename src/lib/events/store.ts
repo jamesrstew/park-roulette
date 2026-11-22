@@ -5,6 +5,7 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { kidEventEdits, kidEventHandins, kidEvents } from "@/db/schema";
 import { fetchPage } from "@/lib/news/fetcher";
+import { checkShort } from "./short";
 import { CATALOG, onList } from "@/lib/news/catalog";
 import type { EventVerdict } from "./validate";
 import {
@@ -185,6 +186,13 @@ export function adoptStored(
       ...e,
       ...(e.series_id === undefined && prev.series_id
         ? { series_id: prev.series_id }
+        : {}),
+      // A re-hand without a short keeps the stored one while it's still
+      // grounded in this hand-in's own words.
+      ...(e.short === undefined &&
+      prev.short &&
+      checkShort(prev.short, { what: e.what, title: e.title }).short
+        ? { short: prev.short }
         : {}),
       ...(e.organizer === undefined && prev.organizer
         ? { organizer: prev.organizer }
@@ -499,6 +507,7 @@ export async function knownEvents(
       | "annual"
       | "series"
       | "what"
+      | "short"
       | "verified_via"
     >;
   })[]
@@ -542,6 +551,7 @@ export async function knownEvents(
       facts: {
         venue: e.venue,
         what: e.what,
+        ...(e.short ? { short: e.short } : {}),
         ...(e.series_id ? { series_id: e.series_id } : {}),
         ...(e.organizer ? { organizer: e.organizer } : {}),
         ...(e.annual !== undefined ? { annual: e.annual } : {}),
@@ -554,6 +564,46 @@ export async function knownEvents(
         ...(e.parking ? { parking: e.parking } : {}),
       },
     }));
+}
+
+/**
+ * Set one stored event's `short` (PATCH /api/events/<slug>/short): checked
+ * against that event's own `what` and title, and nothing else changes. The
+ * old and new lines are logged.
+ */
+export async function setShort(
+  slug: string,
+  raw: string,
+): Promise<
+  | { ok: true; slug: string; short: string; previous: string | null }
+  | { ok: false; status: 404 | 422; error: string; problems?: string[] }
+> {
+  const [row] = await db
+    .select({ id: kidEvents.id, data: kidEvents.data })
+    .from(kidEvents)
+    .where(eq(kidEvents.slug, slug));
+  if (!row) return { ok: false, status: 404, error: "No such event." };
+  const e = row.data as StoredEvent;
+  const sc = checkShort(raw, { what: e.what, title: e.title });
+  if (!sc.short)
+    return {
+      ok: false,
+      status: 422,
+      error: "That short doesn't pass the checks.",
+      problems: sc.problems.length ? sc.problems : ["It's empty."],
+    };
+  await db
+    .update(kidEvents)
+    .set({
+      data: sql`jsonb_set(${kidEvents.data}, '{short}', to_jsonb(${sc.short}::text))`,
+      updatedAt: sql`now()`,
+    })
+    .where(eq(kidEvents.id, row.id));
+  console.info(
+    `[events] short for ${slug}: ${JSON.stringify(e.short ?? null)} -> ${JSON.stringify(sc.short)}`,
+  );
+  expireEvents();
+  return { ok: true, slug, short: sc.short, previous: e.short ?? null };
 }
 
 export async function eventBySlug(slug: string): Promise<EventRow | null> {

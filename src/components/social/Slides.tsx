@@ -15,7 +15,18 @@ import { WeatherGlyph, type WeatherIcon } from "@/components/news/WeatherCard";
 import { ALIASES, DRAWINGS } from "@/components/icons/drawings";
 import { compile, type Mark } from "@/components/icons/kit";
 import { CRAYONS } from "@/lib/crayons";
-import { EVENT, eventFit, IDEA, ideaFit, oneLine, TOP_ROW } from "./fit";
+import {
+  CONTENT,
+  EVENT,
+  eventFit,
+  hostSize,
+  IDEA,
+  ideaFit,
+  oneLine,
+  textWidth,
+  TOP_ROW,
+  venueSize,
+} from "./fit";
 import { placeLine } from "@/lib/social/compose";
 import { COPY, FEED, type SlideSpec, STORY } from "@/lib/social/model";
 
@@ -282,6 +293,7 @@ function HeadlineWords({
         fontSize: size,
         lineHeight: 1.08,
         columnGap: size * 0.26,
+        width: balancedWidth(parts, size, size * 0.26),
       }}
     >
       {parts.map((w, i) => {
@@ -317,14 +329,53 @@ function HeadlineWords({
  * line starts or ends on a dot and no town splits.
  */
 export function townLines(towns: readonly string[], max = 30): string[] {
-  const lines: string[] = [];
-  for (const t of towns) {
-    const last = lines[lines.length - 1];
-    if (last != null && `${last} · ${t}`.length <= max)
-      lines[lines.length - 1] = `${last} · ${t}`;
-    else lines.push(t);
-  }
-  return lines;
+  const wrap = (limit: number) => {
+    const lines: string[] = [];
+    for (const t of towns) {
+      const last = lines[lines.length - 1];
+      if (last != null && `${last} · ${t}`.length <= limit)
+        lines[lines.length - 1] = `${last} · ${t}`;
+      else lines.push(t);
+    }
+    return lines;
+  };
+  // As many lines as the width needs, then as even as they'll go: never
+  // one town alone under a full line ("Bend · Sisters · Sunriver /
+  // Redmond" becomes "Bend · Sisters / Sunriver · Redmond").
+  const n = wrap(max).length;
+  const longest = Math.max(...towns.map((t) => t.length));
+  for (let limit = longest; limit < max; limit++)
+    if (wrap(limit).length === n) return wrap(limit);
+  return wrap(max);
+}
+
+/**
+ * A width that wraps these words into balanced lines (never a last word
+ * alone): the even share of their width per line, plus the widest word's
+ * slack, capped at the card. Words are flex items here, so CSS balance
+ * can't do it.
+ */
+function balancedWidth(words: string[], size: number, gap: number): number {
+  // The font's own widths, no safety margin: this aims for balance, and
+  // the box is never wider than the card, so nothing can overflow.
+  const widths = words.map((w) => textWidth(w, size, 1));
+  const linesAt = (box: number) => {
+    let n = 1;
+    let x = 0;
+    for (const w of widths) {
+      if (x && x + gap + w > box) {
+        n++;
+        x = w;
+      } else x += (x ? gap : 0) + w;
+    }
+    return n;
+  };
+  const n = linesAt(CONTENT.width);
+  if (n <= 1) return CONTENT.width;
+  // The narrowest box that still wraps into the same number of lines.
+  let box = Math.max(...widths);
+  while (box < CONTENT.width && linesAt(box) > n) box += 4;
+  return Math.min(CONTENT.width, box + 6);
 }
 
 /** Headline size by length: as big as fits in the safe width. */
@@ -852,10 +903,11 @@ function EventSlide({
       also: s.also,
     },
     s.body ? [s.body] : undefined,
+    s.titleSize ? [s.titleSize] : undefined,
   );
   return (
     <Frame page={page} color={color}>
-      <div style={{ display: "flex", alignItems: "center", gap: 40 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 40 }}>
         <div
           style={{
             display: "flex",
@@ -888,7 +940,15 @@ function EventSlide({
             {s.date}
           </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", flex: 1 }}>
+        {/* The time lines up with the date block's top on every slide. */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            flex: 1,
+            marginTop: 4,
+          }}
+        >
           <div
             style={{
               display: "flex",
@@ -912,6 +972,7 @@ function EventSlide({
           ) : null}
         </div>
       </div>
+      {/* What it is: the title, its scribble, and the descriptor close under it. */}
       <div
         style={{
           display: "flex",
@@ -922,10 +983,18 @@ function EventSlide({
           top: EVENT.top,
         }}
       >
-        <div style={{ display: "flex", fontSize: fit.title, lineHeight: 1.06 }}>
+        <div
+          style={{
+            display: "flex",
+            width: EVENT.titleWidth,
+            fontSize: fit.title,
+            lineHeight: 1.06,
+            textWrap: "balance",
+          }}
+        >
           {s.title}
         </div>
-        <div style={{ display: "flex", marginTop: 4 }}>
+        <div style={{ display: "flex", marginTop: -2 }}>
           <Scribble width={340} color={color} />
         </div>
         {s.desc ? (
@@ -934,43 +1003,77 @@ function EventSlide({
               display: "flex",
               fontSize: fit.body,
               lineHeight: 1.2,
-              marginTop: 14,
+              marginTop: EVENT.descGap,
+              textWrap: "pretty",
             }}
           >
             {s.desc}
           </div>
         ) : null}
+      </div>
+      {/*
+        Where, who and for whom, pinned to the card's foot: the venue and
+        its host as a pair, then the chips last, so the chips sit at the
+        same height on every slide of the carousel.
+      */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: EVENT.foot,
+        }}
+      >
         <div
           style={{
             display: "flex",
-            fontSize: fit.body + 4,
-            lineHeight: 1.2,
-            color: SOFT,
-            marginTop: 14,
+            width: 120,
+            height: 6,
+            borderRadius: 3,
+            background: tint(SOFT, 0.45),
+            marginBottom: EVENT.rule - 6,
+          }}
+        />
+        <div
+          style={{
+            display: "flex",
+            fontSize: venueSize(fit.body),
+            lineHeight: 1.15,
+            textWrap: "pretty",
           }}
         >
           {place}
         </div>
+        {s.host ? (
+          <div
+            style={{
+              display: "flex",
+              fontSize: hostSize(fit.body),
+              color: SOFT,
+              marginTop: EVENT.hostGap,
+              lineHeight: 1.15,
+              textWrap: "pretty",
+            }}
+          >
+            {`Hosted by ${s.host}`}
+          </div>
+        ) : null}
         <div
-          style={{ display: "flex", flexWrap: "wrap", gap: 18, marginTop: 36 }}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: 18,
+            marginTop: EVENT.chipGap,
+          }}
         >
           {s.ages.map((a) => (
             <Chip key={a} text={a} fill={tint(color, 0.3)} size={EVENT.chip} />
           ))}
           {s.cost ? <Chip text={s.cost} fill={CARD} size={EVENT.chip} /> : null}
         </div>
-        {s.host ? (
-          <div
-            style={{
-              display: "flex",
-              fontSize: fit.body - 4,
-              marginTop: 26,
-              lineHeight: 1.25,
-            }}
-          >
-            {`Hosted by ${s.host}`}
-          </div>
-        ) : null}
       </div>
     </Frame>
   );
@@ -1038,9 +1141,11 @@ function CtaSlide({
         <div
           style={{
             display: "flex",
-            fontSize: 46,
+            fontSize: 40,
+            color: SOFT,
             justifyContent: "center",
             textAlign: "center",
+            textWrap: "balance",
             marginTop: 20,
           }}
         >
@@ -1051,6 +1156,7 @@ function CtaSlide({
         style={{
           display: "flex",
           marginTop: "auto",
+          marginBottom: 60,
           alignSelf: "center",
           fontSize: 56,
           background: CRAYONS.yellow,

@@ -319,6 +319,19 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
 // --- F. Family events this week (Tuesday, code only) -----------------------
 
 /**
+ * A title as the slide prints it: a spaced dash between two parts reads
+ * as a colon ("Pop-Up Exhibits - Sisters" → "Pop-Up Exhibits: Sisters"),
+ * or a space after a period ("B.U.R.S.T. - Wonderful Winter!" →
+ * "B.U.R.S.T. Wonderful Winter!"), so it never hangs alone at a line's end.
+ */
+export function slideTitle(title: string): string {
+  return title.replace(/\s+[-–—]\s+/, (_m, offset: number) =>
+    // Already punctuated ("B.U.R.S.T." or "Story Time:"): a space will do.
+    /[.:!?]$/.test(title.slice(0, offset)) ? " " : ": ",
+  );
+}
+
+/**
  * Where an event is, with its town: "At Fir Street Park, Sisters", or
  * "At Redmond Library" when the venue's name already says the town.
  */
@@ -475,18 +488,21 @@ export function composeEventsWeek(
 ): PostSpec {
   const cta = ctaLine(dms);
   const headline = COPY.eventsHeadline;
-  const eventBody = commonBody(
-    events.map((e) =>
-      eventFit({
-        title: e.title,
-        desc: e.desc,
-        place: placeLine(e.venue, e.town),
-        chips: [...e.ages, ...(e.cost ? [e.cost] : [])],
-        host: e.host,
-        also: e.also,
-      }),
-    ),
-  );
+  // One body and one title size for the whole carousel, so its slides
+  // read as a set: the largest that fit every slide.
+  const copies = events.map((e) => ({
+    title: slideTitle(e.title),
+    desc: e.desc,
+    place: placeLine(e.venue, e.town),
+    chips: [...e.ages, ...(e.cost ? [e.cost] : [])],
+    host: e.host,
+    also: e.also,
+  }));
+  const eventBody = commonBody(copies.map((c) => eventFit(c)));
+  const eventTitle =
+    eventBody === undefined
+      ? undefined
+      : Math.min(...copies.map((c) => eventFit(c, [eventBody]).title));
   const towns = [...new Set(events.map((e) => e.town))].sort(
     (a, b) => Number(b === "Bend") - Number(a === "Bend"),
   );
@@ -507,9 +523,10 @@ export function composeEventsWeek(
       weekday: e.weekday,
       date: e.date,
       time: e.time,
-      title: e.title,
+      title: slideTitle(e.title),
       desc: e.desc,
       body: eventBody,
+      titleSize: eventTitle,
       venue: e.venue,
       town: e.town,
       ages: e.ages,

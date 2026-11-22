@@ -6,10 +6,12 @@
  * Nothing is stored, uploaded or published, and Meta is never called.
  *
  *   DATABASE_URL=<url> pnpm exec tsx --conditions react-server \
- *     scripts/preview-social.mts <out-dir> [<a Tuesday, YYYY-MM-DD>]
+ *     scripts/preview-social.mts <out-dir> [<a Tuesday, YYYY-MM-DD>] \
+ *     [--shorts <reviewed shorts JSON, applied in memory only>]
  *
  * DATABASE_URL must be given on the command line (.env.local isn't read).
  */
+import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import postgres from "postgres";
@@ -24,7 +26,19 @@ const url = process.env.DATABASE_URL;
 if (!url) throw new Error("Set DATABASE_URL on the command line.");
 const out = process.argv[2];
 if (!out) throw new Error("Give an output folder.");
-const asked = process.argv[3];
+const asked = process.argv[3]?.startsWith("--") ? undefined : process.argv[3];
+/** --shorts <file>: reviewed short lines ([{slug, short}]), applied in memory only. */
+const shortsAt = process.argv.indexOf("--shorts");
+const shorts = new Map<string, string>(
+  shortsAt > 0
+    ? (
+        JSON.parse(readFileSync(process.argv[shortsAt + 1], "utf8")) as {
+          slug: string;
+          short: string;
+        }[]
+      ).map((x) => [x.slug, x.short])
+    : [],
+);
 if (asked && !/^\d{4}-\d{2}-\d{2}$/.test(asked))
   throw new Error("The day must be YYYY-MM-DD (a Tuesday).");
 
@@ -76,7 +90,10 @@ async function main() {
     id: r.id,
     slug: r.slug,
     kind: r.kind as EventRow["kind"],
-    data: r.data as EventRow["data"],
+    data: {
+      ...(r.data as EventRow["data"]),
+      ...(shorts.has(r.slug) ? { short: shorts.get(r.slug) } : {}),
+    },
     status: r.status as EventRow["status"],
     confirm: r.confirm as EventRow["confirm"],
     lastSeenAt: r.last_seen_at,

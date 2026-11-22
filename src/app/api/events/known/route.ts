@@ -9,7 +9,7 @@ import { ingestOk, json, nope } from "@/lib/news/http";
  * ?days= out (default 60, at most 120), confirmed or not, with its slug,
  * series key, venue, dates and the pages its dates are checked on, and
  * the facts it was stored with (venue in full, what, setting, cost,
- * ages_text, signup, parking, series_id, organizer, annual, series). The harvest skips any event whose (venue, day, start)
+ * ages_text, signup, parking, series_id, organizer, annual, series, short). The harvest skips any event whose (venue, day, start)
  * or page is here, except to add dates or the printed ages and cost a page
  * lacks: a hand-in for a stored page replaces those facts, so it hands
  * them in again. `coverage` counts the listed one-off and annual pages in

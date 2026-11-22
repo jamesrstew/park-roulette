@@ -512,10 +512,15 @@ export type SlideSpec =
       /** "10 am to noon", "Starts 6 pm". */
       time: string;
       title: string;
-      /** What kids do there, from the stored `what`, 70 characters at most. */
+      /**
+       * What kids do there: the event's checked `short`, else the whole
+       * first sentence of its `what` (70 characters at most), else none.
+       */
       desc: string | null;
       /** Body type for every event slide of the post (fit.ts), px. */
       body?: number;
+      /** Title type for every event slide of the post (fit.ts), px. */
+      titleSize?: number;
       venue: string;
       town: string;
       ages: string[];

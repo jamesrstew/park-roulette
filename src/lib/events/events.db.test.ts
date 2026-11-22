@@ -739,4 +739,123 @@ describe.skipIf(!local)("kid_events, against Postgres", () => {
       "unconfirmed",
     );
   });
+
+  // --- The short line: PATCH /api/events/<slug>/short and adoption ---------
+
+  describe("the short line", () => {
+    const TOKEN = "test-ingest-token-0123456789abcdef";
+    const patch = async (
+      slug: string,
+      body: unknown,
+      token: string | null = TOKEN,
+    ) => {
+      process.env.NEWS_INGEST_TOKEN = TOKEN;
+      const { PATCH } = await import("@/app/api/events/[slug]/short/route");
+      return PATCH(
+        new Request(`http://x/api/events/${slug}/short`, {
+          method: "PATCH",
+          headers: {
+            ...(token ? { authorization: `Bearer ${token}` } : {}),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(body),
+        }),
+        { params: Promise.resolve({ slug }) },
+      );
+    };
+    const stored = async () =>
+      (await q("select slug, data from kid_events"))[0] as {
+        slug: string;
+        data: Record<string, unknown>;
+      };
+
+    it("needs the ingest token, checks the line, and changes only `short`", async () => {
+      await store.upsertEvents([verdict("Baby Songs", "2026-11-21")], {
+        network: true,
+      });
+      const before = await stored();
+      expect(
+        (await patch(before.slug, { short: "Songs for babies" }, null)).status,
+      ).toBe(401);
+      expect(
+        (
+          await patch(
+            before.slug,
+            { short: "Songs for babies" },
+            "wrong-token-0123456789abcdef",
+          )
+        ).status,
+      ).toBe(401);
+      expect((await patch(before.slug, { nope: 1 })).status).toBe(400);
+      expect(
+        (
+          await patch("no-such-event", {
+            short: "Songs for the littlest listeners",
+          })
+        ).status,
+      ).toBe(404);
+      const bad = await patch(before.slug, {
+        short: "Songs and a picture book for",
+      });
+      expect(bad.status).toBe(422);
+      expect(
+        ((await bad.json()) as { problems: string[] }).problems.join(" "),
+      ).toMatch(/mid-phrase/);
+      expect((await stored()).data.short).toBeUndefined();
+      const ok = await patch(before.slug, {
+        short: "Songs and a picture book for the littlest listeners",
+      });
+      expect(ok.status).toBe(200);
+      expect(await ok.json()).toMatchObject({
+        ok: true,
+        short: "Songs and a picture book for the littlest listeners",
+        previous: null,
+      });
+      const after = await stored();
+      expect(after.data.short).toBe(
+        "Songs and a picture book for the littlest listeners",
+      );
+      // Nothing else moved.
+      const { short: _s, ...rest } = after.data;
+      void _s;
+      expect(rest).toEqual(before.data);
+    });
+
+    it("a re-hand without a short keeps the stored one while it's still grounded", async () => {
+      await store.upsertEvents(
+        [
+          verdict(
+            "Baby Songs",
+            "2026-11-21",
+            {},
+            {
+              short: "Songs and a picture book for the littlest listeners",
+            },
+          ),
+        ],
+        { network: true },
+      );
+      await store.upsertEvents([verdict("Baby Songs", "2026-11-28")], {
+        network: true,
+      });
+      expect((await stored()).data.short).toBe(
+        "Songs and a picture book for the littlest listeners",
+      );
+      // The summary changes: the old short no longer fits it, and goes.
+      await store.upsertEvents(
+        [
+          verdict(
+            "Baby Songs",
+            "2026-12-05",
+            {},
+            {
+              what: "Bouncy rhymes and lap games for babies and their grown-ups.",
+            },
+          ),
+        ],
+        { network: true },
+      );
+      expect((await stored()).data.short).toBeUndefined();
+    });
+  });
 });
