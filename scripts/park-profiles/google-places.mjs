@@ -15,13 +15,16 @@
  * --facts copies only the place id and the boolean facts into
  * data/park-profiles.json.
  *
- * --check scans every trait and one-liner for a 4-word run shared with
+ * --check scans every trait, one-liner and glance for a 4-word run shared with
  * the cached Google text and exits 1 if it finds one. Run it after any
  * hand edit of the traits (the same scan runs in vitest when the cache
- * is there). Traits are written by hand, in our own words,
- * from the review summary (hints only for the other summaries); the
- * local-only test in src/lib/park-profiles.test.ts fails on any 4-word
- * run shared with the cached Google text.
+ * is there). Traits and glances are written by hand, in our own words,
+ * from the review, editorial and generative summaries; a google_places
+ * trait only for something distinctive (never a trail, a lawn, shade or a
+ * pond on its own: COMMON_TRAIT in src/lib/park-profiles.test.ts), and
+ * never a claim our records contradict. The local-only test in
+ * src/lib/park-profiles.test.ts fails on any 4-word run shared with the
+ * cached Google text.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
@@ -176,7 +179,11 @@ function check() {
         .map(flat)
         .join(" \n "),
     );
-    for (const text of [p.one_liner ?? "", ...p.traits.map((t) => t.text)])
+    for (const text of [
+      p.one_liner ?? "",
+      p.glance ?? "",
+      ...p.traits.map((t) => t.text),
+    ])
       for (const r of runs(text)) if (g.has(r)) bad.push(`${slug}: "${r}"`);
   }
   if (bad.length) {

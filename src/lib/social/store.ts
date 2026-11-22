@@ -20,7 +20,12 @@ import { IssueSchema, type Issue } from "@/lib/news/issue";
 import { addDays, pacific } from "@/lib/news/time";
 import { normalizeText, type Fetcher } from "@/lib/news/validate";
 import { SITE_URL } from "@/lib/site";
-import { oneLinerFor, planProfile, postTraits } from "@/lib/park-profiles";
+import {
+  glanceFor,
+  oneLinerFor,
+  planProfile,
+  postTraits,
+} from "@/lib/park-profiles";
 import { currentProfiles } from "@/lib/park-profiles-check";
 import { type RecentIdea, themesFor } from "./at-home";
 import { postCandidates } from "./candidates";
@@ -440,6 +445,7 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
         town: p.city,
         features: p.features,
         signature: oneLinerFor(ctx.profiles.get(p.slug), month),
+        glance: glanceFor(ctx.profiles.get(p.slug), month),
         traits: postTraits(ctx.profiles.get(p.slug), month).map((t) => ({
           text: t.text,
           keys: t.keys,

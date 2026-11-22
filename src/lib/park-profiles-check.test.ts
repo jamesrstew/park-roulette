@@ -51,6 +51,9 @@ const profile = (url: string, quote: string): ParkProfile => ({
     },
   ],
   one_liner: "A pirate ship to climb.",
+  glance: null,
+  glance_source: null,
+  glance_on: null,
   facts: {},
 });
 

@@ -99,6 +99,13 @@ export const ParkFacts = z.strictObject({
 });
 export type ParkFacts = z.infer<typeof ParkFacts>;
 
+/**
+ * What an at-a-glance line was written from: Google's summaries for the
+ * place (an input only, never shown, quoted or credited), our own records
+ * (traits and the park's features), or both.
+ */
+export const GLANCE_SOURCES = ["google_summary", "traits", "both"] as const;
+
 export const ParkProfile = z
   .strictObject({
     /** Google place id (an id only; nothing of Google's text). */
@@ -106,11 +113,26 @@ export const ParkProfile = z
     traits: z.array(Trait).max(5),
     /** 120 characters, our words, leading with the first (most distinctive) trait. */
     one_liner: z.string().trim().min(10).max(120).nullable(),
+    /**
+     * At a glance: one sentence, our words, what the park is like for a
+     * family with young kids (glanceProblems lists the rules). Shown on
+     * the park page when there's no one_liner.
+     */
+    glance: z.string().trim().min(10).max(120).nullable().default(null),
+    glance_source: z.enum(GLANCE_SOURCES).nullable().default(null),
+    /** When it was written (a Google-sourced glance stops showing after 12 months). */
+    glance_on: Day.nullable().default(null),
     facts: ParkFacts.default({}),
   })
   .refine((p) => (p.one_liner === null) === (p.traits.length === 0), {
     message: "A one_liner exactly when there are traits",
-  });
+  })
+  .refine(
+    (p) =>
+      (p.glance === null) === (p.glance_source === null) &&
+      (p.glance === null) === (p.glance_on === null),
+    { message: "A glance needs glance_source and glance_on (and only then)" },
+  );
 export type ParkProfile = z.infer<typeof ParkProfile>;
 
 export const ProfilesFile = z.record(
@@ -232,11 +254,14 @@ export const evidenceKey = (e: Evidence) => `${e.url}\n${e.quote}`;
 export const inSeason = (t: Pick<Trait, "season">, month: number) =>
   !t.season || t.season.includes(month);
 
-function googleFresh(t: Trait, now: Date): boolean {
-  if (t.source !== "google_places") return true;
-  const until = new Date(`${t.verified_on}T00:00:00Z`);
+function freshUntil(day: string, now: Date): boolean {
+  const until = new Date(`${day}T00:00:00Z`);
   until.setUTCMonth(until.getUTCMonth() + GOOGLE_TRAIT_MONTHS);
   return now.getTime() < until.getTime();
+}
+
+function googleFresh(t: Trait, now: Date): boolean {
+  return t.source !== "google_places" || freshUntil(t.verified_on, now);
 }
 
 /**
@@ -256,11 +281,21 @@ export function liveProfiles(
         googleFresh(t, now) &&
         !t.evidence.some((e) => missing.has(evidenceKey(e))),
     );
+    const dropped = p.traits.filter((t) => !traits.includes(t));
+    const glanceLive =
+      p.glance !== null &&
+      !traitIn(p.glance, dropped) &&
+      (p.glance_source === "traits" ||
+        (p.glance_on !== null && freshUntil(p.glance_on, now)));
     out.set(slug, {
       ...p,
       traits,
       // One-liners name several traits: any dropped trait hides it.
       one_liner: traits.length === p.traits.length ? p.one_liner : null,
+      // A glance goes with any trait it names, and Google-sourced ones age out.
+      ...(glanceLive
+        ? {}
+        : { glance: null, glance_source: null, glance_on: null }),
     });
   }
   return out;
@@ -296,6 +331,83 @@ export function oneLinerFor(
   const off = p.traits.filter((t) => !inSeason(t, month));
   if (!inSeason(p.traits[0], month) || traitIn(p.one_liner, off)) return null;
   return p.one_liner;
+}
+
+/** The glance to show this month (none while it names an out-of-season trait). */
+export function glanceFor(
+  p: ParkProfile | null | undefined,
+  month: number,
+): string | null {
+  if (!p?.glance) return null;
+  const off = p.traits.filter((t) => !inSeason(t, month));
+  if (traitIn(p.glance, off) || SEASONAL_WORDS.test(p.glance)) return null;
+  return p.glance;
+}
+
+// --- At-a-glance rules ---------------------------------------------------------
+
+/**
+ * Claims a glance never makes: it's a description, not a promise. Fences,
+ * accessibility and safety need an official source and a careful sentence;
+ * prices, hours, events and restrooms change; upkeep is an opinion.
+ */
+const GLANCE_BANNED: [RegExp, string][] = [
+  [/\b(fenc(e|ed|es|ing)|enclosed|gated)\b/i, "a fence claim"],
+  [
+    /\b(accessib\w*|wheelchairs?|inclusive|all[- ]abilit\w*|ada|universal[- ]design|adaptive)\b/i,
+    "an accessibility claim",
+  ],
+  [/\b(safe|safer|safety|secure)\b/i, "a safety claim"],
+  [
+    /\$|\b(free|fees?|prices?|priced|costs?|admission|tickets?|paid)\b/i,
+    "a price claim",
+  ],
+  [
+    /\b(hours?|open|opens|opening|closes|closed|daily|dawn|dusk|[ap]\.?m\.?)\b/i,
+    "an hours claim",
+  ],
+  [
+    /\b(events?|concerts?|festivals?|celebrations?|shows?|classes|camps?|fireworks|movies?)\b/i,
+    "an events claim",
+  ],
+  [/\b(rest ?rooms?|bath ?rooms?|toilets?|potty)\b/i, "a restroom claim"],
+  [
+    /\b(clean|cleanest|spotless|tidy|well[- ]maintained|well[- ]kept)\b/i,
+    "an upkeep opinion",
+  ],
+  [/\b(swim\w*|wad(e|ing)|lifeguards?)\b/i, "a swimming claim"],
+];
+
+/** Seasonal things a year-round glance never names (no splash pad in January). */
+export const SEASONAL_WORDS =
+  /\b(splash\w*|spray ?(park|ground)s?|sprinklers?|water play|sled\w*|ski|skiing|snow\w*)\b/i;
+
+/**
+ * Why a glance breaks the rules, or []: one sentence of 120 characters
+ * at most, no banned claim, nothing generic, nothing seasonal (by word or
+ * by naming a seasonal trait). Grounding in Google's text, the features
+ * and the traits, and the 4-word overlap scan, are tested separately.
+ */
+export function glanceProblems(
+  glance: string,
+  traits: readonly Pick<Trait, "keys" | "season">[] = [],
+): string[] {
+  const out: string[] = [];
+  const t = glance.replace(/[‘’]/g, "'").trim();
+  if (t.length > 120) out.push("over 120 characters");
+  if (/[.!?]\s+\S/.test(t) || t.includes(";"))
+    out.push("more than one sentence");
+  for (const [re, label] of GLANCE_BANNED) if (re.test(t)) out.push(label);
+  for (const g of genericPhrases(t)) out.push(`generic: ${g}`);
+  if (
+    SEASONAL_WORDS.test(t) ||
+    traitIn(
+      t,
+      traits.filter((x) => x.season),
+    )
+  )
+    out.push("names something seasonal");
+  return out;
 }
 
 // --- Generic copy -------------------------------------------------------------
@@ -339,6 +451,7 @@ export function planProfile(p: ParkProfile | undefined | null, month: number) {
   if (!p) return null;
   return {
     one_liner: oneLinerFor(p, month),
+    glance: glanceFor(p, month),
     traits: postTraits(p, month).map((t) => ({
       text: t.text,
       keys: t.keys,

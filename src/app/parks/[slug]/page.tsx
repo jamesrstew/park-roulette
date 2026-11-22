@@ -1,4 +1,4 @@
-import { oneLinerFor } from "@/lib/park-profiles";
+import { glanceFor, oneLinerFor } from "@/lib/park-profiles";
 import { currentProfiles } from "@/lib/park-profiles-check";
 import { pacific } from "@/lib/news/time";
 import type { Metadata } from "next";
@@ -66,10 +66,10 @@ async function ParkLoader({ params, searchParams }: Props) {
     featuredIn(slug),
     currentProfiles(now),
   ]);
-  const oneLiner = oneLinerFor(
-    profiles.get(detail.park.slug),
-    Number(pacific(now).date.slice(5, 7)),
-  );
+  const profile = profiles.get(detail.park.slug);
+  const month = Number(pacific(now).date.slice(5, 7));
+  // The traits one-liner when there is one; otherwise the at-a-glance line.
+  const oneLiner = oneLinerFor(profile, month) ?? glanceFor(profile, month);
   const town = townsOf(all).find((t) => t.slug === townSlug(detail.park.city));
   const townLink = town ? townPageHref(town) : "/towns";
   return (
