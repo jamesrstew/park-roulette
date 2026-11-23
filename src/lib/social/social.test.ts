@@ -1571,6 +1571,8 @@ describe("where and who on event slides (James, Nov 22)", () => {
       }),
     ).toBeNull();
     expect(hostOf("Tower Theatre", undefined)).toBeNull();
+    // Its own trailing period goes (the caption adds one).
+    expect(hostOf("Tower Theatre", { name: "Foo Inc." })).toBe("Foo Inc");
   });
 
   it("an Unpack event item shows its venue and organizer, on the slide and in the caption", async () => {
@@ -1650,5 +1652,32 @@ describe("where and who on event slides (James, Nov 22)", () => {
     expect(w.host ?? null).toBeNull();
     expect(itemFit({ ...base, ...w }).fits).toBe(true);
     expect(itemWhere(base, `At ${huge}`, huge)).toEqual({});
+  });
+
+  it("when the venue line can't fit, the venue goes back in as a chip", async () => {
+    const { composeUnpack } = await import("./compose");
+    const huge = "Mmmmmmm ".repeat(30).trim();
+    const spec = composeUnpack(
+      unpack(),
+      [
+        {
+          ref: "event:x@2026-11-27",
+          name: "Creativebug Workshop: Gifts, Wrapping Paper, and Cards!",
+          what: "Kids make handmade gifts, wrapping paper and greeting cards at a holiday craft workshop.",
+          icon: "calendar",
+          facts: ["Fri, Nov 27 · 1 pm to 3 pm"],
+          place: `At ${huge}`,
+          host: null,
+          venueChip: "Central Library, Bend",
+        },
+      ],
+      { parks: [], events: [], venues: [], issue: null },
+      false,
+    );
+    const item = spec.slides.find((x) => x.t === "item");
+    expect(item).toMatchObject({
+      facts: ["Fri, Nov 27 · 1 pm to 3 pm", "Central Library, Bend"],
+    });
+    expect(item && "place" in item ? item.place : undefined).toBeUndefined();
   });
 });

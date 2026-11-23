@@ -1589,6 +1589,9 @@ export async function redrawQueued(
         ok: false,
         error: "The crayon-card version fails: nothing changed.",
       };
+    r.warnings.push(
+      "The checked photo didn't load with the bytes the vision check saw: the crayon card is used.",
+    );
     photos = [];
   }
   const spec = r.spec;
@@ -1607,12 +1610,23 @@ export async function redrawQueued(
       reason: "Redrawn with the current layout.",
       updatedAt: sql`now()`,
     })
-    .where(and(eq(socialPosts.id, id), eq(socialPosts.status, "queued")))
+    .where(
+      and(
+        eq(socialPosts.id, id),
+        eq(socialPosts.status, "queued"),
+        // Not yet in the publisher's hands: more than 35 minutes to go
+        // (containers are made 30 minutes ahead), and no container made.
+        sql`${socialPosts.publishAt} > now() + interval '35 minutes'`,
+        sql`${socialPosts.containerId} is null`,
+        sql`${socialPosts.childIds} is null`,
+      ),
+    )
     .returning({ id: socialPosts.id });
   if (!done.length)
     return {
       ok: false,
-      error: "It left the queue meanwhile: nothing changed.",
+      error:
+        "It left the queue, or is within 35 minutes of going out, meanwhile: nothing changed.",
     };
   console.info(`[social] post ${id} redrawn (${spec.slides.length} slides)`);
   return {

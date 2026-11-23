@@ -52,6 +52,8 @@ export type ResolvedItem = {
   place?: string;
   /** An event's organizer, when it isn't the venue. */
   host?: string | null;
+  /** The venue as a chip, used when the venue line doesn't fit. */
+  venueChip?: string;
 };
 
 const strip = (s: string) => s.trim().replace(/[\s.:;,!-]+$/u, "");
@@ -185,6 +187,10 @@ export function composeUnpack(
         of: items.length,
         icon: it.icon,
         ...base,
+        // No room for the venue line: the venue goes back in as a chip.
+        ...(it.place && !where.place && it.venueChip
+          ? { facts: [...base.facts, it.venueChip] }
+          : {}),
         ...(where.place
           ? { place: where.place, host: where.host ?? null }
           : {}),
@@ -383,7 +389,12 @@ export function hostOf(
   venue: string,
   organizer: { name: string } | undefined,
 ): string | null {
-  const host = organizer?.name.replace(/\s+/g, " ").trim();
+  // Trailing punctuation goes: the caption adds its own period ("Foo Inc."
+  // must not print "Foo Inc..").
+  const host = organizer?.name
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/[\s.,;:!]+$/, "");
   if (!host) return null;
   const a = host.toLowerCase();
   const b = venue.toLowerCase().trim();

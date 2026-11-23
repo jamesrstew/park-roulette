@@ -18,6 +18,8 @@ vi.mock("@/lib/alerts", () => ({
 /** What the stub renderer was asked to draw (photos per slide). */
 const drawn: (string | null)[][] = [];
 let photoLoads = true;
+/** Runs inside the stub storeMedia (null: nothing). */
+let onStore: (() => Promise<void>) | null = null;
 vi.mock("./render", () => ({
   photosFor: async (spec: { slides: { photo?: unknown }[] }) =>
     spec.slides.map((s) =>
@@ -40,7 +42,11 @@ vi.mock("./render", () => ({
       },
     }));
   },
-  storeMedia: async (files: { file: unknown }[]) => files.map((f) => f.file),
+  storeMedia: async (files: { file: unknown }[]) => {
+    // A test can act while the new media is "uploading" (a race).
+    await onStore?.();
+    return files.map((f) => f.file);
+  },
 }));
 /** What the Story echo was drawn from (the stub records the cover). */
 const echoes: { kind: string; line: string; cover: string }[] = [];
@@ -180,6 +186,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     echoes.length = 0;
     echoBreaks = false;
     photoLoads = true;
+    onStore = null;
     containerState = "FINISHED";
     afterPublish = null;
     publishFails = "no";
@@ -1324,7 +1331,11 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     if (dry.ok) expect(dry.applied).toBe(false);
     const [same] = await q(`select media from social_posts where id = ${id}`);
     expect(same.media).toEqual(before.media);
-    // Apply: the same row, new media, still queued.
+    // Apply: the same row, new media, still queued. (Its slot is pushed
+    // well ahead of the real clock: the update needs 35+ minutes to go.)
+    await q(
+      `update social_posts set publish_at = now() + interval '2 days' where id = ${id}`,
+    );
     const done = await store.redrawQueued(id, { apply: true, now: SUNDAY });
     expect(done.ok).toBe(true);
     const [after] = await q(
@@ -1343,5 +1354,42 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       error: "It's creating, not queued.",
     });
     expect((await store.redrawQueued(99999, { apply: false })).ok).toBe(false);
+  });
+
+  it("redrawQueued refuses when the publisher claims the post mid-redraw, or it's about to go out", async () => {
+    const id = await draftPost();
+    await q(
+      `update social_posts set publish_at = now() + interval '2 days' where id = ${id}`,
+    );
+    const [before] = await q(
+      `select media, spec from social_posts where id = ${id}`,
+    );
+    // The publisher claims it while the new JPEGs upload.
+    onStore = async () => {
+      await q(
+        `update social_posts set status = 'creating', container_id = 'C1' where id = ${id}`,
+      );
+    };
+    const r = await store.redrawQueued(id, { apply: true, now: SUNDAY });
+    expect(r).toMatchObject({ ok: false });
+    if (!r.ok) expect(r.error).toMatch(/left the queue/);
+    const [after] = await q(
+      `select media, spec from social_posts where id = ${id}`,
+    );
+    expect(after).toEqual(before);
+    // Queued but within 35 minutes of its slot: refused too.
+    onStore = null;
+    await q(
+      `update social_posts set status = 'queued', container_id = null, publish_at = now() + interval '20 minutes' where id = ${id}`,
+    );
+    const soon = await store.redrawQueued(id, { apply: true, now: SUNDAY });
+    expect(soon.ok).toBe(false);
+    // Queued, far off, but a container already made: refused.
+    await q(
+      `update social_posts set publish_at = now() + interval '2 days', child_ids = '{C9}' where id = ${id}`,
+    );
+    expect(
+      (await store.redrawQueued(id, { apply: true, now: SUNDAY })).ok,
+    ).toBe(false);
   });
 });

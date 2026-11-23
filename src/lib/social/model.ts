@@ -478,7 +478,11 @@ export type SlideSpec =
       icon: ItemIcon;
       name: string;
       what: string;
-      /** day • ages • cost • town (code, from the IDs). */
+      /**
+       * Chips, from the IDs: an event's day, ages and cost (its venue too,
+       * only when the venue line doesn't fit); a venue's days, ages, cost
+       * and town; a park's features and town.
+       */
       facts: string[];
       /**
        * An event item's where and who, as the roundup prints them: "At

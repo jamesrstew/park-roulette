@@ -15,7 +15,7 @@ import {
 } from "@/lib/events/model";
 import { listed } from "@/lib/events/state";
 // A cycle (roundup uses eventTextProblem): both only call at run time.
-import { eventDayChip, roundupAges } from "./roundup";
+import { eventDayChip, roundupAges, venueChip } from "./roundup";
 import {
   CONTEXT_KINDS,
   genericPhrases,
@@ -1063,6 +1063,7 @@ async function resolveItem(
         // town, and the organizer when it isn't the venue.
         place: placeLine(e.data.venue.name, e.data.venue.town),
         host: hostOf(e.data.venue.name, e.data.organizer),
+        venueChip: venueChip(e.data.venue.name, e.data.venue.town),
       },
       fact: {
         events: [
