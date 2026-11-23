@@ -313,11 +313,7 @@ async function Post({ params, searchParams }: Props) {
     const dest = destinationOf(post);
     if (!dest) notFound();
     const from = (await searchParams).from;
-    permanentRedirect(
-      typeof from === "string" && /^[a-z_]{1,12}$/.test(from)
-        ? `${dest.href}${dest.href.includes("?") ? "&" : "?"}from=${from}`
-        : dest.href,
-    );
+    permanentRedirect(withFrom(dest.href, carryFrom(from)));
   }
   return (
     <>

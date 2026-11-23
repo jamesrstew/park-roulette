@@ -25,7 +25,7 @@ import { currentProfiles } from "@/lib/park-profiles-check";
 import { type RecentIdea, themesFor } from "./at-home";
 import { listableParks, postCandidates } from "./candidates";
 import { composeStory, composeTeaser, type ParkInfo } from "./compose";
-import { runEchoes } from "./echo";
+import { coverFlagged, runEchoes } from "./echo";
 import { fitRoundup, pickWeekEvents, roundupWindow } from "./roundup";
 import {
   containerStatus,
@@ -37,7 +37,12 @@ import {
   publishingQuota,
 } from "./graph";
 import { previewKey } from "./key";
-import { fbCaptionFor, withPostLink } from "./links";
+import {
+  fbCaptionFor,
+  photoClear,
+  type PhotoVerdicts,
+  withPostLink,
+} from "./links";
 import { expireSocial } from "./public";
 import {
   COPY,
@@ -1533,7 +1538,12 @@ export async function preflight(
 /** May Meta (or anyone) fetch this file? Only media of posts that passed the checks. */
 export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
   const rows = await db
-    .select({ id: socialPosts.id, spec: socialPosts.spec })
+    .select({
+      id: socialPosts.id,
+      spec: socialPosts.spec,
+      media: socialPosts.media,
+      echoMedia: socialPosts.echoMedia,
+    })
     .from(socialPosts)
     .where(
       and(
@@ -1546,22 +1556,44 @@ export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
     )
     .limit(20);
   if (!rows.length) return false;
-  // Taken down: a post whose slide photo has any look other than clear
-  // now (a later look saw a person) is refused, every slide of it.
-  const flagged = new Set(
-    (
-      await db
-        .select({ src: socialPhotoChecks.src })
-        .from(socialPhotoChecks)
-        .where(sql`${socialPhotoChecks.verdict} <> 'clear'`)
-    ).map((r) => r.src),
-  );
-  return rows.some(
-    (r) =>
-      !((r.spec as PostSpec | null)?.slides ?? []).some(
-        (s) => "photo" in s && s.photo && flagged.has(s.photo.src),
-      ),
-  );
+  const photosOf = (spec: unknown): PhotoRef[] =>
+    ((spec as PostSpec | null)?.slides ?? []).flatMap((s) =>
+      "photo" in s && s.photo ? [s.photo] : [],
+    );
+  // The looks at these posts' photos only (never the whole table).
+  const srcs = [
+    ...new Set(rows.flatMap((r) => photosOf(r.spec).map((p) => p.src))),
+  ];
+  const verdicts: PhotoVerdicts = { clear: new Set(), flagged: new Set() };
+  if (srcs.length)
+    for (const c of await db
+      .select({
+        src: socialPhotoChecks.src,
+        sha256: socialPhotoChecks.sha256,
+        verdict: socialPhotoChecks.verdict,
+      })
+      .from(socialPhotoChecks)
+      .where(inArray(socialPhotoChecks.src, srcs)))
+      if (c.verdict === "clear") verdicts.clear.add(`${c.src} ${c.sha256}`);
+      else verdicts.flagged.add(c.src);
+  for (const r of rows) {
+    const echo = r.echoMedia as {
+      sha?: string;
+      ext?: string;
+      photoFree?: boolean;
+    } | null;
+    if (echo?.sha === sha && echo.ext === ext) {
+      // The Story echo: drawn photo-free (the crayon cover) is always fine;
+      // otherwise only its cover photo counts (as the echo itself judges).
+      if (echo.photoFree || !(await coverFlagged(r.spec as PostSpec)))
+        return true;
+      continue;
+    }
+    // A slide: every photo of the post still clear on its exact bytes, and
+    // never flagged since (the same rule as /social, links.ts publicMedia).
+    if (photosOf(r.spec).every((p) => photoClear(p, verdicts))) return true;
+  }
+  return false;
 }
 
 /**
@@ -1643,7 +1675,7 @@ export async function redrawQueued(
       media,
       caption: spec.caption,
       // A downgrade mark is kept for good (the post never shows on /social).
-      report: sql`jsonb_strip_nulls(${JSON.stringify(report)}::jsonb || jsonb_build_object('downgraded', ${socialPosts.report} -> 'downgraded'))`,
+      report: sql`${JSON.stringify(report)}::jsonb || case when ${socialPosts.report} ? 'downgraded' then jsonb_build_object('downgraded', ${socialPosts.report} -> 'downgraded') else '{}'::jsonb end`,
       reason: "Redrawn with the current layout.",
       updatedAt: sql`now()`,
     })

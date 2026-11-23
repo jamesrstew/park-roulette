@@ -91,7 +91,7 @@ async function fail(post: PostRow, reason: string, notes: string[]) {
 }
 
 /** Was the cover's photo flagged (people or unsure) since it was drawn? */
-async function coverFlagged(spec: PostSpec): Promise<boolean> {
+export async function coverFlagged(spec: PostSpec): Promise<boolean> {
   const s = spec.slides[0];
   const ref = s && "photo" in s ? s.photo : null;
   if (!ref) return false;

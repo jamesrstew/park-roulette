@@ -586,6 +586,13 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     const [row] = await q(`select report from social_posts where id = ${id}`);
     expect(row.report).toMatchObject({ downgraded: "a person" });
     expect((row.report as { errors: unknown }).errors).toEqual([]);
+    // Only the mark is merged: the new report's own nulls stay as they are.
+    expect(Object.keys(row.report as object).sort()).toEqual([
+      "cut",
+      "downgraded",
+      "errors",
+      "warnings",
+    ]);
   });
 
   it("stops serving a published post's slides once its photo is flagged", async () => {
@@ -604,6 +611,47 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     await store.savePhotoChecks([
       { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
     ]);
+    expect(await store.mediaAllowed(String(row.sha), "jpg")).toBe(false);
+  });
+
+  it("keeps serving a photo-free Story echo after the photo is flagged", async () => {
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const id = await draftPost();
+    const echo = (sha: string, photoFree: boolean) =>
+      JSON.stringify({ sha, ext: "jpg", width: 1080, height: 1920, photoFree });
+    await q(
+      `update social_posts set status = 'published', published_at = now(), echo_status = 'published', echo_media = '${echo("e".repeat(64), true)}' where id = ${id}`,
+    );
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
+    ]);
+    // The crayon echo shows no photo: still served.
+    expect(await store.mediaAllowed("e".repeat(64), "jpg")).toBe(true);
+    // An echo drawn from the photo cover: refused like the slides.
+    await q(
+      `update social_posts set echo_media = '${echo("f".repeat(64), false)}' where id = ${id}`,
+    );
+    expect(await store.mediaAllowed("f".repeat(64), "jpg")).toBe(false);
+  });
+
+  it("refuses slides whose photo was never cleared on those exact bytes", async () => {
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const id = await draftPost();
+    await q(
+      `update social_posts set status = 'published', published_at = now() where id = ${id}`,
+    );
+    const [row] = await q(
+      `select media->0->>'sha' as sha from social_posts where id = ${id}`,
+    );
+    expect(await store.mediaAllowed(String(row.sha), "jpg")).toBe(true);
+    // Its clear look is gone (another file's look remains): no longer served.
+    await q(
+      `update social_photo_checks set sha256 = '${"c".repeat(64)}' where src = '${LARKSPUR_PHOTO}'`,
+    );
     expect(await store.mediaAllowed(String(row.sha), "jpg")).toBe(false);
   });
 

@@ -175,6 +175,17 @@ export function igRedirectPath(search: URLSearchParams): string {
 /** Photo verdicts: "src sha256" pairs looked at and clear; srcs ever flagged. */
 export type PhotoVerdicts = { clear: Set<string>; flagged: Set<string> };
 
+/** A photo looked at and clear on these exact bytes, and never flagged since. */
+export function photoClear(
+  photo: Pick<PhotoRef, "src" | "sha256">,
+  verdicts: PhotoVerdicts,
+): boolean {
+  return (
+    !verdicts.flagged.has(photo.src) &&
+    verdicts.clear.has(`${photo.src} ${photo.sha256}`)
+  );
+}
+
 export type StoredMedia = {
   sha: string;
   ext: string;
@@ -241,12 +252,7 @@ export function publicMedia(
   if (report && typeof report === "object" && report.downgraded) return null;
   for (const s of spec.slides) {
     const photo = "photo" in s ? (s.photo as PhotoRef | null) : null;
-    if (!photo) continue;
-    if (
-      verdicts.flagged.has(photo.src) ||
-      !verdicts.clear.has(`${photo.src} ${photo.sha256}`)
-    )
-      return null;
+    if (photo && !photoClear(photo, verdicts)) return null;
   }
   return mediaOf(row.media);
 }
