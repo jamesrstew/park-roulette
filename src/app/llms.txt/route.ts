@@ -10,6 +10,8 @@ import {
   townsOf,
 } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
+import { guidePath } from "@/lib/guides";
+import { allGuides } from "@/lib/guides-data";
 
 /**
  * /llms.txt (llmstxt.org): a plain Markdown map of the site for AI
@@ -17,7 +19,10 @@ import { SITE_URL } from "@/lib/site";
  */
 export async function GET() {
   await connection();
-  const parks = await publicParks();
+  const [parks, guides] = await Promise.all([
+    publicParks(),
+    allGuides(new Date()),
+  ]);
   const towns = townsOf(parks);
   const features = FEATURE_PAGES.filter(
     (f) => parks.filter(f.matches).length >= FEATURE_PAGE_MIN,
@@ -44,6 +49,13 @@ export async function GET() {
     ...features.map(
       (f) =>
         `- [${f.title} in Central Oregon](${SITE_URL}/playgrounds/${f.slug}): ${f.blurb}`,
+    ),
+    "",
+    "## Seasonal guides",
+    "",
+    ...guides.map(
+      (g) =>
+        `- [${g.title}](${SITE_URL}${guidePath(g.def.slug)}): ${g.def.blurb}${g.updated ? ` Updated ${longDate(g.updated)}.` : ""}`,
     ),
     "",
     "## Parks",

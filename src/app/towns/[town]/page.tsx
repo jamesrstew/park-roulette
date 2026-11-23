@@ -29,6 +29,7 @@ import {
   topRated,
   townsOf,
 } from "@/lib/seo-data";
+import { GUIDES, guidePath } from "@/lib/guides";
 import { SITE_URL } from "@/lib/site";
 
 type Props = { params: Promise<{ town: string }> };
@@ -259,6 +260,20 @@ async function Town({ params }: Props) {
         <Link href="/towns" className="underline">
           All of Central Oregon
         </Link>
+      </nav>
+      <nav
+        aria-label="Seasonal guides"
+        className="-mt-4 text-center text-sm leading-relaxed"
+      >
+        Seasonal guides:{" "}
+        {GUIDES.map((g, i) => (
+          <span key={g.slug}>
+            {i > 0 && " · "}
+            <Link href={guidePath(g.slug)} className="underline">
+              {g.name}
+            </Link>
+          </span>
+        ))}
       </nav>
       <p className="text-center text-xs leading-snug text-ink-soft">
         Park details come from public maps and from local families, and can

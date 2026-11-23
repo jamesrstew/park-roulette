@@ -36,6 +36,7 @@ import {
 import { allEvents } from "@/lib/events/store";
 import { CATALOG } from "@/lib/news/catalog";
 import { publicParks } from "@/lib/seo-data";
+import { guidePath } from "@/lib/guides";
 import { SITE_URL } from "@/lib/site";
 import { milesBetween } from "@/lib/geo";
 import { townSlug } from "@/lib/towns";
@@ -457,6 +458,24 @@ async function Listing({ searchParams }: Props) {
           Email us
         </a>
         .
+      </p>
+
+      <p className="text-center text-[0.95rem] leading-snug">
+        Guides:{" "}
+        <Link
+          href={guidePath("holiday-events-central-oregon")}
+          className="underline"
+        >
+          Holiday events this year
+        </Link>
+        {" · "}
+        <Link href={guidePath("indoor-play-bend")} className="underline">
+          Indoor play when it snows
+        </Link>
+        {" · "}
+        <Link href="/guides" className="underline">
+          All guides
+        </Link>
       </p>
 
       <ScrollToHash />

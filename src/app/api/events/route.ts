@@ -10,6 +10,7 @@ import {
   upsertEvents,
 } from "@/lib/events/store";
 import { validateEvents } from "@/lib/events/validate";
+import { guideUrlsForEvents } from "@/lib/guides-data";
 import { pingIndexNow } from "@/lib/indexnow";
 import { ingestOk, json, nope } from "@/lib/news/http";
 import { SITE_URL } from "@/lib/site";
@@ -74,11 +75,21 @@ export async function POST(req: Request) {
       console.error("[events] hand-in log failed", (e as Error)?.message),
     );
   const changed = stored.filter((s) => s.changed);
-  if (changed.length)
+  if (changed.length) {
+    // The seasonal guides that list these (holiday, indoor) changed too.
+    const slugs = new Set(changed.map((s) => s.slug));
+    const guides = await guideUrlsForEvents(
+      [...slugs],
+      report.events
+        .filter((v) => v.event && v.slug && slugs.has(v.slug))
+        .map((v) => v.event!),
+    );
     await pingIndexNow([
       `${SITE_URL}/events`,
       ...changed.map((s) => `${SITE_URL}/events/${s.slug}`),
+      ...guides,
     ]);
+  }
   return json({
     stored,
     ...(network ? {} : { quick: true, storedLocally: devStore }),

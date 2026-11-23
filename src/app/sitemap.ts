@@ -18,6 +18,8 @@ import {
   townEventsChangedAt,
 } from "@/lib/events/store";
 import { townSlug } from "@/lib/towns";
+import { guidePath } from "@/lib/guides";
+import { allGuides } from "@/lib/guides-data";
 
 /**
  * Every public page. lastmod is when its data really changed (a park added,
@@ -25,12 +27,13 @@ import { townSlug } from "@/lib/towns";
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection(); // fresh data, not a build-time snapshot
-  const [parks, issues, events] = await Promise.all([
+  const now = new Date();
+  const [parks, issues, events, guides] = await Promise.all([
     publicParks(),
     sentIssues(),
     allEvents(),
+    allGuides(now),
   ]);
-  const now = new Date();
   // Upcoming event pages only: lastmod is when their facts last changed
   // (a status change counts), never the nightly check.
   const liveEvents = events.filter((e) => listed(e, now));
@@ -63,6 +66,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         url: `${SITE_URL}/playgrounds/${f.slug}`,
         lastModified: at(newest(ps)),
       })),
+    // Seasonal guides: lastmod is the newest change in what each one lists.
+    {
+      url: `${SITE_URL}/guides`,
+      lastModified: at(
+        guides.reduce((a, g) => (g.updated > a ? g.updated : a), ""),
+      ),
+    },
+    ...guides.map((g) => ({
+      url: `${SITE_URL}${guidePath(g.def.slug)}`,
+      lastModified: at(g.updated),
+    })),
     ...parks.map((p) => ({
       url: `${SITE_URL}/parks/${p.slug}`,
       lastModified: at(p.updated),

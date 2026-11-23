@@ -80,6 +80,8 @@ const Venue = z.object({
   url: Url,
   source: Url.nullable().default(null),
   verified: z.boolean(),
+  /** When we last checked it against its own site. */
+  verified_on: Day.optional(),
 });
 
 const Series = z.object({

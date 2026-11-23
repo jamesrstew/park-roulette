@@ -168,8 +168,18 @@ export function SpecialCard({
 }
 
 /** A special further out: a date block, the title, where, a few chips. */
-export function SpecialRow({ p, today }: { p: Program; today: string }) {
+export function SpecialRow({
+  p,
+  today,
+  level = 4,
+}: {
+  p: Program;
+  today: string;
+  /** Its title's heading level (4 under /events' day groups). */
+  level?: 3 | 4;
+}) {
   const { nextRow: row, next } = p.lead;
+  const H = level === 3 ? "h3" : "h4";
   const [, m, d] = p.day.split("-").map(Number);
   const age = ageChip(tagsOf(p));
   const more = moreLine(p, today);
@@ -183,14 +193,14 @@ export function SpecialRow({ p, today }: { p: Program; today: string }) {
         <span className="text-2xl">{d}</span>
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
-        <h4 className="font-hand text-xl leading-tight">
+        <H className="font-hand text-xl leading-tight">
           <Link
             href={`/events/${row.slug}`}
             className="underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-['']"
           >
             {p.title}
           </Link>
-        </h4>
+        </H>
         <p className="text-[0.95rem] leading-snug text-ink-soft">
           <time dateTime={next.start ? `${next.day}T${next.start}` : next.day}>
             {canceled(p.lead) ? (

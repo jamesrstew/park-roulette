@@ -1,6 +1,7 @@
 import { alertLater } from "@/lib/alerts";
 import { eventsBudget, PROFILE_BUDGET_MS } from "@/lib/cron-budget";
 import { recheckEvents } from "@/lib/events/store";
+import { guideUrlsForEvents } from "@/lib/guides-data";
 import { pingIndexNow } from "@/lib/indexnow";
 import { pacific } from "@/lib/news/time";
 import { recheckProfiles } from "@/lib/park-profiles-check";
@@ -47,6 +48,8 @@ export async function GET(req: Request) {
       await pingIndexNow([
         `${SITE_URL}/events`,
         ...r.changed.map((s) => `${SITE_URL}/events/${s}`),
+        // A canceled or dropped holiday or indoor event changes its guide.
+        ...(await guideUrlsForEvents(r.changed)),
       ]);
     return Response.json({ ...r, profiles });
   } catch (e) {
