@@ -600,36 +600,185 @@ export function isDayHeading(quote: string): boolean {
   return new RegExp(`^${DAY_HEADING}$`, "i").test(normalizeText(quote));
 }
 
+/** Every month and day printed ("Dec 12", "11/28"), as "M-D", with where. */
+function printedMonthDays(
+  text: string,
+): { at: number; end: number; md: string }[] {
+  const re = new RegExp(
+    `\\b${MONTH_WORD}\\s+(\\d{1,2})(?:st|nd|rd|th)?(?!\\d)|(?<![\\d/])(\\d{1,2})/(\\d{1,2})(?!\\d)`,
+    "gi",
+  );
+  const out: { at: number; end: number; md: string }[] = [];
+  for (const m of text.matchAll(re)) {
+    const month = m[1] ? MONTHS3.indexOf(m[1].toLowerCase()) + 1 : Number(m[3]);
+    const day = Number(m[2] ?? m[4]);
+    if (month < 1 || month > 12 || day < 1 || day > 31) continue;
+    const at = m.index ?? 0;
+    out.push({ at, end: at + m[0].length, md: `${month}-${day}` });
+  }
+  return out;
+}
+
+/**
+ * An issue's text with where its structure falls: each link (where its
+ * text starts and ends, and its target), each block element's edges
+ * (a paragraph, a cell, a list item, a heading), and each heading
+ * element (h1 to h4) or paragraph of bold text alone ("Ongoing", "Save
+ * the date"). Read in one pass, exactly as its stored text (pageText);
+ * null when the two disagree (we can't tell where things are).
+ */
+export function issueMap(html: string): {
+  text: string;
+  links: { at: number; end: number; href: string }[];
+  edges: number[];
+  heads: number[];
+} | null {
+  // Markers in the html, carried through pageText's steps as if they
+  // weren't there, then read out.
+  const O = "";
+  const C = "";
+  const hrefs: string[] = [];
+  const BLOCK =
+    /^<\/?(p|div|li|td|th|tr|table|tbody|thead|ul|ol|h[1-6]|section|blockquote|center)\b/i;
+  const marked = html
+    .replaceAll(O, "")
+    .replaceAll(C, "")
+    // A paragraph of bold text alone: a heading of its own.
+    .replace(
+      /<p\b[^>]*>\s*<(b|strong)\b[^>]*>(?:(?!<\/?(?:p|b|strong)\b)[\s\S])*<\/\1>\s*<\/p>/gi,
+      (m) => `${O}H${C}${m}`,
+    )
+    .replace(/<\/?[a-z][a-z0-9]*\b[^>]*>/gi, (tag) => {
+      if (/^<a\b/i.test(tag)) {
+        const a = /\bhref\s*=\s*(["'])(.*?)\1/i.exec(tag);
+        hrefs.push(a?.[2] ?? "");
+        return `${tag}${O}A${hrefs.length - 1}${C}`;
+      }
+      if (/^<\/a\b/i.test(tag)) return `${O}Z${C}${tag}`;
+      if (/^<h[1-4]\b/i.test(tag)) return `${O}B${C}${O}H${C}${tag}`;
+      return BLOCK.test(tag) ? `${O}B${C}${tag}` : tag;
+    });
+  const MARK = `${O}[^${C}]*${C}`;
+  const SEAM = "\u0001";
+  const raw = normalizeText(
+    marked
+      .replaceAll(SEAM, "")
+      .replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, " ")
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      .replace(/<br\s*\/?>|<\/(p|div|li|h\d|td|tr)>/gi, " ")
+      .replace(new RegExp(`(?:<[^>]+>|${MARK})+`, "g"), (run) => {
+        const tags = run.replace(new RegExp(MARK, "g"), "");
+        const marks = run.match(new RegExp(MARK, "g"))?.join("") ?? "";
+        return (/<\/[^>]*>[\s\S]*<[a-z]/i.test(tags) ? SEAM : "") + marks;
+      })
+      .replace(
+        new RegExp(
+          `([a-z0-9])${SEAM}((?:${MARK})*)(?=\\d)|(\\d)${SEAM}((?:${MARK})*)(?=[a-z])`,
+          "gi",
+        ),
+        "$1$3 $2$4",
+      )
+      .replaceAll(SEAM, ""),
+  );
+  // Read the markers out, as normalizeText would have spaced the text.
+  let text = "";
+  const links: { at: number; end: number; href: string }[] = [];
+  const open: { at: number; href: string }[] = [];
+  const edges: number[] = [];
+  const heads: number[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === O) {
+      const j = raw.indexOf(C, i);
+      const m = raw.slice(i + 1, j);
+      i = j;
+      const at = text.length;
+      if (m[0] === "A") open.push({ at, href: hrefs[Number(m.slice(1))] });
+      else if (m === "Z") {
+        const l = open.pop();
+        if (l) links.push({ ...l, end: at });
+      } else if (m === "B") edges.push(at);
+      else if (m === "H") heads.push(at);
+      continue;
+    }
+    if (ch === " " && (text === "" || text.endsWith(" "))) continue;
+    text += ch;
+  }
+  for (const l of open) links.push({ ...l, end: text.length });
+  text = text.trimEnd();
+  if (text !== pageText(html)) return null;
+  links.sort((a, b) => a.at - b.at);
+  return {
+    text,
+    links: links.filter((l) => /^https?:/i.test(l.href)),
+    edges,
+    heads,
+  };
+}
+
+/** Where the event's name sits in each place an event-naming quote is. */
+function namePlaces(
+  text: string,
+  lines: readonly string[],
+  title: string,
+): { start: number; end: number; name: number }[] {
+  const out: { start: number; end: number; name: number }[] = [];
+  for (const line of lines) {
+    const q = normalizeText(line);
+    if (!q) continue;
+    // The quote may begin in the section before its name.
+    const name = titleSpots(q, title)[0]?.at ?? 0;
+    for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + 1))
+      out.push({ start: i, end: i + q.length, name: i + name });
+  }
+  return out;
+}
+
 /**
  * Does this day heading head the event's line in the issue? Some place
- * where an event-naming quote sits in the text has the heading as the
- * nearest day heading before the event's name: the same day section,
- * with no other day heading between them. Every weekday-and-date in the
- * issue counts as a heading here, so a date printed between them breaks
- * the tie (it never helps one).
+ * where an event-naming quote sits has the heading as the nearest break
+ * before the event's name. A break is any day heading, any other printed
+ * month and day ("Save the date: Dec 12"), and, from the html, a heading
+ * element (h1 to h4) or a paragraph of bold text alone ("Ongoing", "Next
+ * week"). A quote that prints a date other than the heading's is never
+ * under it.
  */
 export function headingHeadsLine(
   issueText: string,
   heading: string,
   lines: readonly string[],
   title: string,
+  html?: string,
 ): boolean {
-  const text = normalizeText(issueText);
+  const map = html ? issueMap(html) : null;
+  const text = map?.text ?? normalizeText(issueText);
   const want = normalizeText(heading).toLowerCase();
-  const heads = [...text.matchAll(new RegExp(DAY_HEADING, "gi"))].map((m) => ({
+  const wantMd = printedMonthDays(want)[0]?.md;
+  if (!wantMd) return false;
+  const days = [...text.matchAll(new RegExp(DAY_HEADING, "gi"))].map((m) => ({
     at: m.index ?? 0,
+    end: (m.index ?? 0) + m[0].length,
     text: m[0].toLowerCase(),
   }));
-  for (const line of lines) {
-    const q = normalizeText(line);
-    if (!q) continue;
-    // Where the event's name starts in the quote (it may begin in the
-    // section before).
-    const name = titleSpots(q, title)[0]?.at ?? 0;
-    for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + 1)) {
-      const before = heads.filter((h) => h.at < i + name).at(-1);
-      if (before?.text === want) return true;
-    }
+  const inDay = (at: number) => days.some((d) => d.at <= at && at < d.end);
+  // Every break: where it starts, and the day heading's text if it is one.
+  const breaks = [
+    ...days.map((d) => ({ at: d.at, day: d.text as string | null })),
+    ...printedMonthDays(text)
+      .filter((d) => !inDay(d.at))
+      .map((d) => ({ at: d.at, day: null })),
+    // A heading element or bold paragraph holding a day heading is that
+    // day heading; any other is a break.
+    ...(map?.heads ?? [])
+      .filter((h) => !days.some((d) => d.at >= h && d.at <= h + 3))
+      .map((at) => ({ at, day: null })),
+  ].sort((a, b) => a.at - b.at);
+  const usable = lines.filter((l) =>
+    printedMonthDays(normalizeText(l)).every((d) => d.md === wantMd),
+  );
+  for (const p of namePlaces(text, usable, title)) {
+    const before = breaks.filter((b) => b.at < p.name).at(-1);
+    if (before?.day === want) return true;
   }
   return false;
 }
@@ -644,6 +793,47 @@ export function eventPageKind(
 ): "social" | "tickets" | "chamber" | null {
   const d = onList(url, Object.keys(pages));
   return d ? (pages[d] ?? null) : null;
+}
+
+/** Instagram paths that are a profile's or a post's. */
+const IG_RESERVED =
+  /^(p|reel|reels|tv|explore|accounts|stories|direct|about|legal|developer|web|challenge|_u|_n)$/i;
+
+/**
+ * Is a social link the organizer's own page, never a redirect shim
+ * (l.facebook.com, /l.php, a u= target)? Facebook: an event
+ * (/events/<id>) or a page (/<name>, /profile.php?id=<id>). Instagram:
+ * a profile (/<name>) or a post (/p/<code>).
+ */
+export function socialLinkOk(u: string): boolean {
+  let x: URL;
+  try {
+    x = new URL(u);
+  } catch {
+    return false;
+  }
+  if (x.protocol !== "https:") return false;
+  const h = x.hostname.toLowerCase();
+  if (/^(l|lm)\./.test(h) || x.searchParams.has("u")) return false;
+  const path = x.pathname.replace(/\/+$/, "");
+  if (/^(www\.|m\.)?facebook\.com$/.test(h)) {
+    if (/^\/events\/\d+(\/\d+)?$/.test(path)) return true;
+    if (path === "/profile.php")
+      return /^\d+$/.test(x.searchParams.get("id") ?? "");
+    const m = /^\/([A-Za-z0-9.-]+)$/.exec(path);
+    return (
+      !!m &&
+      !/^(l\.php|sharer|sharer\.php|share|share\.php|login|login\.php|dialog|plugins|tr|flx|ajax|watch|groups|search|home\.php|events)$/i.test(
+        m[1],
+      )
+    );
+  }
+  if (/^(www\.)?instagram\.com$/.test(h)) {
+    if (/^\/p\/[A-Za-z0-9_-]+$/.test(path)) return true;
+    const m = /^\/([A-Za-z0-9._]+)$/.exec(path);
+    return !!m && !IG_RESERVED.test(m[1]);
+  }
+  return false;
 }
 
 /** Two links to one page (www., a trailing slash and tracking aside). */
@@ -662,11 +852,11 @@ function sameLink(a: string, b: string): boolean {
 }
 
 /**
- * Does the issue link this page for this event? The first link after
- * the event's name, where an event-naming quote sits in the issue, is
- * the page ("Redmond Turkey Trot 8am • All ages • Register": the
- * Register link), with no day heading between the name and the link.
- * Positions come from the issue's html, read as its stored text is.
+ * Does the issue link this page for this event? The event's own link,
+ * where an event-naming quote sits in the issue: a link wrapping its
+ * name, or else the first link after its name inside its quoted line or
+ * its name's block element ("Redmond Turkey Trot 8am • All ages •
+ * Register": the Register link). Never a link in the next item.
  */
 export function issueLinksEvent(
   html: string,
@@ -674,27 +864,16 @@ export function issueLinksEvent(
   lines: readonly string[],
   title: string,
 ): boolean {
-  const text = pageText(html);
-  const links = [...html.matchAll(/<a\b[^>]*?\bhref\s*=\s*(["'])(.*?)\1/gi)]
-    .map((m) => ({ at: pageText(html.slice(0, m.index)).length, href: m[2] }))
-    .filter((l) => /^https?:/i.test(l.href));
-  const heads = [...text.matchAll(new RegExp(DAY_HEADING, "gi"))].map(
-    (m) => m.index ?? 0,
-  );
-  for (const line of lines) {
-    const q = normalizeText(line);
-    if (!q) continue;
-    const name = titleSpots(q, title)[0]?.at ?? 0;
-    for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + 1)) {
-      const from = i + name;
-      const link = links.find((l) => l.at >= from);
-      if (
-        link &&
-        !heads.some((h) => h > from && h < link.at) &&
-        sameLink(link.href, url)
-      )
-        return true;
-    }
+  const map = issueMap(html);
+  if (!map) return false;
+  for (const p of namePlaces(map.text, lines, title)) {
+    const blockEnd = map.edges.find((e) => e > p.name) ?? map.text.length;
+    const link =
+      map.links.find((l) => l.at <= p.name && p.name < l.end) ??
+      map.links.find(
+        (l) => l.at >= p.name && (l.at < blockEnd || l.at < p.end),
+      );
+    if (link && sameLink(link.href, url)) return true;
   }
   return false;
 }
@@ -1111,15 +1290,22 @@ export function checkEvent(
         `${r} is never an event's link (a link shortener, a form, an aggregator, a news site or a ticket reseller): link the organizer's own page.`,
       );
   }
-  // A small organizer's Instagram, Facebook, booking or chamber page:
-  // the link only for an event on an issue in our inbox that links it
-  // (networkChecks), and never as an organizer link.
-  if (eventPageKind(e.url, ctx.catalog.event_page_domains)) {
+  // A small organizer's Instagram, Facebook or booking page: the link
+  // only for an event on an issue in our inbox that links it
+  // (networkChecks), and never as an organizer link. A chamber's
+  // listing is an organizer's page like any other (shown as "Event
+  // page").
+  const urlKind = eventPageKind(e.url, ctx.catalog.event_page_domains);
+  if (urlKind === "social" || urlKind === "tickets") {
     if (!listing || !e.evidence.some((x) => issueId(x.url) != null))
       p.push(
         `${host(e.url)} is an event's link only when the event stands on an issue in our inbox (verified_via "listing", evidence "issue:<id>") that links this page next to the event.`,
       );
   }
+  if (urlKind === "social" && !socialLinkOk(e.url))
+    p.push(
+      `${e.url} isn't a Facebook event or page, or an Instagram profile or post (never a redirect link like l.facebook.com, /l.php or ?u=). Link the page itself.`,
+    );
   if (
     e.organizer &&
     eventPageKind(e.organizer.url, ctx.catalog.event_page_domains)
@@ -1618,6 +1804,7 @@ async function issueChecks(
         .filter((y) => y.url === x.url && lineNamesEvent(y.quote, e.title))
         .map((y) => y.quote),
       e.title,
+      issue.html,
     )
   )
     problems.push(
@@ -1658,18 +1845,21 @@ async function networkChecks(
   const listingHosts = ctx.catalog.listing_domains ?? [];
   const listing = e.verified_via === "listing";
   let blocked: EventVerdict["blocked"];
-  // A small organizer's Instagram, Facebook, booking or chamber page is
-  // never read (a login or a wall): the issue that links it carries the
-  // event.
+  // A small organizer's Instagram or Facebook page is never read (a
+  // login): the issue that links it carries the event. A booking page is
+  // read: a dead link is cut, anything else short of the event's own
+  // facts leaves the issue carrying it.
   const pageKind = eventPageKind(e.url, ctx.catalog.event_page_domains);
+  const byIssue = pageKind === "social" || pageKind === "tickets";
   // A listing event's link may be off the allowlist: fetch it within its
   // own registrable domain (a redirect elsewhere is refused, and cut).
-  const main = pageKind
-    ? null
-    : await get(
-        e.url,
-        listing ? [...domains, siteOf(e.url, domains)] : domains,
-      );
+  const main =
+    pageKind === "social"
+      ? null
+      : await get(
+          e.url,
+          listing ? [...domains, siteOf(e.url, domains)] : domains,
+        );
   // Where it lands must be the organizer's too, never a reseller.
   const landed =
     main?.finalUrl &&
@@ -1678,7 +1868,10 @@ async function networkChecks(
     problems.push(
       `${e.url} lands on ${landed}, which is never an event's link. Link the organizer's own page.`,
     );
-  if (pageKind) {
+  const listingQuotes = e.evidence
+    .filter((x) => issueId(x.url) != null || !!onList(x.url, listingHosts))
+    .map((x) => x.quote);
+  if (byIssue) {
     const issues = [
       ...new Set(
         e.evidence.flatMap((x) => {
@@ -1698,13 +1891,32 @@ async function networkChecks(
       if (i?.html && issueLinksEvent(i.html, e.url, lines, e.title))
         linked = true;
     }
+    const read =
+      pageKind === "tickets"
+        ? organizerVerdict(main, {
+            title: e.title,
+            dates: e.dates,
+            url: e.url,
+            recurring: kindOf(e) === "series" || !!e.series_id,
+            listingQuotes,
+          })
+        : null;
+    // Dead, gone or off its site: cut. Unreadable or silent: the issue.
+    const dead =
+      read?.cut &&
+      (!main ||
+        main.status === 0 ||
+        main.status === 310 ||
+        main.status === 404 ||
+        main.status === 410);
     if (!linked)
       problems.push(
-        `No issue in the evidence links ${e.url} next to "${e.title}" (the first link after the event's name in its quoted line). Use the link the issue gives for this event.`,
+        `No issue in the evidence links ${e.url} next to "${e.title}" (a link on the event's name, or the first link after it in its own item). Use the link the issue gives for this event.`,
       );
-    else
+    else if (dead) problems.push(read.cut!);
+    else if (!read || read.cut || read.trusted)
       warnings.push(
-        `Trusted the issue: ${host(e.url)} is ${pageKind === "tickets" ? "a ticket or booking page" : pageKind === "chamber" ? "a chamber of commerce listing" : "a social page"} we don't read. The nightly check watches the issue.`,
+        `Trusted the issue: ${host(e.url)} is ${pageKind === "tickets" ? "a ticket or booking page" : "a social page"} we ${pageKind === "tickets" ? "couldn't read the event on" : "don't read"}. The nightly check watches the issue.`,
       );
   } else if (listing) {
     const why = organizerVerdict(main, {
@@ -1712,9 +1924,7 @@ async function networkChecks(
       dates: e.dates,
       url: e.url,
       recurring: kindOf(e) === "series" || !!e.series_id,
-      listingQuotes: e.evidence
-        .filter((x) => issueId(x.url) != null || !!onList(x.url, listingHosts))
-        .map((x) => x.quote),
+      listingQuotes,
     });
     if (why.cut) problems.push(why.cut);
     else if (why.trusted)

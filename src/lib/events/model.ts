@@ -929,6 +929,8 @@ export function icsFile(
 export function eventLinkLabel(url: string): {
   label: "Official page" | "Event page" | "Tickets";
   noun: "official page" | "event page" | "ticket page";
+  /** An Instagram or Facebook page: never read, it stands on an issue. */
+  byIssue: boolean;
 } {
   let h = "";
   try {
@@ -938,10 +940,15 @@ export function eventLinkLabel(url: string): {
   }
   const pages = CATALOG.event_page_domains;
   const d = Object.keys(pages).find((x) => h === x || h.endsWith(`.${x}`));
-  if (!d) return { label: "Official page", noun: "official page" };
-  return pages[d] === "tickets"
-    ? { label: "Tickets", noun: "ticket page" }
-    : { label: "Event page", noun: "event page" };
+  if (!d)
+    return { label: "Official page", noun: "official page", byIssue: false };
+  if (pages[d] === "tickets")
+    return { label: "Tickets", noun: "ticket page", byIssue: true };
+  return {
+    label: "Event page",
+    noun: "event page",
+    byIssue: pages[d] === "social",
+  };
 }
 
 /** Re-derive what code owns from the input (ages, point, check quote). */

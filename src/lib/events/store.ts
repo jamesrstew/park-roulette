@@ -5,7 +5,7 @@ import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { kidEventEdits, kidEventHandins, kidEvents } from "@/db/schema";
 import { fetchPage } from "@/lib/news/fetcher";
-import { issueForEvidence } from "@/lib/inbox/store";
+import { issueById, issueForEvidence } from "@/lib/inbox/store";
 import { checkShort } from "./short";
 import { CATALOG, onList } from "@/lib/news/catalog";
 import type { EventVerdict } from "./validate";
@@ -47,6 +47,7 @@ import {
   eventDomains,
   eventPageKind,
   HOST_GAP_MS,
+  organizerVerdict,
   onMultiProgramPage,
   pagePool,
 } from "./validate";
@@ -671,11 +672,37 @@ export async function setShort(
   return r;
 }
 
+/**
+ * The day the newsletter issue an event stands on was sent (Pacific),
+ * while it's stored: what we can say for an event whose own page we
+ * don't read. Null when it stands on no stored issue.
+ */
+export async function listedInIssueOn(
+  e: Pick<StoredEvent, "targets">,
+): Promise<string | null> {
+  const ids = Object.values(e.targets ?? {})
+    .map((t) => issueId(t.url))
+    .filter((id): id is number => id != null);
+  for (const id of [...new Set(ids)]) {
+    const i = await issueById(id).catch(() => null);
+    if (i) return i.sent_day;
+  }
+  return null;
+}
+
 export async function eventBySlug(slug: string): Promise<EventRow | null> {
   return (await allEvents()).find((e) => e.slug === slug) ?? null;
 }
 
 // --- The nightly re-check ------------------------------------------------------
+
+/** A page we never read (or can't read the event on): a wall, never a miss. */
+const UNREAD = (url: string) => ({
+  status: 403,
+  finalUrl: url,
+  text: "",
+  blocked: "an event page we don't read",
+});
 
 /** At most this many official pages fetched at once at night. */
 export const CHECK_CONCURRENCY = 6;
@@ -735,6 +762,15 @@ export async function recheckEvents(
       // the page (the quote is seen); once pruned, nothing answers
       // (unknown, never a miss).
       const inIssue = issueId(target!.url);
+      const pageKind = listing
+        ? eventPageKind(organizerUrl, CATALOG.event_page_domains)
+        : null;
+      const orgFacts = {
+        title,
+        dates: [{ day: target!.next.day }],
+        recurring: true,
+        listingQuotes: [target!.quote],
+      };
       const [page, organizer] = await Promise.all([
         inIssue != null
           ? loadIssue(inIssue)
@@ -753,23 +789,32 @@ export async function recheckEvents(
               target!.url,
               listing ? [...domains, ...CATALOG.listing_domains] : domains,
             ),
-        // A small organizer's Instagram, Facebook, booking or chamber
-        // page is never read: it counts as a wall (never a miss), and
-        // the issue's quote decides (seen while the issue is stored).
+        // A small organizer's Instagram or Facebook page is never read:
+        // it counts as a wall (never a miss), and the issue's quote
+        // decides.
         listing && target!.url !== organizerUrl
-          ? eventPageKind(organizerUrl, CATALOG.event_page_domains)
-            ? Promise.resolve({
-                status: 403,
-                finalUrl: organizerUrl,
-                text: "",
-                blocked: "an event page we don't read",
-              })
+          ? pageKind === "social"
+            ? Promise.resolve(UNREAD(organizerUrl))
             : get(organizerUrl, [...domains, siteOf(organizerUrl, domains)])
           : Promise.resolve(undefined),
       ]);
+      // A booking page that loads without the event (a script-drawn
+      // calendar) is a wall too; a dead one is still a miss.
+      const org =
+        pageKind === "tickets" &&
+        organizer &&
+        ![0, 310, 404, 410].includes(organizer.status) &&
+        organizerVerdict(organizer, orgFacts).cut
+          ? UNREAD(organizerUrl)
+          : organizer;
+      // Seen on the issue alone: the page itself wasn't.
+      const issueOnly =
+        (pageKind === "social" || pageKind === "tickets") &&
+        inIssue != null &&
+        !!organizerVerdict(org ?? null, orgFacts).trusted;
       let outcome = listing
         ? judgeListing(
-            organizer === undefined ? page : organizer,
+            org === undefined ? page : org,
             page,
             target!.quote,
             title,
@@ -785,8 +830,23 @@ export async function recheckEvents(
       // A non-scheduled event whose page is gone stays as it is.
       if (target!.status !== "scheduled" && outcome === "miss")
         outcome = "unknown";
-      const unseen =
-        (now.getTime() - (r.lastSeenAt ?? r.createdAt).getTime()) / 86_400_000;
+      const issued =
+        page && "issued" in page
+          ? page.issued
+          : page?.status === 200
+            ? issueDay(page.text)
+            : null;
+      // An issue over 8 weeks old no longer holds an issue-only event up,
+      // seen or not.
+      const stale =
+        issueOnly &&
+        outcome === "seen" &&
+        listingUnseenDays(0, issued, pacificToday(now)) > 0;
+      if (stale) outcome = "unknown";
+      const unseen = stale
+        ? Number.POSITIVE_INFINITY
+        : (now.getTime() - (r.lastSeenAt ?? r.createdAt).getTime()) /
+          86_400_000;
       const next = afterCheck(
         {
           confirm: r.confirm as "ok" | "unconfirmed",
@@ -796,17 +856,7 @@ export async function recheckEvents(
         outcome,
         // A listing event whose pages are walled or gone stays listed for
         // 14 days unknown, while its issue is under 8 weeks old.
-        listing
-          ? listingUnseenDays(
-              unseen,
-              page && "issued" in page
-                ? page.issued
-                : page?.status === 200
-                  ? issueDay(page.text)
-                  : null,
-              pacificToday(now),
-            )
-          : unseen,
+        listing ? listingUnseenDays(unseen, issued, pacificToday(now)) : unseen,
       );
       const flipped = next.confirm !== r.confirm;
       // The page says it's canceled: that date's status changes (the
@@ -840,7 +890,8 @@ export async function recheckEvents(
           misses: next.misses,
           seenStreak: next.seenStreak,
           lastCheckAt: sql`now()`,
-          ...(next.seen ? { lastSeenAt: sql`now()` } : {}),
+          // Seen on the issue alone isn't seen on the page.
+          ...(next.seen && !issueOnly ? { lastSeenAt: sql`now()` } : {}),
           ...(flipped
             ? { stateChangedAt: sql`now()`, factsChangedAt: sql`now()` }
             : {}),

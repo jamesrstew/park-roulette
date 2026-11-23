@@ -262,11 +262,12 @@ export const CatalogSchema = z.object({
    * For a small organizer, its page here is its official page: an
    * Instagram or Facebook page or post ("social"), a booking or ticket
    * platform ("tickets"), a chamber of commerce's event listing
-   * ("chamber"). An event's link only when the event stands on an issue
-   * in our inbox that links it next to the event's name
-   * (lib/events/validate.ts). Never fetched (they're walled or need a
-   * login): the issue carries the event. Shown as "Event page", or
-   * "Tickets", never "Official page".
+   * ("chamber"). Social and ticket pages are an event's link only when
+   * the event stands on an issue in our inbox that links it for the
+   * event (lib/events/validate.ts); social pages are never fetched, and
+   * a ticket page that won't show the event leaves the issue carrying
+   * it. A chamber's listing is checked like any organizer's page. Shown
+   * as "Event page", or "Tickets", never "Official page".
    */
   event_page_domains: z
     .record(

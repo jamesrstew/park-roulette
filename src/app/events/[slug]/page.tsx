@@ -30,7 +30,13 @@ import {
   nearbyPlaygrounds,
   playgroundOnSite,
 } from "@/lib/events/nearby";
-import { allEvents, eventBySlug, listed, nextStatus } from "@/lib/events/store";
+import {
+  allEvents,
+  eventBySlug,
+  listed,
+  listedInIssueOn,
+  nextStatus,
+} from "@/lib/events/store";
 import { featuredEvent } from "@/lib/news/data";
 import { directionsUrl } from "@/lib/geo";
 import { addDays, pacific } from "@/lib/news/time";
@@ -173,10 +179,13 @@ async function Event({ params }: Props) {
     .slice(0, 3);
   const bounds = groupBounds(today);
 
-  // A small organizer's Instagram, Facebook, booking or chamber page is
-  // never read: say what we know, and never call it official.
+  // A small organizer's Instagram, Facebook, booking or chamber page:
+  // never called official. An Instagram, Facebook or booking page stands
+  // on a newsletter issue: say when it was listed, never "seen".
   const link = eventLinkLabel(e.url);
   const official = link.noun === "official page";
+  const byIssue = link.byIssue;
+  const listedOn = byIssue ? await listedInIssueOn(e) : null;
   const signup =
     e.signup?.kind === "required"
       ? `Required: sign up on the ${link.noun}`
@@ -307,9 +316,13 @@ async function Event({ params }: Props) {
             <dd>{e.parking}</dd>
           </>
         ) : null}
-        {row.lastSeenAt ? (
+        {listedOn ? (
           <dd className="col-span-2 text-sm text-ink-soft">
-            {official ? "Last seen on the official page" : "Last confirmed"}{" "}
+            Listed in a local newsletter on {monthDay(listedOn)}.
+          </dd>
+        ) : !byIssue && row.lastSeenAt ? (
+          <dd className="col-span-2 text-sm text-ink-soft">
+            Last seen on the {link.noun}{" "}
             {monthDay(pacific(row.lastSeenAt).date)}.
           </dd>
         ) : null}
