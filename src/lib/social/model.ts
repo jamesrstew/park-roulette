@@ -175,7 +175,8 @@ export function ctaLine(
  * with the commented post's own destination (lib/social/links.ts dmLink).
  */
 export function dmText(url: string): string {
-  return `Here are the links from that post: ${url}. New park picks every Thursday, free.`;
+  // The link last, on its own line: no period stuck to the end of it.
+  return `Here are the links from that post. New park picks every Thursday, free.\n${url}`;
 }
 
 /** The Story's button: "Reply PICK" with DMs on, else "Link in bio". */
@@ -202,15 +203,7 @@ export function photoCredit(p: {
   return null;
 }
 
-/** /social?from= (and /ig?from=) to the signup source it records (anything else: the bio link). */
-const IG_SOURCES = { ig: "ig_bio", ig_dm: "ig_dm", fb: "fb" } as const;
-export function igSource(
-  from: string | string[] | undefined,
-): (typeof IG_SOURCES)[keyof typeof IG_SOURCES] {
-  return typeof from === "string" && Object.hasOwn(IG_SOURCES, from)
-    ? IG_SOURCES[from as keyof typeof IG_SOURCES]
-    : "ig_bio";
-}
+export { carryFrom, igSource, igSourceOrNull, type IgSource } from "./sources";
 
 /** The Blob path of a stored file. */
 export function mediaPath(f: { sha: string; ext: string }): string {

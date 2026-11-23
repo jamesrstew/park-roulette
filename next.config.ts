@@ -19,9 +19,10 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   images: {
     // Only our published Instagram slides go through the optimizer (the
-    // /social grid's thumbnails), content-addressed, so cached for good.
+    // /social grid's thumbnails). A day, not forever: a slide taken down
+    // (a photo flagged later) leaves the optimizer's cache within a day.
     localPatterns: [{ pathname: "/social/m/**", search: "" }],
-    minimumCacheTTL: 31536000,
+    minimumCacheTTL: 86400,
   },
   turbopack: {
     rules: {

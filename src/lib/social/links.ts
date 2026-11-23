@@ -134,6 +134,12 @@ export function withPostLink(
   return fbCaption === spec.fbCaption ? spec : { ...spec, fbCaption };
 }
 
+/** A link with the visit's `from` carried on (only ig, ig_dm or fb). */
+export function withFrom(href: string, from: string | null): string {
+  if (!from) return href;
+  return `${href}${href.includes("?") ? "&" : "?"}from=${encodeURIComponent(from)}`;
+}
+
 // --- The keyword DM --------------------------------------------------------------
 
 /**

@@ -6,7 +6,8 @@ import { mediaAllowed } from "@/lib/social/store";
  * Our Instagram media, for Meta to fetch when it makes a container
  * (parkroulette.quest/social/m/<sha256>.jpg). Only files of posts
  * that passed the checks (queued, being published, published or dry run)
- * stream; anything else is a 404. Content-addressed, so cached for good.
+ * stream, unless a photo in them has since been flagged; anything else is
+ * a 404. Cached a day.
  */
 export async function GET(
   _req: Request,
@@ -28,7 +29,9 @@ export async function GET(
     headers: {
       "content-type": "image/jpeg",
       ...(blob.blob?.size ? { "content-length": String(blob.blob.size) } : {}),
-      "cache-control": "public, max-age=31536000, immutable",
+      // A day, not forever: a slide taken down (mediaAllowed) stops
+      // being served from caches within a day.
+      "cache-control": "public, max-age=86400",
       "x-robots-tag": "noindex",
     },
   });

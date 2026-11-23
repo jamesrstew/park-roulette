@@ -171,7 +171,12 @@ async function Listing({ searchParams }: Props) {
   await connection();
   const now = new Date();
   const today = pacificToday(now);
-  const f = readFilters(await searchParams);
+  const asked = readFilters(await searchParams);
+  // ?week= (the Tuesday roundup's link): that week's days, from today on.
+  // A week that's over shows what's on now, says so, and leaves the
+  // filter links (as does one that isn't a real week).
+  const wk = asked.week ? weekView(asked.week, today) : null;
+  const f: Filters = wk && !wk.over ? asked : { ...asked, week: null };
   const [rows, parks] = await Promise.all([allEvents(), publicParks()]);
   const pass = (r: EventRow, g: Filters) =>
     (!g.town || townSlug(r.data.venue.town) === g.town) &&
@@ -183,9 +188,6 @@ async function Listing({ searchParams }: Props) {
   const narrowed = filtered(f)
     ? narrowPrograms(everything, (r) => pass(r, f), today)
     : everything;
-  // ?week= (the Tuesday roundup's link): that week's days, from today on.
-  // A week that's over shows what's on now, and says so.
-  const wk = f.week ? weekView(f.week, today) : null;
   const programs = wk && !wk.over ? inSpan(narrowed, wk.from, wk.to) : narrowed;
   const specials = programs.filter((p) => p.kind === "special");
   const regulars = programs.filter((p) => p.kind === "regular");

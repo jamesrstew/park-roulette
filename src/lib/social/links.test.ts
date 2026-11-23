@@ -374,7 +374,7 @@ describe("keyword DMs", () => {
     expect(dmLink({ ...p("park_post"), spec: spec("x") })).toBe(fallback);
     expect(dmLink({ ...p("story") })).toBe(fallback);
     expect(dmText(fallback)).toBe(
-      "Here are the links from that post: https://parkroulette.quest/social?from=ig_dm. New park picks every Thursday, free.",
+      "Here are the links from that post. New park picks every Thursday, free.\nhttps://parkroulette.quest/social?from=ig_dm",
     );
     expect(COPY.dm).toBe(dmText(fallback));
   });
@@ -401,5 +401,29 @@ describe("tile words", () => {
       "Nov 29 to Dec 5",
     );
     expect(tileWhen("at_home", "2026-11-28", "2026-11-28")).toBe("Nov 28");
+  });
+});
+
+describe("signup attribution from our posts", () => {
+  it("reads only ig, ig_dm and fb, and carries them on", async () => {
+    const { igSourceOrNull, igSource, carryFrom } = await import("./sources");
+    const { withFrom } = await import("./links");
+    expect(igSourceOrNull("ig")).toBe("ig_bio");
+    expect(igSourceOrNull("ig_dm")).toBe("ig_dm");
+    expect(igSourceOrNull("fb")).toBe("fb");
+    for (const bad of [undefined, null, "", "footer", "constructor", ["fb"]])
+      expect(igSourceOrNull(bad as never)).toBeNull();
+    // The bio link stays the default where a social source is certain.
+    expect(igSource(undefined)).toBe("ig_bio");
+    expect(carryFrom("fb")).toBe("fb");
+    expect(carryFrom("x")).toBeNull();
+    // A grid tile reached with ?from= keeps it, after any query it has.
+    expect(withFrom("/parks/larkspur-park-bend", "ig")).toBe(
+      "/parks/larkspur-park-bend?from=ig",
+    );
+    expect(withFrom("/events?week=2026-11-24", "ig_dm")).toBe(
+      "/events?week=2026-11-24&from=ig_dm",
+    );
+    expect(withFrom("/social/9", null)).toBe("/social/9");
   });
 });

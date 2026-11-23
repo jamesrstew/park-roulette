@@ -6,7 +6,8 @@ import { CrayonLoading } from "@/components/Loading";
 import { PageTitle } from "@/components/PageTitle";
 import { SignupStrip } from "@/components/social/SignupStrip";
 import { SocialTracker } from "@/components/social/SocialTracker";
-import { type GridTile, mediaSrc } from "@/lib/social/links";
+import { type GridTile, mediaSrc, withFrom } from "@/lib/social/links";
+import { carryFrom } from "@/lib/social/sources";
 import { socialGrid } from "@/lib/social/public";
 import { NOINDEX } from "@/lib/site";
 
@@ -38,38 +39,51 @@ async function Strip({ searchParams }: Props) {
   return <SignupStrip from={from} />;
 }
 
-function Tile({ t, eager }: { t: GridTile; eager: boolean }) {
+function Tile({
+  t,
+  eager,
+  from,
+}: {
+  t: GridTile;
+  eager: boolean;
+  from: string | null;
+}) {
   return (
     <li>
       <Link
-        href={t.href}
+        href={withFrom(t.href, from)}
         data-social={t.to}
         prefetch={false}
-        className="group flex flex-col gap-1 rounded-lg focus-visible:outline-offset-2"
+        className="group flex flex-col gap-1.5 rounded-xl focus-visible:outline-offset-2"
       >
-        <span className="relative block aspect-[4/5] overflow-hidden rounded-md border-2 border-ink bg-paper-dark shadow-[2px_3px_0_#2b2a33] transition-transform group-hover:-rotate-1 group-active:translate-x-0.5 group-active:translate-y-0.5 group-active:shadow-none">
+        <span className="relative block aspect-[4/5] overflow-hidden rounded-xl border-2 border-ink bg-paper-dark shadow-[3px_4px_0_#2b2a33] transition-transform group-hover:-rotate-1 group-active:translate-x-0.5 group-active:translate-y-0.5 group-active:shadow-none">
           <Image
             src={mediaSrc(t.cover)}
             alt={t.cover.alt}
             width={t.cover.width}
             height={t.cover.height}
-            sizes="(max-width: 640px) 33vw, 190px"
+            sizes="(max-width: 640px) 50vw, 288px"
             loading={eager ? "eager" : "lazy"}
             fetchPriority={eager ? "high" : "auto"}
             className="h-full w-full object-cover"
           />
         </span>
-        <span className="flex flex-col px-0.5 leading-tight">
-          <span className="line-clamp-2 text-sm font-semibold">{t.label}</span>
-          <span className="text-xs text-ink-soft">{t.when}</span>
+        <span className="flex flex-col px-1 leading-tight">
+          <span className="truncate font-hand text-xl">{t.label}</span>
+          <span className="text-sm text-ink-soft">{t.when}</span>
         </span>
       </Link>
     </li>
   );
 }
 
-async function Grid() {
-  const tiles = await socialGrid();
+async function Grid({ searchParams }: Props) {
+  // The visit's source rides on to where the tile leads, so a signup there
+  // still counts for Instagram or Facebook.
+  const [tiles, from] = await Promise.all([
+    socialGrid(),
+    searchParams.then((s) => carryFrom(s.from)),
+  ]);
   // Empty (before the first post): the signup is the whole page.
   if (!tiles.length) return null;
   return (
@@ -78,9 +92,9 @@ async function Grid() {
         <h2 id="grid-h" className="sr-only">
           Our posts, newest first
         </h2>
-        <ul className="grid grid-cols-3 gap-x-2 gap-y-3">
+        <ul className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-4 sm:gap-y-5">
           {tiles.map((t, i) => (
-            <Tile key={t.id} t={t} eager={i < 6} />
+            <Tile key={t.id} t={t} eager={i < 4} from={from} />
           ))}
         </ul>
       </section>
@@ -104,7 +118,7 @@ export default function SocialPage({ searchParams }: Props) {
         <Strip searchParams={searchParams} />
       </Suspense>
       <Suspense fallback={<CrayonLoading label="One sec…" />}>
-        <Grid />
+        <Grid searchParams={searchParams} />
       </Suspense>
     </div>
   );

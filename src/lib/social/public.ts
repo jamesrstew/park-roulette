@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { cacheLife, cacheTag, revalidateTag } from "next/cache";
 import { db } from "@/db";
 import { socialPhotoChecks, socialPosts } from "@/db/schema";
@@ -124,10 +124,31 @@ export async function loadPost(id: number): Promise<PublicPost | null> {
   };
 }
 
-/** One post, cached until a post changes. */
-export async function socialPost(id: number): Promise<PublicPost | null> {
+/** The newest published post's id (0: none), cached until a post changes. */
+export async function maxPublishedId(): Promise<number> {
+  "use cache";
+  cacheLife("hours");
+  cacheTag(SOCIAL_TAG);
+  const [r] = await db
+    .select({ id: sql<number>`coalesce(max(${socialPosts.id}), 0)::int` })
+    .from(socialPosts)
+    .where(eq(socialPosts.status, "published"));
+  return r?.id ?? 0;
+}
+
+async function cachedPost(id: number): Promise<PublicPost | null> {
   "use cache";
   cacheLife("hours");
   cacheTag(SOCIAL_TAG);
   return loadPost(id);
+}
+
+/**
+ * One post, cached until a post changes. An id past the newest published
+ * one is null at once, so guessed ids never fill the cache.
+ */
+export async function socialPost(id: number): Promise<PublicPost | null> {
+  if (!Number.isSafeInteger(id) || id < 1 || id > (await maxPublishedId()))
+    return null;
+  return cachedPost(id);
 }

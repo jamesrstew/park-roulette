@@ -571,6 +571,42 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect((await store.downgradeToCrayon(id, undefined)).ok).toBe(false);
   });
 
+  it("a redraw keeps the downgrade mark (the post never shows on /social)", async () => {
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const id = await draftPost();
+    expect((await store.downgradeToCrayon(id, "a person")).ok).toBe(true);
+    // Far from its slot, so the redraw may apply.
+    await q(
+      `update social_posts set publish_at = now() + interval '3 days' where id = ${id}`,
+    );
+    const r = await store.redrawQueued(id, { apply: true, now: SUNDAY });
+    expect(r.ok && r.applied).toBe(true);
+    const [row] = await q(`select report from social_posts where id = ${id}`);
+    expect(row.report).toMatchObject({ downgraded: "a person" });
+    expect((row.report as { errors: unknown }).errors).toEqual([]);
+  });
+
+  it("stops serving a published post's slides once its photo is flagged", async () => {
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const id = await draftPost();
+    await q(
+      `update social_posts set status = 'published', published_at = now() where id = ${id}`,
+    );
+    const [row] = await q(
+      `select media->0->>'sha' as sha, spec->'slides'->0->'photo'->>'src' as src from social_posts where id = ${id}`,
+    );
+    expect(row.src).toBe(LARKSPUR_PHOTO);
+    expect(await store.mediaAllowed(String(row.sha), "jpg")).toBe(true);
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
+    ]);
+    expect(await store.mediaAllowed(String(row.sha), "jpg")).toBe(false);
+  });
+
   it("checks holiday-hours evidence on the page itself, on the venue's host only", async () => {
     const seen: string[][] = [];
     const page =
@@ -685,7 +721,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     });
     // The DM links to the commented post's own destination (the park).
     expect(JSON.parse(sent[0].body.get("message")!).text).toBe(
-      "Here are the links from that post: https://parkroulette.quest/parks/larkspur-park-bend?from=ig_dm. New park picks every Thursday, free.",
+      "Here are the links from that post. New park picks every Thursday, free.\nhttps://parkroulette.quest/parks/larkspur-park-bend?from=ig_dm",
     );
     expect(
       await q(

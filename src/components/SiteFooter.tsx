@@ -1,6 +1,8 @@
 import { connection } from "next/server";
 import Link from "next/link";
+import { Suspense } from "react";
 import { EmailSignup } from "@/components/ParkNews";
+import { FooterEmail } from "@/components/FooterEmail";
 import { FooterGate, FooterNavLink } from "@/components/FooterGate";
 import { FooterTexts } from "@/components/FooterTexts";
 import { TextsLink } from "@/components/news/TextsLink";
@@ -103,7 +105,9 @@ export async function SiteFooter() {
               <p className="leading-snug">
                 {PARK_NEWS.tagline} {PARK_NEWS.cadence}
               </p>
-              <EmailSignup source="footer" inline />
+              <Suspense fallback={<EmailSignup source="footer" inline />}>
+                <FooterEmail />
+              </Suspense>
             </>
           ) : (
             <h2 id="footer-h" className="sr-only">

@@ -1533,7 +1533,7 @@ export async function preflight(
 /** May Meta (or anyone) fetch this file? Only media of posts that passed the checks. */
 export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
   const rows = await db
-    .select({ id: socialPosts.id })
+    .select({ id: socialPosts.id, spec: socialPosts.spec })
     .from(socialPosts)
     .where(
       and(
@@ -1544,8 +1544,24 @@ export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
         ),
       ),
     )
-    .limit(1);
-  return rows.length > 0;
+    .limit(20);
+  if (!rows.length) return false;
+  // Taken down: a post whose slide photo has any look other than clear
+  // now (a later look saw a person) is refused, every slide of it.
+  const flagged = new Set(
+    (
+      await db
+        .select({ src: socialPhotoChecks.src })
+        .from(socialPhotoChecks)
+        .where(sql`${socialPhotoChecks.verdict} <> 'clear'`)
+    ).map((r) => r.src),
+  );
+  return rows.some(
+    (r) =>
+      !((r.spec as PostSpec | null)?.slides ?? []).some(
+        (s) => "photo" in s && s.photo && flagged.has(s.photo.src),
+      ),
+  );
 }
 
 /**
@@ -1626,7 +1642,8 @@ export async function redrawQueued(
       spec,
       media,
       caption: spec.caption,
-      report,
+      // A downgrade mark is kept for good (the post never shows on /social).
+      report: sql`jsonb_strip_nulls(${JSON.stringify(report)}::jsonb || jsonb_build_object('downgraded', ${socialPosts.report} -> 'downgraded'))`,
       reason: "Redrawn with the current layout.",
       updatedAt: sql`now()`,
     })

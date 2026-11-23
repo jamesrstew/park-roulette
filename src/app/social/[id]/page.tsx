@@ -29,7 +29,8 @@ import {
   stateLine,
   unpackItems,
 } from "@/lib/social/post-page";
-import { outDay } from "@/lib/social/links";
+import { outDay, withFrom } from "@/lib/social/links";
+import { carryFrom } from "@/lib/social/sources";
 import { type PublicPost, socialPost } from "@/lib/social/public";
 
 /**
@@ -155,7 +156,7 @@ function Highlighted({ words, word }: { words: string; word: string }) {
   );
 }
 
-function ItemCard({ it }: { it: PageItem }) {
+function ItemCard({ it, from }: { it: PageItem; from: string | null }) {
   const state = stateLine(it.state);
   const gone = it.state !== "ok" && it.state !== "rescheduled";
   return (
@@ -211,7 +212,7 @@ function ItemCard({ it }: { it: PageItem }) {
           </a>
         ) : (
           <Link
-            href={it.link.href}
+            href={withFrom(it.link.href, from)}
             data-social={it.link.to}
             className="crayon-btn wax min-h-12 self-stretch bg-crayon-yellow text-xl"
           >
@@ -246,12 +247,18 @@ async function lookups(): Promise<Lookups> {
   };
 }
 
-async function Unpack({ post }: { post: PublicPost }) {
+async function Unpack({
+  post,
+  from,
+}: {
+  post: PublicPost;
+  from: string | null;
+}) {
   const items = unpackItems(post.spec.slides, post.body, await lookups());
   return (
     <ol className="flex flex-col gap-4" aria-label="In this post">
       {items.map((it) => (
-        <ItemCard key={it.n} it={it} />
+        <ItemCard key={it.n} it={it} from={from} />
       ))}
     </ol>
   );
@@ -318,7 +325,7 @@ async function Post({ params, searchParams }: Props) {
       <SlideStrip post={post} />
       <SocialTracker source="social_post" className="flex flex-col gap-5">
         {post.kind === "unpack" ? (
-          <Unpack post={post} />
+          <Unpack post={post} from={carryFrom((await searchParams).from)} />
         ) : (
           <AtHome post={post} />
         )}

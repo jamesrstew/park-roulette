@@ -30,6 +30,7 @@ import {
 } from "@/lib/news/template";
 import { addDays, isIsoDate, pacific, weekendOf } from "@/lib/news/time";
 import { PARK_NEWS } from "@/lib/park-news";
+import { type IgSource, igSourceOrNull } from "@/lib/social/model";
 import { SITE_URL } from "@/lib/site";
 import { textsOn } from "@/lib/texts-store";
 import { TEXTS_FROM } from "@/lib/texts";
@@ -119,14 +120,21 @@ export async function generateMetadata({
  * by subscription, never ?src: forwards carry it). Thin on purpose: the
  * smart-footer branch owns the one-tap texts card and the browser cookie.
  */
-async function Signup({ fromText }: { fromText: boolean }) {
+async function Signup({
+  fromText,
+  social,
+}: {
+  fromText: boolean;
+  /** Reached from one of our posts (?from=ig, ig_dm or fb). */
+  social: IgSource | null;
+}) {
   const me = await getMe();
   if (me?.isKid) return null;
   const emailOn = !!me && (await subscriptionFor(me.id)).status === "on";
   const textOn = !!me?.phone && (await textsOn(me.phone));
   const offerText = !textOn && !!TEXTS_FROM;
   if (emailOn && !offerText) return null;
-  const source = fromText ? "issue_text" : "issue_page";
+  const source = social ?? (fromText ? "issue_text" : "issue_page");
   return (
     <section
       aria-labelledby="issue-signup-h"
@@ -292,7 +300,9 @@ async function ThePlan({
 async function Issue({ params, searchParams }: Props) {
   await connection(); // the date and time matter here
   const { date } = await params;
-  const fromText = (await searchParams).src === "text";
+  const sp = await searchParams;
+  const fromText = sp.src === "text";
+  const social = igSourceOrNull(sp.from);
   const sent = isIsoDate(date) ? await sentIssue(date) : null;
   if (!sent) notFound();
   const { issue } = sent;
@@ -389,7 +399,7 @@ async function Issue({ params, searchParams }: Props) {
         goDay={friday?.kind === "park" ? friday.date : undefined}
       />
       <Suspense fallback={null}>
-        <Signup fromText={fromText} />
+        <Signup fromText={fromText} social={social} />
       </Suspense>
       <IssueCard
         issue={issue}
