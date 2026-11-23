@@ -17,8 +17,10 @@ import {
   createContainer,
   GraphError,
   mediaComments,
+  privateReply,
   publishContainer,
   retryableError,
+  sendMessage,
   tokenValid,
 } from "./graph";
 import {
@@ -1169,6 +1171,67 @@ describe("Graph API", () => {
     );
     expect(list.map((c) => c.id)).toEqual(["c1", "c2"]);
     expect(n).toBe(2);
+  });
+  it("sends a private reply the way Meta's doc shows, and keeps its ids", async () => {
+    const seen: [string, RequestInit][] = [];
+    const sent = await privateReply(
+      "18139562827654945",
+      "Here you go",
+      opts(async (u, init) => {
+        seen.push([u, init!]);
+        return Response.json({ recipient_id: "526", message_id: "aWdfZ" });
+      }),
+    );
+    expect(sent).toEqual({ recipientId: "526", messageId: "aWdfZ" });
+    const [url, init] = seen[0];
+    expect(init.method).toBe("POST");
+    expect(url).toBe("https://graph.facebook.com/v23.0/1784000000/messages");
+    const body = new URLSearchParams(String(init.body));
+    expect([...body.keys()].sort()).toEqual(["message", "recipient"]);
+    expect(JSON.parse(body.get("recipient")!)).toEqual({
+      comment_id: "18139562827654945",
+    });
+    expect(JSON.parse(body.get("message")!)).toEqual({ text: "Here you go" });
+    // An answer without ids is still a send, with nulls to show it.
+    expect(
+      await privateReply(
+        "c",
+        "t",
+        opts(async () => Response.json({})),
+      ),
+    ).toEqual({ recipientId: null, messageId: null });
+    // A Meta refusal throws (and is never retried by the caller).
+    await expect(
+      privateReply(
+        "c",
+        "t",
+        opts(async () =>
+          Response.json(
+            { error: { message: "no", code: 10, error_subcode: 2534022 } },
+            { status: 400 },
+          ),
+        ),
+      ),
+    ).rejects.toMatchObject({ code: 10, subcode: 2534022 });
+  });
+  it("a Story-reply DM goes from the Page with messaging_type RESPONSE", async () => {
+    const seen: [string, RequestInit][] = [];
+    const sent = await sendMessage(
+      "1234567890",
+      "IGSID9",
+      "hi",
+      opts(async (u, init) => {
+        seen.push([u, init!]);
+        return Response.json({ recipient_id: "IGSID9", message_id: "m" });
+      }),
+    );
+    expect(sent.messageId).toBe("m");
+    expect(seen[0][0]).toBe(
+      "https://graph.facebook.com/v23.0/1234567890/messages",
+    );
+    const body = new URLSearchParams(String(seen[0][1].body));
+    expect(JSON.parse(body.get("recipient")!)).toEqual({ id: "IGSID9" });
+    expect(body.get("messaging_type")).toBe("RESPONSE");
   });
 });
 

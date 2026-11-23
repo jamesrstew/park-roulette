@@ -1110,6 +1110,12 @@ export const socialDmReplies = pgTable(
     /** sending | sent | failed | dry_run */
     status: text("status").notNull(),
     reason: text("reason"),
+    /**
+     * What Meta answered for a sent DM: its message id and the recipient's
+     * Instagram-scoped id (ids only, for tracing a DM that never arrived).
+     */
+    messageId: text("message_id"),
+    recipientId: text("recipient_id"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

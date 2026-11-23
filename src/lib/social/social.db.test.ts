@@ -132,7 +132,18 @@ const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
   if (path.endsWith("/feed")) return Response.json({ id: "FBPOST1" });
   if (path.endsWith("/comments")) return Response.json({ data: comments });
   if (path.endsWith("/conversations")) return Response.json({ data: [] });
-  if (path.endsWith("/messages")) return Response.json({ recipient_id: "x" });
+  if (path.endsWith("/messages"))
+    return Response.json({ recipient_id: "IGSID1", message_id: "aWdfMSG1" });
+  if (path === "c1")
+    return Response.json({
+      id: "c1",
+      text: "PARK",
+      timestamp: "2026-11-23T20:00:00+0000",
+      from: { id: "IGSID1", username: "someone" },
+      media: { id: "IGMEDIA1" },
+    });
+  if (path === "aWdfMSG1")
+    return Response.json({ id: "aWdfMSG1", message: "hi" });
   if (/^C\d+$/.test(path)) {
     await onStatus?.(path);
     return Response.json({
@@ -667,16 +678,41 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       (c) => c.method === "POST" && c.path.endsWith("/messages"),
     );
     expect(sent).toHaveLength(1);
-    expect(sent[0].path).toBe("1234567890/messages");
+    // Meta's private-reply doc: the Instagram account's own id, not the Page.
+    expect(sent[0].path).toBe(`${process.env.IG_USER_ID}/messages`);
     expect(JSON.parse(sent[0].body.get("recipient")!)).toEqual({
       comment_id: "c1",
     });
     expect(JSON.parse(sent[0].body.get("message")!).text).toContain(
       "/ig?from=ig_dm",
     );
-    expect(await q(`select ext_id, status from social_dm_replies`)).toEqual([
-      { ext_id: "c1", status: "sent" },
+    expect(
+      await q(
+        `select ext_id, status, message_id, recipient_id from social_dm_replies`,
+      ),
+    ).toEqual([
+      {
+        ext_id: "c1",
+        status: "sent",
+        message_id: "aWdfMSG1",
+        recipient_id: "IGSID1",
+      },
     ]);
+
+    // The diagnostic reads Meta for the answer and stores nothing new.
+    calls.length = 0;
+    const d = await dm.dmDebug(5, { fetchImpl });
+    expect(d.items).toHaveLength(1);
+    const item = d.items![0] as Record<string, unknown>;
+    expect(item.comment).toMatchObject({ from: { username: "someone" } });
+    expect(item.sentMessage).toMatchObject({ id: "aWdfMSG1" });
+    expect(item.conversation).toEqual([]);
+    const conv = calls.find((c) => c.path.endsWith("/conversations"))!;
+    expect(conv.path).toBe("1234567890/conversations");
+    expect(calls.every((c) => c.method === "GET")).toBe(true);
+    expect(
+      JSON.stringify(await q(`select * from social_dm_replies`)),
+    ).not.toContain("someone");
   });
   // --- Batch 7: Tuesday's events roundup and Saturday's "at home" ---------
 

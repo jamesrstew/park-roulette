@@ -274,25 +274,40 @@ export async function mediaComments(
   return out;
 }
 
+/** What Meta says back for a sent DM: ids only (spec: recipient_id, message_id). */
+export type SentDm = { recipientId: string | null; messageId: string | null };
+
 /**
  * A private reply to a comment: one DM to the commenter, keyed by the
- * comment (Meta allows one, within 7 days). `page` is FB_PAGE_ID.
+ * comment (Meta allows one, within 7 days of the comment). Meta's current
+ * Instagram Platform doc (Instagram API with Facebook Login, a Page token
+ * on graph.facebook.com) sends it to the Instagram professional account's
+ * own id, POST /{ig-user-id}/messages, with recipient.comment_id and
+ * message.text; no messaging_type. Meta answers { recipient_id,
+ * message_id }; both are returned so the send can be traced later.
+ * https://developers.facebook.com/docs/instagram-platform/private-replies/
  */
 export async function privateReply(
-  page: string,
   commentId: string,
   text: string,
   o: GraphOpts,
-): Promise<void> {
-  await call(
+): Promise<SentDm> {
+  const r = await call<{ recipient_id?: string; message_id?: string }>(
     "POST",
-    `${page}/messages`,
+    `${o.igUserId}/messages`,
     {
       recipient: JSON.stringify({ comment_id: commentId }),
       message: JSON.stringify({ text }),
     },
     o,
   );
+  return sentDm(r);
+}
+
+function sentDm(r: { recipient_id?: unknown; message_id?: unknown }): SentDm {
+  const s = (v: unknown) =>
+    typeof v === "string" && v.length > 0 && v.length <= 200 ? v : null;
+  return { recipientId: s(r.recipient_id), messageId: s(r.message_id) };
 }
 
 export type IgMessage = {
@@ -330,8 +345,8 @@ export async function sendMessage(
   recipientId: string,
   text: string,
   o: GraphOpts,
-): Promise<void> {
-  await call(
+): Promise<SentDm> {
+  const r = await call<{ recipient_id?: string; message_id?: string }>(
     "POST",
     `${page}/messages`,
     {
@@ -339,6 +354,82 @@ export async function sendMessage(
       message: JSON.stringify({ text }),
       messaging_type: "RESPONSE",
     },
+    o,
+  );
+  return sentDm(r);
+}
+
+// --- The DM diagnostic (/api/social/dm-debug, read only) --------------------
+
+/** One comment as Meta has it, with who wrote it (never stored). */
+export type CommentDetail = {
+  id: string;
+  text?: string;
+  timestamp?: string;
+  username?: string;
+  from?: { id?: string; username?: string };
+  media?: { id?: string };
+  hidden?: boolean;
+};
+
+export async function commentDetail(
+  commentId: string,
+  o: GraphOpts,
+): Promise<CommentDetail> {
+  return call<CommentDetail>(
+    "GET",
+    commentId,
+    { fields: "id,text,timestamp,username,from,media{id},hidden" },
+    o,
+  );
+}
+
+export type ConversationDetail = {
+  id: string;
+  updated_time?: string;
+  messages?: {
+    data?: {
+      id: string;
+      created_time?: string;
+      message?: string;
+      from?: { id?: string; username?: string };
+      to?: { data?: { id?: string; username?: string }[] };
+    }[];
+  };
+};
+
+/**
+ * Our Instagram conversation with one person (their Instagram-scoped id),
+ * with its latest messages, from the Page's inbox. Empty when there is none.
+ */
+export async function conversationWith(
+  page: string,
+  igsid: string,
+  o: GraphOpts,
+): Promise<ConversationDetail[]> {
+  const r = await call<{ data?: ConversationDetail[] }>(
+    "GET",
+    `${page}/conversations`,
+    {
+      platform: "instagram",
+      user_id: igsid,
+      fields:
+        "id,updated_time,messages.limit(10){id,created_time,message,from,to}",
+    },
+    o,
+  );
+  return r.data ?? [];
+}
+
+/** One message by its id (the message_id a send returned). */
+export async function messageDetail(
+  messageId: string,
+  o: GraphOpts,
+): Promise<Record<string, unknown>> {
+  return call<Record<string, unknown>>(
+    "GET",
+    messageId,
+    { fields: "id,created_time,message,from,to" },
     o,
   );
 }

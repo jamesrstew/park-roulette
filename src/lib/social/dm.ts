@@ -5,10 +5,14 @@ import { newsSettings, socialDmReplies, socialPosts } from "@/db/schema";
 import { alertLater } from "@/lib/alerts";
 import {
   GraphError,
+  commentDetail,
+  conversationWith,
   type IgComment,
   mediaComments,
+  messageDetail,
   privateReply,
   recentMessages,
+  type SentDm,
   sendMessage,
   tokenValid,
 } from "./graph";
@@ -56,10 +60,16 @@ async function settle(
   extId: string,
   status: "sent" | "failed",
   reason?: string,
+  sent?: SentDm,
 ) {
   await db
     .update(socialDmReplies)
-    .set({ status, reason: reason?.slice(0, 200) ?? null })
+    .set({
+      status,
+      reason: reason?.slice(0, 200) ?? null,
+      messageId: sent?.messageId ?? null,
+      recipientId: sent?.recipientId ?? null,
+    })
     .where(eq(socialDmReplies.extId, extId));
 }
 
@@ -126,8 +136,14 @@ export async function runKeywordDms(
         continue;
       }
       try {
-        await privateReply(page, c.id, COPY.dm, o);
-        await settle(c.id, "sent");
+        const sent = await privateReply(c.id, COPY.dm, o);
+        // Meta said yes; a missing message_id is kept as a note to look at.
+        await settle(
+          c.id,
+          "sent",
+          sent.messageId ? undefined : "Meta gave no message_id",
+          sent,
+        );
         replies++;
       } catch (e) {
         // Never retried: a second try could send a second DM.
@@ -151,8 +167,13 @@ export async function runKeywordDms(
         continue;
       }
       try {
-        await sendMessage(pid, m.from!.id!, COPY.dm, o);
-        await settle(m.id, "sent");
+        const sent = await sendMessage(pid, m.from!.id!, COPY.dm, o);
+        await settle(
+          m.id,
+          "sent",
+          sent.messageId ? undefined : "Meta gave no message_id",
+          sent,
+        );
         replies++;
       } catch (e) {
         await settle(m.id, "failed", (e as Error).message);
@@ -247,4 +268,68 @@ export async function dailySocialCheck(
       everyMinutes: 20 * 60,
     });
   return "checked";
+}
+
+/**
+ * The read-only DM diagnostic (/api/social/dm-debug): our latest
+ * social_dm_replies rows and what Meta says about each right now: the
+ * comment (who wrote it, the words, when, on which media) and our
+ * Instagram conversation with that person, latest messages first. Read
+ * from Meta for the answer only: nothing here is stored or logged.
+ */
+export async function dmDebug(
+  limit = 5,
+  { fetchImpl }: { fetchImpl?: typeof fetch } = {},
+) {
+  const o = graphOpts(fetchImpl);
+  const page = pageIdEnv();
+  const rows = await db
+    .select()
+    .from(socialDmReplies)
+    .orderBy(desc(socialDmReplies.id))
+    .limit(Math.min(Math.max(1, limit), 20));
+  const env = {
+    dmsOn: dmsOn(),
+    pageId: page,
+    igUserId: o?.igUserId ?? null,
+    hasToken: !!o,
+    hasAppSecret: !!o?.appSecret,
+    vercelEnv: process.env.VERCEL_ENV ?? null,
+  };
+  if (!o) return { env, rows, note: "No IG_ACCESS_TOKEN or IG_USER_ID." };
+  const err = (e: unknown) => (e as Error)?.message ?? String(e);
+  const out = [];
+  for (const row of rows) {
+    const item: Record<string, unknown> = { row };
+    let igsid = row.recipientId;
+    if (row.kind === "comment") {
+      try {
+        const c = await commentDetail(row.extId, o);
+        item.comment = c;
+        igsid ??= c.from?.id ?? null;
+      } catch (e) {
+        item.comment = { error: err(e) };
+      }
+    }
+    if (row.messageId) {
+      try {
+        item.sentMessage = await messageDetail(row.messageId, o);
+      } catch (e) {
+        item.sentMessage = { error: err(e) };
+      }
+    }
+    if (page && igsid) {
+      try {
+        item.conversation = await conversationWith(page, igsid, o);
+      } catch (e) {
+        item.conversation = { error: err(e) };
+      }
+    } else {
+      item.conversation = {
+        error: page ? "No recipient id to look up" : "No FB_PAGE_ID",
+      };
+    }
+    out.push(item);
+  }
+  return { env, items: out };
 }

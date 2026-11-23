@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <LegalPage
-      updated="November 20, 2026"
+      updated="November 23, 2026"
       lead="Privacy"
       accent="Policy"
       intro={
@@ -323,8 +323,9 @@ export default function PrivacyPage() {
             you comment PARK on one of our posts or reply PICK to our Story, we
             send you one direct message with a link to sign up. To do that we
             read comments on our own posts and replies to our own Stories
-            through Instagram&apos;s tools, and we keep only Instagram&apos;s id
-            for the comment or message (so we never send two), never your
+            through Instagram&apos;s tools, and we keep only Instagram&apos;s
+            ids for the comment or message (so we never send two), for our reply
+            and for your account as Instagram gives it to us, never your
             username, your name or what you wrote. We never post anything from
             comments or messages, and we never ask for photos of kids. Our posts
             use only our own drawings and Bend Park &amp; Recreation District
