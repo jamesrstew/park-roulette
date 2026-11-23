@@ -67,7 +67,6 @@
   "not_organizer_domains": [
     "allevents.com",
     "allevents.in",
-    "axs.com",
     "bendbulletin.com",
     "bendsource.com",
     "bit.ly",
@@ -89,10 +88,10 @@
     "r20.rs6.net",
     "rebrand.ly",
     "t.co",
-    "ticketmaster.com",
     "tinyurl.com"
   ],
   "event_page_domains": {
+    "axs.com": "tickets",
     "bendchamber.org": "chamber",
     "bendticket.com": "tickets",
     "etix.com": "tickets",
@@ -110,6 +109,7 @@
     "simpletix.com": "tickets",
     "sunriverchamber.com": "chamber",
     "ticketleap.com": "tickets",
+    "ticketmaster.com": "tickets",
     "ticketweb.com": "tickets",
     "tixr.com": "tickets",
     "universe.com": "tickets",
