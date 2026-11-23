@@ -42,10 +42,35 @@ export const MAX_TEXT_CHARS = 200 * 1024;
 export type InboundResult = {
   status: number;
   outcome:
-    "stored" | "duplicate" | "forwarding" | "dropped" | "ignored" | "failed";
+    | "stored"
+    | "would_store"
+    | "duplicate"
+    | "forwarding"
+    | "dropped"
+    | "ignored"
+    | "failed";
   reason?: string;
   id?: number;
+  /** A dry run's issue, as it would be stored. */
+  preview?: {
+    source: string;
+    subject: string;
+    sentAt: string;
+    chars: number;
+    links: number;
+  };
 };
+
+export type HandleOptions = {
+  /** Decide and clean, store nothing (scripts/inbox-reprocess.mts). */
+  dryRun?: boolean;
+  /** Send no alerts (a person is running it by hand). */
+  quiet?: boolean;
+};
+
+/** How to run this email through again, for an alert. */
+const again = (id: string) =>
+  `Resend id: ${id}. Once it's fixed, run it through again with: pnpm exec tsx --conditions react-server scripts/inbox-reprocess.mts ${id} (add --apply to store it).`;
 
 const DAY = 24 * 60;
 /** Temporary failures for one email before the owner hears about it. */
@@ -56,13 +81,16 @@ export async function handleReceived(
   fetchImpl: typeof fetch = fetch,
   cfg: InboxConfig = inboxConfig(),
   resolver: DnsResolver = liveResolver,
+  opts: HandleOptions = {},
 ): Promise<InboundResult> {
+  const alert: typeof alertLater =
+    opts.quiet || opts.dryRun ? () => {} : alertLater;
   const failed = (error: string, retry = true): InboundResult => {
     console.error(`[inbox] couldn't read ${emailId}: ${error}`);
-    alertLater({
+    alert({
       key: "inbox:fetch-failed",
       subject: "The newsletter inbox couldn't read an email",
-      text: `Resend delivered an email to the newsletter inbox, but reading it failed (${error}). Check RESEND_INBOUND_API_KEY (the inbound team's full-access key) and the Vercel logs for [inbox].${retry ? " Resend retries for a while." : ""}`,
+      text: `Resend delivered an email to the newsletter inbox, but reading it failed (${error}). Check RESEND_INBOUND_API_KEY (the inbound team's full-access key) and the Vercel logs for [inbox].${retry ? " Resend retries for a while." : ""}\n\n${again(emailId)}`,
       everyMinutes: DAY,
     });
     return retry
@@ -80,18 +108,18 @@ export async function handleReceived(
     // DNS let us down: nothing stored, Resend tries again later. Past
     // 3 tries for one email, tell the owner (once a day).
     console.warn(`[inbox] ${emailId}: ${v.reason}`);
-    const tries = await tempFailCount(emailId).catch(() => 0);
+    const tries = opts.dryRun ? 0 : await tempFailCount(emailId).catch(() => 0);
     if (tries > TEMP_FAIL_ALERT_AFTER)
-      alertLater({
+      alert({
         key: "inbox:tempfail",
         subject: "The newsletter inbox keeps failing to check an email",
-        text: `An email has failed its DKIM key lookup ${tries} times (${v.reason}). Nothing is stored until a retry succeeds. If DNS is fine, check the Vercel logs for [inbox].`,
+        text: `An email has failed its signature check ${tries} times because a DKIM key lookup (DNS) failed: ${v.reason}. Nothing is stored until a retry succeeds. If DNS is fine, check the Vercel logs for [inbox].\n\n${again(emailId)}`,
         everyMinutes: DAY,
       });
     return { status: 503, outcome: "failed", reason: v.reason };
   }
   if (v.kind === "drop")
-    return dropped(e.from, v.reason, v.suspicious, v.setup);
+    return dropped(emailId, e.from, v.reason, v.suspicious, v.setup, alert);
 
   const scrub = [cfg.forwarder, cfg.address].filter(Boolean) as string[];
   const names = (process.env.INBOX_GREETING_NAMES ?? "")
@@ -104,6 +132,12 @@ export async function handleReceived(
     // forward here, and the code would let them.
     const owner = parseAddress(cfg.forwarder);
     const mine = !!owner && v.requester === owner;
+    if (opts.dryRun)
+      return {
+        status: 200,
+        outcome: "forwarding",
+        reason: mine ? "owner" : "another account",
+      };
     const saved = await saveIssue({
       source: GMAIL_FORWARDING_SOURCE,
       messageId: messageKey(e),
@@ -121,7 +155,7 @@ export async function handleReceived(
       links: [],
     });
     if (!saved.saved) return { status: 200, outcome: "duplicate" };
-    alertLater({
+    alert({
       key: "inbox:gmail-forwarding",
       subject: mine
         ? "Confirm Gmail forwarding to the newsletter inbox"
@@ -147,8 +181,27 @@ export async function handleReceived(
   }
 
   if ((e.html ?? "").length > MAX_HTML_BYTES)
-    return dropped(e.from, "html over 1 MB", false);
+    return dropped(
+      emailId,
+      e.from,
+      "its html is over 1 MB",
+      false,
+      false,
+      alert,
+    );
   const clean = cleanIssue({ html: e.html, plain: e.text, scrub, names });
+  if (opts.dryRun)
+    return {
+      status: 200,
+      outcome: "would_store",
+      preview: {
+        source: v.source,
+        subject: e.subject ?? "",
+        sentAt: v.sentAt.toISOString(),
+        chars: Math.min(clean.text.length, MAX_TEXT_CHARS),
+        links: clean.links.length,
+      },
+    };
   const saved = await saveIssue(
     {
       source: v.source,
@@ -166,10 +219,10 @@ export async function handleReceived(
       return { status: 200, outcome: "duplicate" };
     }
     console.warn(`[inbox] ${v.source}: over ${MAX_PER_DAY} issues a day`);
-    alertLater({
+    alert({
       key: "inbox:volume",
       subject: "The newsletter inbox dropped extra issues",
-      text: `More than ${MAX_PER_DAY} issues from one newsletter (${v.source}) arrived within 24 hours, so the extra ones were dropped. A special edition does this; so would a replay. Check the Vercel logs for [inbox].`,
+      text: `More than ${MAX_PER_DAY} issues from one newsletter (${v.source}) arrived within 24 hours, so the extra ones were dropped. A special edition does this; so would a replay. Check the Vercel logs for [inbox].\n\n${again(emailId)}`,
       everyMinutes: DAY,
     });
     return { status: 200, outcome: "dropped", reason: "over_limit" };
@@ -181,25 +234,27 @@ export async function handleReceived(
 }
 
 function dropped(
+  emailId: string,
   from: string | null,
   reason: string,
   suspicious: boolean,
   setup = false,
+  alert: typeof alertLater = alertLater,
 ): InboundResult {
   const domain = (from ?? "").match(/@([a-z0-9.-]+)/i)?.[1] ?? "?";
-  console.info(`[inbox] dropped an email from @${domain}: ${reason}`);
+  console.info(`[inbox] dropped ${emailId} from @${domain}: ${reason}`);
   if (setup)
-    alertLater({
+    alert({
       key: "inbox:setup",
       subject: "The newsletter inbox isn't set up",
-      text: `An email reached the newsletter inbox and was dropped: ${reason}. Set INBOX_ADDRESS, INBOX_FORWARDER and INBOX_SENDERS in Vercel (the setup notes).`,
+      text: `An email reached the newsletter inbox and was dropped because ${reason}. Set INBOX_ADDRESS, INBOX_FORWARDER and INBOX_SENDERS in Vercel (the setup notes).\n\n${again(emailId)}`,
       everyMinutes: DAY,
     });
   else if (suspicious)
-    alertLater({
+    alert({
       key: "inbox:suspicious",
       subject: "The newsletter inbox dropped a suspicious email",
-      text: `An email that claimed to be from a newsletter on the inbox allowlist (or from Gmail) was dropped: ${reason}. If the newsletters stop arriving, the Gmail filter or the setup may need a look. Otherwise someone tried to spoof one, and nothing was stored.`,
+      text: `An email from @${domain} that claimed to be one of the newsletters (or Gmail) was dropped because ${reason}. Nothing was stored. If it was a real issue, the check may be too strict: get it fixed, then run it through again. Otherwise someone tried to spoof one.\n\n${again(emailId)}`,
       everyMinutes: DAY,
     });
   return { status: 200, outcome: "dropped", reason };

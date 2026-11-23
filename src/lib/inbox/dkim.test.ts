@@ -54,7 +54,7 @@ const issue = (from: string) =>
     "Subject: Synthetic issue",
     `Reply-To: The Newsletter <${from}>`,
     "Feedback-ID: SYNTHETIC:newsletter",
-    "List-Unsubscribe: <mailto:SYNTHETIC@unsub.beehiiv.com>",
+    "List-Unsubscribe: <mailto:SYNTHETIC@lists.daily-news.example>",
     "List-Unsubscribe-Post: List-Unsubscribe=One-Click",
     'x-beehiiv-ids: {"campaign_id":"SYNTHETIC"}',
     "x-beehiiv-type: newsletter",
@@ -197,6 +197,106 @@ describe("DKIM we verify ourselves", () => {
     expect(
       decide(email(DAILY), parseRawHeaders(own), beehiiv, ownDkim),
     ).toMatchObject({ kind: "issue" });
+  });
+
+  describe("beehiiv's mark by its signed unsubscribe links (the real Bend Buzz shape)", () => {
+    /** Signed by the sender and SendGrid; beehiiv's own headers unsigned. */
+    const SIGNED = [
+      "From",
+      "List-Unsubscribe",
+      "List-Unsubscribe-Post",
+      "Feedback-ID",
+      "Date",
+      "Subject",
+    ];
+    const shaped = (unsub: string) =>
+      [
+        "Date: Fri, 20 Nov 2026 14:02:38 +0000",
+        `From: The Daily <${DAILY}>`,
+        "Subject: Synthetic issue",
+        "Feedback-ID: SYNTHETIC:newsletter",
+        `List-Unsubscribe: ${unsub}`,
+        "List-Unsubscribe-Post: List-Unsubscribe=One-Click",
+        `To: ${OWNER}`,
+        "",
+        "<p>Saturday 11/21 Winter Lights 12-7pm</p>",
+        "",
+      ].join("\r\n");
+    /** Headers added after signing (unsigned, as in the real one). */
+    const unsignedMarks = [
+      'x-beehiiv-ids: {"campaign_id":"SYNTHETIC"}',
+      "x-beehiiv-type: newsletter",
+      "X-SG-EID: SYNTHETIC",
+      "X-SG-ID: SYNTHETIC",
+    ].join("\r\n");
+    const BEEHIIV_UNSUB =
+      "<mailto:SYNTHETIC+SYNTHETIC@unsub.beehiiv.com>, <https://the-daily.beehiiv.com/unsubscribe/SYNTHETIC-TOKEN>";
+    const as = (platforms: string) => ({
+      ...cfg,
+      senders: parseSenders(`daily:${DAILY}:${platforms}`),
+    });
+    const run = async (raw: string, platforms: string) => {
+      const dkim = await verifyDkim(Buffer.from(raw), testResolver);
+      return decide(email(DAILY), parseRawHeaders(raw), as(platforms), dkim);
+    };
+
+    it("keeps it: the sender's verified signature covers List-Unsubscribe on beehiiv.com", async () => {
+      const raw = forwardedBy(
+        OWNER,
+        INBOX,
+        `${unsignedMarks}\r\n${await signed(shaped(BEEHIIV_UNSUB), [
+          { domain: "daily-news.example", headers: SIGNED },
+          { domain: "sendgrid.info", headers: SIGNED },
+        ])}`,
+      );
+      expect(await run(raw, "beehiiv")).toMatchObject({ kind: "issue" });
+      expect(await run(raw, "beehiiv+sendgrid")).toMatchObject({
+        kind: "issue",
+      });
+    });
+
+    it("drops it when the unsubscribe links point anywhere else", async () => {
+      const raw = forwardedBy(
+        OWNER,
+        INBOX,
+        `${unsignedMarks}\r\n${await signed(
+          shaped(
+            "<mailto:SYNTHETIC@unsub.beehiiv.com>, <https://evil.example/unsubscribe>",
+          ),
+          [{ domain: "daily-news.example", headers: SIGNED }],
+        )}`,
+      );
+      expect(await run(raw, "beehiiv")).toMatchObject({
+        kind: "drop",
+        suspicious: true,
+      });
+    });
+
+    it("never takes an attacker's own signature over a beehiiv-pointing List-Unsubscribe", async () => {
+      // The sender signed only From (a staff reply); the attacker added a
+      // beehiiv-pointing List-Unsubscribe and signed it with their domain.
+      const reply = await signed(shaped(BEEHIIV_UNSUB), [
+        { domain: "daily-news.example", headers: ["From", "Date", "Subject"] },
+        { domain: "attacker.example", headers: SIGNED },
+      ]);
+      const raw = forwardedBy(OWNER, INBOX, `${unsignedMarks}\r\n${reply}`);
+      expect(await run(raw, "beehiiv")).toMatchObject({
+        kind: "drop",
+        suspicious: true,
+      });
+      // ...nor when the sender's signature covers a List-Unsubscribe of
+      // its own and the attacker signs a second, beehiiv-pointing one.
+      const own = await signed(
+        shaped("<mailto:unsubscribe@daily-news.example>"),
+        [{ domain: "daily-news.example", headers: SIGNED }],
+      );
+      const two = forwardedBy(
+        OWNER,
+        INBOX,
+        `List-Unsubscribe: ${BEEHIIV_UNSUB}\r\n${unsignedMarks}\r\n${own}`,
+      );
+      expect(await run(two, "beehiiv")).toMatchObject({ kind: "drop" });
+    });
   });
 
   it("drops an issue whose body was changed after signing", async () => {

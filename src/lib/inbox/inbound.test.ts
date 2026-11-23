@@ -179,6 +179,42 @@ describe("handleReceived", () => {
     expect(r).toMatchObject({ status: 200, outcome: "dropped" });
     expect(saved).toEqual([]);
     expect(alerts.map((a) => a.key)).toEqual(["inbox:suspicious"]);
+    // Which check, in plain words, and the id to run it through again.
+    expect(alerts[0].text).toContain(
+      "was dropped because Resend found no valid DKIM signature for hello@daily-news.example",
+    );
+    expect(alerts[0].text).toContain(`Resend id: ${ID}`);
+    expect(alerts[0].text).toContain(`scripts/inbox-reprocess.mts ${ID}`);
+  });
+
+  it("a dry run (the reprocess script's) decides and cleans, but stores and alerts nothing", async () => {
+    const { handleReceived } = await import("./inbound");
+    const r = await handleReceived(ID, resend(email()), cfg, testResolver, {
+      dryRun: true,
+      quiet: true,
+    });
+    expect(r).toMatchObject({
+      status: 200,
+      outcome: "would_store",
+      preview: { source: "daily", sentAt: "2026-11-20T14:02:38.000Z" },
+    });
+    expect(saved).toEqual([]);
+    const spoof = await handleReceived(
+      ID,
+      resend(email({ authentication: { dkim: "fail", dmarc: "fail" } })),
+      cfg,
+      testResolver,
+      { dryRun: true },
+    );
+    expect(spoof.outcome).toBe("dropped");
+    expect(alerts).toEqual([]);
+    // --apply: the same path, stored, still no alerts.
+    expect(
+      await handleReceived(ID, resend(email()), cfg, testResolver, {
+        quiet: true,
+      }),
+    ).toMatchObject({ outcome: "stored" });
+    expect(saved).toHaveLength(1);
   });
 
   it("drops two From headers in the raw message", async () => {

@@ -68,12 +68,43 @@ export const PLATFORMS = {
   beehiiv: {
     headers: ["x-beehiiv-ids", "x-beehiiv-type"],
     dkim: ["beehiiv.com"],
+    /** Where its List-Unsubscribe links point (unsub.beehiiv.com, <pub>.beehiiv.com). */
+    unsubscribe: ["beehiiv.com"],
   },
   sendgrid: {
     headers: ["x-sg-eid", "x-sg-id"],
     dkim: ["sendgrid.info", "sendgrid.net"],
+    unsubscribe: ["sendgrid.net"],
   },
 } as const;
+
+/**
+ * The hosts a List-Unsubscribe value points at: each <mailto:...> by its
+ * address's domain, each <https://...> by its host. Null when any entry
+ * is something else (a broken or unexpected value counts for nothing).
+ */
+export function unsubscribeHosts(value: string): string[] | null {
+  const entries = [...value.matchAll(/<([^<>]*)>/g)].map((m) => m[1].trim());
+  if (!entries.length || value.replace(/<[^<>]*>/g, "").replace(/[\s,]/g, ""))
+    return null;
+  const hosts: string[] = [];
+  for (const t of entries) {
+    const mail = t.match(/^mailto:[^@?\s]+@([a-z0-9.-]+)(?:\?.*)?$/i);
+    if (mail) {
+      hosts.push(mail[1].toLowerCase());
+      continue;
+    }
+    let u: URL;
+    try {
+      u = new URL(t);
+    } catch {
+      return null;
+    }
+    if (u.protocol !== "https:") return null;
+    hosts.push(u.hostname.toLowerCase());
+  }
+  return hosts;
+}
 export type Platform = keyof typeof PLATFORMS;
 
 export type Sender = { id: string; from: string; platforms: Platform[] };
@@ -250,20 +281,25 @@ export function decide(
       .split(/[\s,]+/)
       .map(parseAddress),
   );
-  if (!recipients.includes(inbox)) return drop("not addressed to the inbox");
+  if (!recipients.includes(inbox))
+    return drop("it wasn't addressed to the inbox");
 
   // One From: exactly one in the raw message, and it, Resend's `from` and
   // Resend's From header all the same single address.
   const rawFroms = all(raw, "from");
   if (rawFroms.length !== 1)
-    return drop(`${rawFroms.length} From headers in the message`, true);
+    return drop(`it has ${rawFroms.length} From lines instead of one`, true);
   const header = e.headers?.from;
   if (typeof header !== "string")
-    return drop("Resend's From header isn't one value", true);
+    return drop("Resend reported more than one From line", true);
   const from = parseAddress(rawFroms[0]);
-  if (!from) return drop("From isn't exactly one address", true);
+  if (!from)
+    return drop("its From line isn't a single plain email address", true);
   if (parseAddress(header) !== from || parseAddress(e.from) !== from)
-    return drop("From disagrees with itself", true);
+    return drop(
+      "its sender address doesn't match across Resend's copies of it",
+      true,
+    );
 
   const auth = e.authentication;
   const dkimPass = auth?.dkim === "pass";
@@ -271,37 +307,51 @@ export function decide(
 
   if (from === GMAIL_FORWARDING) {
     if (!dkimPass || dmarcFail)
-      return drop("a Gmail forwarding email without a passing signature", true);
+      return drop(
+        "it says it's Gmail's forwarding email, but Resend's signature check failed",
+        true,
+      );
     if (
       !dkim.verified.some(
         (v) => v.domain === "google.com" && v.headers.includes("from"),
       )
     )
-      return unverified("no verified google.com signature", dkim);
+      return unverified(
+        "it says it's Gmail's forwarding email, but no google.com signature checked out",
+        dkim,
+      );
     return { kind: "gmail-forwarding", ...forwardingDetails(e) };
   }
 
   const sender = cfg.senders.find((s) => s.from === from);
-  if (!sender) return drop("sender isn't on the inbox allowlist");
+  if (!sender)
+    return drop("its sender isn't one of the newsletters (INBOX_SENDERS)");
   const forwarder = parseAddress(cfg.forwarder);
   if (!forwarder) return drop("INBOX_FORWARDER isn't set", false, true);
-  if (!auth) return drop(`no authentication results for ${from}`, true);
+  if (!auth)
+    return drop(`Resend had no signature check results for ${from}`, true);
   if (!dkimPass)
     return drop(
-      `no passing DKIM signature for ${from} (dkim ${auth.dkim ?? "none"})`,
+      `Resend found no valid DKIM signature for ${from} (it said ${auth.dkim ?? "nothing"})`,
       true,
     );
-  if (dmarcFail) return drop(`DMARC failed for ${from}`, true);
+  if (dmarcFail) return drop(`its DMARC check failed for ${from}`, true);
 
   const by = all(raw, "x-forwarded-for").flatMap((v) =>
     v.split(/[\s,]+/).map(parseAddress),
   );
   if (!by.includes(forwarder))
-    return drop("not forwarded by the owner's Gmail (X-Forwarded-For)", true);
+    return drop(
+      "it wasn't forwarded by the owner's Gmail (its X-Forwarded-For line doesn't name INBOX_FORWARDER)",
+      true,
+    );
 
   // Newsletter traits, from signatures we verified ourselves.
   if (!all(raw, "list-unsubscribe").some((v) => v.trim()))
-    return drop(`no List-Unsubscribe from ${from}`, true);
+    return drop(
+      `it has no unsubscribe line (List-Unsubscribe), so it doesn't look like a newsletter from ${from}`,
+      true,
+    );
   const domain = from.split("@")[1];
   const covered = dkim.verified.some(
     (v) =>
@@ -311,29 +361,44 @@ export function decide(
   );
   if (!covered)
     return unverified(
-      `no verified DKIM signature of ${domain} covering List-Unsubscribe`,
+      `its unsubscribe line isn't covered by a valid signature from ${domain}`,
       dkim,
     );
   const names = new Set(raw.map((x) => x.name));
+  const unsubs = all(raw, "list-unsubscribe");
+  const unsubHosts = unsubs.length === 1 ? unsubscribeHosts(unsubs[0]) : null;
   for (const p of sender.platforms) {
     const marks = PLATFORMS[p];
+    const trusted = (v: { domain: string }) =>
+      underDomain(domain, v.domain) ||
+      marks.dkim.some((m) => underDomain(v.domain, m));
     const marked =
+      // A verified signature by the platform itself.
       dkim.verified.some((v) =>
         marks.dkim.some((m) => underDomain(v.domain, m)),
       ) ||
-      // Its header counts only under a verified signature by the sender
-      // or the platform itself: an attacker's own domain can sign anything.
+      // Its header, under a verified signature by the sender or the
+      // platform (an attacker's own domain can sign anything).
       marks.headers.some(
         (n) =>
           names.has(n) &&
-          dkim.verified.some(
-            (v) =>
-              v.headers.includes(n) &&
-              (underDomain(domain, v.domain) ||
-                marks.dkim.some((m) => underDomain(v.domain, m))),
-          ),
+          dkim.verified.some((v) => v.headers.includes(n) && trusted(v)),
+      ) ||
+      // Its unsubscribe links: the one List-Unsubscribe line, under a
+      // verified signature by the sender or the platform, pointing only
+      // at the platform's own domains.
+      (!!unsubHosts &&
+        unsubHosts.every((h) =>
+          marks.unsubscribe.some((m) => underDomain(h, m)),
+        ) &&
+        dkim.verified.some(
+          (v) => v.headers.includes("list-unsubscribe") && trusted(v),
+        ));
+    if (!marked)
+      return unverified(
+        `it doesn't carry ${p}'s signed marks (a valid ${p} signature, or a signed ${p} header or unsubscribe link)`,
+        dkim,
       );
-    if (!marked) return unverified(`no verified ${p} marks on ${from}`, dkim);
   }
 
   const dates = all(raw, "date");

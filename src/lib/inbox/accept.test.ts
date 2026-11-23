@@ -10,6 +10,7 @@ import {
   parseSenders,
   type ReceivedEmail,
   sentAt,
+  unsubscribeHosts,
 } from "./accept";
 
 /**
@@ -45,7 +46,7 @@ function raw(
     ...(Array.isArray(from) ? from : [from]).map((f) => `From: ${f}`),
     "Message-ID: <synthetic-0001@mta.example>",
     "Subject: Synthetic issue",
-    "List-Unsubscribe: <mailto:unsub-SYNTHETIC@unsub.beehiiv.com>",
+    "List-Unsubscribe: <mailto:unsub-SYNTHETIC@lists.daily-news.example>",
     'x-beehiiv-ids: {"campaign_id":"SYNTHETIC"}',
     "x-beehiiv-type: newsletter",
     "X-SG-EID: SYNTHETIC",
@@ -485,6 +486,24 @@ describe("Gmail's forwarding confirmation", () => {
         html: null,
       }),
     ).toEqual({ code: "987654321", link: null, requester: null });
+  });
+});
+
+describe("unsubscribeHosts", () => {
+  it("reads each mailto and https target's host, or refuses the value", () => {
+    expect(
+      unsubscribeHosts(
+        "<mailto:SYNTHETIC+x@unsub.beehiiv.com?subject=unsub>, <https://the-daily.beehiiv.com/unsubscribe/SYNTHETIC>",
+      ),
+    ).toEqual(["unsub.beehiiv.com", "the-daily.beehiiv.com"]);
+    for (const bad of [
+      "",
+      "mailto:x@unsub.beehiiv.com",
+      "<http://the-daily.beehiiv.com/u>",
+      "<mailto:x@unsub.beehiiv.com> extra",
+      "<javascript:alert(1)>",
+    ])
+      expect(unsubscribeHosts(bad), bad).toBe(null);
   });
 });
 
