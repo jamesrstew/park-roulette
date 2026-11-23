@@ -239,6 +239,21 @@ describe("day headings in an issue", () => {
     ).toBe(true);
   });
 
+  it("reads the item's own dates past a title-only quote", () => {
+    const html = issueHtml(
+      ...PARTS,
+      day("Thursday 11/26"),
+      item("🎄", "Tree Lighting", "Sat 11/28 5pm • All ages", "Town Square"),
+    );
+    expect(
+      heads(html, "Thursday 11/26", "Tree Lighting", "Tree Lighting"),
+    ).toBe(false);
+    const plain = html.replace("Sat 11/28 5pm", "5pm");
+    expect(
+      heads(plain, "Thursday 11/26", "Tree Lighting", "Tree Lighting"),
+    ).toBe(true);
+  });
+
   it("stops at a printed date: a save-the-date item after the last heading", () => {
     const html = issueHtml(
       ...PARTS,

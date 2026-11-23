@@ -284,6 +284,24 @@ describe("event pages on social, ticket and chamber hosts", () => {
     );
   });
 
+  it("refuses a quote running on into the next item's link", () => {
+    const BOOK =
+      "https://www.hisawyer.com/beta-studio/schedules/activity-set/7";
+    const html = `<html><body><table><tr><td><p>November 22, 2026</p></td></tr><tr><td><h3><b>Monday 11/23</b></h3></td></tr><tr><td><p> 🎨<b> Alpha Camp</b><br><i>1pm-2pm • Ages 3-5</i><br>📍 Somewhere </p></td></tr><tr><td><p> 🎨<b> Beta Camp</b><br><i>3pm-4pm • </i><a href="${BOOK}"><i><b>Book now</b></i></a></p></td></tr></table></body></html>`;
+    const probe =
+      "Alpha Camp 1pm-2pm • Ages 3-5 📍 Somewhere 🎨 Beta Camp 3pm-4pm • Book now";
+    expect(pageText(html)).toContain(probe);
+    expect(issueLinksEvent(html, BOOK, [probe], "Alpha Camp")).toBe(false);
+    expect(
+      issueLinksEvent(
+        html,
+        BOOK,
+        ["Beta Camp 3pm-4pm • Book now"],
+        "Beta Camp",
+      ),
+    ).toBe(true);
+  });
+
   it("cuts a page the issue links for another event", async () => {
     const v = await one(skiers({ url: TODDLER_SKI }));
     expect(v.ok).toBe(false);

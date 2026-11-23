@@ -632,6 +632,7 @@ export function issueMap(html: string): {
   links: { at: number; end: number; href: string }[];
   edges: number[];
   heads: number[];
+  bolds: number[];
 } | null {
   // Markers in the html, carried through pageText's steps as if they
   // weren't there, then read out.
@@ -656,6 +657,7 @@ export function issueMap(html: string): {
       }
       if (/^<\/a\b/i.test(tag)) return `${O}Z${C}${tag}`;
       if (/^<h[1-4]\b/i.test(tag)) return `${O}B${C}${O}H${C}${tag}`;
+      if (/^<(b|strong)\b/i.test(tag)) return `${tag}${O}T${C}`;
       return BLOCK.test(tag) ? `${O}B${C}${tag}` : tag;
     });
   const MARK = `${O}[^${C}]*${C}`;
@@ -686,6 +688,7 @@ export function issueMap(html: string): {
   const open: { at: number; href: string }[] = [];
   const edges: number[] = [];
   const heads: number[] = [];
+  const bolds: number[] = [];
   for (let i = 0; i < raw.length; i++) {
     const ch = raw[i];
     if (ch === O) {
@@ -699,6 +702,7 @@ export function issueMap(html: string): {
         if (l) links.push({ ...l, end: at });
       } else if (m === "B") edges.push(at);
       else if (m === "H") heads.push(at);
+      else if (m === "T") bolds.push(at);
       continue;
     }
     if (ch === " " && (text === "" || text.endsWith(" "))) continue;
@@ -713,6 +717,7 @@ export function issueMap(html: string): {
     links: links.filter((l) => /^https?:/i.test(l.href)),
     edges,
     heads,
+    bolds,
   };
 }
 
@@ -778,7 +783,18 @@ export function headingHeadsLine(
   );
   for (const p of namePlaces(text, usable, title)) {
     const before = breaks.filter((b) => b.at < p.name).at(-1);
-    if (before?.day === want) return true;
+    if (before?.day !== want) continue;
+    // The item's own dates, from its name to its end (the next block
+    // edge or heading element; without the html, the next day heading):
+    // never another day's.
+    const end = Math.min(
+      text.length,
+      ...(map ? [...map.edges, ...map.heads] : days.map((d) => d.at)).filter(
+        (at) => at > p.name,
+      ),
+    );
+    if (printedMonthDays(text.slice(p.name, end)).every((d) => d.md === wantMd))
+      return true;
   }
   return false;
 }
@@ -868,11 +884,17 @@ export function issueLinksEvent(
   if (!map) return false;
   for (const p of namePlaces(map.text, lines, title)) {
     const blockEnd = map.edges.find((e) => e > p.name) ?? map.text.length;
-    const link =
-      map.links.find((l) => l.at <= p.name && p.name < l.end) ??
-      map.links.find(
-        (l) => l.at >= p.name && (l.at < blockEnd || l.at < p.end),
-      );
+    const wraps = map.links.find((l) => l.at <= p.name && p.name < l.end);
+    const after = map.links.find(
+      (l) => l.at >= p.name && (l.at < blockEnd || l.at < p.end),
+    );
+    // A link after the name is the event's only within its own item: no
+    // other bold title, and at most one block edge, between them.
+    const own =
+      after &&
+      !map.bolds.some((b) => b > p.name + 1 && b < after.at) &&
+      map.edges.filter((e) => e > p.name && e < after.at).length <= 1;
+    const link = wraps ?? (own ? after : undefined);
     if (link && sameLink(link.href, url)) return true;
   }
   return false;
