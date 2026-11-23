@@ -267,3 +267,81 @@ export function oneLine(text: string, max: number, width: number): number {
   while (size > 30 && textWidth(text, size) > width) size -= 2;
   return size;
 }
+
+// --- The Unpack carousel's item slide -----------------------------------------
+
+export const ITEM = {
+  /** The number blob and the big icon. */
+  header: 250,
+  /** The "what kids do" line, largest first. */
+  what: [68, 64, 60, 56, 52],
+  name: [108, 92, 80, 72],
+  chip: 48,
+  /** Name to scribble to what; what to the where-and-who lines. */
+  whatGap: 22,
+  placeGap: 26,
+  hostGap: 10,
+  /** The middle column to the chips. */
+  chipsGap: 24,
+} as const;
+
+/** An event item's venue line (ink) and host line (gray, 0.9x), from the what size. */
+export const itemPlaceSize = (what: number) => Math.round(what * 0.85);
+export const itemHostSize = (what: number) =>
+  Math.round(itemPlaceSize(what) * 0.9);
+
+export type ItemCopy = {
+  name: string;
+  what: string;
+  place?: string;
+  host?: string | null;
+  facts: readonly string[];
+};
+
+export function itemHeight(s: ItemCopy, name: number, what: number): number {
+  const middle =
+    lines(s.name, name, CONTENT.width) * name * 1.04 +
+    38 +
+    ITEM.whatGap +
+    lines(s.what, what, CONTENT.width) * what * 1.2 +
+    (s.place
+      ? ITEM.placeGap +
+        lines(s.place, itemPlaceSize(what), CONTENT.width) *
+          itemPlaceSize(what) *
+          1.15
+      : 0) +
+    (s.host
+      ? ITEM.hostGap +
+        lines(`Hosted by ${s.host}`, itemHostSize(what), CONTENT.width) *
+          itemHostSize(what) *
+          1.15
+      : 0);
+  const chips = s.facts.length
+    ? chipRows(s.facts) * (ITEM.chip * 1.2 + 26) +
+      (chipRows(s.facts) - 1) * 16 +
+      ITEM.chipsGap
+    : 0;
+  return ITEM.header + middle + chips;
+}
+
+/**
+ * The item slide's sizes: the largest "what" that fits (the name gives way
+ * first and stays 1.35x the "what"), so the where-and-who lines and the
+ * chips never collide.
+ */
+export function itemFit(s: ItemCopy): {
+  name: number;
+  what: number;
+  fits: boolean;
+} {
+  for (const what of ITEM.what)
+    for (const name of ITEM.name)
+      if (
+        name >= what * TITLE_OVER_BODY &&
+        itemHeight(s, name, what) <= CONTENT.height
+      )
+        return { name, what, fits: true };
+  const what = ITEM.what[ITEM.what.length - 1];
+  const name = ITEM.name[ITEM.name.length - 1];
+  return { name, what, fits: itemHeight(s, name, what) <= CONTENT.height };
+}

@@ -1,5 +1,10 @@
 import type { ForecastDay, Issue } from "@/lib/news/issue";
-import { commonBody, eventFit, ideaFit } from "@/components/social/fit";
+import {
+  commonBody,
+  eventFit,
+  ideaFit,
+  itemFit,
+} from "@/components/social/fit";
 import { ideaText } from "./at-home";
 import {
   type AtHomeDraft,
@@ -43,6 +48,10 @@ export type ResolvedItem = {
   icon: ItemIcon;
   /** The item's facts as chips (missing ones left out). */
   facts: string[];
+  /** An event's venue line ("At Central Library, Bend"). */
+  place?: string;
+  /** An event's organizer, when it isn't the venue. */
+  host?: string | null;
 };
 
 const strip = (s: string) => s.trim().replace(/[\s.:;,!-]+$/u, "");
@@ -163,15 +172,24 @@ export function composeUnpack(
       kicker: "Central Oregon kids",
       swipe: true,
     },
-    ...items.map((it, i): SlideSpec => ({
-      t: "item",
-      n: i + 1,
-      of: items.length,
-      icon: it.icon,
-      name: it.name,
-      what: it.what.trim(),
-      facts: it.facts,
-    })),
+    ...items.map((it, i): SlideSpec => {
+      const base = {
+        name: it.name,
+        what: it.what.trim(),
+        facts: it.facts,
+      };
+      const where = itemWhere(base, it.place, it.host ?? null);
+      return {
+        t: "item",
+        n: i + 1,
+        of: items.length,
+        icon: it.icon,
+        ...base,
+        ...(where.place
+          ? { place: where.place, host: where.host ?? null }
+          : {}),
+      };
+    }),
     { t: "cta", line: COPY.thursday, cta, sub: COPY.free },
   ];
   const intro = d.intro?.replace(/\s+/g, " ").trim();
@@ -182,6 +200,9 @@ export function composeUnpack(
     ...items.flatMap((it, i) => [
       `${i + 1}. ${it.name}`,
       sentence(it.what),
+      ...(it.place
+        ? [`${it.place}${it.host ? `. Hosted by ${it.host}` : ""}.`]
+        : []),
       it.facts.join(" · "),
       "",
     ]),
@@ -335,6 +356,40 @@ export function slideTitle(title: string): string {
  * Where an event is, with its town: "At Fir Street Park, Sisters", or
  * "At Redmond Library" when the venue's name already says the town.
  */
+/**
+ * An Unpack event item's where and who, when they fit: the host line gives
+ * way first, then the venue line, so nothing ever overflows the card.
+ */
+export function itemWhere(
+  base: { name: string; what: string; facts: readonly string[] },
+  place: string | undefined,
+  host: string | null,
+): { place?: string; host?: string | null } {
+  if (!place) return {};
+  if (itemFit({ ...base, place, host }).fits) return { place, host };
+  if (host && itemFit({ ...base, place, host: null }).fits)
+    return { place, host: null };
+  return {};
+}
+
+/**
+ * Who runs an event, when that's worth saying: the organizer's name unless
+ * it is (or names) the venue itself, or the venue names it ("Central
+ * Library" hosted by "Deschutes Public Library" is said; "The Pavilion"
+ * hosted by "The Pavilion" isn't). The caller has screened the name
+ * (newsletters never get here: validate.ts eventTextProblem).
+ */
+export function hostOf(
+  venue: string,
+  organizer: { name: string } | undefined,
+): string | null {
+  const host = organizer?.name.replace(/\s+/g, " ").trim();
+  if (!host) return null;
+  const a = host.toLowerCase();
+  const b = venue.toLowerCase().trim();
+  return a === b || b.includes(a) || a.includes(b) ? null : host;
+}
+
 export function placeLine(venue: string, town: string): string {
   const named = new RegExp(
     `\\b${town.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
@@ -741,7 +796,7 @@ export function slideAlt(s: SlideSpec): string {
     case "headline":
       return `${s.kicker}: ${s.words}.${s.sub?.length ? ` ${s.sub.join(", ")}.` : ""}${s.swipe ? " Swipe for more." : ""}`;
     case "item":
-      return `${s.n} of ${s.of}: ${s.name}. ${strip(s.what)}. ${s.facts.join(", ")}.`;
+      return `${s.n} of ${s.of}: ${s.name}. ${strip(s.what)}.${s.place ? ` ${s.place}.` : ""}${s.place && s.host ? ` Hosted by ${s.host}.` : ""} ${s.facts.join(", ")}.`;
     case "idea":
       return `${s.n} of ${s.of}: ${s.title}. ${s.ages}. You need: ${s.need}. ${s.steps.map((x, i) => `${i + 1}. ${x}`).join(" ")}${s.payoff ? ` ${COPY.payoffLabel}: ${s.payoff}` : ""}${s.safety ? ` ${s.safety}` : ""}`;
     case "event":

@@ -1312,4 +1312,36 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(told).toHaveLength(1);
     expect(told[0].key).toBe(`social:echo photo flagged:${id}`);
   });
+
+  it("redrawQueued re-validates a queued writer post and replaces its media in place, never once claimed", async () => {
+    const id = await draftPost();
+    const [before] = await q(
+      `select media, spec from social_posts where id = ${id}`,
+    );
+    // Dry run: drawn, nothing stored.
+    const dry = await store.redrawQueued(id, { apply: false, now: SUNDAY });
+    expect(dry.ok).toBe(true);
+    if (dry.ok) expect(dry.applied).toBe(false);
+    const [same] = await q(`select media from social_posts where id = ${id}`);
+    expect(same.media).toEqual(before.media);
+    // Apply: the same row, new media, still queued.
+    const done = await store.redrawQueued(id, { apply: true, now: SUNDAY });
+    expect(done.ok).toBe(true);
+    const [after] = await q(
+      `select id, status, reason from social_posts where id = ${id}`,
+    );
+    expect(after).toMatchObject({
+      id,
+      status: "queued",
+      reason: "Redrawn with the current layout.",
+    });
+    // Claimed by the publisher: refused, untouched.
+    await q(`update social_posts set status = 'creating' where id = ${id}`);
+    const late = await store.redrawQueued(id, { apply: true, now: SUNDAY });
+    expect(late).toMatchObject({
+      ok: false,
+      error: "It's creating, not queued.",
+    });
+    expect((await store.redrawQueued(99999, { apply: false })).ok).toBe(false);
+  });
 });

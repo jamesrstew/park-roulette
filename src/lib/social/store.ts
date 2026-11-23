@@ -61,7 +61,8 @@ import {
   slotFor,
   type WeekDraft,
 } from "./model";
-import type { MediaFile } from "./render";
+import { PostDraft } from "./model";
+import type { MediaFile, Rendered } from "./render";
 import {
   dmsOn,
   envKilled,
@@ -1525,6 +1526,103 @@ export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
     )
     .limit(1);
   return rows.length > 0;
+}
+
+/**
+ * Redraw a queued writer post (park post, Unpack, at home) with the current
+ * layout: its stored draft is validated again exactly as on hand-in (today's
+ * facts, cuts and checks), drawn again, and its spec, media and caption are
+ * replaced in place, only while it's still queued (the publisher hasn't
+ * claimed it). Without `apply`, nothing is stored or uploaded: the new
+ * slides come back for review.
+ */
+export async function redrawQueued(
+  id: number,
+  { apply, now = new Date() }: { apply: boolean; now?: Date },
+): Promise<
+  | {
+      ok: true;
+      applied: boolean;
+      report: { errors: string[]; warnings: string[]; cut: string[] };
+      caption: string | null;
+      slides: Rendered[];
+      previews?: string[];
+    }
+  | { ok: false; error: string; errors?: string[]; cut?: string[] }
+> {
+  const post = await postById(id);
+  if (!post) return { ok: false, error: "No such post." };
+  if (post.status !== "queued")
+    return { ok: false, error: `It's ${post.status}, not queued.` };
+  const draft = PostDraft.safeParse(post.body);
+  if (!draft.success)
+    return {
+      ok: false,
+      error: `It's a ${post.kind}, made by code (not a writer draft): it can't be redrawn this way.`,
+    };
+  // The week the draft was for: a Sunday school-break carousel is the day
+  // before its week's Monday.
+  const weekOf =
+    draft.data.type === "unpack" && draft.data.slot === "sun"
+      ? addDays(post.slotDate, 1)
+      : mondayOf(post.slotDate);
+  const ctx = await socialCtx(weekOf, now);
+  let r = await validatePost(draft.data, weekOf, ctx);
+  if (!r.ok || !r.spec)
+    return {
+      ok: false,
+      error: "The draft no longer passes today's checks: nothing changed.",
+      errors: r.errors,
+      cut: r.cut,
+    };
+  if (r.slotDate !== post.slotDate)
+    return { ok: false, error: "Its slot moved: nothing changed." };
+  const R = await render();
+  let photos = await R.photosFor(r.spec);
+  if (r.spec.slides.some((s, i) => "photo" in s && s.photo && !photos[i])) {
+    r = await validatePost(draft.data, weekOf, {
+      ...ctx,
+      photoFor: () => null,
+    });
+    if (!r.ok || !r.spec)
+      return {
+        ok: false,
+        error: "The crayon-card version fails: nothing changed.",
+      };
+    photos = [];
+  }
+  const spec = r.spec;
+  const slides = await R.renderPost(spec, photos);
+  const report = { errors: r.errors, warnings: r.warnings, cut: r.cut };
+  if (!apply)
+    return { ok: true, applied: false, report, caption: spec.caption, slides };
+  const media = await R.storeMedia(slides);
+  const done = await db
+    .update(socialPosts)
+    .set({
+      spec,
+      media,
+      caption: spec.caption,
+      report,
+      reason: "Redrawn with the current layout.",
+      updatedAt: sql`now()`,
+    })
+    .where(and(eq(socialPosts.id, id), eq(socialPosts.status, "queued")))
+    .returning({ id: socialPosts.id });
+  if (!done.length)
+    return {
+      ok: false,
+      error: "It left the queue meanwhile: nothing changed.",
+    };
+  console.info(`[social] post ${id} redrawn (${spec.slides.length} slides)`);
+  return {
+    ok: true,
+    applied: true,
+    report,
+    caption: spec.caption,
+    slides,
+    previews: previewUrls(id, spec.slides.length),
+  };
 }
 
 export async function postById(id: number): Promise<PostRow | null> {

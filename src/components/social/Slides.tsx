@@ -22,6 +22,10 @@ import {
   hostSize,
   IDEA,
   ideaFit,
+  ITEM,
+  itemFit,
+  itemHostSize,
+  itemPlaceSize,
   oneLine,
   textWidth,
   TOP_ROW,
@@ -594,7 +598,7 @@ function ItemSlide({
   page?: { n: number; of: number };
 }) {
   const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
-  const nameSize = s.name.length > 34 ? 80 : s.name.length > 22 ? 92 : 108;
+  const fit = itemFit(s);
   return (
     <Frame page={page} color={color}>
       <div
@@ -629,24 +633,72 @@ function ItemSlide({
           justifyContent: "center",
         }}
       >
-        <div style={{ display: "flex", fontSize: nameSize, lineHeight: 1.04 }}>
-          {s.name}
+        <div
+          style={{
+            display: "flex",
+            flexShrink: 0,
+            fontSize: fit.name,
+            lineHeight: 1.04,
+            textWrap: "balance",
+          }}
+        >
+          {keepAmp(s.name)}
         </div>
-        <div style={{ display: "flex", marginTop: 4 }}>
+        <div style={{ display: "flex", flexShrink: 0, marginTop: 4 }}>
           <Scribble width={360} color={color} />
         </div>
         <div
           style={{
             display: "flex",
-            fontSize: s.what.length > 70 ? 60 : 68,
+            flexShrink: 0,
+            fontSize: fit.what,
             lineHeight: 1.2,
-            marginTop: 22,
+            marginTop: ITEM.whatGap,
+            textWrap: "balance",
           }}
         >
-          {s.what}
+          {keepAmp(s.what)}
         </div>
+        {/* An event's where and who, as the roundup prints them. */}
+        {s.place ? (
+          <div
+            style={{
+              display: "flex",
+              flexShrink: 0,
+              fontSize: itemPlaceSize(fit.what),
+              lineHeight: 1.15,
+              marginTop: ITEM.placeGap,
+              textWrap: "balance",
+            }}
+          >
+            {keepAmp(s.place)}
+          </div>
+        ) : null}
+        {s.place && s.host ? (
+          <div
+            style={{
+              display: "flex",
+              flexShrink: 0,
+              fontSize: itemHostSize(fit.what),
+              color: HOST_GRAY,
+              lineHeight: 1.15,
+              marginTop: ITEM.hostGap,
+              textWrap: "balance",
+            }}
+          >
+            {keepAmp(`Hosted by ${s.host}`)}
+          </div>
+        ) : null}
       </div>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+      <div
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+          flexShrink: 0,
+          gap: 16,
+          marginTop: ITEM.chipsGap,
+        }}
+      >
         {s.facts.map((f, i) => (
           <div
             key={i}

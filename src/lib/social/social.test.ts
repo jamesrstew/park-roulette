@@ -704,7 +704,9 @@ describe("the Unpack carousel", () => {
       (x) => x.t === "item" && x.name === "No School Open Rec Swim",
     );
     expect(swim).toMatchObject({
-      facts: ["Fri, Nov 27 · 1 pm to 3 pm", "$4 kids", "Madras Aquatic Center"],
+      // Where and who on their own lines now, not a venue chip.
+      facts: ["Fri, Nov 27 · 1 pm to 3 pm", "$4 kids"],
+      place: "At Madras Aquatic Center",
     });
     const lark = s.slides.find(
       (x) => x.t === "item" && x.name === "Larkspur Park",
@@ -1501,7 +1503,7 @@ describe("Unpack event chips (lesson 50)", () => {
     ).toBe("Deschutes County Fair & Expo Center Hall");
   });
 
-  it("an event slide's chips name the venue and every showing", async () => {
+  it("an event slide names the venue on its line and every showing in its chip", async () => {
     const nut = event({
       title: "The Nutcracker",
       dates: [
@@ -1534,7 +1536,8 @@ describe("Unpack event chips (lesson 50)", () => {
       (x) => x.t === "item" && x.name === "The Nutcracker",
     );
     expect(slide).toMatchObject({
-      facts: ["Sat, Nov 28 · 1:30 and 6 pm", "$4 kids", "Tower Theatre, Bend"],
+      facts: ["Sat, Nov 28 · 1:30 and 6 pm", "$4 kids"],
+      place: "At Tower Theatre, Bend",
     });
     expect(JSON.stringify(r.spec)).not.toMatch(/Start time/);
   });
@@ -1549,5 +1552,103 @@ describe("Unpack event chips (lesson 50)", () => {
     const monday = cmd.slice(cmd.indexOf("## 3."), cmd.indexOf("## 4."));
     expect(monday).toMatch(/from the plan you fetched after the photo checks/);
     expect(cmd).not.toMatch(/from the plan fetched in step 1/);
+  });
+});
+
+describe("where and who on event slides (James, Nov 22)", () => {
+  it("hostOf names the organizer only when it isn't the venue", async () => {
+    const { hostOf } = await import("./compose");
+    expect(
+      hostOf("Central Library", { name: "Deschutes Public Library" }),
+    ).toBe("Deschutes Public Library");
+    expect(hostOf("The Pavilion", { name: "The Pavilion" })).toBeNull();
+    expect(
+      hostOf("Crook County Library", { name: "Crook County Library" }),
+    ).toBeNull();
+    expect(
+      hostOf("Old Mill District West Event Lawn", {
+        name: "Old Mill District",
+      }),
+    ).toBeNull();
+    expect(hostOf("Tower Theatre", undefined)).toBeNull();
+  });
+
+  it("an Unpack event item shows its venue and organizer, on the slide and in the caption", async () => {
+    const swim = event({
+      venue: { name: "Central Library", town: "Bend" },
+      organizer: {
+        name: "Deschutes Public Library",
+        url: "https://www.deschuteslibrary.org",
+      },
+    });
+    const items = unpack().items.map((i) =>
+      i.ref.startsWith("venue:") ? { ...i, holiday_evidence: HDM_EVIDENCE } : i,
+    );
+    const r = await validateUnpack(
+      unpack({ items }),
+      WEEK,
+      ctx({
+        events: new Map([["no-school-open-rec-swim", swim]]),
+        evidence: async () => true,
+      }),
+    );
+    const slide = r.spec?.slides.find(
+      (x) => x.t === "item" && x.name === "No School Open Rec Swim",
+    );
+    expect(slide).toMatchObject({
+      place: "At Central Library, Bend",
+      host: "Deschutes Public Library",
+    });
+    expect(r.spec?.caption).toContain(
+      "At Central Library, Bend. Hosted by Deschutes Public Library.",
+    );
+    const { slideAlt } = await import("./compose");
+    expect(slideAlt(slide!)).toContain("Hosted by Deschutes Public Library.");
+  });
+
+  it("an organizer that names a newsletter cuts the item: it's never printed", async () => {
+    const swim = event({
+      organizer: { name: "Bend Family Loop", url: "https://example.org" },
+    });
+    const items = unpack().items.map((i) =>
+      i.ref.startsWith("venue:") ? { ...i, holiday_evidence: HDM_EVIDENCE } : i,
+    );
+    const r = await validateUnpack(
+      unpack({ items }),
+      WEEK,
+      ctx({
+        events: new Map([["no-school-open-rec-swim", swim]]),
+        evidence: async () => true,
+      }),
+    );
+    expect(JSON.stringify(r.spec ?? {})).not.toMatch(/Family Loop/);
+    expect(r.cut.join(" ")).toMatch(/newsletter/);
+  });
+
+  it("the venue and host give way before anything overflows the item slide", async () => {
+    const { itemWhere } = await import("./compose");
+    const { itemFit } = await import("@/components/social/fit");
+    const base = {
+      name: "Creativebug Workshop: Gifts, Wrapping Paper, and Cards!",
+      what: "Kids make handmade gifts, wrapping paper and greeting cards at a holiday craft workshop.",
+      facts: [
+        "Mon, Nov 23 · 10:30 am to 12:30 pm",
+        "Ages 6 and up",
+        "$12.50 to $20 kids",
+      ],
+    };
+    // Real lengths fit with both lines.
+    expect(
+      itemWhere(base, "At Central Library, Bend", "Deschutes Public Library"),
+    ).toEqual({
+      place: "At Central Library, Bend",
+      host: "Deschutes Public Library",
+    });
+    // A pathological host goes first, then the venue; whatever's left fits.
+    const huge = "Mmmmmmm ".repeat(30).trim();
+    const w = itemWhere(base, "At Central Library, Bend", huge);
+    expect(w.host ?? null).toBeNull();
+    expect(itemFit({ ...base, ...w }).fits).toBe(true);
+    expect(itemWhere(base, `At ${huge}`, huge)).toEqual({});
   });
 });

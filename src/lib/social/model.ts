@@ -480,6 +480,12 @@ export type SlideSpec =
       what: string;
       /** day • ages • cost • town (code, from the IDs). */
       facts: string[];
+      /**
+       * An event item's where and who, as the roundup prints them: "At
+       * Central Library, Bend", and the organizer when it isn't the venue.
+       */
+      place?: string;
+      host?: string | null;
     }
   | {
       /** An "at home" idea: name, ages, what you need, 2 or 3 steps. */

@@ -17,6 +17,7 @@ import { listed } from "@/lib/events/state";
 import { addDays, weekdayOf } from "@/lib/news/time";
 import {
   composeEventsWeek,
+  hostOf,
   placeLine,
   slideTitle,
   type WeekEvent,
@@ -282,12 +283,7 @@ export function pickWeekEvents(
       ages: ages.chips,
       desc: descResult.desc,
       cost,
-      host:
-        e.data.organizer &&
-        e.data.organizer.name.trim().toLowerCase() !==
-          e.data.venue.name.trim().toLowerCase()
-          ? e.data.organizer.name.trim()
-          : null,
+      host: hostOf(e.data.venue.name, e.data.organizer),
       also: more.length
         ? `Also ${more.map((d) => DAYS3[weekdayOf(d)]).join(", ")}`
         : null,
