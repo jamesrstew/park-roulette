@@ -585,6 +585,51 @@ function weekdaysIn(q: string): number[] {
 }
 
 /**
+ * A day heading in a newsletter issue: a weekday and its date ("Thursday
+ * 11/26", "Thursday, Nov 26", "Fri, November 27th").
+ */
+const DAY_HEADING = `\\b(?:sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)(?:day|nesday|rsday|urday|sday)?\\.?,?\\s+(?:${MONTH_WORD}\\s+\\d{1,2}(?:st|nd|rd|th)?|\\d{1,2}/\\d{1,2})(?![\\d/])`;
+
+/** Is a quote a bare day heading, nothing else ("Thursday 11/26")? */
+export function isDayHeading(quote: string): boolean {
+  return new RegExp(`^${DAY_HEADING}$`, "i").test(normalizeText(quote));
+}
+
+/**
+ * Does this day heading head the event's line in the issue? Some place
+ * where an event-naming quote sits in the text has the heading as the
+ * nearest day heading before the event's name: the same day section,
+ * with no other day heading between them. Every weekday-and-date in the
+ * issue counts as a heading here, so a date printed between them breaks
+ * the tie (it never helps one).
+ */
+export function headingHeadsLine(
+  issueText: string,
+  heading: string,
+  lines: readonly string[],
+  title: string,
+): boolean {
+  const text = normalizeText(issueText);
+  const want = normalizeText(heading).toLowerCase();
+  const heads = [...text.matchAll(new RegExp(DAY_HEADING, "gi"))].map((m) => ({
+    at: m.index ?? 0,
+    text: m[0].toLowerCase(),
+  }));
+  for (const line of lines) {
+    const q = normalizeText(line);
+    if (!q) continue;
+    // Where the event's name starts in the quote (it may begin in the
+    // section before).
+    const name = titleSpots(q, title)[0]?.at ?? 0;
+    for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + 1)) {
+      const before = heads.filter((h) => h.at < i + name).at(-1);
+      if (before?.text === want) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * The issue's date on a newsletter page: the first printed "Nov 19, 2026"
  * (an issue's byline), as YYYY-MM-DD. Null when it prints none.
  */
@@ -780,17 +825,22 @@ export function checkEvent(
   // next to its name and venue.
   const multi = (u: string) =>
     onMultiProgramPage(u, ctx.catalog.shared_calendar_pages ?? []);
+  // A day heading in an issue ("Thursday 11/26"): it proves the date of
+  // an event-naming line from the same issue under it (issueChecks).
+  const dayHead = (x: { url: string; quote: string }) =>
+    issueId(x.url) != null && isDayHeading(x.quote);
   const proves = (x: { url: string; quote: string }) =>
-    multi(x.url)
+    dayHead(x) ||
+    (multi(x.url)
       ? lineNamesEventAt(x.quote, e.title, e.venue.name)
-      : !(listing && onListing(x.url)) || lineNamesEvent(x.quote, e.title);
+      : !(listing && onListing(x.url)) || lineNamesEvent(x.quote, e.title));
   const proof = e.evidence.filter(proves).map((x) => x.quote);
   const today = pacificToday(ctx.now);
   // Quotes under 12 characters only when they print a date and a time
   // ("Dec 6 · 10:30am"), or a price or "free" with a date or time.
   const TIMEISH = /\b\d{1,2}(:\d{2})?\s*(a\.?m|p\.?m)\b|\bnoon\b/i;
   for (const x of e.evidence) {
-    if (x.quote.trim().length >= 12) continue;
+    if (x.quote.trim().length >= 12 || dayHead(x)) continue;
     const dated = e.dates.some((d) => quotePrintsDate(x.quote, d.day));
     const timed =
       TIMEISH.test(x.quote) ||
@@ -808,6 +858,7 @@ export function checkEvent(
     if (
       x.quote.trim().length <= 12 &&
       x.url !== e.url &&
+      !dayHead(x) &&
       !lineNamesEvent(x.quote, e.title) &&
       e.dates.some((d) => quotePrintsDate(x.quote, d.day))
     )
@@ -931,11 +982,24 @@ export function checkEvent(
     );
   // An issue in our inbox lists dozens of events: every quote from it
   // names the event (its date, time, price or ages only next to its name).
-  for (const x of e.evidence)
-    if (issueId(x.url) != null && !lineNamesEvent(x.quote, e.title))
+  // Or it's the day heading over the event's line (issueChecks checks
+  // it heads that line), next to a quote from the same issue that does.
+  for (const x of e.evidence) {
+    if (issueId(x.url) == null) continue;
+    if (!dayHead(x)) {
+      if (!lineNamesEvent(x.quote, e.title))
+        p.push(
+          `The quote from ${x.url} "${x.quote.slice(0, 60)}" must name the event ("${e.title}").`,
+        );
+    } else if (
+      !e.evidence.some(
+        (y) => y.url === x.url && lineNamesEvent(y.quote, e.title),
+      )
+    )
       p.push(
-        `The quote from ${x.url} "${x.quote.slice(0, 60)}" must name the event ("${e.title}").`,
+        `The day heading "${x.quote}" from ${x.url} proves a date only with the event's own line from the same issue (a quote that names "${e.title}").`,
       );
+  }
   // A newsletter page lists dozens of events: a date from it proves this
   // event's date only next to its name (a listing event page's JSON-LD or
   // its "Title When Saturday, Nov 28 · 4pm", an issue's day line through
@@ -944,6 +1008,7 @@ export function checkEvent(
     for (const x of e.evidence)
       if (
         onListing(x.url) &&
+        !dayHead(x) &&
         e.dates.some((d) => quotePrintsDate(x.quote, d.day)) &&
         !lineNamesEvent(x.quote, e.title)
       )
@@ -1134,9 +1199,11 @@ export function checkEvent(
     p.push("Give both lat and lng, or neither.");
 
   const first = [...e.dates].sort((a, b) => a.day.localeCompare(b.day))[0];
-  const mine = listing
-    ? e.evidence
-    : e.evidence.filter((x) => org(x.url) === site);
+  // A day heading is never a check target: tonight's check reads the
+  // event's own line.
+  const mine = (
+    listing ? e.evidence : e.evidence.filter((x) => org(x.url) === site)
+  ).filter((x) => !dayHead(x));
   const good = mine.filter(proves);
   const target = (day: string) =>
     good.find((x) => quotePrintsDate(x.quote, day)) ??
@@ -1456,6 +1523,20 @@ async function issueChecks(
     problems.push(`The quote "${x.quote.slice(0, 60)}" isn't in ${x.url}.`);
     return null;
   }
+  if (
+    isDayHeading(x.quote) &&
+    !headingHeadsLine(
+      issue.text,
+      x.quote,
+      e.evidence
+        .filter((y) => y.url === x.url && lineNamesEvent(y.quote, e.title))
+        .map((y) => y.quote),
+      e.title,
+    )
+  )
+    problems.push(
+      `"${x.quote}" isn't the day heading over "${e.title}" in ${x.url}: the event's quoted line must sit under it, with no other day heading between them.`,
+    );
   if (EXCLUSIVE.test(x.quote))
     problems.push(
       `${x.url} says "${e.title}" is for guests, owners or members only. Leave it out.`,
