@@ -16,7 +16,8 @@ import {
   sendMessage,
   tokenValid,
 } from "./graph";
-import { COPY } from "./model";
+import { dmLink } from "./links";
+import { COPY, dmText } from "./model";
 import { wantsLink, wantsPick } from "./dm-rules";
 import {
   dmsOn,
@@ -27,7 +28,7 @@ import {
 } from "./settings";
 
 /**
- * "Comment PARK and we'll DM you the link" and "Reply PICK" on the Story.
+ * "Comment PARK and we'll DM you every link" (Unpack only) and "Reply PICK" on the Story.
  *
  * Polled, not a webhook: comment and message webhooks need the app's
  * webhook subscription set up in Meta's dashboard (and Advanced Access
@@ -105,7 +106,13 @@ export async function runKeywordDms(
   let replies = 0;
 
   const posts = await db
-    .select({ id: socialPosts.id, mediaId: socialPosts.igMediaId })
+    .select({
+      id: socialPosts.id,
+      mediaId: socialPosts.igMediaId,
+      kind: socialPosts.kind,
+      slotDate: socialPosts.slotDate,
+      spec: socialPosts.spec,
+    })
     .from(socialPosts)
     .where(
       and(
@@ -136,7 +143,8 @@ export async function runKeywordDms(
         continue;
       }
       try {
-        const sent = await privateReply(c.id, COPY.dm, o);
+        // The comment's media is this post: the DM links to where it leads.
+        const sent = await privateReply(c.id, dmText(dmLink(p)), o);
         // Meta said yes; a missing message_id is kept as a note to look at.
         await settle(
           c.id,

@@ -54,6 +54,12 @@ export const EVENTS = {
    * issue | indoor}. Labels only, never which park or event.
    */
   scoopTap: "Scoop tap",
+  /**
+   * A tap on the link-in-bio grid or a post page (/social): {source:
+   * social_grid | social_post, to: park | issue | events | post | event |
+   * venue | newsletter}. Where it leads by type only, never which post.
+   */
+  socialTap: "Social tap",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

@@ -32,6 +32,8 @@ import {
   SPECIAL_GROUP_NAMES,
   type SpecialGroup,
   specialGroupOf,
+  inSpan,
+  weekView,
 } from "@/lib/events/programs";
 import { allEvents } from "@/lib/events/store";
 import { CATALOG } from "@/lib/news/catalog";
@@ -50,6 +52,8 @@ type Filters = {
   setting: "indoor" | "outdoor" | null;
   free: boolean;
   age: AgeKey | null;
+  /** ?week=<day>: seven days from that day (the Tuesday roundup's link). */
+  week: string | null;
 };
 
 function readFilters(sp: Search): Filters {
@@ -64,6 +68,7 @@ function readFilters(sp: Search): Filters {
     age: (AGE_BRACKETS.map((b) => b.key) as string[]).includes(age)
       ? (age as AgeKey)
       : null,
+    week: /^\d{4}-\d{2}-\d{2}$/.test(one("week")) ? one("week") : null,
   };
 }
 
@@ -74,6 +79,7 @@ function href(f: Filters): string {
   if (f.setting) q.set("setting", f.setting);
   if (f.free) q.set("free", "1");
   if (f.age) q.set("age", f.age);
+  if (f.week) q.set("week", f.week);
   const s = q.toString();
   return s ? `/events?${s}` : "/events";
 }
@@ -174,9 +180,13 @@ async function Listing({ searchParams }: Props) {
     (!g.age || matchesAge(r.data.ages?.tags ?? [], g.age));
   const everything = buildPrograms(rows, now);
   // Built once; a filter narrows each program's rows (its kind stays).
-  const programs = filtered(f)
+  const narrowed = filtered(f)
     ? narrowPrograms(everything, (r) => pass(r, f), today)
     : everything;
+  // ?week= (the Tuesday roundup's link): that week's days, from today on.
+  // A week that's over shows what's on now, and says so.
+  const wk = f.week ? weekView(f.week, today) : null;
+  const programs = wk && !wk.over ? inSpan(narrowed, wk.from, wk.to) : narrowed;
   const specials = programs.filter((p) => p.kind === "special");
   const regulars = programs.filter((p) => p.kind === "regular");
   const groups = (["today", "weekend", "later"] as SpecialGroup[])
@@ -248,6 +258,18 @@ async function Listing({ searchParams }: Props) {
       ) : null}
 
       <FilterBar f={f} towns={towns} />
+      {wk ? (
+        <p className="-mt-2 leading-snug" role="status">
+          {wk.over
+            ? `The week of ${monthDay(wk.start)} is over. Here's what's on now.`
+            : `From our roundup: ${monthDay(wk.start)} to ${monthDay(wk.to)}.`}{" "}
+          {wk.over ? null : (
+            <Link href={href({ ...f, week: null })} className="underline">
+              See every week
+            </Link>
+          )}
+        </p>
+      ) : null}
       {filtered(f) ? (
         <p className="-mt-2 leading-snug">
           {describe(f, rows)}: {specials.length} special{" "}
@@ -294,9 +316,11 @@ async function Listing({ searchParams }: Props) {
             <div className="doodle-box flex flex-col items-center gap-3 px-4 py-6 text-center">
               <Icon name="calendar" size={48} />
               <p className="font-hand text-2xl">
-                {filtered(f)
-                  ? "No special events for these filters yet."
-                  : "No special events in the next two months yet."}
+                {wk && !wk.over
+                  ? "No special events that week yet."
+                  : filtered(f)
+                    ? "No special events for these filters yet."
+                    : "No special events in the next two months yet."}
               </p>
               <Link
                 href="#regulars"

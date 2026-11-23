@@ -370,7 +370,7 @@ export function pickWeekEvents(
  */
 export function fitRoundup(
   events: WeekEvent[],
-  window: { label: string; caption: string },
+  window: { label: string; caption: string; firstDay: string },
   dms: boolean,
   max = CAPTION_MAX,
 ): { spec: PostSpec; events: WeekEvent[]; cut: string[] } | { skip: string } {

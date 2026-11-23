@@ -85,14 +85,24 @@ export const HASHTAGS = ["#BendOregon", "#CentralOregon", "#BendKids"] as const;
 export const MAX_HASHTAGS = 3;
 
 export const SITE = "https://parkroulette.quest";
-/** The link-in-bio page, with where the visit came from. */
+/**
+ * The link-in-bio page (the grid of our posts, with the signup on top),
+ * with where the visit came from. Instagram's bio still says /ig, which
+ * redirects here.
+ */
 export function bioLink(from: "ig" | "ig_dm" | "fb"): string {
-  return `${SITE}/ig?from=${from}`;
+  return `${SITE}/social?from=${from}`;
 }
 
 /** Fixed copy. Code writes every call to action; the model never does. */
 export const COPY = {
-  comment: "Comment PARK and we'll DM you the link.",
+  /**
+   * The Unpack carousel's keyword call to action (Instagram only, DMs on):
+   * the caption's, then the slide's shorter one.
+   */
+  comment:
+    "Comment PARK and we'll DM you every link. Follow us first so it reaches you.",
+  commentSlide: "Comment PARK and we'll DM you every link.",
   bio: "Link in bio.",
   thursday: "Every Thursday: the weekend forecast plus one great plan.",
   /**
@@ -110,8 +120,11 @@ export const COPY = {
   },
   /** The teaser's closing line (it goes out the morning the email does). */
   teaserClose: "The whole plan is in today's email. It's free.",
-  /** Facebook has no bio link: the caption's call to action, with the link. */
-  fbSignup: "Sign up free:",
+  /**
+   * Facebook has no bio link: the caption's call to action is the post's
+   * own destination (lib/social/links.ts), after this.
+   */
+  fbDetails: "Details and links:",
   free: "Free, from a Bend family.",
   swipe: "Swipe",
   readFree: "Read it free",
@@ -139,16 +152,30 @@ export const COPY = {
   /** Water ideas for kids under 6 (code adds it; the model never has to). */
   waterSafety: "Water play: stay within arm's reach.",
   /** The keyword DM (comments and Story replies): code-written, the same for everyone. */
-  dm: `Here's the link: ${bioLink("ig_dm")} Free park picks for Central Oregon kids every Thursday, and the Weekend Pick by text if you want it.`,
+  /** The keyword DM with no post to point at (a Story reply): the grid. */
+  dm: dmText(bioLink("ig_dm")),
 } as const;
 
 /**
- * The call to action under a feed post: the DM keyword, or the bio link.
- * Keyword DMs ship off (decision 13), so it's "Link in bio." until a
- * non-role test account has received a private reply.
+ * The call to action under a feed post. "Comment PARK" goes only on the
+ * Wednesday Unpack carousel, and only with keyword DMs on (James, Nov 23);
+ * every other post says "Link in bio." `slide`: the slide's shorter words.
  */
-export function ctaLine(dms: boolean): string {
-  return dms ? COPY.comment : COPY.bio;
+export function ctaLine(
+  dms: boolean,
+  kind: PostKind,
+  { slide = false }: { slide?: boolean } = {},
+): string {
+  if (!dms || kind !== "unpack") return COPY.bio;
+  return slide ? COPY.commentSlide : COPY.comment;
+}
+
+/**
+ * The keyword DM: one short, code-written message, the same for everyone,
+ * with the commented post's own destination (lib/social/links.ts dmLink).
+ */
+export function dmText(url: string): string {
+  return `Here are the links from that post: ${url}. New park picks every Thursday, free.`;
 }
 
 /** The Story's button: "Reply PICK" with DMs on, else "Link in bio". */
@@ -175,7 +202,7 @@ export function photoCredit(p: {
   return null;
 }
 
-/** /ig?from= to the signup source it records (anything else: the bio link). */
+/** /social?from= (and /ig?from=) to the signup source it records (anything else: the bio link). */
 const IG_SOURCES = { ig: "ig_bio", ig_dm: "ig_dm", fb: "fb" } as const;
 export function igSource(
   from: string | string[] | undefined,
@@ -476,6 +503,8 @@ export type SlideSpec =
       n: number;
       of: number;
       icon: ItemIcon;
+      /** The item's fact ID (venue:, event:<slug>@<day>, park:), for its links. */
+      ref?: string;
       name: string;
       what: string;
       /**

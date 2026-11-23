@@ -351,11 +351,12 @@ describe("validateAtHome", () => {
     expect(r.spec!.caption).toContain("1. Hand turkeys (ages 2 to 6)");
     expect(r.spec!.caption).toContain("You need paper and crayons.");
     expect(r.spec!.caption).toContain(COPY.captionClose.at_home);
-    // Facebook's call to action says free; the close doesn't say it again.
+    // Facebook: the close as written, then the post's own link (pending
+    // until the post is stored and has an id).
     expect(r.spec!.fbCaption).toContain(
-      "When you're ready to get out, our Thursday email has a plan.\nSign up free: https://parkroulette.quest/ig?from=fb",
+      "When you're ready to get out, our free Thursday email has a plan.\nDetails and links: https://parkroulette.quest/social?from=fb",
     );
-    expect(r.spec!.fbCaption!.match(/free/gi)).toHaveLength(1);
+    expect(r.spec!.fbCaption).not.toContain("Sign up free");
     expect(r.warnings.join(" ")).toMatch(/No intro/);
     expect(r.spec!.caption).toContain(COPY.save);
     expect(r.spec!.caption).toContain("Link in bio.");
@@ -431,7 +432,9 @@ describe("validateAtHome", () => {
 
   it("composeAtHome writes the Facebook caption with the live link", () => {
     const spec = composeAtHome(atHome(), false);
-    expect(spec.fbCaption).toContain("https://parkroulette.quest/ig?from=fb");
+    expect(spec.fbCaption).toContain(
+      "https://parkroulette.quest/social?from=fb",
+    );
     expect(spec.alts).toHaveLength(spec.slides.length);
   });
 });
@@ -737,6 +740,7 @@ describe("the roundup caption's own words", () => {
     const win = {
       label: "Tue, Nov 24 to Mon, Nov 30",
       caption: "Nov 24 to 30",
+      firstDay: "2026-11-24",
     };
     const full = await import("./compose").then((c) =>
       c.composeEventsWeek(eight, win, false),

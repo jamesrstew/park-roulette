@@ -683,8 +683,9 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(JSON.parse(sent[0].body.get("recipient")!)).toEqual({
       comment_id: "c1",
     });
-    expect(JSON.parse(sent[0].body.get("message")!).text).toContain(
-      "/ig?from=ig_dm",
+    // The DM links to the commented post's own destination (the park).
+    expect(JSON.parse(sent[0].body.get("message")!).text).toBe(
+      "Here are the links from that post: https://parkroulette.quest/parks/larkspur-park-bend?from=ig_dm. New park picks every Thursday, free.",
     );
     expect(
       await q(

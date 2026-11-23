@@ -24,7 +24,6 @@ import {
   tokenValid,
 } from "./graph";
 import {
-  bioLink,
   COPY,
   igSource,
   mondayOf,
@@ -55,6 +54,7 @@ import {
   voiceProblems,
 } from "./validate";
 import { listableParks } from "./candidates";
+import { PENDING_POST_LINK } from "./links";
 
 const BPRD = "Photo: Bend Park & Recreation District";
 
@@ -562,9 +562,11 @@ describe("the park post", () => {
     expect(r.spec!.headline).toBe(
       "This week we're featuring Larkspur Park, a Bend playground for all abilities.",
     );
+    // Facebook links straight to the park (James, Nov 23).
     expect(r.spec!.fbCaption).toContain(
-      "Sign up free: https://parkroulette.quest/ig?from=fb",
+      "Details and links: https://parkroulette.quest/parks/larkspur-park-bend?from=fb",
     );
+    expect(r.spec!.fbCaption).not.toContain(COPY.bio);
     expect(c).toContain(COPY.bio);
     expect(c).not.toContain("Comment PARK");
     expect(c).not.toContain("Photo:");
@@ -735,7 +737,8 @@ describe("the Unpack carousel", () => {
     expect(cap).toContain(COPY.captionClose.unpack);
     expect(withIntro.spec!.modelText).toContain("These are the warm ones.");
     expect(s.alts).toHaveLength(s.slides.length);
-    expect(s.fbCaption).toContain(bioLink("fb"));
+    // Unpack's own page needs its id: the pending link until it's stored.
+    expect(s.fbCaption).toContain(`Details and links: ${PENDING_POST_LINK}`);
     expect(s.fbCaption).not.toContain(COPY.bio);
   });
   it("refuses holiday evidence from another site, even an allowed one", async () => {
@@ -918,7 +921,9 @@ describe("Thursday's teaser and Friday's Story", () => {
     );
     expect(s.headline).toBe("This weekend: Larkspur Park");
     expect(s.slides.map((x) => x.t)).toEqual(["headline", "park", "cta"]);
-    expect(s.caption).toContain(COPY.comment);
+    // "Comment PARK" is the Unpack's alone, even with DMs on.
+    expect(s.caption).toContain(COPY.bio);
+    expect(s.caption).not.toContain("Comment PARK");
   });
   it("makes the Story: Saturday and Sunday, no caption, Link in bio while DMs are off", () => {
     const s = composeStory(issue, park(), false);
@@ -1274,8 +1279,8 @@ describe("keyword DMs", () => {
       ),
     ).toBe(false);
   });
-  it("the DM is code-written and links to /ig with its source", () => {
-    expect(COPY.dm).toContain("https://parkroulette.quest/ig?from=ig_dm");
+  it("the DM is code-written and links to /social with its source", () => {
+    expect(COPY.dm).toContain("https://parkroulette.quest/social?from=ig_dm");
   });
 });
 

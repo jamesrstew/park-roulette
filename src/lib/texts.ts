@@ -92,7 +92,7 @@ export const TEXT_SOURCES = [
   // An issue page reached from a Weekend Pick text, or a forward of one.
   "issue_text",
   "issue_page",
-  // /ig: Instagram's link in bio, its keyword DM, Facebook.
+  // /social (was /ig): Instagram's link in bio, its keyword DM, Facebook.
   "ig_bio",
   "ig_dm",
   "fb",

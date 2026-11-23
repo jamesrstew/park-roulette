@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
     "/social/**": ["./public/fonts/**"],
   },
   partialPrefetching: true,
+  images: {
+    // Only our published Instagram slides go through the optimizer (the
+    // /social grid's thumbnails), content-addressed, so cached for good.
+    localPatterns: [{ pathname: "/social/m/**", search: "" }],
+    minimumCacheTTL: 31536000,
+  },
   turbopack: {
     rules: {
       "*.css": {

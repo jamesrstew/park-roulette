@@ -6,9 +6,9 @@ import {
   itemFit,
 } from "@/components/social/fit";
 import { ideaText } from "./at-home";
+import { eventsWeekPath, fbLink, PENDING_POST_LINK } from "./links";
 import {
   type AtHomeDraft,
-  bioLink,
   COPY,
   ctaLine,
   HASHTAGS,
@@ -63,18 +63,20 @@ const sentence = (s: string) => {
   return /[.!?]$/.test(t) ? t : `${t}.`;
 };
 
-/** The Facebook caption: the same words, with the live link (no bio there). */
-function forFacebook(caption: string, ctaText: string): string {
-  let fb = caption.replace(ctaText, `${COPY.fbSignup} ${bioLink("fb")}`);
-  // "Sign up free:" says free; the closing line doesn't say it again.
-  for (const close of [...Object.values(COPY.captionClose), COPY.teaserClose])
-    fb = fb.replace(close, unfree(close));
-  return fb;
+/**
+ * The Facebook caption: the same words, with the post's own link in place
+ * of "Link in bio." (a Page has no bio link). `path` is where the post
+ * leads (lib/social/links.ts): the park, the issue, the week's events, or
+ * the pending link that storing the post turns into its own page.
+ */
+function forFacebook(
+  caption: string,
+  ctaText: string,
+  path: string | null,
+): string {
+  const link = path ? fbLink(path) : PENDING_POST_LINK;
+  return caption.replace(ctaText, `${COPY.fbDetails} ${link}`);
 }
-
-/** A closing line without its "free" (Facebook's call to action says it). */
-export const unfree = (close: string) =>
-  close.replace(/ It's free\.$/, "").replace(/\bour free /, "our ");
 
 /** A model fragment as a labeled line ("Bring: warm layers"): no end period. */
 const fragment = (s: string) => s.trim().replace(/[\s.;,]+$/u, "");
@@ -120,7 +122,7 @@ export function composeParkPost(
   photo: PhotoRef | null,
   dms: boolean,
 ): PostSpec {
-  const cta = ctaLine(dms);
+  const cta = ctaLine(dms, "park_post");
   const story = d.story.replace(/\s+/g, " ").trim();
   const caption = [
     // The story opens the caption: its first sentence names the park and
@@ -149,7 +151,7 @@ export function composeParkPost(
     slides: [slide],
     alts: [slideAlt(slide)],
     caption,
-    fbCaption: forFacebook(caption, cta),
+    fbCaption: forFacebook(caption, cta, `/parks/${park.slug}`),
     headline: sentencesOf(story)[0] ?? park.name,
     modelText: [story, d.who, d.bring].join("\n"),
     facts: { parks: [park.slug], events: [], venues: [], issue: null },
@@ -164,7 +166,7 @@ export function composeUnpack(
   facts: PostFacts,
   dms: boolean,
 ): PostSpec {
-  const cta = ctaLine(dms);
+  const cta = ctaLine(dms, "unpack");
   const headline = d.headline.trim();
   const slides: SlideSpec[] = [
     {
@@ -186,6 +188,7 @@ export function composeUnpack(
         n: i + 1,
         of: items.length,
         icon: it.icon,
+        ref: it.ref,
         ...base,
         // No room for the venue line: the venue goes back in as a chip.
         ...(it.place && !where.place && it.venueChip
@@ -196,7 +199,12 @@ export function composeUnpack(
           : {}),
       };
     }),
-    { t: "cta", line: COPY.thursday, cta, sub: COPY.free },
+    {
+      t: "cta",
+      line: COPY.thursday,
+      cta: ctaLine(dms, "unpack", { slide: true }),
+      sub: COPY.free,
+    },
   ];
   const intro = d.intro?.replace(/\s+/g, " ").trim();
   const caption = [
@@ -223,7 +231,7 @@ export function composeUnpack(
     slides,
     alts: slides.map(slideAlt),
     caption,
-    fbCaption: forFacebook(caption, cta),
+    fbCaption: forFacebook(caption, cta, null),
     headline,
     modelText: [
       headline,
@@ -251,7 +259,7 @@ export function ideaSafety(i: AtHomeDraft["ideas"][number]): string | null {
 }
 
 export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
-  const cta = ctaLine(dms);
+  const cta = ctaLine(dms, "at_home");
   const headline = d.headline.trim();
   const ideas = d.ideas.map((i) => ({
     ...i,
@@ -320,7 +328,7 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
     slides,
     alts: slides.map(slideAlt),
     caption,
-    fbCaption: forFacebook(caption, cta),
+    fbCaption: forFacebook(caption, cta, null),
     headline,
     modelText: [
       headline,
@@ -549,10 +557,10 @@ export function eventsByDay(events: WeekEvent[]): string[] {
 
 export function composeEventsWeek(
   events: WeekEvent[],
-  range: { label: string; caption: string },
+  range: { label: string; caption: string; firstDay: string },
   dms: boolean,
 ): PostSpec {
-  const cta = ctaLine(dms);
+  const cta = ctaLine(dms, "events_week");
   const headline = COPY.eventsHeadline;
   // One body and one title size for the whole carousel, so its slides
   // read as a set: the largest that fit every slide.
@@ -629,7 +637,7 @@ export function composeEventsWeek(
     slides,
     alts: slides.map(slideAlt),
     caption,
-    fbCaption: forFacebook(caption, cta),
+    fbCaption: forFacebook(caption, cta, eventsWeekPath(range.firstDay)),
     headline,
     modelText: "",
     facts: {
@@ -692,7 +700,7 @@ export function composeTeaser(
   park: ParkInfo,
   dms: boolean,
 ): PostSpec {
-  const cta = ctaLine(dms);
+  const cta = ctaLine(dms, "teaser");
   const word = weatherWord(weekendDay(issue)?.icon);
   const headline = word
     ? `This weekend: ${word} + ${park.name}`
@@ -741,7 +749,7 @@ export function composeTeaser(
     slides,
     alts: slides.map(slideAlt),
     caption,
-    fbCaption: forFacebook(caption, cta),
+    fbCaption: forFacebook(caption, cta, `/newsletter/${issue.issue_date}`),
     headline,
     modelText: headline,
     facts: {

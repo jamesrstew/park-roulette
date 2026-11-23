@@ -47,7 +47,7 @@ const SOURCES = [
   "next_pick",
   "rainy_spin",
   "weekend_spin",
-  // /ig: Instagram's link in bio, its keyword DM, Facebook.
+  // /social (was /ig): Instagram's link in bio, its keyword DM, Facebook.
   "ig_bio",
   "ig_dm",
   "fb",

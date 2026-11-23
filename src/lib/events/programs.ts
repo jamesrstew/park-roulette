@@ -500,3 +500,41 @@ export function nextLine(d: EventDate, today: string): string {
   const w = dayWord(d.day, today);
   return d.start ? `${w} · ${clock(d.start)}` : w;
 }
+
+// --- A week (/events?week=, the Tuesday roundup's link) ------------------------
+
+/**
+ * ?week=<day>: the seven days from that day (the Tuesday roundup's
+ * window, Tuesday to Monday), from today on. `over`: the whole week has
+ * passed, so the listing shows what's on now and says so. Not a real day,
+ * or more than 60 days out: no week (the param is ignored).
+ */
+export function weekView(
+  raw: string,
+  today: string,
+): { start: string; from: string; to: string; over: boolean } | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const [y, m, d] = raw.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1) return null;
+  if (raw > addDays(today, 60)) return null;
+  const to = addDays(raw, 6);
+  return {
+    start: raw,
+    from: raw > today ? raw : today,
+    to,
+    over: to < today,
+  };
+}
+
+/** Programs with a date in [from, to]. */
+export function inSpan(
+  programs: readonly Program[],
+  from: string,
+  to: string,
+): Program[] {
+  return programs.filter((p) => {
+    for (let d = from; d <= to; d = addDays(d, 1)) if (onDay(p, d)) return true;
+    return false;
+  });
+}

@@ -37,6 +37,8 @@ import {
   publishingQuota,
 } from "./graph";
 import { previewKey } from "./key";
+import { fbCaptionFor, withPostLink } from "./links";
+import { expireSocial } from "./public";
 import {
   COPY,
   CREATE_LEAD_MIN,
@@ -456,7 +458,10 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
     rules: {
       hashtags: HASHTAGS,
       icons: ITEM_ICONS,
-      cta: dmsOn() ? COPY.comment : COPY.bio,
+      // Code writes it per post: "Comment PARK" only on Unpack with DMs on.
+      cta: dmsOn()
+        ? `Unpack: ${COPY.comment} Every other post: ${COPY.bio}`
+        : COPY.bio,
       headline_words:
         "4 to 8 (the carousels). A number in the headline must equal the items left after cuts.",
       voice: `Warm, plain, specific: one parent to another. Short sentences (${SENTENCE_MAX_WORDS} words at most each), everyday words, a small scene, then the useful bits. One exclamation point at most per post. No cliches: must-see, will love it, magical, make memories, adventure awaits, nestled, boasts, amenities, don't miss, tag a friend, hidden gem, perfect for, something for everyone.`,
@@ -575,7 +580,7 @@ export async function handleDrafts(
 }
 
 /** Insert, or replace the queued post in the same slot. Null if the slot is taken. */
-async function upsertPost(p: {
+export async function upsertPost(p: {
   kind: PostKind;
   slotDate: string;
   publishAt: Date;
@@ -605,9 +610,16 @@ async function upsertPost(p: {
         .update(socialPosts)
         .set({ status: "replaced", updatedAt: sql`now()` })
         .where(eq(socialPosts.id, old.id));
+    // The id first, so the Facebook caption can carry the post's own page
+    // (Unpack, at home: lib/social/links.ts) from the moment it's stored.
+    const [{ id }] = await tx.execute<{ id: number }>(
+      sql`select nextval(pg_get_serial_sequence('social_posts', 'id'))::int as id`,
+    );
+    const spec = withPostLink(p.spec, id, p.slotDate);
     const [row] = await tx
       .insert(socialPosts)
       .values({
+        id,
         kind: p.kind,
         slotDate: p.slotDate,
         publishAt: p.publishAt,
@@ -615,9 +627,9 @@ async function upsertPost(p: {
         status: p.status ?? "queued",
         reason: p.reason ?? null,
         body: p.body,
-        spec: p.spec,
+        spec,
         media: p.media,
-        caption: p.spec.caption,
+        caption: spec.caption,
         report: p.report,
       })
       .returning({ id: socialPosts.id });
@@ -678,11 +690,15 @@ export async function downgradeToCrayon(
       media,
       caption: next.caption,
       reason: "Redrawn as the crayon card: a person was seen in the slide.",
+      // Kept for good (publishing clears `reason`): a downgraded post never
+      // shows on /social, even as its crayon card (lib/social/links.ts).
+      report: sql`coalesce(${socialPosts.report}, '{}'::jsonb) || jsonb_build_object('downgraded', ${(note ?? "person seen").slice(0, 200)}::text)`,
       updatedAt: sql`now()`,
     })
     .where(and(eq(socialPosts.id, id), eq(socialPosts.status, "queued")))
     .returning({ id: socialPosts.id });
   if (!done.length) return { ok: false, error: "It left the queue meanwhile." };
+  expireSocial();
   return { ok: true, previews: previewUrls(id, next.slides.length) };
 }
 
@@ -749,6 +765,8 @@ export async function savePhotoChecks(
     }
     saved++;
   }
+  // A new verdict can take a published post off /social.
+  if (saved) expireSocial();
   return { saved, refused };
 }
 
@@ -979,6 +997,8 @@ async function setPost(
     .update(socialPosts)
     .set({ ...patch, updatedAt: sql`now()` })
     .where(eq(socialPosts.id, id));
+  // A post went out (or didn't): the public grid and pages follow.
+  if (patch.status) expireSocial();
 }
 
 function tell(
@@ -1453,7 +1473,7 @@ async function crossPost(post: PostRow, notes: string[]) {
       page,
       {
         imageUrls: (post.media as MediaFile[]).map(mediaUrl),
-        caption: spec.fbCaption,
+        caption: fbCaptionFor(spec.fbCaption, { ...post, spec })!,
       },
       o,
     );
@@ -1594,7 +1614,7 @@ export async function redrawQueued(
     );
     photos = [];
   }
-  const spec = r.spec;
+  const spec = withPostLink(r.spec, id, post.slotDate);
   const slides = await R.renderPost(spec, photos);
   const report = { errors: r.errors, warnings: r.warnings, cut: r.cut };
   if (!apply)
