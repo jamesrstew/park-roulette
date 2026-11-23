@@ -250,12 +250,30 @@ export const CatalogSchema = z.object({
     .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
     .default([]),
   /**
-   * Ticket resellers and booking platforms: never an event's link, even
-   * when a newsletter links one. Use the organizer's own page.
+   * Never an event's link, even when a newsletter links one: link
+   * shorteners and click trackers (resolve them first), aggregators and
+   * news sites, Google Docs and Forms, and ticket sellers not on
+   * event_page_domains. Use the organizer's own page.
    */
   not_organizer_domains: z
     .array(z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/))
     .default([]),
+  /**
+   * For a small organizer, its page here is its official page: an
+   * Instagram or Facebook page or post ("social"), a booking or ticket
+   * platform ("tickets"), a chamber of commerce's event listing
+   * ("chamber"). An event's link only when the event stands on an issue
+   * in our inbox that links it next to the event's name
+   * (lib/events/validate.ts). Never fetched (they're walled or need a
+   * login): the issue carries the event. Shown as "Event page", or
+   * "Tickets", never "Official page".
+   */
+  event_page_domains: z
+    .record(
+      z.string().regex(/^[a-z0-9.-]+\.[a-z]{2,}$/),
+      z.enum(["social", "tickets", "chamber"]),
+    )
+    .default({}),
   /**
    * A host that is the same organization as an allowlisted site (the
    * library's calendar on dpl.libnet.info is deschuteslibrary.org): a link

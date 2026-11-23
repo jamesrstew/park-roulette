@@ -59,7 +59,7 @@ export async function GET() {
     "",
     "## Bend Playground Passport",
     "",
-    `- [Kids' events](${SITE_URL}/events): upcoming kid-friendly events in Bend, Redmond, Sisters and beyond, each linked to its official page, with indoor picks, age tags and playgrounds nearby.`,
+    `- [Kids' events](${SITE_URL}/events): upcoming kid-friendly events in Bend, Redmond, Sisters and beyond, each linked to its own page, with indoor picks, age tags and playgrounds nearby.`,
     `- [Bend Playground Passport](${SITE_URL}/newsletter): a free email every Thursday morning with the weekend forecast, one playground to try, an indoor backup and park closures. Past issues are on the page.`,
     `- [Weekend Pick](${SITE_URL}/texts): one playground for the weekend, texted on Fridays (US numbers).`,
     "",

@@ -153,12 +153,19 @@ export async function issueById(id: number): Promise<IssueSummary | null> {
   return r ? summary(r) : null;
 }
 
-/** What the events checker needs of an issue: its text and its day. */
+/**
+ * What the events checker needs of an issue: its text, its day, and its
+ * html (which link sits next to which event).
+ */
 export async function issueForEvidence(
   id: number,
-): Promise<{ text: string; day: string } | null> {
-  const i = await issueById(id);
-  return i ? { text: i.text, day: i.sent_day } : null;
+): Promise<{ text: string; day: string; html: string } | null> {
+  if (!Number.isSafeInteger(id) || id < 1) return null;
+  const [r] = await db
+    .select({ ...cols, html: newsletterIssues.html })
+    .from(newsletterIssues)
+    .where(and(eq(newsletterIssues.id, id), isIssue));
+  return r ? { text: r.text, day: pacific(r.sentAt).date, html: r.html } : null;
 }
 
 /** Delete issues (and Gmail confirmation rows) over 120 days old. */

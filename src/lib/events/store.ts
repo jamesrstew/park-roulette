@@ -45,6 +45,7 @@ import {
 } from "./state";
 import {
   eventDomains,
+  eventPageKind,
   HOST_GAP_MS,
   onMultiProgramPage,
   pagePool,
@@ -752,8 +753,18 @@ export async function recheckEvents(
               target!.url,
               listing ? [...domains, ...CATALOG.listing_domains] : domains,
             ),
+        // A small organizer's Instagram, Facebook, booking or chamber
+        // page is never read: it counts as a wall (never a miss), and
+        // the issue's quote decides (seen while the issue is stored).
         listing && target!.url !== organizerUrl
-          ? get(organizerUrl, [...domains, siteOf(organizerUrl, domains)])
+          ? eventPageKind(organizerUrl, CATALOG.event_page_domains)
+            ? Promise.resolve({
+                status: 403,
+                finalUrl: organizerUrl,
+                text: "",
+                blocked: "an event page we don't read",
+              })
+            : get(organizerUrl, [...domains, siteOf(organizerUrl, domains)])
           : Promise.resolve(undefined),
       ]);
       let outcome = listing

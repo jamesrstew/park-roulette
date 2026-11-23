@@ -911,13 +911,37 @@ export function icsFile(
   lines.push(
     `SUMMARY:${icsEscape(e.title)}`,
     `LOCATION:${icsEscape(where)}`,
-    `DESCRIPTION:${icsEscape(`${e.what}${hours} Plans change. Check the official page before you go: ${e.url}`)}`,
+    `DESCRIPTION:${icsEscape(`${e.what}${hours} Plans change. Check the ${eventLinkLabel(e.url).noun} before you go: ${e.url}`)}`,
     `URL:${url}`,
     ...(status === "canceled" ? ["STATUS:CANCELLED"] : []),
     "END:VEVENT",
     "END:VCALENDAR",
   );
   return `${lines.map(icsFold).join("\r\n")}\r\n`;
+}
+
+/**
+ * How an event's link is named in public: "Official page", or, for a
+ * small organizer's Instagram, Facebook or chamber page, "Event page",
+ * and "Tickets" for a booking or ticket platform (catalog
+ * event_page_domains). We never call those official.
+ */
+export function eventLinkLabel(url: string): {
+  label: "Official page" | "Event page" | "Tickets";
+  noun: "official page" | "event page" | "ticket page";
+} {
+  let h = "";
+  try {
+    h = new URL(url).hostname.toLowerCase();
+  } catch {
+    // not a link: the official page
+  }
+  const pages = CATALOG.event_page_domains;
+  const d = Object.keys(pages).find((x) => h === x || h.endsWith(`.${x}`));
+  if (!d) return { label: "Official page", noun: "official page" };
+  return pages[d] === "tickets"
+    ? { label: "Tickets", noun: "ticket page" }
+    : { label: "Event page", noun: "event page" };
 }
 
 /** Re-derive what code owns from the input (ages, point, check quote). */

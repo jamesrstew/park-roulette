@@ -117,6 +117,7 @@ describe.skipIf(!local)("newsletter_issues, against Postgres", () => {
     expect(await store.issueForEvidence(list[0].id)).toEqual({
       text: "Saturday 11/21 Holiday Swim 10:30am",
       day: "2026-11-21",
+      html: expect.any(String),
     });
   });
 

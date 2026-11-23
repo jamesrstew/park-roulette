@@ -34,6 +34,7 @@ import {
   type Fetcher,
   FREE_ADMISSION,
   normalizeText,
+  pageText,
   quoteHasPrice,
   siteOf,
   styleProblems,
@@ -61,6 +62,7 @@ export type EventsContext = {
         | "alias_paths"
         | "listing_domains"
         | "not_organizer_domains"
+        | "event_page_domains"
         | "evidence_domains"
         | "shared_calendar_pages"
       >
@@ -76,9 +78,12 @@ export type EventsContext = {
   /**
    * A stored newsletter issue (lib/inbox/store.ts), for "issue:<id>"
    * evidence: its text and the day it was sent (Pacific). Set with the
-   * fetcher; null when it isn't stored (never stored, or pruned).
+   * fetcher; null when it isn't stored (never stored, or pruned). Its
+   * html shows which link sits next to which event.
    */
-  issue?: (id: number) => Promise<{ text: string; day: string } | null>;
+  issue?: (
+    id: number,
+  ) => Promise<{ text: string; day: string; html?: string } | null>;
   now: Date;
 };
 
@@ -630,6 +635,71 @@ export function headingHeadsLine(
 }
 
 /**
+ * A small organizer's page on a social, ticket or chamber host
+ * (catalog event_page_domains): its kind, or null.
+ */
+export function eventPageKind(
+  url: string,
+  pages: Partial<Record<string, "social" | "tickets" | "chamber">> = {},
+): "social" | "tickets" | "chamber" | null {
+  const d = onList(url, Object.keys(pages));
+  return d ? (pages[d] ?? null) : null;
+}
+
+/** Two links to one page (www., a trailing slash and tracking aside). */
+function sameLink(a: string, b: string): boolean {
+  const k = (u: string) => {
+    try {
+      const x = new URL(cleanLink(u.replace(/&amp;/g, "&")));
+      x.hostname = x.hostname.toLowerCase().replace(/^www\./, "");
+      x.pathname = x.pathname.replace(/\/+$/, "");
+      return x.toString();
+    } catch {
+      return u;
+    }
+  };
+  return k(a) === k(b);
+}
+
+/**
+ * Does the issue link this page for this event? The first link after
+ * the event's name, where an event-naming quote sits in the issue, is
+ * the page ("Redmond Turkey Trot 8am • All ages • Register": the
+ * Register link), with no day heading between the name and the link.
+ * Positions come from the issue's html, read as its stored text is.
+ */
+export function issueLinksEvent(
+  html: string,
+  url: string,
+  lines: readonly string[],
+  title: string,
+): boolean {
+  const text = pageText(html);
+  const links = [...html.matchAll(/<a\b[^>]*?\bhref\s*=\s*(["'])(.*?)\1/gi)]
+    .map((m) => ({ at: pageText(html.slice(0, m.index)).length, href: m[2] }))
+    .filter((l) => /^https?:/i.test(l.href));
+  const heads = [...text.matchAll(new RegExp(DAY_HEADING, "gi"))].map(
+    (m) => m.index ?? 0,
+  );
+  for (const line of lines) {
+    const q = normalizeText(line);
+    if (!q) continue;
+    const name = titleSpots(q, title)[0]?.at ?? 0;
+    for (let i = text.indexOf(q); i >= 0; i = text.indexOf(q, i + 1)) {
+      const from = i + name;
+      const link = links.find((l) => l.at >= from);
+      if (
+        link &&
+        !heads.some((h) => h > from && h < link.at) &&
+        sameLink(link.href, url)
+      )
+        return true;
+    }
+  }
+  return false;
+}
+
+/**
  * The issue's date on a newsletter page: the first printed "Nov 19, 2026"
  * (an issue's byline), as YYYY-MM-DD. Null when it prints none.
  */
@@ -1038,9 +1108,25 @@ export function checkEvent(
     const r = onList(u, ctx.catalog.not_organizer_domains ?? []);
     if (r)
       p.push(
-        `${r} sells tickets or lists other people's events: link the organizer's own page.`,
+        `${r} is never an event's link (a link shortener, a form, an aggregator, a news site or a ticket reseller): link the organizer's own page.`,
       );
   }
+  // A small organizer's Instagram, Facebook, booking or chamber page:
+  // the link only for an event on an issue in our inbox that links it
+  // (networkChecks), and never as an organizer link.
+  if (eventPageKind(e.url, ctx.catalog.event_page_domains)) {
+    if (!listing || !e.evidence.some((x) => issueId(x.url) != null))
+      p.push(
+        `${host(e.url)} is an event's link only when the event stands on an issue in our inbox (verified_via "listing", evidence "issue:<id>") that links this page next to the event.`,
+      );
+  }
+  if (
+    e.organizer &&
+    eventPageKind(e.organizer.url, ctx.catalog.event_page_domains)
+  )
+    p.push(
+      `${host(e.organizer.url)} is never an organizer link. Leave the organizer out.`,
+    );
   const organizerLinks = new Set([
     e.url,
     ...(e.organizer ? [e.organizer.url] : []),
@@ -1572,21 +1658,55 @@ async function networkChecks(
   const listingHosts = ctx.catalog.listing_domains ?? [];
   const listing = e.verified_via === "listing";
   let blocked: EventVerdict["blocked"];
+  // A small organizer's Instagram, Facebook, booking or chamber page is
+  // never read (a login or a wall): the issue that links it carries the
+  // event.
+  const pageKind = eventPageKind(e.url, ctx.catalog.event_page_domains);
   // A listing event's link may be off the allowlist: fetch it within its
   // own registrable domain (a redirect elsewhere is refused, and cut).
-  const main = await get(
-    e.url,
-    listing ? [...domains, siteOf(e.url, domains)] : domains,
-  );
+  const main = pageKind
+    ? null
+    : await get(
+        e.url,
+        listing ? [...domains, siteOf(e.url, domains)] : domains,
+      );
   // Where it lands must be the organizer's too, never a reseller.
   const landed =
     main?.finalUrl &&
     onList(main.finalUrl, ctx.catalog.not_organizer_domains ?? []);
   if (landed)
     problems.push(
-      `${e.url} lands on ${landed}, which sells tickets or lists other people's events. Link the organizer's own page.`,
+      `${e.url} lands on ${landed}, which is never an event's link. Link the organizer's own page.`,
     );
-  if (listing) {
+  if (pageKind) {
+    const issues = [
+      ...new Set(
+        e.evidence.flatMap((x) => {
+          const id = issueId(x.url);
+          return id == null ? [] : [id];
+        }),
+      ),
+    ];
+    let linked = false;
+    for (const id of issues) {
+      const i = ctx.issue ? await ctx.issue(id) : null;
+      const lines = e.evidence
+        .filter(
+          (x) => issueId(x.url) === id && lineNamesEvent(x.quote, e.title),
+        )
+        .map((x) => x.quote);
+      if (i?.html && issueLinksEvent(i.html, e.url, lines, e.title))
+        linked = true;
+    }
+    if (!linked)
+      problems.push(
+        `No issue in the evidence links ${e.url} next to "${e.title}" (the first link after the event's name in its quoted line). Use the link the issue gives for this event.`,
+      );
+    else
+      warnings.push(
+        `Trusted the issue: ${host(e.url)} is ${pageKind === "tickets" ? "a ticket or booking page" : pageKind === "chamber" ? "a chamber of commerce listing" : "a social page"} we don't read. The nightly check watches the issue.`,
+      );
+  } else if (listing) {
     const why = organizerVerdict(main, {
       title: e.title,
       dates: e.dates,

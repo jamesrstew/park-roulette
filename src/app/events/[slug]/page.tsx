@@ -13,6 +13,7 @@ import {
   domainOf,
   eventDescription,
   eventJsonLd,
+  eventLinkLabel,
   eventTitle,
   groupBounds,
   groupOf,
@@ -172,9 +173,13 @@ async function Event({ params }: Props) {
     .slice(0, 3);
   const bounds = groupBounds(today);
 
+  // A small organizer's Instagram, Facebook, booking or chamber page is
+  // never read: say what we know, and never call it official.
+  const link = eventLinkLabel(e.url);
+  const official = link.noun === "official page";
   const signup =
     e.signup?.kind === "required"
-      ? "Required: sign up on the official page"
+      ? `Required: sign up on the ${link.noun}`
       : e.signup?.kind === "sellout"
         ? "Tickets sell out, so book ahead"
         : e.signup?.kind === "none"
@@ -185,7 +190,8 @@ async function Event({ params }: Props) {
     <>
       {row.status === "canceled" && !passed ? (
         <Note tone="yellow">
-          <b>Canceled</b>, says the official page
+          <b>Canceled</b>
+          {official ? ", says the official page" : ""}
           {row.stateChangedAt
             ? ` (${monthDay(pacific(row.stateChangedAt).date)})`
             : ""}
@@ -205,8 +211,9 @@ async function Event({ params }: Props) {
       ) : null}
       {unconfirmed && !passed ? (
         <Note>
-          We couldn&apos;t confirm this one on its official page anymore. Check
-          the source before you go.
+          We couldn&apos;t confirm this one
+          {official ? " on its official page" : ""} anymore. Check the source
+          before you go.
         </Note>
       ) : null}
       {passed && !series ? (
@@ -302,7 +309,7 @@ async function Event({ params }: Props) {
         ) : null}
         {row.lastSeenAt ? (
           <dd className="col-span-2 text-sm text-ink-soft">
-            Last seen on the official page{" "}
+            {official ? "Last seen on the official page" : "Last confirmed"}{" "}
             {monthDay(pacific(row.lastSeenAt).date)}.
           </dd>
         ) : null}
@@ -334,8 +341,12 @@ async function Event({ params }: Props) {
           ) : null}
         </div>
         <a href={e.url} className="flex min-h-11 items-center underline">
-          Official page: {e.organizer?.name ?? e.venue.name} ↗
-          <span className="sr-only"> (opens the official site)</span>
+          {link.label}: {e.organizer?.name ?? e.venue.name} ↗
+          <span className="sr-only">
+            {" "}
+            (opens the{" "}
+            {link.noun === "official page" ? "official site" : link.noun})
+          </span>
         </a>
         <p className="text-sm text-ink-soft">
           Plans change. Check it before you go.

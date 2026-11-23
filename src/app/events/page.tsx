@@ -126,7 +126,7 @@ export async function generateMetadata({
   return {
     title: { absolute: title },
     description:
-      "Upcoming kid-friendly events in Bend, Redmond, Sisters and beyond, each linked to its official page, with indoor picks and playgrounds nearby.",
+      "Upcoming kid-friendly events in Bend, Redmond, Sisters and beyond, each linked to its own page, with indoor picks and playgrounds nearby.",
     // Every filter canonicalizes to the listing (never also noindex).
     alternates: { canonical: "/events" },
   };

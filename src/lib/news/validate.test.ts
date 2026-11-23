@@ -39,6 +39,7 @@ const catalog: Catalog = {
   alias_paths: {},
   listing_domains: [],
   not_organizer_domains: [],
+  event_page_domains: {},
   evidence_domains: [],
   shared_calendar_pages: [],
   venue_aliases: [],
