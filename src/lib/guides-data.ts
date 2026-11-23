@@ -70,7 +70,11 @@ export async function guideUrlsForEvents(
     const rows = slugs.length
       ? (await allEvents()).filter((r) => want.has(r.slug)).map((r) => r.data)
       : [];
-    const hit = guidesForEvents([...known, ...rows]);
+    const hit = guidesForEvents(
+      [...known, ...rows],
+      new Date(),
+      CATALOG.venues,
+    );
     return hit.length
       ? [`${SITE_URL}/guides`, ...hit.map((g) => `${SITE_URL}${guidePath(g)}`)]
       : [];

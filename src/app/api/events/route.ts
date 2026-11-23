@@ -78,8 +78,9 @@ export async function POST(req: Request) {
   if (changed.length) {
     // The seasonal guides that list these (holiday, indoor) changed too.
     const slugs = new Set(changed.map((s) => s.slug));
+    // The hand-in's own data says which guides list them (no extra read).
     const guides = await guideUrlsForEvents(
-      [...slugs],
+      [],
       report.events
         .filter((v) => v.event && v.slug && slugs.has(v.slug))
         .map((v) => v.event!),

@@ -5,6 +5,7 @@ import type { ParkProfile, Trait } from "./park-profiles";
 import { inSeason } from "./park-profiles";
 import {
   type EventRow,
+  type StoredEvent,
   isFree,
   monthDay,
   pacificToday,
@@ -16,7 +17,7 @@ import {
   type Program,
   venueLine,
 } from "./events/programs";
-import { eventLastmod } from "./events/state";
+import { listingChangedAt } from "./events/state";
 import type { Venue } from "./news/catalog";
 import type { ParkSummary } from "./data";
 
@@ -164,6 +165,8 @@ export type GuideView = {
   /** 2 or 3 sentences. */
   intro: string;
   inSeason: boolean;
+  /** The month its season starts ("December"), from the same data as inSeason. */
+  startsIn: string;
   /** One honest line about the season ("Sledding season here is ..."). */
   seasonNote: string;
   /** "2026-11-21": the newest change in what the guide shows. */
@@ -315,6 +318,10 @@ const WORDS = [
 ];
 export const count = (n: number) => (n < 10 ? WORDS[n] : String(n));
 
+/** "1 place", "16 places". */
+const plural = (n: number, one: string, many = `${one}s`) =>
+  `${n} ${n === 1 ? one : many}`;
+
 /** A day from a time, in Central Oregon. */
 const dayOfDate = (d: Date) => pacificToday(d);
 
@@ -327,7 +334,9 @@ export function sleddingGuide(input: GuideInput): GuideView {
   const hills = input.parks
     .map((p) => ({
       p,
-      t: traitsOf(input.profiles, p.slug).find((t) => t.kind === "sledding"),
+      t: traitsOf(input.profiles, p.slug).find(
+        (t) => t.kind === "sledding" && t.source === "official",
+      ),
     }))
     .filter((x): x is { p: GuidePark; t: Trait } => !!x.t)
     .sort((a, b) => nearBendFirst(a.p, b.p));
@@ -408,6 +417,7 @@ export function sleddingGuide(input: GuideInput): GuideView {
       : "Park sledding hills near Bend, Oregon, for kids.",
     intro,
     inSeason: on,
+    startsIn: span.split(" to ")[0],
     seasonNote: on
       ? `It's sledding season (${span}). Hills need snow, so check the forecast.`
       : `Sledding season here runs ${span}, when there's snow.`,
@@ -442,7 +452,14 @@ export function sleddingGuide(input: GuideInput): GuideView {
 
 /** Words that make an event a winter-holiday one (title or description). */
 export const HOLIDAY =
-  /\b(christmas|xmas|holidays?|santa'?s?|nutcracker|train man|polar express|tree lighting|carol(s|ing)?|reindeer|gingerbread|ornaments?|hanukkah|chanukah|kwanzaa|new year'?s?( eve)?|winter ?fest(ival)?|solstice|light show|holiday lights|symphony of lights|elf|grinch|menorah)\b/i;
+  /\b(christmas|xmas|santa'?s?|nutcracker|train man|polar express|tree lighting|carol(s|ing)?|reindeer|gingerbread|ornaments?|hanukkah|chanukah|kwanzaa|new year'?s?( eve)?|winter ?fest(ival)?|solstice|light show|symphony of lights|elf|grinch|menorah|holiday (lights|market|bazaar|party|parties|crafts?|cards?|gifts?|concert|show|tea|sing-?along|movie|story ?time|cookies?|ornaments?))\b/i;
+
+/** Not the winter holidays (a "holiday" camp on Veterans Day or Thanksgiving). */
+const NOT_HOLIDAY = /\b(thanksgiving|veterans?'? day|veterans)\b/i;
+
+/** Is this text a winter-holiday event? */
+export const isHolidayText = (text: string) =>
+  HOLIDAY.test(text) && !NOT_HOLIDAY.test(text);
 
 /**
  * The holiday season a day belongs to: November 1 to January 1. New
@@ -462,8 +479,22 @@ export function holidaySeason(today: string): {
   return { year, from, to, inSeason: today >= from && today <= to };
 }
 
-const isHoliday = (r: EventRow) =>
-  HOLIDAY.test(`${r.data.title} ${r.data.what}`);
+const isHoliday = (r: { title: string; what: string }) =>
+  isHolidayText(`${r.title} ${r.what}`);
+
+/** Any of its dates (past ones too) inside a day range. */
+const datesIn = (e: Pick<StoredEvent, "dates">, from: string, to: string) =>
+  e.dates.some((d) => d.day <= to && (d.end_day ?? d.day) >= from);
+
+/**
+ * The guide's events for "Updated": every row it could ever list in this
+ * window, past ones too, so the date only moves forward (an event that
+ * passes or drops off counts as a change, as on /events).
+ */
+function changedDay(rows: readonly EventRow[], now: Date): string {
+  const t = listingChangedAt([...rows], now);
+  return t ? dayOfDate(t) : "";
+}
 
 /** A program's dates inside the season (any branch). */
 const inWindow = (p: Program, from: string, to: string) =>
@@ -477,7 +508,7 @@ export function holidayGuide(input: GuideInput): GuideView {
   const season = holidaySeason(today);
   const programs = narrowPrograms(
     buildPrograms(input.events, input.now),
-    isHoliday,
+    (r) => isHoliday(r.data),
     today,
   ).filter((p) => inWindow(p, season.from, season.to));
   // Specials first (big days out), then holiday regulars (weekly crafts).
@@ -496,15 +527,17 @@ export function holidayGuide(input: GuideInput): GuideView {
   );
   const when = (p: Program) =>
     `${p.title} (${monthDay(p.lead.next.day < today ? today : p.lead.next.day)}, ${venueLine(p.lead.nextRow)})`;
-  const updated = rows.reduce(
-    (a, r) => later(a, dayOfDate(eventLastmod(r, input.now))),
-    "",
+  const updated = changedDay(
+    input.events.filter(
+      (r) => isHoliday(r.data) && datesIn(r.data, season.from, season.to),
+    ),
+    input.now,
   );
   const y = season.year;
 
   const intro = n
     ? [
-        `${count(n)} kids' holiday ${n === 1 ? "event is" : "events are"} on our calendar for ${y} so far, in ${listWords(towns)}.`,
+        `Our calendar has ${plural(n, "kids' holiday event")} for ${y} so far, in ${listWords(towns)}.`,
         specials.length
           ? `${regulars.length ? "Special events come first, in date order" : "They're in date order"}, starting with ${specials[0].title} on ${shortDate(specials[0].day)}.`
           : "",
@@ -520,7 +553,10 @@ export function holidayGuide(input: GuideInput): GuideView {
   if (n)
     faq.push({
       q: `What holiday events are there for kids in Central Oregon in ${y}?`,
-      a: `${n} so far, including ${(specials.length ? specials : regulars)
+      a: `There ${n === 1 ? "is 1" : `are ${n}`} so far, including ${(specials.length
+        ? specials
+        : regulars
+      )
         .slice(0, 3)
         .map(when)
         .join("; ")}.`,
@@ -577,6 +613,7 @@ export function holidayGuide(input: GuideInput): GuideView {
       : `Kids' Christmas and holiday events in Bend, Redmond and Central Oregon for ${y}, as organizers post them.`,
     intro,
     inSeason: season.inSeason,
+    startsIn: "November",
     seasonNote: season.inSeason
       ? `This is the ${y} season: November 1 to New Year's Day. Plans change, so check each event's page before you go.`
       : `The ${y} holiday season runs November 1 to New Year's Day. This page fills in as events are posted.`,
@@ -685,7 +722,7 @@ export function indoorGuide(input: GuideInput): GuideView {
     today,
   );
   // Events in Bend and the towns the nearby venues are in.
-  const near = new Set(venues.map((v) => v.town.toLowerCase()));
+  const near = indoorTowns(input.venues, month);
   const thisWeek = narrowPrograms(
     indoorPrograms,
     (r) => near.has(r.data.venue.town.trim().toLowerCase()),
@@ -708,15 +745,24 @@ export function indoorGuide(input: GuideInput): GuideView {
     : free.every((v) => v.kind === "library")
       ? `The ${free.length === 1 ? "library is" : `${count(free.length).toLowerCase()} libraries are`} free.`
       : `${short(free, 6)} ${free.length === 1 ? "is" : "are"} free.`;
-  const rows = shown.flatMap((p) => p.branches.flatMap((b) => b.rows));
+  // Indoor events in the area with a date up to the week's end (past
+  // ones too): the set only grows, so "Updated" only moves forward.
   const updated = [
     ...venues.map((v) => v.verified_on ?? ""),
-    ...rows.map((r) => dayOfDate(eventLastmod(r, input.now))),
+    changedDay(
+      input.events.filter(
+        (r) =>
+          r.data.setting === "indoor" &&
+          near.has(r.data.venue.town.trim().toLowerCase()) &&
+          r.data.dates.some((d) => d.day <= end),
+      ),
+      input.now,
+    ),
   ].reduce(later, "");
 
   const intro = all.length
     ? [
-        `${count(all.length)} indoor places in and near Bend for a snowy day, closest first: ${short(venues, 3)}.`,
+        `Here ${all.length === 1 ? "is" : "are"} ${plural(all.length, "indoor place")} in and near Bend for a snowy day, closest first: ${short(venues, 3)}.`,
         thisWeek.length
           ? `There ${thisWeek.length === 1 ? "is" : "are"} also ${thisWeek.length} indoor kids' ${thisWeek.length === 1 ? "event" : "events"} in the next week.`
           : "",
@@ -770,12 +816,13 @@ export function indoorGuide(input: GuideInput): GuideView {
   return {
     def,
     h1: { lead: "Indoor play in", accent: "Bend", trail: " when it's snowy" },
-    title: `Indoor play in Bend when it's snowy: ${all.length} places for kids`,
+    title: `Indoor play in Bend when it's snowy: ${plural(all.length, "place")} for kids`,
     description: all.length
-      ? `${all.length} indoor places for kids in and near Bend, Oregon, for snow days: ${names(all, 3)}. Plus indoor kids' events this week.`
+      ? `${plural(all.length, "indoor place")} for kids in and near Bend, Oregon, for snow days: ${names(all, 3)}. Plus indoor kids' events this week.`
       : "Indoor places and events for kids in Bend, Oregon, for snow days.",
     intro,
     inSeason: snowMonth,
+    startsIn: monthSpan(def.months).split(" to ")[0],
     seasonNote: snowMonth
       ? "Good for snowy or very cold days. Hours and prices change, so check each place's own site before you go."
       : "This list is for snow days, but the same places work on smoky or very hot days. Check each place's own site before you go.",
@@ -895,12 +942,20 @@ export function splashGuide(input: GuideInput): GuideView {
     "",
   );
 
+  const elsewhere = [
+    ...new Set(items.filter((x) => !isBend(x.city)).map((x) => x.city)),
+  ];
+  const start = span.split(" to ")[0];
   const intro = items.length
     ? [
-        `${count(items.length)} parks in and around Bend have a splash pad, closest first.`,
-        inBend.length
-          ? `${listWords(inBend.map((x) => x.name))} ${inBend.length === 1 ? "is" : "are"} in Bend; the rest are in ${listWords([...new Set(items.filter((x) => !isBend(x.city)).map((x) => x.city))])}.`
-          : "",
+        items.length === 1
+          ? "One park in and around Bend has a splash pad."
+          : `${count(items.length)} parks in and around Bend have a splash pad, closest first.`,
+        inBend.length && inBend.length < items.length
+          ? `${listWords(inBend.map((x) => x.name))} ${inBend.length === 1 ? "is" : "are"} in Bend; the rest are in ${listWords(elsewhere)}.`
+          : inBend.length
+            ? `${inBend.length === 1 ? "It's" : "They're all"} in Bend.`
+            : `${items.length === 1 ? "It's" : "They're"} in ${listWords(elsewhere)}.`,
       ]
         .filter(Boolean)
         .join(" ")
@@ -943,15 +998,16 @@ export function splashGuide(input: GuideInput): GuideView {
             label: "Water play now: the indoor pools",
           },
         }),
-    title: `Splash pads near Bend: ${items.length} parks and when they run`,
+    title: `Splash pads near Bend: ${plural(items.length, "park")} and when they run`,
     description: items.length
-      ? `${items.length} splash pads in and around Bend, Oregon: ${names(items, 3)}. When they run (${span}) and what else each park has.`
+      ? `${plural(items.length, "splash pad")} in and around Bend, Oregon: ${names(items, 3)}. When they run (${span}) and what else each park has.`
       : "Splash pads in and around Bend, Oregon.",
     intro,
     inSeason: on,
+    startsIn: start,
     seasonNote: on
       ? `Splash season. ${seasonLine} Check the park page before you pack towels.`
-      : `Splash pads are off for the winter. ${seasonLine} Check the park page before you go.`,
+      : `Splash pads are off until ${start}. ${seasonLine} Check the park page before you go.`,
     updated,
     sections: [{ kind: "parks", title: "Splash pads", id: "pads", items }],
     faq: faq.slice(0, 5),
@@ -1040,18 +1096,54 @@ export function guideJsonLd(v: GuideView, site: string): object[] {
   ];
 }
 
+/** Bend and the towns of the indoor guide's nearby venues this month. */
+export function indoorTowns(
+  venues: readonly GuideVenue[],
+  month: number,
+): Set<string> {
+  return new Set(
+    venues
+      .filter(
+        (v) =>
+          v.verified &&
+          v.enclosure === "indoor" &&
+          v.weather.includes("snow") &&
+          v.months.includes(month) &&
+          (isBend(v.town) ||
+            v.drive_minutes_from_downtown <= INDOOR_NEARBY_MINUTES),
+      )
+      .map((v) => v.town.trim().toLowerCase())
+      .concat("bend"),
+  );
+}
+
 /**
- * Guides an event change touches (for IndexNow): holiday events, and any
- * indoor one (the indoor guide lists this week's).
+ * Guides an event change touches (for IndexNow): a holiday event with a
+ * date in this holiday season, or an indoor event in the indoor guide's
+ * area with a date in its week.
  */
 export function guidesForEvents(
-  events: readonly { title: string; what: string; setting?: string }[],
+  events: readonly Pick<
+    StoredEvent,
+    "title" | "what" | "setting" | "dates" | "venue"
+  >[],
+  now: Date,
+  venues: readonly GuideVenue[],
 ): GuideSlug[] {
+  const today = pacificToday(now);
+  const season = holidaySeason(today);
+  const towns = indoorTowns(venues, monthOf(today));
+  const end = addDays(today, INDOOR_EVENT_DAYS - 1);
   const out = new Set<GuideSlug>();
   for (const e of events) {
-    if (HOLIDAY.test(`${e.title} ${e.what}`))
+    if (isHoliday(e) && datesIn(e, season.from, season.to))
       out.add("holiday-events-central-oregon");
-    if (e.setting === "indoor") out.add("indoor-play-bend");
+    if (
+      e.setting === "indoor" &&
+      towns.has(e.venue.town.trim().toLowerCase()) &&
+      datesIn(e, today, end)
+    )
+      out.add("indoor-play-bend");
   }
   return [...out];
 }

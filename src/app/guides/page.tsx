@@ -8,12 +8,7 @@ import { CrayonLoading } from "@/components/Loading";
 import { PageTitle } from "@/components/PageTitle";
 import { SpinCta } from "@/components/seo/Guide";
 import { JsonLd } from "@/components/seo/JsonLd";
-import {
-  guidePath,
-  guidesInOrder,
-  type GuideSlug,
-  monthSpan,
-} from "@/lib/guides";
+import { guidePath, guidesInOrder, type GuideSlug } from "@/lib/guides";
 import { allGuides } from "@/lib/guides-data";
 import { SITE_URL } from "@/lib/site";
 
@@ -115,10 +110,7 @@ async function List() {
                     {v.inSeason ? (
                       <Chip tint="free">In season</Chip>
                     ) : (
-                      <Chip>
-                        Season starts in{" "}
-                        {monthSpan(v.def.months).split(" to ")[0]}
-                      </Chip>
+                      <Chip>Season starts in {v.startsIn}</Chip>
                     )}
                     <Chip>
                       {v.count} {v.count === 1 ? one : many}

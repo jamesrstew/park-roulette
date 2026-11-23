@@ -10,10 +10,12 @@ import {
   holidayGuide,
   holidaySeason,
   indoorGuide,
+  isHolidayText,
   monthSpan,
   sleddingGuide,
   splashGuide,
 } from "./guides";
+import { COMPETITOR_NAMES } from "./events/validate";
 import { CATALOG } from "./news/catalog";
 import type { ParkProfile, Trait } from "./park-profiles";
 
@@ -280,7 +282,7 @@ describe("splash pad guide", () => {
   it("off season says when they run, from the data", () => {
     const v = splashGuide(input(NOV));
     expect(v.inSeason).toBe(false);
-    expect(v.seasonNote).toContain("off for the winter");
+    expect(v.seasonNote).toContain("off until May");
     expect(v.seasonNote).toContain("May to September");
     expect(v.count).toBe(3);
     expect(v.faq.find((x) => /open/.test(x.q))?.a).toContain(
@@ -383,23 +385,180 @@ describe("JSON-LD", () => {
   it("never names another newsletter", () => {
     for (const g of GUIDES) {
       const v = buildGuide(g.slug, input(NOV))!;
-      expect(JSON.stringify(v)).not.toMatch(/bend buzz|family loop/i);
+      expect(JSON.stringify(v)).not.toMatch(COMPETITOR_NAMES);
     }
   });
 });
 
 describe("guidesForEvents", () => {
-  it("pings the holiday guide for holiday events and the indoor guide for indoor ones", () => {
+  const ev = (
+    title: string,
+    setting: "indoor" | "outdoor",
+    day: string,
+    town = "Bend",
+  ) => ({
+    title,
+    what: "Something fun for kids to do.",
+    setting,
+    dates: [{ day }],
+    venue: { name: "Somewhere", town },
+  });
+  it("pings the holiday guide for this season's holiday events", () => {
     expect(
-      guidesForEvents([
-        { title: "Pictures with Santa", what: "x", setting: "outdoor" },
-      ]),
+      guidesForEvents(
+        [ev("Pictures with Santa", "outdoor", "2026-12-16")],
+        NOV,
+        CATALOG.venues,
+      ),
     ).toEqual(["holiday-events-central-oregon"]);
+    // Last season's, or one in July: no.
     expect(
-      guidesForEvents([{ title: "Lego Club", what: "x", setting: "indoor" }]),
-    ).toEqual(["indoor-play-bend"]);
-    expect(
-      guidesForEvents([{ title: "Lego Club", what: "x", setting: "outdoor" }]),
+      guidesForEvents(
+        [ev("Pictures with Santa", "outdoor", "2027-07-01")],
+        NOV,
+        CATALOG.venues,
+      ),
     ).toEqual([]);
+  });
+  it("pings the indoor guide only for indoor events in its week and area", () => {
+    expect(
+      guidesForEvents(
+        [ev("Lego Club", "indoor", "2026-11-25")],
+        NOV,
+        CATALOG.venues,
+      ),
+    ).toEqual(["indoor-play-bend"]);
+    // Outdoors, three weeks out, or in Madras: no.
+    for (const e of [
+      ev("Lego Club", "outdoor", "2026-11-25"),
+      ev("Lego Club", "indoor", "2026-12-14"),
+      ev("Madras Swim", "indoor", "2026-11-25", "Madras"),
+    ])
+      expect(guidesForEvents([e], NOV, CATALOG.venues)).toEqual([]);
+  });
+});
+
+describe("holiday words", () => {
+  it("keeps winter holidays and drops school-break camps and other holidays", () => {
+    for (const t of [
+      "Pictures with Santa",
+      "Kids' Entrepreneur Holiday Market",
+      "Holiday craft workshop",
+      "Hanukkah story time",
+      "Community Christmas Tree Lighting",
+    ])
+      expect(isHolidayText(t), t).toBe(true);
+    for (const t of [
+      "Holiday Break Camp",
+      "No School Holiday Camp",
+      "Thanksgiving Holiday Market",
+      "Veterans Day holiday camp",
+      "Lego Club",
+    ])
+      expect(isHolidayText(t), t).toBe(false);
+  });
+});
+
+describe("Updated only moves forward", () => {
+  it("the holiday guide's date never goes back when an event passes", () => {
+    const rows = [
+      event("one_off", {
+        title: "Pictures with Santa",
+        dates: [{ day: "2026-11-24", start: "10:00", end: "11:00" }],
+      }),
+      event("annual", {
+        title: "Community Christmas Tree Lighting",
+        dates: [{ day: "2026-12-05", start: "17:00" }],
+      }),
+    ];
+    rows[0].factsChangedAt = new Date("2026-11-22T18:00:00Z");
+    rows[1].factsChangedAt = new Date("2026-11-10T18:00:00Z");
+    const days = [
+      "2026-11-23T16:00:00Z",
+      "2026-11-24T22:00:00Z", // Santa just passed
+      "2026-11-30T16:00:00Z",
+      "2026-12-20T16:00:00Z", // both passed
+    ].map((t) => holidayGuide(input(new Date(t), { events: rows })).updated);
+    for (let i = 1; i < days.length; i++)
+      expect(days[i] >= days[i - 1], days.join(" ")).toBe(true);
+    expect(days[1]).toBe("2026-11-24");
+  });
+
+  it("the indoor guide's date never goes back as the week moves on", () => {
+    const rows = [
+      event("one_off", {
+        title: "Lego Club",
+        dates: [{ day: "2026-11-25", start: "15:00", end: "16:00" }],
+      }),
+    ];
+    rows[0].factsChangedAt = new Date("2026-11-22T18:00:00Z");
+    const a = indoorGuide(input(NOV, { events: rows })).updated;
+    const b = indoorGuide(
+      input(new Date("2026-11-27T16:00:00Z"), { events: rows }),
+    ).updated;
+    expect(b >= a).toBe(true);
+    expect(b).toBe("2026-11-25");
+  });
+});
+
+describe("splash pad copy", () => {
+  it("never says 'the rest are in' with nothing after it", () => {
+    const bendOnly = PARKS.filter((p) => p.city === "Bend");
+    const v = splashGuide(input(NOV, { parks: bendOnly }));
+    expect(v.count).toBe(1);
+    expect(v.intro).not.toMatch(/the rest are in/);
+    expect(v.intro).toMatch(/^One park/);
+    expect(v.title).toContain("1 park ");
+    expect(v.seasonNote).toMatch(/off until May/);
+  });
+
+  it("names the other towns when some are outside Bend", () => {
+    const v = splashGuide(input(NOV));
+    expect(v.intro).toContain("the rest are in Redmond and Madras");
+  });
+});
+
+describe("sledding traits", () => {
+  it("lists only sledding hills from an official page", () => {
+    const profiles = new Map(PROFILES);
+    profiles.set(
+      "juniper",
+      profile([
+        trait({
+          text: "A sledding hill families like",
+          kind: "sledding",
+          source: "google_places",
+          evidence: [],
+        }),
+      ]),
+    );
+    const v = sleddingGuide(input(JAN, { profiles }));
+    const hills = v.sections[0];
+    expect(
+      hills.kind === "parks" && hills.items.map((x) => x.slug),
+    ).not.toContain("juniper");
+  });
+});
+
+describe("counts in copy", () => {
+  it("FAQ answers never start with a numeral, and one is singular", () => {
+    for (const g of GUIDES) {
+      const v = buildGuide(g.slug, input(NOV))!;
+      for (const x of v.faq) expect(x.a, x.q).not.toMatch(/^\d/);
+    }
+    const one = indoorGuide(
+      input(NOV, {
+        venues: CATALOG.venues.filter(
+          (v) => v.id === "venue-high-desert-museum",
+        ),
+      }),
+    );
+    expect(one.title).toContain("1 place for kids");
+    expect(one.intro).toMatch(/^Here is 1 indoor place /);
+  });
+
+  it("the index chip's season start comes from the page's own season data", () => {
+    expect(sleddingGuide(input(JULY)).startsIn).toBe("December");
+    expect(splashGuide(input(NOV)).startsIn).toBe("May");
   });
 });
