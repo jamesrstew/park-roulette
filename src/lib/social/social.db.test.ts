@@ -102,12 +102,19 @@ const storyContainers = new Set<string>();
 /** Runs when a container's status is read (another worker, mid-run). */
 let onStatus: ((id: string) => Promise<void>) | null = null;
 let quota = 1;
+/** Meta's publishing limit can't be read. */
+let quotaFails = false;
 let comments: { id: string; text: string; from: { id: string } }[] = [];
 const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
   const url = new URL(String(u));
   const path = url.pathname.replace(/^\/v\d+\.\d+\//, "");
   const body = new URLSearchParams(String(init?.body ?? ""));
   calls.push({ method: init?.method ?? "GET", path, body });
+  if (path.endsWith("/content_publishing_limit") && quotaFails)
+    return Response.json(
+      { error: { message: "oops", code: 1 } },
+      { status: 500 },
+    );
   if (path.endsWith("/content_publishing_limit"))
     return Response.json({ data: [{ quota_usage: quota }] });
   if (path.endsWith("/media_publish")) {
@@ -208,6 +215,11 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     process.env.IG_USER_ID = "17841400000000";
     process.env.CRON_SECRET = "test-cron-secret-123456789";
     store = await import("./store");
+    // Waiting on Meta's containers: milliseconds here, not seconds.
+    Object.assign((await import("./echo")).ECHO_POLL, {
+      everyMs: 1,
+      maxMs: 20,
+    });
     settings = await import("./settings");
     dm = await import("./dm");
     const { db } = await import("@/db");
@@ -232,6 +244,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     storyContainers.clear();
     onStatus = null;
     quota = 1;
+    quotaFails = false;
     comments = [];
     delete process.env.SOCIAL_PUBLISH;
     delete process.env.SOCIAL_KEYWORD_DMS;
@@ -1657,6 +1670,136 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       "skipped",
     ]);
     expect(echoAlerts()).toHaveLength(1);
+  });
+
+  it("echo: frames Meta is still processing are waited on, so a carousel goes out in one run", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(3);
+    // Each Story container reads IN_PROGRESS twice before it's FINISHED.
+    const reads = new Map<string, number>();
+    onStatus = async (c) => {
+      const n = (reads.get(c) ?? 0) + 1;
+      reads.set(c, n);
+      storyState = n <= 2 ? "IN_PROGRESS" : null;
+    };
+    await store.runSocial(MON_1230, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(row.echo_frames.map((f) => f.status)).toEqual(
+      Array(3).fill("published"),
+    );
+    expect(storyCreates()).toHaveLength(3);
+    for (const f of row.echo_frames) {
+      expect(reads.get(String(f.containerId))).toBeGreaterThanOrEqual(3);
+      expect(publishesOf(f.containerId)).toHaveLength(1);
+    }
+  });
+
+  it("echo: the kill switch or SOCIAL_PUBLISH=off flipped mid-run stops the next frame", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(3);
+    // While Meta finishes the second frame, James turns the switch off.
+    let containers = 0;
+    onStatus = async (c) => {
+      if (storyContainers.has(c) && ++containers === 2)
+        await settings.setSocialSettings({ enabled: false });
+    };
+    await store.runSocial(MON_1230, { fetchImpl });
+    let row = await echoRow(id);
+    expect(row.echo_status).toBe("creating");
+    expect(row.echo_frames.map((f) => f.status)).toEqual([
+      "published",
+      "pending",
+      "pending",
+    ]);
+    expect(publishesOf(row.echo_frames[1].containerId)).toHaveLength(0);
+    onStatus = null;
+    // Back on, then SOCIAL_PUBLISH=off before the third frame is made.
+    await settings.setSocialSettings({ enabled: true });
+    onStatus = async (c) => {
+      if (c === row.echo_frames[1].containerId)
+        process.env.SOCIAL_PUBLISH = "off";
+    };
+    try {
+      await store.runSocial(MON_1245, { fetchImpl });
+    } finally {
+      delete process.env.SOCIAL_PUBLISH;
+    }
+    row = await echoRow(id);
+    expect(row.echo_frames.map((f) => f.status)).toEqual([
+      "published",
+      "pending",
+      "pending",
+    ]);
+    expect(storyCreates()).toHaveLength(2);
+    onStatus = null;
+    await store.runSocial(new Date("2026-11-23T21:00:00Z"), { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(storyCreates()).toHaveLength(3);
+    for (const f of row.echo_frames)
+      expect(publishesOf(f.containerId)).toHaveLength(1);
+  });
+
+  it("echo: a container Meta errors on after its photo is flagged skips only that frame", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const id = await publishedCarousel(3);
+    storyState = "IN_PROGRESS";
+    await store.runSocial(MON_1230, { fetchImpl });
+    storyState = null;
+    const first = (await echoRow(id)).echo_frames[0].containerId;
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
+    ]);
+    onStatus = async (c) => {
+      storyState = c === first ? "ERROR" : null;
+    };
+    await store.runSocial(MON_1245, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(row.echo_frames.map((f) => f.status)).toEqual([
+      "skipped",
+      "published",
+      "published",
+    ]);
+    expect(publishesOf(first)).toHaveLength(0);
+    expect(alerts.filter((a) => /Story echo failed/.test(a.subject))).toEqual(
+      [],
+    );
+  });
+
+  it("echo: without Meta's quota it never starts or goes on; it waits for the next run", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(3);
+    quotaFails = true;
+    await store.runSocial(MON_1230, { fetchImpl });
+    let row = await echoRow(id);
+    expect(row.echo_status).toBeNull();
+    expect(String(row.echo_reason)).toMatch(/limit couldn't be read/);
+    expect(storyCreates()).toHaveLength(0);
+    expect(echoes).toHaveLength(0);
+    // Started, then the quota can't be read midway: it waits there.
+    quotaFails = false;
+    storyState = "IN_PROGRESS";
+    await store.runSocial(MON_1245, { fetchImpl });
+    storyState = null;
+    quotaFails = true;
+    await store.runSocial(new Date("2026-11-23T21:00:00Z"), { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("creating");
+    expect(row.echo_frames.map((f) => f.status)).toEqual([
+      "published",
+      "pending",
+      "pending",
+    ]);
+    expect(storyCreates()).toHaveLength(1);
+    quotaFails = false;
+    await store.runSocial(new Date("2026-11-23T21:15:00Z"), { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("published");
+    expect(storyCreates()).toHaveLength(3);
   });
 
   it("echo: a Story waiting when the account flips to dry run waits, then goes out once back live", async () => {

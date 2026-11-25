@@ -13,6 +13,7 @@ import {
   publishingQuota,
 } from "./graph";
 import { photoClear, type PhotoVerdicts } from "./links";
+import { envKilled, getSocialSettings } from "./settings";
 import {
   DAILY_PUBLISH_LIMIT,
   ECHO_MAX_AGE_MIN,
@@ -39,7 +40,10 @@ import {
  * published or skipped is the only one with a container in flight, so a
  * run that stops midway (an error, the time budget, the quota) resumes at
  * that frame next run and never makes or publishes one twice. In one run
- * a frame is created, and published as soon as Meta has it ready.
+ * a frame is created, its container read every 2.5 s (up to 30 s) until
+ * Meta has it ready, and published, so a carousel goes out in one run.
+ * SOCIAL_PUBLISH, the kill switch and dry run are read again before every
+ * create and every publish.
  *
  * Child safety: a frame draws its slide's photo only while that photo is
  * clear on its exact bytes and never flagged (links.ts photoClear, the
@@ -52,7 +56,8 @@ import {
  * An echo starts only when the whole post fits (a carousel's Stories cut
  * short read as broken); if the room runs out midway anyway (something
  * else published meanwhile), it stops and resumes next run, until the
- * 6-hour limit closes it.
+ * 6-hour limit closes it. A quota that can't be read never counts as
+ * room: the echo waits for the next run.
  *
  * The Friday Story is never echoed. Facebook gets no echo: the Story path
  * doesn't cross-post (crossPost skips Stories). Echoes from before frames
@@ -245,6 +250,45 @@ export function framesOf(post: {
 
 // --- The run -------------------------------------------------------------------
 
+/**
+ * How long a run waits on Meta to finish a frame's container before it
+ * publishes it: a read every 2.5 s, up to 30 s per frame (and never past
+ * the run's time budget), so a carousel's frames go out in one run.
+ */
+export const ECHO_POLL = { everyMs: 2_500, maxMs: 30_000 };
+
+/** The container's status, read again while Meta is still processing it. */
+async function readyStatus(
+  id: string,
+  o: GraphOpts,
+  outOfTime: () => boolean,
+): Promise<Awaited<ReturnType<typeof containerStatus>>> {
+  const start = Date.now();
+  for (;;) {
+    const s = await containerStatus(id, o);
+    if (
+      s.code !== "IN_PROGRESS" ||
+      Date.now() - start + ECHO_POLL.everyMs > ECHO_POLL.maxMs ||
+      outOfTime()
+    )
+      return s;
+    await new Promise((r) => setTimeout(r, ECHO_POLL.everyMs));
+  }
+}
+
+/**
+ * Why nothing may go out right now (SOCIAL_PUBLISH=off, the kill switch,
+ * dry run), or null. Asked again before every create and every publish,
+ * so a switch flipped mid-run stops the next frame, not the next run.
+ */
+async function stopped(): Promise<string | null> {
+  if (envKilled()) return "SOCIAL_PUBLISH is off";
+  const s = await getSocialSettings();
+  if (!s.enabled) return "the kill switch is on";
+  if (s.dryRun) return "dry run is on";
+  return null;
+}
+
 /** What one run knows about Meta's publishing quota. */
 type Quota = { usage: number | null | undefined; used: number };
 
@@ -326,7 +370,15 @@ export async function runEchoes(
         if (post.status !== "published") continue; // a dry-run post never echoes live
         const n = (post.spec as PostSpec).slides?.length ?? 0;
         const left = await quotaLeft(quota, live);
-        if (left != null && left < n) {
+        if (left == null) {
+          // Never fail open: without the quota, wait for the next run.
+          await setEcho(post.id, {
+            echoReason: "Meta's publishing limit couldn't be read.",
+          });
+          notes.push(`${post.id}: echo waits (quota unknown)`);
+          continue;
+        }
+        if (left < n) {
           await setEcho(post.id, {
             echoStatus: "skipped",
             echoReason: "Daily publishing limit reached.",
@@ -441,6 +493,11 @@ async function advance(
       notes.push("echo: out of time, the next run goes on");
       return;
     }
+    const why = await stopped();
+    if (why) {
+      notes.push(`${e.post.id}: echo waits (${why})`);
+      return;
+    }
     let step: Step;
     if (e.status === "publishing") {
       step = await resolveFrame(e, i, o, notes, now, quota, unanswered);
@@ -450,7 +507,7 @@ async function advance(
     } else if (!e.frames[i].containerId) {
       step = await createFrame(e, i, o, notes, now, quota);
     } else {
-      step = await publishStep(e, i, o, notes, quota);
+      step = await publishStep(e, i, o, notes, quota, outOfTime);
     }
     if (step === "stop") return;
   }
@@ -516,9 +573,12 @@ async function createFrame(
   quota: Quota,
 ): Promise<Step> {
   const left = await quotaLeft(quota, o);
-  if (left != null && left < 1) {
+  if (left == null || left < 1) {
     await save(e, {
-      echoReason: `Daily publishing limit reached at ${label(e, i)}; it goes on next run.`,
+      echoReason:
+        left == null
+          ? `Meta's publishing limit couldn't be read at ${label(e, i)}; it goes on next run.`
+          : `Daily publishing limit reached at ${label(e, i)}; it goes on next run.`,
     });
     notes.push(`${e.post.id}: echo waits (quota)`);
     return "stop";
@@ -601,19 +661,18 @@ async function publishStep(
   o: GraphOpts,
   notes: string[],
   quota: Quota,
+  outOfTime: () => boolean,
 ): Promise<Step> {
   let status;
   try {
-    status = await containerStatus(e.frames[i].containerId!, o);
+    status = await readyStatus(e.frames[i].containerId!, o, outOfTime);
   } catch (err) {
     notes.push(`${e.post.id}: echo status unknown (${(err as Error).message})`);
     return "stop";
   }
   if (status.code === "IN_PROGRESS") return "stop";
-  if (status.code === "ERROR" || status.code === "EXPIRED") {
-    await fail(e, i, `Meta couldn't process it (${status.code})`, notes);
-    return "stop";
-  }
+  if (status.code === "ERROR" || status.code === "EXPIRED")
+    return failFrame(e, i, `Meta couldn't process it (${status.code})`, notes);
   if (status.code === "PUBLISHED") {
     await published(e, i, null, quota, notes, " (resolved)");
     return "next";
@@ -649,6 +708,16 @@ async function publishFrame(
   unanswered: boolean,
 ): Promise<Step> {
   if (!(await safeToPublish(e, i, notes, unanswered))) return "next";
+  // A switch flipped while Meta finished the container: hold it.
+  const why = await stopped();
+  if (why) {
+    if (!unanswered) {
+      e.status = "creating";
+      await save(e);
+    }
+    notes.push(`${e.post.id}: echo waits (${why})`);
+    return "stop";
+  }
   const container = e.frames[i].containerId!;
   try {
     const mediaId = await publishContainer(container, o);
@@ -688,9 +757,28 @@ async function publishFrame(
       notes.push(`${e.post.id}: echo publish retry (${g.message})`);
       return "stop";
     }
-    await fail(e, i, `publishing failed: ${g?.message ?? "error"}`, notes);
-    return "stop";
+    return failFrame(
+      e,
+      i,
+      `publishing failed: ${g?.message ?? "error"}`,
+      notes,
+    );
   }
+}
+
+/**
+ * Meta won't take a frame: if its photo was flagged meanwhile, only that
+ * frame is skipped and the rest go on; otherwise the echo fails.
+ */
+async function failFrame(
+  e: Echo,
+  i: number,
+  reason: string,
+  notes: string[],
+): Promise<Step> {
+  if (!(await safeToPublish(e, i, notes, false))) return "next";
+  await fail(e, i, reason, notes);
+  return "stop";
 }
 
 /** A publish that didn't answer: ask the container (it publishes once, ever). */
@@ -727,6 +815,5 @@ async function resolveFrame(
   }
   if (status.code === "FINISHED" && !tooOld(e.post, now))
     return publishFrame(e, i, o, notes, quota, unanswered);
-  await fail(e, i, `unclear publish, then ${status.code}`, notes);
-  return "stop";
+  return failFrame(e, i, `unclear publish, then ${status.code}`, notes);
 }
