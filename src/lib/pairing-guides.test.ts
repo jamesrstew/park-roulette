@@ -205,3 +205,18 @@ describe("the pages", () => {
     expect(guidesForPark("park-9", rows, NOW)).toEqual([]);
   });
 });
+
+describe("pairingGuideTitle", () => {
+  it("puts Oregon right after the town", async () => {
+    const { pairingGuideTitle } = await import("./pairing-guides");
+    expect(
+      pairingGuideTitle("Coffee shops near playgrounds in Bend", "Bend"),
+    ).toBe("Coffee shops near playgrounds in Bend, Oregon");
+    expect(
+      pairingGuideTitle(
+        "Rainy day with kids in Redmond: cafes near indoor play",
+        "Redmond",
+      ),
+    ).toBe("Rainy day with kids in Redmond, Oregon: cafes near indoor play");
+  });
+});

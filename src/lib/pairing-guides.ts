@@ -329,8 +329,9 @@ export function pairingGuideView(
   ];
   const updated = row.refreshedAt.toISOString();
   const d = new Date(updated);
-  // The search title says the state (Redmond and Sisters exist elsewhere).
-  const title = `${g.name}, Oregon`;
+  // The search title says the state (Redmond and Sisters exist elsewhere),
+  // right after the town: "...in Bend, Oregon: cafes near indoor play".
+  const title = pairingGuideTitle(g.name, g.town);
   const description = g.rainy
     ? `${Cap(word(k))} ${g.town} cafes near ${indoorWords} for a rainy day with kids, with how far apart each pair is.`
     : `${Cap(word(k))} ${g.places} in ${g.town} with a playground ${walks === k ? "a short walk away" : "close by"}: what's at each park and how far apart they are.`;
@@ -476,4 +477,13 @@ export function guidesForPark(
       ? [{ slug: g.slug, label: LABEL[g.theme], name: g.name }]
       : [];
   });
+}
+
+/** A guide's search title: ", Oregon" right after "in <town>". Pure. */
+export function pairingGuideTitle(name: string, town: string): string {
+  const at = `in ${town}`;
+  const i = name.indexOf(at);
+  return i < 0
+    ? `${name}, Oregon`
+    : `${name.slice(0, i + at.length)}, Oregon${name.slice(i + at.length)}`;
 }
