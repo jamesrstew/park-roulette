@@ -10,6 +10,7 @@ import {
 import type { DiscoveredAccount } from "./graph";
 import {
   backLink,
+  sameName,
   cachedDiscover,
   captionMentions,
   competitor,
@@ -147,6 +148,72 @@ describe("forward links (the site names the handle)", () => {
 
 // --- Back links and the two-way verdict -------------------------------------------
 
+describe("name match (link pages that can't name a site)", () => {
+  const library = acct({
+    id: "17841400130313421",
+    username: "deschuteslibrary",
+    name: "Deschutes Public Library",
+    website: "https://linkinprofile.com/deschuteslibrary",
+    biography: "Join us for the unveiling of the 2027 A Novel Idea selections.",
+  });
+
+  it("proves Deschutes Public Library: site links it, exact name, link-in-bio website", () => {
+    expect(
+      backLink(library, "deschuteslibrary.org", [], "Deschutes Public Library"),
+    ).toBe("name: Deschutes Public Library");
+    expect(
+      verifyPair({
+        domain: "deschuteslibrary.org",
+        handle: "deschuteslibrary",
+        forwardHandles: ["deschuteslibrary"],
+        account: library,
+        orgName: "Deschutes Public Library",
+      }),
+    ).toEqual({ ok: true, back: "name: Deschutes Public Library" });
+  });
+
+  it("still needs the site's own link", () => {
+    expect(
+      verifyPair({
+        domain: "deschuteslibrary.org",
+        handle: "deschuteslibrary",
+        forwardHandles: [],
+        account: library,
+        orgName: "Deschutes Public Library",
+      }).ok,
+    ).toBe(false);
+  });
+
+  it("never matches a partial or different name", () => {
+    for (const org of [
+      "Deschutes Library",
+      "Deschutes Public Library Foundation",
+      "Crook County Library",
+    ])
+      expect(backLink(library, "deschuteslibrary.org", [], org)).toBeNull();
+    expect(backLink(library, "deschuteslibrary.org")).toBeNull();
+  });
+
+  it("never matches when the account's website is some other real site", () => {
+    expect(
+      backLink(
+        { ...library, website: "https://example.com/" },
+        "deschuteslibrary.org",
+        [],
+        "Deschutes Public Library",
+      ),
+    ).toBeNull();
+  });
+
+  it("compares names loosely on case, punctuation and '&' only", () => {
+    expect(sameName("Sun Mountain Fun Center", "sun mountain fun-center")).toBe(
+      true,
+    );
+    expect(sameName("Parks & Rec", "Parks and Rec")).toBe(true);
+    expect(sameName("Bend", "Bend")).toBe(false);
+  });
+});
+
 describe("back links (the account names the site)", () => {
   it("matches the website field on the same registrable domain", () => {
     expect(backLink(acct(), "bendparksandrec.org")).toBe(
@@ -268,7 +335,9 @@ describe("the committed registry", () => {
       expect(e.handle).toMatch(/^[A-Za-z0-9._]{1,30}$/);
       expect(e.igId).toMatch(/^\d+$/);
       expect(siteDomain(e.forward)).toBe(domain);
-      expect(e.back).toMatch(/^(website|bio): /);
+      expect(e.back).toMatch(/^(website|bio|name): /);
+      // A name match is the organization's own name, exactly.
+      if (e.back.startsWith("name: ")) expect(e.back).toBe(`name: ${e.org}`);
       expect(e.verifiedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       expect(competitor(domain, e.handle, e.name, e.back)).toBe(false);
     }

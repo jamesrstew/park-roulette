@@ -1052,7 +1052,10 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     let r = await store.runSocial(TUE_0645, { fetchImpl });
     expect(r.notes).toContain("events_week: made");
     const [made] = await q(`select caption from social_posts`);
-    expect(String(made.caption)).toContain(`Hosts this week: @${bprd.handle}`);
+    // The library (now verified, by name) hosts the week's other events.
+    expect(String(made.caption)).toContain(
+      `Hosts this week: @deschuteslibrary @${bprd.handle}`,
+    );
     r = await store.runSocial(TUE_0715, { fetchImpl });
     const [row] = await q(`select status, caption from social_posts`);
     expect(row.status).toBe("creating");

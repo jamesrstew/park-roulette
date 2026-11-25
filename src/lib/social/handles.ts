@@ -9,14 +9,17 @@ import { CAPTION_MAX, type PostKind, type PostSpec } from "./model";
  *
  *   1. Forward: the organization's own site links instagram.com/<handle>.
  *   2. Back: that account (Business Discovery) names the same site, in its
- *      website field or a link in its bio.
+ *      website field or a link in its bio, or (when its link-in-bio page
+ *      can't name a site) its display name is the organization's, exactly.
  *
  * Proven pairs live in data/ig-handles.json (scripts/ig-handles.mts builds
  * it; every entry is reviewed by hand), keyed by the organization's
  * registrable domain, with the account's id, which survives a rename.
  * Right before a caption goes to Instagram, every tag is checked again
- * (recheckTags); any doubt drops the tag, never the post. No name
- * matching, ever, and Facebook never gets a handle. Pure.
+ * (recheckTags); any doubt drops the tag, never the post. A name counts
+ * only as a back link, on top of the site's own link (backLink), and only
+ * when it is the organization's name exactly. Facebook never gets a
+ * handle. Pure.
  */
 
 /** One proven account, keyed in the registry by its organization's domain. */
@@ -297,6 +300,8 @@ export const LINK_IN_BIO = new Set([
   "solo.to",
   "carrd.co",
   "hoo.be",
+  "linkinprofile.com",
+  "sprout.link",
 ]);
 
 /** Web addresses written in free text ("bendparksandrec.org", "https://x.org/y"). */
@@ -322,9 +327,12 @@ export function urlsInText(text: string): string[] {
  * evidence ("website: https://...") or null.
  */
 export function backLink(
-  account: Pick<DiscoveredAccount, "website" | "biography">,
+  account: Pick<DiscoveredAccount, "website" | "biography"> & {
+    name?: string | null;
+  },
   domain: string,
   linkPages: readonly string[] = [],
+  orgName?: string,
 ): string | null {
   const site = siteDomain(account.website);
   if (site && site === domain) return `website: ${account.website}`;
@@ -334,7 +342,37 @@ export function backLink(
     for (const u of linkPages)
       if (siteDomain(u) === domain)
         return `website: ${account.website} -> ${u}`;
+  // Some link-in-bio pages (linkinprofile.com) list only the account's own
+  // posts, so no link can name the site. The account's display name, then,
+  // must be the organization's own name, exactly (James, Nov 25: Deschutes
+  // Public Library). Only on top of the forward link, never instead of it.
+  // Only when the account's website is a link-in-bio page or empty: an
+  // account whose website names some other site doesn't get a name match.
+  if (
+    orgName &&
+    account.name &&
+    (!site || LINK_IN_BIO.has(site)) &&
+    sameName(account.name, orgName)
+  )
+    return `name: ${account.name}`;
   return null;
+}
+
+/**
+ * The same organization name, ignoring case, punctuation, spacing and
+ * "&" versus "and". No partial matches: "Deschutes Library" isn't
+ * "Deschutes Public Library". Pure.
+ */
+export function sameName(a: string, b: string): boolean {
+  const norm = (x: string) =>
+    x
+      .normalize("NFKD")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  const na = norm(a);
+  return na.length >= 6 && na === norm(b);
 }
 
 /**
@@ -348,6 +386,8 @@ export function verifyPair(p: {
   forwardHandles: readonly string[];
   account: DiscoveredAccount | null;
   linkPages?: readonly string[];
+  /** The organizer's own name (events' organizer.name), for a name match. */
+  orgName?: string;
 }): { ok: true; back: string } | { ok: false; why: string } {
   if (competitor(p.domain, p.handle))
     return { ok: false, why: "a competitor newsletter" };
@@ -362,7 +402,7 @@ export function verifyPair(p: {
     return { ok: false, why: "Business Discovery named another username" };
   if (competitor(p.account.website, p.account.name, p.account.biography ?? ""))
     return { ok: false, why: "the account points at a competitor" };
-  const back = backLink(p.account, p.domain, p.linkPages);
+  const back = backLink(p.account, p.domain, p.linkPages, p.orgName);
   if (!back)
     return {
       ok: false,

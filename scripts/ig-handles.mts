@@ -275,6 +275,7 @@ for (const c of [...candidates.values()].sort((a, b) =>
       forwardHandles: linked.map((x) => x.handle),
       account: acct,
       linkPages,
+      orgName: c.org,
     });
     if (v.ok && acct) {
       won = { handle: acct.username, page: l.page, acct, back: v.back };
@@ -331,7 +332,7 @@ if (!dry) {
     Object.entries(entries).sort(([a], [b]) => a.localeCompare(b)),
   );
   const out: Registry = {
-    note: "Instagram handles proven both ways (the organization's site links the account; the account's website or bio names the site). Built by scripts/ig-handles.mts and reviewed by hand. Keyed by registrable domain. Never add a handle by hand.",
+    note: "Instagram handles proven both ways: the organization's site links the account, and the account's website or bio names the site (or, when its website is a link-in-bio page or empty, its display name is the organization's name exactly). Built by scripts/ig-handles.mts and reviewed by hand. Keyed by registrable domain. Never add a handle by hand.",
     entries: sorted,
   };
   writeFileSync(REGISTRY_FILE, `${JSON.stringify(out, null, 2)}\n`);

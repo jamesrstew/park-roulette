@@ -1,12 +1,12 @@
 {
-  "note": "Instagram handles proven both ways (the organization's site links the account; the account's website or bio names the site). Built by scripts/ig-handles.mts and reviewed by hand. Keyed by registrable domain. Never add a handle by hand.",
+  "note": "Instagram handles proven both ways: the organization's site links the account, and the account's website or bio names the site (or, when its website is a link-in-bio page or empty, its display name is the organization's name exactly). Built by scripts/ig-handles.mts and reviewed by hand. Keyed by registrable domain. Never add a handle by hand.",
   "entries": {
     "bendparksandrec.org": {
       "handle": "bendparks",
       "igId": "17841403154725905",
       "org": "Bend Park and Recreation District",
       "name": "Bend Park & Rec",
-      "followers": 12531,
+      "followers": 12533,
       "forward": "https://www.bendparksandrec.org/",
       "back": "website: https://www.bendparksandrec.org/",
       "verifiedOn": "2026-11-25",
@@ -107,12 +107,22 @@
       "back": "website: http://www.deschuteshistory.org/",
       "verifiedOn": "2026-11-25"
     },
+    "deschuteslibrary.org": {
+      "handle": "deschuteslibrary",
+      "igId": "17841400130313421",
+      "org": "Deschutes Public Library",
+      "name": "Deschutes Public Library",
+      "followers": 18004,
+      "forward": "https://www.deschuteslibrary.org/",
+      "back": "name: Deschutes Public Library",
+      "verifiedOn": "2026-11-25"
+    },
     "freespirityoganinjaplay.com": {
       "handle": "freespirit_bend",
       "igId": "17841408197924443",
       "org": "Free Spirit Yoga + Ninja + Play",
       "name": "Free Spirit Bend",
-      "followers": 2748,
+      "followers": 2749,
       "forward": "https://freespirityoganinjaplay.com/bend-or/",
       "back": "website: https://linktr.ee/freespiritbend -> https://freespirityoganinjaplay.com/bend-or/",
       "verifiedOn": "2026-11-25"
@@ -142,7 +152,7 @@
       "igId": "17841400932760801",
       "org": "Mt. Bachelor",
       "name": "Mt. Bachelor",
-      "followers": 165551,
+      "followers": 165553,
       "forward": "https://www.mtbachelor.com/",
       "back": "website: https://linktr.ee/mt.bachelor -> https://www.mtbachelor.com/tickets-passes/ikon-pass/",
       "verifiedOn": "2026-11-25"
@@ -167,6 +177,17 @@
       "forward": "https://www.snco.org/",
       "back": "website: http://www.snco.org",
       "verifiedOn": "2026-11-25"
+    },
+    "stateparks.oregon.gov": {
+      "handle": "oregonstateparks",
+      "igId": "17841401456413849",
+      "org": "Oregon State Parks",
+      "name": "Oregon State Parks",
+      "followers": 106913,
+      "forward": "https://stateparks.oregon.gov/",
+      "back": "name: Oregon State Parks",
+      "verifiedOn": "2026-11-25",
+      "parks": ["smith-rock-state-park-terrebonne"]
     },
     "sunmountainfun.com": {
       "handle": "sunmountainfun",
