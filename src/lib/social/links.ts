@@ -34,7 +34,8 @@ export const hasPostPage = (k: string) =>
   (PAGE_KINDS as readonly string[]).includes(k);
 
 /** What a tap leads to, as the Social tap's `to` label. */
-export type DestinationType = "park" | "issue" | "events" | "post";
+/** "press": a news story about us, on the outlet's own site. */
+export type DestinationType = "park" | "issue" | "events" | "post" | "press";
 
 /** The small type label on a tile and atop a post page. */
 export const KIND_LABEL: Record<GridKind, string> = {
@@ -299,8 +300,9 @@ export function tileWhen(kind: GridKind, slotDate: string, day: string) {
 }
 
 export type GridTile = {
+  /** A post's id; press tiles use negative ids (they have no row). */
   id: number;
-  kind: GridKind;
+  kind: GridKind | "press";
   label: string;
   /** The Pacific day it went out (YYYY-MM-DD). */
   day: string;
@@ -309,6 +311,10 @@ export type GridTile = {
   href: string;
   to: DestinationType;
   cover: StoredMedia;
+  /** A static picture's path (press tiles), used instead of the cover's sha. */
+  src?: string;
+  /** The tile leaves our site (press): a new tab, and no ?from= on it. */
+  external?: boolean;
 };
 
 /** The day a post went out, in Pacific time (its slot day if unknown). */

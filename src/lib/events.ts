@@ -57,7 +57,7 @@ export const EVENTS = {
   /**
    * A tap on the link-in-bio grid or a post page (/social): {source:
    * social_grid | social_post, to: park | issue | events | post | event |
-   * venue | newsletter}. Where it leads by type only, never which post.
+   * venue | newsletter | press}. Where it leads by type only, never which post.
    */
   socialTap: "Social tap",
 } as const;

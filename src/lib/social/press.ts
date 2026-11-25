@@ -1,3 +1,4 @@
+import type { GridTile } from "./links";
 import { SITE } from "./model";
 
 /**
@@ -12,6 +13,8 @@ import { SITE } from "./model";
 export type PressPost = {
   /** File stem under public/press/ ("bulletin-2026-11"). */
   id: string;
+  /** The Pacific day our post about it went out (YYYY-MM-DD). */
+  postedDay: string;
   outlet: string;
   /** The day the story ran, as printed ("November 24, 2026"). */
   date: string;
@@ -29,6 +32,7 @@ export type PressPost = {
 
 export const BULLETIN_2026_11: PressPost = {
   id: "bulletin-2026-11",
+  postedDay: "2026-11-25",
   outlet: "The Bulletin",
   date: "November 24, 2026",
   byline: "Sydney Seymour",
@@ -84,4 +88,49 @@ export function pressFiles(p: PressPost): {
 /** A file's public address (Meta fetches it from here). */
 export function pressUrl(file: string): string {
   return `${SITE}/press/${file}`;
+}
+
+/** Every press post that went out, for the /social grid. */
+export const PRESS_POSTS: readonly PressPost[] = [BULLETIN_2026_11];
+
+/**
+ * A press post's grid tile: its first feed slide, opening the story on
+ * the outlet's site. Negative ids keep the keys apart from real posts.
+ */
+export function pressTile(p: PressPost, i: number): GridTile {
+  const [y, m, d] = p.postedDay.split("-").map(Number);
+  return {
+    id: -(i + 1),
+    kind: "press",
+    label: `In ${p.outlet}`,
+    day: p.postedDay,
+    when: new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      timeZone: "UTC",
+    }),
+    href: p.url,
+    to: "press",
+    cover: {
+      sha: "",
+      ext: "jpg",
+      width: 1080,
+      height: 1350,
+      alt: p.feedAlts[0] ?? `${p.outlet}: ${p.headline}`,
+    },
+    src: `/press/${p.id}-feed-1.jpg`,
+    external: true,
+  };
+}
+
+/** Real posts and press tiles together, newest day first (stable). */
+export function withPressTiles(
+  tiles: readonly GridTile[],
+  press: readonly PressPost[] = PRESS_POSTS,
+): GridTile[] {
+  const all = [...tiles, ...press.map(pressTile)];
+  return all
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => b.t.day.localeCompare(a.t.day) || a.i - b.i)
+    .map(({ t }) => t);
 }

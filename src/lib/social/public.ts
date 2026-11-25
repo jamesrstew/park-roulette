@@ -13,6 +13,7 @@ import {
   type StoredMedia,
 } from "./links";
 import type { PostSpec } from "./model";
+import { withPressTiles } from "./press";
 
 /**
  * The public reads of our posts (/social, /social/<id>): cached, and
@@ -81,7 +82,7 @@ export async function publishedRows(limit = GRID_LIMIT): Promise<PublicRow[]> {
 /** The link-in-bio grid's tiles (uncached: tests and the cached read). */
 export async function loadGrid(): Promise<GridTile[]> {
   const [rows, verdicts] = await Promise.all([publishedRows(), readVerdicts()]);
-  return gridTiles(rows, verdicts);
+  return withPressTiles(gridTiles(rows, verdicts));
 }
 
 /** The grid, cached until a post changes. */

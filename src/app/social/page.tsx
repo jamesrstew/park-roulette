@@ -51,14 +51,15 @@ function Tile({
   return (
     <li>
       <Link
-        href={withFrom(t.href, from)}
+        href={t.external ? t.href : withFrom(t.href, from)}
         data-social={t.to}
         prefetch={false}
+        {...(t.external ? { target: "_blank", rel: "noopener" } : {})}
         className="group flex flex-col gap-1.5 rounded-xl focus-visible:outline-offset-2"
       >
         <span className="relative block aspect-[4/5] overflow-hidden rounded-xl border-2 border-ink bg-paper-dark shadow-[3px_4px_0_#2b2a33] transition-transform group-hover:-rotate-1 group-active:translate-x-0.5 group-active:translate-y-0.5 group-active:shadow-none">
           <Image
-            src={mediaSrc(t.cover)}
+            src={t.src ?? mediaSrc(t.cover)}
             alt={t.cover.alt}
             width={t.cover.width}
             height={t.cover.height}

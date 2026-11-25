@@ -21,7 +21,10 @@ const nextConfig: NextConfig = {
     // Only our published Instagram slides go through the optimizer (the
     // /social grid's thumbnails). A day, not forever: a slide taken down
     // (a photo flagged later) leaves the optimizer's cache within a day.
-    localPatterns: [{ pathname: "/social/m/**", search: "" }],
+    localPatterns: [
+      { pathname: "/social/m/**", search: "" },
+      { pathname: "/press/**", search: "" },
+    ],
     minimumCacheTTL: 86400,
   },
   turbopack: {

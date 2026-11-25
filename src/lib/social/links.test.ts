@@ -427,3 +427,36 @@ describe("signup attribution from our posts", () => {
     expect(withFrom("/social/9", null)).toBe("/social/9");
   });
 });
+
+describe("press tiles on the grid", () => {
+  it("slot in by day, newest first, opening the story off-site", async () => {
+    const { BULLETIN_2026_11, pressTile, withPressTiles } =
+      await import("./press");
+    const t = pressTile(BULLETIN_2026_11, 0);
+    expect(t).toMatchObject({
+      id: -1,
+      kind: "press",
+      label: "In The Bulletin",
+      day: "2026-11-25",
+      when: "Nov 25",
+      to: "press",
+      external: true,
+      src: "/press/bulletin-2026-11-feed-1.jpg",
+    });
+    expect(t.href).toBe(BULLETIN_2026_11.url);
+    const post = (id: number, day: string) => ({
+      ...t,
+      id,
+      kind: "park_post" as const,
+      day,
+      external: undefined,
+      src: undefined,
+    });
+    const out = withPressTiles([
+      post(9, "2026-11-26"),
+      post(8, "2026-11-25"),
+      post(7, "2026-11-23"),
+    ]);
+    expect(out.map((x) => x.id)).toEqual([9, 8, -1, 7]);
+  });
+});
