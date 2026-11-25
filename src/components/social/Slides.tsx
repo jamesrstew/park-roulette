@@ -36,8 +36,8 @@ import { COPY, FEED, type SlideSpec, STORY } from "@/lib/social/model";
 
 export const INK = "#2b2a33";
 export const PAPER = "#fffaf0";
-const CARD = "#fffdf7";
-const SOFT = "#5d5a6b";
+export const CARD = "#fffdf7";
+export const SOFT = "#5d5a6b";
 /** The event slide's host line: one step darker than SOFT, still quieter than ink. */
 const HOST_GRAY = "#4a4756";
 /** The date tile's height on an event slide (header, date, borders). */
@@ -119,7 +119,7 @@ function AnyIcon({ name, size }: { name: string; size: number }) {
 
 // --- Shared pieces -----------------------------------------------------------
 
-function Tape({
+export function Tape({
   left,
   top,
   width = 190,
@@ -147,7 +147,7 @@ function Tape({
 }
 
 /** A hand-drawn arrow pointing right, for "Swipe". */
-function SwipeArrow({ color }: { color: string }) {
+export function SwipeArrow({ color }: { color: string }) {
   return (
     <svg width={150} height={70} viewBox="0 0 150 70">
       <path
@@ -170,7 +170,7 @@ function SwipeArrow({ color }: { color: string }) {
 }
 
 /** A two-pass crayon scribble underline. */
-function Scribble({ width, color }: { width: number; color: string }) {
+export function Scribble({ width, color }: { width: number; color: string }) {
   return (
     <svg width={width} height={34} viewBox={`0 0 ${width} 34`}>
       <path
@@ -185,7 +185,7 @@ function Scribble({ width, color }: { width: number; color: string }) {
 }
 
 /** The paper card every feed slide sits on, with the brand and page count. */
-function Frame({
+export function Frame({
   children,
   page,
   color,
@@ -280,7 +280,7 @@ function Frame({
 }
 
 /** Headline words in a wrapping row, one of them over a marker stroke. */
-function HeadlineWords({
+export function HeadlineWords({
   words,
   highlight,
   size,
