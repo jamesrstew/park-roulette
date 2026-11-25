@@ -597,11 +597,17 @@ export function kindOf(e: EventInput): EventRow["kind"] {
  * The page's address: annual events and series are yearless (an annual
  * page rolls to the next edition); a genuine one-off gets its year.
  */
+/**
+ * Fixed routes under /events (src/app/events/<segment>): an event page
+ * may never take one of these slugs, or the route would hide it.
+ */
+export const EVENT_ROUTE_SEGMENTS: ReadonlySet<string> = new Set(["saved"]);
+
 export function eventSlug(e: EventInput): string {
   const base = slugify(`${slugStem(e.title) || e.title} ${e.venue.name}`);
-  return kindOf(e) === "one_off"
-    ? `${base}-${e.dates[0].day.slice(0, 4)}`
-    : base;
+  const slug =
+    kindOf(e) === "one_off" ? `${base}-${e.dates[0].day.slice(0, 4)}` : base;
+  return EVENT_ROUTE_SEGMENTS.has(slug) ? `${slug}-event` : slug;
 }
 
 // --- Cost, chips -------------------------------------------------------------

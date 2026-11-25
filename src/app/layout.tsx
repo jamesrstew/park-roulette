@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { DesktopAside } from "@/components/DesktopAside";
 import { SiteAnalytics } from "@/components/SiteAnalytics";
 import { SITE_URL } from "@/lib/site";
+import { BOOT } from "@/lib/events/prefs";
 import { Gochi_Hand, Shantell_Sans } from "next/font/google";
 import { Suspense } from "react";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -64,6 +65,8 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
               "addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__bip=e;});",
           }}
         />
+        {/* Saved and hidden events (lib/events/prefs.ts): the hide stylesheet before any listing paints. */}
+        <script dangerouslySetInnerHTML={{ __html: BOOT }} />
       </head>
       <body className="flex min-h-full flex-col">
         <CrayonDefs />

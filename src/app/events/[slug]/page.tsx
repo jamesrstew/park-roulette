@@ -4,6 +4,12 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { EventCard, EventChips } from "@/components/events/EventBits";
+import { slugsOf } from "@/components/events/ProgramBits";
+import {
+  HeartButton,
+  HiddenNote,
+  HideButton,
+} from "@/components/events/SaveHide";
 import { Icon } from "@/components/icons";
 import { CrayonLoading } from "@/components/Loading";
 import { JsonLd } from "@/components/seo/JsonLd";
@@ -19,6 +25,7 @@ import {
   groupOf,
   longDate,
   monthDay,
+  occurrenceId,
   pacificToday,
   shortDate,
   upcomingDates,
@@ -37,6 +44,8 @@ import {
   listedInIssueOn,
   nextStatus,
 } from "@/lib/events/store";
+import { buildPrograms, venueLine } from "@/lib/events/programs";
+import { keepTimes } from "@/lib/events/shortlist";
 import { featuredEvent } from "@/lib/news/data";
 import { directionsUrl } from "@/lib/geo";
 import { addDays, pacific } from "@/lib/news/time";
@@ -143,6 +152,14 @@ async function Event({ params }: Props) {
   const onSite = playgroundOnSite(e, parks);
   const near = nearbyPlaygrounds(e.point, parks, { n: 3, skip: onSite?.slug });
   const pattern = weeklyPattern(upcoming);
+  // Its program on the listing: a hide covers every page of it, and a
+  // regular's heart saves the program (its next date, always).
+  const program = buildPrograms(rows, now).find((p) =>
+    p.branches.some((b) => b.rows.some((r) => r.id === row.id)),
+  );
+  const pages = program ? slugsOf(program) : [row.slug];
+  const regular = program?.kind === "regular";
+  const where = venueLine(row);
   const seriesDates = upcoming
     .filter((d) => d.day <= addDays(today, 60))
     .slice(0, 8);
@@ -197,6 +214,7 @@ async function Event({ params }: Props) {
 
   return (
     <>
+      <HiddenNote slugs={pages} title={e.title} />
       {row.status === "canceled" && !passed ? (
         <Note tone="yellow">
           <b>Canceled</b>
@@ -330,6 +348,35 @@ async function Event({ params }: Props) {
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap gap-2">
+          {regular ? (
+            <HeartButton
+              slug={row.slug}
+              occ=""
+              label={`${e.title} at ${e.venue.name}`}
+              title={e.title}
+              where={where}
+              from="page"
+              look="button"
+            />
+          ) : next ? (
+            <HeartButton
+              slug={row.slug}
+              occ={occurrenceId(next)}
+              label={`${e.title}, ${shortDate(next.day)}`}
+              title={e.title}
+              where={`${whenLine(next)} · ${where}`}
+              from="page"
+              look="button"
+              words={
+                series
+                  ? [
+                      `Save ${shortDate(next.day)}`,
+                      `Saved ${shortDate(next.day)}`,
+                    ]
+                  : undefined
+              }
+            />
+          ) : null}
           {e.point ? (
             <a
               href={directionsUrl({ ...e.point, name: e.venue.name })}
@@ -341,7 +388,10 @@ async function Event({ params }: Props) {
               Directions
             </a>
           ) : null}
-          {!series && next ? (
+          {!series &&
+          next &&
+          row.status !== "canceled" &&
+          row.status !== "postponed" ? (
             <a
               href={`/events/${row.slug}/calendar.ics?d=${next.day}${next.start ? `&t=${next.start}` : ""}`}
               className="crayon-btn wax flex min-h-12 items-center gap-2 bg-crayon-yellow px-4 text-xl"
@@ -361,9 +411,22 @@ async function Event({ params }: Props) {
             {link.noun === "official page" ? "official site" : link.noun})
           </span>
         </a>
+        {regular ? (
+          <p className="text-sm text-ink-soft">
+            A saved regular always shows its next date on your list.
+          </p>
+        ) : null}
         <p className="text-sm text-ink-soft">
           Plans change. Check it before you go.
         </p>
+        {next && program ? (
+          <HideButton
+            slugs={pages}
+            title={program.title}
+            scope={program.kind === "regular" || series ? "series" : "event"}
+            from="page"
+          />
+        ) : null}
       </div>
 
       {series && seriesDates.length ? (
@@ -378,15 +441,27 @@ async function Event({ params }: Props) {
                 className="flex min-h-12 items-center justify-between gap-3 py-1"
               >
                 <time dateTime={d.start ? `${d.day}T${d.start}` : d.day}>
-                  {whenLine(d)}
+                  {keepTimes(whenLine(d))}
                 </time>
-                <a
-                  href={`/events/${row.slug}/calendar.ics?d=${d.day}${d.start ? `&t=${d.start}` : ""}`}
-                  className="chip min-h-11 shrink-0"
-                  aria-label={`Add ${shortDate(d.day)} to calendar`}
-                >
-                  Add to calendar
-                </a>
+                <span className="flex shrink-0 items-center gap-1">
+                  {regular || seriesDates.length < 2 ? null : (
+                    <HeartButton
+                      slug={row.slug}
+                      occ={occurrenceId(d)}
+                      label={`${e.title}, ${whenLine(d)}`}
+                      title={e.title}
+                      where={`${whenLine(d)} · ${where}`}
+                      from="date"
+                    />
+                  )}
+                  <a
+                    href={`/events/${row.slug}/calendar.ics?d=${d.day}${d.start ? `&t=${d.start}` : ""}`}
+                    className="chip min-h-11 shrink-0"
+                    aria-label={`Add ${shortDate(d.day)} to calendar`}
+                  >
+                    Add to calendar
+                  </a>
+                </span>
               </li>
             ))}
           </ul>

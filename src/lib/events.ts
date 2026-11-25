@@ -60,6 +60,19 @@ export const EVENTS = {
    * venue | newsletter | press}. Where it leads by type only, never which post.
    */
   socialTap: "Social tap",
+  /**
+   * Saved and hidden kid events (/events). Labels only, never which event.
+   * Saved: {from: card | row | page | date | again, kind: date | program}.
+   * Unsaved: {from: card | row | page | date | shortlist}.
+   * Hidden: {scope: event | series, from: card | row | page}.
+   * Unhidden: {from: undo | list | page}.
+   * Shortlist viewed: {n: 0 | 1-3 | 4+, signed: in | out}, once per visit.
+   */
+  eventSaved: "Event saved",
+  eventUnsaved: "Event unsaved",
+  eventHidden: "Event hidden",
+  eventUnhidden: "Event unhidden",
+  shortlistViewed: "Shortlist viewed",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

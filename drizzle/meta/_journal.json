@@ -211,6 +211,13 @@
       "when": 1795644238676,
       "tag": "0029_places_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1795644783135,
+      "tag": "0030_event_saves_hides",
+      "breakpoints": true
     }
   ]
 }

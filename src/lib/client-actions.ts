@@ -12,6 +12,7 @@
 import { isRedirectError } from "next/dist/client/components/redirect-error";
 import * as A from "./actions";
 import * as C from "./community-actions";
+import * as EP from "./event-prefs-actions";
 import * as N from "./park-news-actions";
 import * as NA from "./news-admin-actions";
 import * as T from "./texts-actions";
@@ -103,6 +104,11 @@ export const movePhoneHere = wrap(P.movePhoneHere);
 export const removePhone = wrap(P.removePhone);
 export const startClaim = wrap(P.startClaim);
 export const finishClaim = wrap(P.finishClaim);
+export const loadEventPrefs = wrap(EP.loadEventPrefs);
+export const setEventSaved = wrap(EP.setEventSaved);
+export const setEventHidden = wrap(EP.setEventHidden);
+export const mergeEventPrefs = wrap(EP.mergeEventPrefs);
+export const shortlistInfo = wrap(EP.shortlistInfo);
 export type { PhoneResult } from "./phone-actions";
 /** Used as a <form action>, which Next handles itself. */
 export const signOut = A.signOut;

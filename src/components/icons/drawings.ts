@@ -23,6 +23,9 @@ import {
 
 // ---------- reusable bits ----------
 
+const HEART =
+  "M12 21 C6 16.6 2.4 13.4 2.4 8.8 C2.4 5.6 4.8 3.4 7.6 3.4 C9.6 3.4 11 4.6 12 6.2 C13 4.6 14.4 3.4 16.4 3.4 C19.2 3.4 21.6 5.6 21.6 8.8 C21.6 13.4 18 16.6 12 21 Z";
+
 const slideParts = (chute: "yellow" | "pink"): Part[] => [
   // ladder
   ink("M4 21.5 L6 6 M8.6 21.5 L10 7.5", { w: 2 }),
@@ -907,10 +910,9 @@ export const DRAWINGS = {
       color: "teal",
     }),
   ],
-  heart: shape(
-    "red",
-    "M12 21 C6 16.6 2.4 13.4 2.4 8.8 C2.4 5.6 4.8 3.4 7.6 3.4 C9.6 3.4 11 4.6 12 6.2 C13 4.6 14.4 3.4 16.4 3.4 C19.2 3.4 21.6 5.6 21.6 8.8 C21.6 13.4 18 16.6 12 21 Z",
-  ),
+  heart: shape("red", HEART),
+  /** Not saved yet: the heart's outline, nothing colored in. */
+  heart_empty: [ink(HEART)],
   ticket: [
     ...shape(
       "orange",

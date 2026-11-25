@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Chip, EventChips } from "@/components/events/EventBits";
 import { Icon } from "@/components/icons";
+import { HeartButton, HideButton } from "@/components/events/SaveHide";
+import type { ReactNode } from "react";
 import type { AgeTag } from "@/lib/events/ages";
 import { closestLine, type NearPark } from "@/lib/events/nearby";
-import { isFree, monthDay } from "@/lib/events/model";
+import { isFree, monthDay, occurrenceId } from "@/lib/events/model";
 import { addDays } from "@/lib/news/time";
 import {
   type Branch,
@@ -45,6 +47,47 @@ const tagsOf = (p: Program): AgeTag[] => [
 const allFree = (p: Program) =>
   p.branches.every((b) => b.rows.every((r) => isFree(r.data)));
 const canceled = (b: Branch) => b.nextRow.status === "canceled";
+
+/** Every page of a program (what a hide covers, and its data-ev). */
+export const slugsOf = (p: Program): string[] => [
+  ...new Set(p.branches.flatMap((b) => b.rows.map((r) => r.slug))),
+];
+
+/** "all 5 libraries" for a hide's toast, when it's more than one place. */
+const placesOf = (p: Program) =>
+  p.branches.length > 1 ? `all ${placesLabel(p.branches)}` : null;
+
+/** One date, or one place and one date: "event"; anything that repeats: "series". */
+const scopeOf = (p: Program): "event" | "series" =>
+  p.kind === "regular" ||
+  p.branches.length > 1 ||
+  p.branches.some((b) => b.upcoming.length > 1)
+    ? "series"
+    : "event";
+
+/** A special's save: its next date, at its next page. */
+function SaveDate({
+  p,
+  today,
+  from,
+}: {
+  p: Program;
+  today: string;
+  from: "card" | "row";
+}) {
+  const { nextRow: row, next } = p.lead;
+  const when = nextLine(next, today);
+  return (
+    <HeartButton
+      slug={row.slug}
+      occ={occurrenceId(next)}
+      label={`${p.title}, ${when}`}
+      title={p.title}
+      where={`${when} · ${venueLine(row)}`}
+      from={from}
+    />
+  );
+}
 
 /** "Central Library, Bend", or "Central Library, Bend, and 2 more libraries". */
 function whereLine(p: Program): string {
@@ -117,18 +160,31 @@ export function SpecialCard({
   p,
   today,
   parks,
+  slugs = slugsOf(p),
 }: {
   p: Program;
   today: string;
   parks: readonly NearPark[];
+  /** The whole program's pages (a filtered view shows fewer). */
+  slugs?: string[];
 }) {
   const { nextRow: row, next } = p.lead;
   const near = closestLine(row.data, parks);
   const more = moreLine(p, today);
   return (
     <article
+      data-ev={slugs.join(" ")}
       className={`${p.annual ? "doodle-box-alt" : "doodle-box"} relative mt-2 flex flex-col gap-1.5 px-4 pt-5 pb-3 focus-within:ring-4 focus-within:ring-crayon-blue/40`}
     >
+      <span className="absolute top-0.5 right-0.5">
+        <HideButton
+          slugs={slugs}
+          title={p.title}
+          scope={scopeOf(p)}
+          from="card"
+          places={placesOf(p)}
+        />
+      </span>
       <span
         className={`absolute -top-3 left-3 -rotate-2 rounded-[var(--radius-wobbly-2)] border-2 border-ink px-2 py-0.5 font-hand text-lg leading-tight shadow-[2px_2px_0_var(--color-ink)] ${p.annual ? "bg-crayon-pink text-paper" : "bg-crayon-yellow"}`}
       >
@@ -140,7 +196,7 @@ export function SpecialCard({
           )}
         </time>
       </span>
-      <h4 className="font-hand text-2xl leading-tight">
+      <h4 className="pr-8 font-hand text-2xl leading-tight">
         <Link
           href={`/events/${row.slug}`}
           className="underline decoration-2 underline-offset-4 after:absolute after:inset-0 after:content-['']"
@@ -157,12 +213,17 @@ export function SpecialCard({
         <EventChips row={row} />
       </div>
       <p className="line-clamp-2 leading-snug">{row.data.what}</p>
-      {near ? (
-        <p className="text-[0.95rem]" aria-label={near.label}>
-          {near.text}
-        </p>
-      ) : null}
-      <AlsoAt p={p} today={today} />
+      <div className="-mr-2 -mb-1 flex items-end gap-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          {near ? (
+            <p className="text-[0.95rem]" aria-label={near.label}>
+              {near.text}
+            </p>
+          ) : null}
+          <AlsoAt p={p} today={today} />
+        </div>
+        <SaveDate p={p} today={today} from="card" />
+      </div>
     </article>
   );
 }
@@ -172,11 +233,13 @@ export function SpecialRow({
   p,
   today,
   level = 4,
+  slugs = slugsOf(p),
 }: {
   p: Program;
   today: string;
   /** Its title's heading level (4 under /events' day groups). */
   level?: 3 | 4;
+  slugs?: string[];
 }) {
   const { nextRow: row, next } = p.lead;
   const H = level === 3 ? "h3" : "h4";
@@ -184,7 +247,10 @@ export function SpecialRow({
   const age = ageChip(tagsOf(p));
   const more = moreLine(p, today);
   return (
-    <li className="relative flex gap-3 py-3 focus-within:ring-4 focus-within:ring-crayon-blue/40">
+    <li
+      data-ev={slugs.join(" ")}
+      className="relative flex gap-3 py-3 focus-within:ring-4 focus-within:ring-crayon-blue/40"
+    >
       <span
         aria-hidden
         className={`flex h-14 w-12 shrink-0 flex-col items-center justify-center rounded-[var(--radius-wobbly-2)] border-2 border-ink font-hand leading-none ${p.annual ? "bg-crayon-pink text-paper" : "bg-[color-mix(in_srgb,var(--color-crayon-yellow)_45%,#fffdf7)]"}`}
@@ -224,15 +290,46 @@ export function SpecialRow({
         ) : null}
         <AlsoAt p={p} today={today} />
       </div>
+      <Actions>
+        <HideButton
+          slugs={slugs}
+          title={p.title}
+          scope={scopeOf(p)}
+          from="row"
+          places={placesOf(p)}
+        />
+        <SaveDate p={p} today={today} from="row" />
+      </Actions>
     </li>
+  );
+}
+
+/** A row's actions: the × up top, the heart at the bottom, apart. */
+function Actions({ children }: { children: ReactNode }) {
+  return (
+    <div className="-my-1 -mr-1.5 flex shrink-0 flex-col items-center justify-between gap-1">
+      {children}
+    </div>
   );
 }
 
 const TITLE =
   "font-hand text-xl leading-tight underline decoration-2 underline-offset-4";
 
-/** A regular, once: what, where, when it usually is, and the next one. */
-export function RegularRow({ p, today }: { p: Program; today: string }) {
+/**
+ * A regular, once: what, where, when it usually is, and the next one.
+ * Its heart saves the program at the next date's branch (always its next
+ * date on the shortlist); its × hides every branch.
+ */
+export function RegularRow({
+  p,
+  today,
+  slugs = slugsOf(p),
+}: {
+  p: Program;
+  today: string;
+  slugs?: string[];
+}) {
   const age = ageChip(tagsOf(p));
   const dates = p.branches.flatMap((b) => b.upcoming);
   const pattern = patternLine(
@@ -246,11 +343,19 @@ export function RegularRow({ p, today }: { p: Program; today: string }) {
     b.parts.filter((x) => x.upcoming.length).map((x) => ({ ...x, b })),
   );
   const next = `Next: ${nextLine(p.lead.next, today)}${multi ? `, ${p.lead.row.data.venue.name}` : ""}`;
+  const lead = p.lead.row;
   const body = (heading: boolean) => (
     <>
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
         {heading ? (
-          <h3 className={TITLE}>{p.title}</h3>
+          <h3 className={TITLE}>
+            <Link
+              href={`/events/${lead.slug}`}
+              className="after:absolute after:inset-0 after:content-['']"
+            >
+              {p.title}
+            </Link>
+          </h3>
         ) : (
           <span className={TITLE}>{p.title}</span>
         )}
@@ -259,37 +364,57 @@ export function RegularRow({ p, today }: { p: Program; today: string }) {
       </div>
       <span className="text-[0.95rem] leading-snug">
         {placesLabel(p.branches)}
+        {pages.length > 1 ? (
+          <span
+            aria-hidden
+            className="ml-1 inline-block font-hand transition-transform group-open:rotate-180"
+          >
+            ▾
+          </span>
+        ) : null}
         {pattern ? ` · ${pattern}` : ""}
       </span>
       <span className="text-sm leading-snug text-ink-soft">{next}</span>
     </>
   );
+  const actions = (
+    <Actions>
+      <HideButton
+        slugs={slugs}
+        title={p.title}
+        scope="series"
+        from="row"
+        places={placesOf(p)}
+      />
+      <HeartButton
+        slug={lead.slug}
+        occ=""
+        label={`${p.title} at ${lead.data.venue.name}`}
+        title={p.title}
+        where={venueLine(lead)}
+        from="row"
+      />
+    </Actions>
+  );
   if (pages.length === 1)
     return (
-      <li>
-        <Link
-          href={`/events/${p.lead.row.slug}`}
-          className="flex min-h-11 flex-col gap-0.5 py-2.5"
-        >
+      <li
+        data-ev={slugs.join(" ")}
+        className="relative flex gap-2 py-2.5 focus-within:ring-4 focus-within:ring-crayon-blue/40"
+      >
+        <div className="flex min-h-11 min-w-0 flex-1 flex-col gap-0.5">
           {body(true)}
-        </Link>
+        </div>
+        {actions}
       </li>
     );
   return (
-    <li>
-      <details className="group">
-        <summary className="flex min-h-11 cursor-pointer list-none items-start gap-2 py-2.5 [&::-webkit-details-marker]:hidden">
-          <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-            {body(false)}
-          </div>
-          <span
-            aria-hidden
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[var(--radius-wobbly-2)] border-2 border-ink bg-paper font-hand text-2xl transition-transform group-open:rotate-180"
-          >
-            ▾
-          </span>
+    <li data-ev={slugs.join(" ")} className="flex gap-2 py-2.5">
+      <details className="group min-w-0 flex-1">
+        <summary className="flex min-h-11 cursor-pointer list-none flex-col gap-0.5 [&::-webkit-details-marker]:hidden">
+          {body(false)}
         </summary>
-        <ul className="mb-2 ml-1 flex flex-col border-l-2 border-dashed border-ink/30 pl-3">
+        <ul className="mt-1 ml-1 flex flex-col border-l-2 border-dashed border-ink/30 pl-3">
           {pages.map((x) => {
             const own = x.row.data.title !== p.title ? x.row.data.title : null;
             const line = patternLine(x.upcoming, today);
@@ -313,6 +438,7 @@ export function RegularRow({ p, today }: { p: Program; today: string }) {
           })}
         </ul>
       </details>
+      {actions}
     </li>
   );
 }

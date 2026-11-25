@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import { CrayonLoading } from "@/components/Loading";
 import { todayInBend, SectionTitle } from "@/components/passport/bits";
 import { PageTitle } from "@/components/PageTitle";
+import { SavedTile } from "@/components/events/SaveHide";
 import { Cover } from "@/components/passport/Cover";
 import { FunStats } from "@/components/passport/FunStats";
 import { SignedOut } from "@/components/passport/SignedOut";
@@ -119,6 +120,7 @@ async function Passport() {
         every={every}
         townsTotal={towns.size}
       />
+      <SavedTile />
       <Stamps stamps={[...stampMap.values()]} />
       <section aria-labelledby="stickers-h">
         <SectionTitle

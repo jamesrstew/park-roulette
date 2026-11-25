@@ -7,7 +7,16 @@ import {
   RegularRow,
   SpecialCard,
   SpecialRow,
+  slugsOf,
 } from "@/components/events/ProgramBits";
+import {
+  AllHidden,
+  HiddenLine,
+  LiveCount,
+  MoreLabel,
+  PrefsMarks,
+  SavedLink,
+} from "@/components/events/SaveHide";
 import { ScrollToHash } from "@/components/events/ScrollToHash";
 import { Icon } from "@/components/icons";
 import { CrayonLoading } from "@/components/Loading";
@@ -142,12 +151,15 @@ export async function generateMetadata({
 export default function EventsPage(props: Props) {
   return (
     <div className="flex flex-col gap-5">
-      <nav aria-label="Breadcrumb" className="text-sm text-ink-soft">
-        <Link href="/" className="underline">
-          Park Roulette
-        </Link>{" "}
-        › Kids&apos; events
-      </nav>
+      <div className="-mb-3 flex items-center justify-between gap-2">
+        <nav aria-label="Breadcrumb" className="text-sm text-ink-soft">
+          <Link href="/" className="underline">
+            Park Roulette
+          </Link>{" "}
+          › Kids&apos; events
+        </nav>
+        <SavedLink />
+      </div>
       <PageTitle
         lead="Kids'"
         accent="events"
@@ -200,6 +212,9 @@ async function Listing({ searchParams }: Props) {
         .sort(k === "later" ? () => 0 : bigFirst),
     }))
     .filter((g) => g.span);
+  // A hide covers a program's every page, even when a filter shows fewer.
+  const pagesOf = new Map(everything.map((p) => [p.key, slugsOf(p)]));
+  const sl = (p: (typeof programs)[number]) => pagesOf.get(p.key) ?? slugsOf(p);
   const liveRows = everything.flatMap((p) => p.branches.flatMap((b) => b.rows));
   const towns = [...new Set(liveRows.map((r) => r.data.venue.town))].sort();
 
@@ -293,14 +308,14 @@ async function Listing({ searchParams }: Props) {
             href="#specials"
             className="flex min-h-11 items-center text-ink underline underline-offset-2"
           >
-            Specials ({specials.length})
+            Specials (<LiveCount programs={specials.map(sl)} />)
           </a>
           ·
           <a
             href="#regulars"
             className="flex min-h-11 items-center text-ink underline underline-offset-2"
           >
-            Regulars ({regulars.length})
+            Regulars (<LiveCount programs={regulars.map(sl)} />)
           </a>
         </nav>
       ) : null}
@@ -346,6 +361,7 @@ async function Listing({ searchParams }: Props) {
                 key={g.k}
                 aria-labelledby={`g-${g.k}`}
                 className="flex flex-col gap-3"
+                data-ev-group={g.items.length ? "" : undefined}
               >
                 <h3 id={`g-${g.k}`} className="font-hand text-3xl">
                   {SPECIAL_GROUP_NAMES[g.k]}{" "}
@@ -383,6 +399,7 @@ async function Listing({ searchParams }: Props) {
                     }
                   />
                 ) : null}
+                {g.items.length ? <AllHidden /> : null}
                 {!g.items.length && g.k === "later" ? (
                   <p className="leading-snug text-ink-soft">
                     Nothing else special on the calendar yet.
@@ -396,29 +413,45 @@ async function Listing({ searchParams }: Props) {
                         p={p}
                         today={today}
                         parks={parks}
+                        slugs={sl(p)}
                       />
                     ))}
                     {tail.length ? (
-                      <ul className="doodle-box flex flex-col divide-y divide-dashed divide-ink/25 px-3">
+                      <ul
+                        data-ev-box
+                        className="doodle-box flex flex-col divide-y divide-dashed divide-ink/25 px-3"
+                      >
                         {tail.map((p) => (
-                          <SpecialRow key={p.key} p={p} today={today} />
+                          <SpecialRow
+                            key={p.key}
+                            p={p}
+                            today={today}
+                            slugs={sl(p)}
+                          />
                         ))}
                       </ul>
                     ) : null}
                   </>
                 ) : g.items.length ? (
-                  <div className="doodle-box px-3">
+                  <div className="doodle-box px-3" data-ev-box>
                     <ul className="flex flex-col divide-y divide-dashed divide-ink/25">
                       {head.map((p) => (
-                        <SpecialRow key={p.key} p={p} today={today} />
+                        <SpecialRow
+                          key={p.key}
+                          p={p}
+                          today={today}
+                          slugs={sl(p)}
+                        />
                       ))}
                     </ul>
                     {tail.length ? (
-                      <details className="group border-t border-dashed border-ink/25">
+                      <details
+                        data-ev-box
+                        className="group border-t border-dashed border-ink/25"
+                      >
                         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-center gap-2 font-hand text-xl underline underline-offset-4 [&::-webkit-details-marker]:hidden">
                           <span className="group-open:hidden">
-                            Show {tail.length} more special{" "}
-                            {tail.length === 1 ? "event" : "events"} ▾
+                            <MoreLabel programs={tail.map(sl)} /> ▾
                           </span>
                           <span className="hidden group-open:inline">
                             Show fewer ▴
@@ -426,7 +459,12 @@ async function Listing({ searchParams }: Props) {
                         </summary>
                         <ul className="flex flex-col divide-y divide-dashed divide-ink/25">
                           {tail.map((p) => (
-                            <SpecialRow key={p.key} p={p} today={today} />
+                            <SpecialRow
+                              key={p.key}
+                              p={p}
+                              today={today}
+                              slugs={sl(p)}
+                            />
                           ))}
                         </ul>
                       </details>
@@ -436,12 +474,14 @@ async function Listing({ searchParams }: Props) {
               </section>
             );
           })}
+          <HiddenLine programs={specials.map(sl)} where="Specials" />
         </section>
       ) : null}
 
       {programs.length ? (
         <section
           id="regulars"
+          data-ev-group={regulars.length ? "" : undefined}
           aria-labelledby="regulars-h"
           className="flex scroll-mt-4 flex-col gap-1 rounded-[var(--radius-wobbly)] border-2 border-dashed border-ink/40 bg-[color-mix(in_srgb,var(--color-crayon-teal)_10%,#fffdf7)] px-4 py-4"
         >
@@ -452,9 +492,12 @@ async function Listing({ searchParams }: Props) {
             Story times, clubs and classes that come around again.
           </p>
           {regulars.length ? (
-            <ul className="mt-1 flex flex-col divide-y divide-dashed divide-ink/25">
+            <ul
+              data-ev-box
+              className="mt-1 flex flex-col divide-y divide-dashed divide-ink/25"
+            >
               {regulars.map((p) => (
-                <RegularRow key={p.key} p={p} today={today} />
+                <RegularRow key={p.key} p={p} today={today} slugs={sl(p)} />
               ))}
             </ul>
           ) : (
@@ -465,6 +508,8 @@ async function Listing({ searchParams }: Props) {
               </Link>
             </p>
           )}
+          {regulars.length ? <AllHidden /> : null}
+          <HiddenLine programs={regulars.map(sl)} where="Regulars" />
         </section>
       ) : null}
 
@@ -504,6 +549,7 @@ async function Listing({ searchParams }: Props) {
         </Link>
       </p>
 
+      <PrefsMarks />
       <ScrollToHash />
       <JsonLd
         data={{

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { signOut } from "@/lib/client-actions";
+import { forgetFamilyList } from "@/lib/events/prefs";
 
 /** Two taps on purpose: make sure they know the way back in first. */
 export function SignOutButton({
@@ -26,6 +27,7 @@ export function SignOutButton({
   return (
     <form
       action={signOut}
+      onSubmit={() => forgetFamilyList()}
       className="doodle-box-alt flex animate-pop-in flex-col items-center gap-3 px-4 py-4 text-center"
     >
       <p className="leading-snug">

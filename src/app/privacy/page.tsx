@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <LegalPage
-      updated="November 23, 2026"
+      updated="November 25, 2026"
       lead="Privacy"
       accent="Policy"
       intro={
@@ -98,6 +98,12 @@ export default function PrivacyPage() {
             and the dates you picked.
           </li>
           <li>
+            <b>Saved and hidden events</b>: if you save or hide kids&apos;
+            events while signed in, we keep that list with your family so
+            everyone in your family sees the same one. Signed out, it stays on
+            your phone.
+          </li>
+          <li>
             <b>Reviews</b>: stars, stickers, words, photos and videos, and who
             you chose to share each one with.
           </li>
@@ -175,8 +181,10 @@ export default function PrivacyPage() {
           Park Roulette also saves a few things in your browser&apos;s own
           storage, which stays on your phone and isn&apos;t sent to us: settings
           like sound on or off, your spin filters, which stickers you&apos;ve
-          seen, and whether you&apos;ve closed a tip. While you wait for a code,
-          the number you typed is kept in that browser tab for up to 10 minutes.
+          seen, whether you&apos;ve closed a tip, and the events you save or
+          hide while signed out (signed in, they go with your family&apos;s
+          list). While you wait for a code, the number you typed is kept in that
+          browser tab for up to 10 minutes.
         </p>
       </Section>
 

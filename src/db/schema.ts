@@ -819,6 +819,48 @@ export const kidEvents = pgTable(
 );
 
 /**
+ * A family's saved kid events (/events/saved). One row per page and
+ * occurrence: `occ` is the occurrence id (lib/events/model.ts
+ * occurrenceId: "2026-12-06" or "2026-12-06-1400"), or "" for a regular
+ * saved as a program (its next date, always). Signed out, saves live on
+ * the phone (lib/events/prefs.ts) and join the family at sign-in. No
+ * foreign key to kid_events: a page that came off shows as such.
+ */
+export const eventSaves = pgTable(
+  "event_saves",
+  {
+    crewId: integer("crew_id")
+      .notNull()
+      .references(() => crews.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    occ: text("occ").notNull().default(""),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.crewId, t.slug, t.occ] })],
+);
+
+/**
+ * Kid events a family hid from /events: one row per page (hiding a
+ * program that runs at 5 libraries writes 5). Applied on the phone, so
+ * the shared, cached listing never varies by family.
+ */
+export const eventHides = pgTable(
+  "event_hides",
+  {
+    crewId: integer("crew_id")
+      .notNull()
+      .references(() => crews.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.crewId, t.slug] })],
+);
+
+/**
  * Admin repairs to kid_events, append-only: who trimmed, split off or
  * removed what (the event's dates before and after), so a wrong page can
  * be fixed from /admin without SQL and every fix leaves a trail. No
