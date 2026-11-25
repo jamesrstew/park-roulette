@@ -116,11 +116,18 @@ describe.skipIf(!local)("the /social grid, against Postgres", () => {
     await insert("teaser", "2026-11-19", "failed", { ch: "6" });
     await insert("park_post", "2026-11-23", "queued", { ch: "7" });
     await insert("unpack", "2026-11-25", "skipped", { ch: "8" });
-    const tiles = await pub.loadGrid();
+    const tiles = await pub.loadPostTiles();
     expect(tiles.map((t) => [t.id, t.href, t.to])).toEqual([
       [home, `/social/${home}`, "post"],
       [events, "/events?week=2026-11-17", "events"],
       [park, "/parks/larkspur-park-bend", "park"],
+    ]);
+    // The grid itself adds the press tiles by day (The Bulletin, Nov 25).
+    expect((await pub.loadGrid()).map((t) => t.id)).toEqual([
+      -1,
+      home,
+      events,
+      park,
     ]);
     expect(tiles[0].cover).toMatchObject({
       sha: "3".repeat(64),
@@ -145,15 +152,15 @@ describe.skipIf(!local)("the /social grid, against Postgres", () => {
       spec: withPhoto,
     });
     // No clear verdict on these bytes: never shown.
-    expect(await pub.loadGrid()).toEqual([]);
+    expect(await pub.loadPostTiles()).toEqual([]);
     await q(
       `insert into social_photo_checks (src, sha256, verdict) values ('${PHOTO.src}', '${PHOTO.sha256}', 'clear')`,
     );
-    expect((await pub.loadGrid()).map((t) => t.id)).toEqual([id]);
+    expect((await pub.loadPostTiles()).map((t) => t.id)).toEqual([id]);
     await q(
       `insert into social_photo_checks (src, sha256, verdict) values ('${PHOTO.src}', '${"8".repeat(64)}', 'people')`,
     );
-    expect(await pub.loadGrid()).toEqual([]);
+    expect(await pub.loadPostTiles()).toEqual([]);
     expect(await pub.loadPost(id)).toBeNull();
 
     // A queued post redrawn as the crayon card (a person was seen), then

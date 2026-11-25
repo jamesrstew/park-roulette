@@ -79,10 +79,15 @@ export async function publishedRows(limit = GRID_LIMIT): Promise<PublicRow[]> {
     .limit(limit);
 }
 
-/** The link-in-bio grid's tiles (uncached: tests and the cached read). */
-export async function loadGrid(): Promise<GridTile[]> {
+/** Our own posts' tiles, without press tiles (uncached; tests read this). */
+export async function loadPostTiles(): Promise<GridTile[]> {
   const [rows, verdicts] = await Promise.all([publishedRows(), readVerdicts()]);
-  return withPressTiles(gridTiles(rows, verdicts));
+  return gridTiles(rows, verdicts);
+}
+
+/** The link-in-bio grid's tiles: our posts plus press tiles (uncached). */
+export async function loadGrid(): Promise<GridTile[]> {
+  return withPressTiles(await loadPostTiles());
 }
 
 /** The grid, cached until a post changes. */
