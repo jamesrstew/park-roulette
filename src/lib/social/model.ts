@@ -45,7 +45,7 @@ export type MashupTheme = (typeof MASHUP_THEMES)[number];
 export const THEME_ICON: Record<MashupTheme, string> = {
   coffee: "cup",
   food_trucks: "food_truck",
-  breweries: "pizza",
+  breweries: "picnic",
   treats: "cupcake",
 };
 
@@ -608,8 +608,10 @@ export type SlideSpec =
   | {
       /**
        * One park pairing (mashup.ts): a place and a vetted park, how far
-       * apart, the place's details Google marks true, and the park's own
-       * trait. Our words only; no rating, hours or Google text.
+       * apart (our own measure, rounded) and the park's own trait. Google
+       * is for finding and choosing only: of its content, a slide prints
+       * nothing but the business's own public name, so no attribution is
+       * owed. No rating, hours, attributes or Google text.
        */
       t: "pair";
       n: number;
@@ -622,14 +624,16 @@ export type SlideSpec =
       /** "6-minute walk" or "Short drive". */
       apart: string;
       walk: boolean;
-      /** "Kids' menu", "Patio", "Good for kids" (from Places, at draft time). */
-      chips: string[];
       /** The park's lead in-season trait, as park-profiles has it. */
       trait: string;
       /** For the post page's links: Google's place id and our park. */
       placeId: string;
       parkSlug: string;
-      /** The place's verified site (data/ig-handles.json), or null. */
+      /**
+       * The place's own site from our verified handle registry
+       * (data/ig-handles.json: our data, proven both ways), or null. Never
+       * Google's website field.
+       */
       site?: string | null;
       /** Name type for every pair slide of the post (fit.ts), px. */
       nameSize?: number;

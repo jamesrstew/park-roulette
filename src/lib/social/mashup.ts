@@ -194,9 +194,20 @@ export const REVIEWS_MIN = 100;
  */
 export const CHAINS = [
   "starbucks",
+  "coffee bean & tea leaf",
+  "cinnabon",
+  "auntie anne's",
+  "bruegger's",
+  "wendy's",
+  "pretzelmaker",
+  "panda express",
+  "chick-fil-a",
+  "taco bell",
+  "little caesars",
+  "domino's",
+  "pizza hut",
   "dutch bros",
   "black rock coffee",
-  "the human bean",
   "human bean",
   "dunkin",
   "peet's",
@@ -309,7 +320,9 @@ export function chainOf(name: string): string | null {
     .replace(/[’‘]/g, "'")
     .replace(/[^a-z0-9'& ]+/g, " ")
     .replace(/\s+/g, " ")
-    .trim();
+    .trim()
+    // "The Coffee Bean & Tea Leaf" is "coffee bean & tea leaf".
+    .replace(/^the /, "");
   return CHAINS.find((c) => n === c || n.startsWith(`${c} `)) ?? null;
 }
 
@@ -441,7 +454,8 @@ export function mashupPark(
   o: { closed: boolean; noPick: boolean; cooling: boolean },
 ): MashupPark | null {
   if (!p.approved || p.status !== "active" || o.closed || o.noPick) return null;
-  if (p.play !== "playground" && p.play !== "nature") return null;
+  // Every pairing's copy says "playground": a park without one never pairs.
+  if (p.play !== "playground") return null;
   if (!(MASHUP_TOWNS as readonly string[]).includes(p.city)) return null;
   const kinds = postKinds(profile, month);
   if (kinds < MIN_POST_TRAITS) return null;
@@ -676,8 +690,10 @@ export function themeOrder(
       (last.get(a) ?? "").localeCompare(last.get(b) ?? "") ||
       MASHUP_THEMES.indexOf(a) - MASHUP_THEMES.indexOf(b),
   );
+  // The first theme in James's order that hasn't run yet (a fallback week
+  // that ran another theme doesn't skip one).
   const first =
-    sorted.length < THEME_ORDER.length ? THEME_ORDER[sorted.length] : null;
+    THEME_ORDER.find((t) => !sorted.some((h) => h.theme === t)) ?? null;
   const inSeason = lru.filter((t) => seasonFit(t, month) >= IN_SEASON);
   const rest = lru.filter((t) => seasonFit(t, month) < IN_SEASON);
   const order = [...(first ? [first] : []), ...inSeason, ...rest];
@@ -761,6 +777,8 @@ export function mashupCopy(
       highlight: "playground",
     };
   };
+  // No food or mealtime words ("lunch"): that reads as an hours claim. No
+  // Google attribute either ("good for kids"): those only choose places.
   switch (theme) {
     case "coffee":
       return {
@@ -777,18 +795,16 @@ export function mashupCopy(
       return {
         ...cover("food truck lots"),
         intro: pick([
-          winter
-            ? `Everyone picks their own lunch, then the kids run off the cold. Each lot is ${near} from a park.`
-            : `Everyone picks their own lunch, then the kids run it off. Each lot is ${near} from a park.`,
-          `Lunch from a truck, then the playground. Each pair is ${near} apart.`,
+          `Pick a truck, then let the kids run. Each lot is ${near} from a playground.`,
+          `A food truck stop, then the playground. Each pair is ${near} apart.`,
         ]),
       };
     case "breweries":
       return {
-        ...cover("kid-friendly breweries"),
+        ...cover("breweries"),
         intro: pick([
-          `Each brewery here is good for kids, with a playground ${near} away. Lunch first, then the park.`,
-          `Lunch with the kids at a brewery that's good for them. The playground is ${near} away.`,
+          `A brewery stop, then the playground. Each pair is ${near} apart.`,
+          `Each brewery here is ${near} from a playground the kids can run around.`,
         ]),
       };
     case "treats": {
@@ -810,40 +826,6 @@ export function mashupCopy(
       };
     }
   }
-}
-
-/** What a place is, in a caption sentence ("The cafe has a kids' menu."). */
-export function placeNoun(theme: MashupTheme, p: Place): string {
-  switch (theme) {
-    case "coffee":
-      return "cafe";
-    case "food_trucks":
-      return "lot";
-    case "breweries":
-      return "brewery";
-    case "treats":
-      return p.primaryType === "bakery" ? "bakery" : "shop";
-  }
-}
-
-/** The chips as one plain sentence about the place, or "" with none. */
-export function chipSentence(noun: string, chips: readonly string[]): string {
-  const has = chips.flatMap((c) =>
-    c === "Kids' menu" ? ["a kids' menu"] : c === "Patio" ? ["a patio"] : [],
-  );
-  if (has.length)
-    return `The ${noun} has ${has.length === 2 ? `${has[0]} and ${has[1]}` : has[0]}.`;
-  return chips.includes("Good for kids") ? `The ${noun} is good for kids.` : "";
-}
-
-/** The place's details as chips: only what Google marks true. */
-export function placeChips(p: Place, month: number): string[] {
-  const out: string[] = [];
-  if (p.menuForChildren === true) out.push("Kids' menu");
-  // A patio is no draw in the cold months.
-  if (p.outdoorSeating === true && !WINTER_MONTHS.has(month)) out.push("Patio");
-  if (!out.length && p.goodForChildren === true) out.push("Good for kids");
-  return out;
 }
 
 /**

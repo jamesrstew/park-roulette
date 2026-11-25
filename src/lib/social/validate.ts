@@ -42,6 +42,7 @@ import {
 import {
   hostDomain,
   mentionProblems,
+  noAt,
   parkTag,
   postHandles,
   siteDomain,
@@ -68,7 +69,7 @@ import {
   PAIRS_MAX,
   PAIRS_MIN,
   type Pairing,
-  placeChips,
+  cleanName,
 } from "./mashup";
 import {
   type AtHomeDraft,
@@ -1659,11 +1660,11 @@ export async function validateAtHome(
 /**
  * A park pairings carousel, as code composed it, checked like any other
  * post before it's stored: the text rules on every word code wrote (the
- * headline, intro, chips and the parks' traits), no drinks words anywhere
- * (place names included), the headline's shape and count, and each slide
- * against the data it came from (the distance from the two points, the
- * chips Google marks true, the park's own trait, a postable park). Names
- * are proper names: first person ("Our Daily Bread") is fine there.
+ * headline, intro, distances and the parks' traits), no drinks words
+ * anywhere but our own park names (place names included), the headline's
+ * shape and count, and each slide against the data it came from (the
+ * distance from the two points, the park's own trait). Names are proper
+ * names: first person ("Our Daily Bread") is fine there.
  */
 export function mashupProblems(
   spec: PostSpec,
@@ -1716,7 +1717,7 @@ export function mashupProblems(
     [
       spec.headline,
       spec.modelText,
-      ...slides.flatMap((x) => [x.apart, ...x.chips, x.trait]),
+      ...slides.flatMap((x) => [x.apart, x.trait]),
     ].join("\n"),
   );
   out.push(
@@ -1728,20 +1729,20 @@ export function mashupProblems(
   );
   const bang = exclamationProblem([ours]);
   if (bang) out.push(bang);
-  for (const x of slides) {
-    // A brewery is a family stop here (James, Nov 25, 2026): the brewery
-    // word itself is allowed; a bar, pub or taproom in the name never is.
-    const bad = venueProblem(x.place.replace(BREWERY_WORD, " "), {
-      month: o.month,
-      label: "place",
-    });
-    if (bad) out.push(bad);
-  }
-  const all = [
-    spec.caption ?? "",
-    ...spec.alts,
-    ...slides.map((x) => x.place),
-  ].join("\n");
+  for (const p of pairs) out.push(...pairProblems(p, o.month));
+  // Our parks' and towns' names are our records, not drinks talk
+  // ("Diamond Bar Ranch Park"), and "monkey bars" are play equipment.
+  const ownNames = [
+    ...new Set(slides.flatMap((x) => [x.park, x.town]).concat(TOWNS)),
+  ].sort((a, b) => b.length - a.length);
+  const all = ownNames
+    .reduce(
+      (acc, nm) => acc.replace(new RegExp(`\\b${escapeRe(nm)}\\b`, "gi"), " "),
+      [spec.caption ?? "", ...spec.alts, ...slides.map((x) => x.place)].join(
+        "\n",
+      ),
+    )
+    .replace(MONKEY_BARS, " ");
   const drinks = NO_DRINKS.exec(all);
   if (drinks)
     out.push(
@@ -1755,12 +1756,11 @@ export function mashupProblems(
       out.push(`${x.place}: the distance doesn't match the two points.`);
     if (a?.walk && a.minutes > 10)
       out.push(`${x.place}: a walk over 10 minutes.`);
-    const chips = placeChips(p.place, o.month);
-    if (x.chips.some((c) => !chips.includes(c)))
-      out.push(`${x.place}: a detail Google doesn't mark true.`);
     if (x.trait !== p.park.trait || x.parkSlug !== p.park.slug)
       out.push(`${x.park}: the park's line isn't its own trait.`);
     if (x.placeId !== p.place.placeId) out.push(`${x.place}: wrong place id.`);
+    if (x.place !== noAt(cleanName(p.place.name)))
+      out.push(`${x.place}: isn't the place's own name.`);
   });
   for (const r of o.recent.slice(0, OVERLAP_POSTS)) {
     if (r.kind === "mashup" && r.slotDate === o.slotDate) continue;
@@ -1778,6 +1778,31 @@ export function mashupProblems(
 
 /** The brewery word in a name (allowed in park pairings, as the place type). */
 const BREWERY_WORD = /\bbrew(ing|ery|eries|pub)\b/gi;
+const MONKEY_BARS = /\bmonkey bars?\b/gi;
+
+/**
+ * One pair's own problems: the place's printed name (no bar, pub or
+ * taproom, no drinks word, no competitor; a brewery is a family stop here,
+ * James, Nov 25, 2026, so its brewery word is allowed) and the park's
+ * trait (the text rules; "monkey bars" is play equipment). A pair with
+ * any is dropped on its own: the rest of the carousel goes on.
+ */
+export function pairProblems(p: Pairing, month: number): string[] {
+  const out: string[] = [];
+  const name = cleanName(p.place.name);
+  const bad = venueProblem(name.replace(BREWERY_WORD, " "), {
+    month,
+    label: "place",
+  });
+  if (bad) out.push(bad);
+  if (NO_DRINKS.test(name))
+    out.push(`${name}: no drinks words in a family post, names included.`);
+  const trait = p.park.trait.replace(MONKEY_BARS, " ");
+  out.push(...textProblems(trait, { month, label: `${p.park.name}'s line` }));
+  if (NO_DRINKS.test(trait))
+    out.push(`${p.park.name}'s line: no drinks words in a family post.`);
+  return out;
+}
 
 /**
  * May the routine hand in an Unpack for this week? Not on a mashup week's

@@ -282,7 +282,7 @@ function PairCard({ p, from }: { p: PagePair; from: string | null }) {
             {p.place} <span className="text-crayon-red">+</span> {p.park}
           </h2>
           <p className="text-sm leading-snug text-ink-soft">
-            {[p.town, `${p.apart.toLowerCase()} apart`, ...p.chips].join(" · ")}
+            {p.town} · {p.apart.toLowerCase()} apart
           </p>
           <p className="leading-snug">
             <b className="font-semibold">At the park:</b> {p.trait}

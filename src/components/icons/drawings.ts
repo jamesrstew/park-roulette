@@ -956,19 +956,6 @@ export const DRAWINGS = {
     solid("paper", circle(6.2, 18.6, 0.8)),
     solid("paper", circle(18, 18.6, 0.8)),
   ],
-  // A slice of pizza (park pairings: lunch at a family brewery).
-  pizza: [
-    ...shape("yellow", "M3.4 5.4 C9 2.6 15 2.6 20.6 5.4 L12 21.4 Z"),
-    ...shape(
-      "orange",
-      "M3.4 5.4 C9 2.6 15 2.6 20.6 5.4 L19.6 7.4 C14.4 5 9.6 5 4.4 7.4 Z",
-      { w: 1.6 },
-    ),
-    solid("red", circle(10, 10, 1.5)),
-    solid("red", circle(14.4, 9.6, 1.4)),
-    solid("red", circle(12.2, 14.4, 1.3)),
-    solid("green", rect(9.8, 12.6, 1.4, 0.8, 0.3)),
-  ],
   // A cupcake with sprinkles (park pairings: bakeries and treats).
   cupcake: [
     ...shape(

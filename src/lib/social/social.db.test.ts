@@ -270,7 +270,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     delete process.env.FB_PAGE_ID;
     process.env.VERCEL_ENV = "production";
     await q(
-      "truncate social_dm_replies, social_posts, social_photo_checks, news_issues, news_settings, kid_events, parks restart identity cascade",
+      "truncate social_dm_replies, social_posts, social_photo_checks, news_issues, news_settings, kid_events, parks, places_usage restart identity cascade",
     );
     await q(`insert into parks (slug, name, city, lat, lng, approved_at, features, address)
       values ('larkspur-park-bend', 'Larkspur Park', 'Bend', 44.03, -121.28, now(), '{accessible,shade,picnic,trail,sports_courts}', '1600 SE Reed Market Rd, Bend, OR 97701')`);
@@ -2335,6 +2335,33 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       `select status from social_posts where kind = 'mashup'`,
     );
     expect(row).toEqual({ status: "skipped" });
+  });
+
+  it("park pairings: next week's holiday Unpack doesn't take this week; the day's Places cap skips", async () => {
+    process.env.GOOGLE_PLACES_KEY = "test-places-key";
+    await pairingParks();
+    // Next week's Sunday carousel, stored early: not this week's.
+    await q(`insert into social_posts (kind, slot_date, publish_at, origin, status, body, spec)
+      values ('unpack', '2026-12-06', '2026-12-07T03:45:00Z', 'writer', 'queued', '{}', '{"facts":{"parks":[]}}')`);
+    // Today's cap almost used: the make gets 1 request, then skips once.
+    await q(
+      `insert into places_usage (day, requests) values ('2026-12-02', 59)`,
+    );
+    const got = await store.ensureMashup(WED_1800, {
+      placesFetch: places,
+      placesBackoffMs: 1,
+    });
+    expect(got).toMatch(/today's 60 requests are used/);
+    expect((await q(`select requests from places_usage`))[0]).toEqual({
+      requests: 60,
+    });
+    expect(
+      alerts.filter((a) => a.key === "social:skip:mashup:2026-12-02"),
+    ).toHaveLength(1);
+    // Skipped once: no more searches this week.
+    expect(await store.ensureMashup(WED_1800, { placesFetch: places })).toBe(
+      "already made",
+    );
   });
 
   it("park pairings: fewer than 3 pairs in every theme skips the week", async () => {

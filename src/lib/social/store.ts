@@ -1,12 +1,13 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gte, inArray, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, lt, lte, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   kidEvents,
   newsIssues,
   newsSettings,
   parks,
+  placesUsage,
   socialPhotoChecks,
   socialPosts,
 } from "@/db/schema";
@@ -37,7 +38,7 @@ import {
   THEME_LABEL,
 } from "./mashup";
 import { makeMashup } from "./mashup-make";
-import { placesKey, themePlaces } from "./places";
+import { PlacesError, placesKey, themePlaces } from "./places";
 import {
   fitRoundup,
   pickWeekEvents,
@@ -1023,6 +1024,44 @@ async function mashupHistory(exceptSlot: string): Promise<MashupHistory[]> {
   });
 }
 
+/** Places requests at most per make, and per Pacific day (the key's quota is about 100). */
+export const PLACES_PER_MAKE = 15;
+export const PLACES_PER_DAY = 60;
+
+/**
+ * The Places budget for one make: each request takes one of the make's 15
+ * and one of the day's 60 (counted in places_usage, atomically, so runs
+ * at once can't overspend). Spent: a fatal PlacesError (the week skips).
+ */
+export function placesBudget(now: Date, perMake = PLACES_PER_MAKE) {
+  let left = perMake;
+  const day = pacific(now).date;
+  return async () => {
+    if (left <= 0)
+      throw new PlacesError(
+        `Places: this make's ${perMake} requests are used`,
+        false,
+        true,
+      );
+    left--;
+    const got = await db
+      .insert(placesUsage)
+      .values({ day, requests: 1 })
+      .onConflictDoUpdate({
+        target: placesUsage.day,
+        set: { requests: sql`${placesUsage.requests} + 1` },
+        setWhere: sql`${placesUsage.requests} < ${PLACES_PER_DAY}`,
+      })
+      .returning({ requests: placesUsage.requests });
+    if (!got.length)
+      throw new PlacesError(
+        `Places: today's ${PLACES_PER_DAY} requests are used`,
+        false,
+        true,
+      );
+  };
+}
+
 /** Parks with their points (the pairings measure from them). */
 async function parkPoints() {
   return db
@@ -1059,8 +1098,9 @@ export async function ensureMashup(
   if (pacific(now).date !== date) return "not its day";
   if (!mashupParity(weekOf)) return "an Unpack week";
   if (await slotTaken("mashup", date)) return "already made";
-  // The week's Unpack, if the routine handed one in (the holiday Unpack,
-  // the Sunday before; or one stored before the alternation began).
+  // The week's Unpack, if the routine handed one in: the holiday Unpack
+  // (the Sunday before) or a Wednesday one stored before the alternation
+  // began. Only this week's: never next week's Sunday.
   const [unpack] = await db
     .select({ id: socialPosts.id })
     .from(socialPosts)
@@ -1069,7 +1109,7 @@ export async function ensureMashup(
         eq(socialPosts.kind, "unpack"),
         inArray(socialPosts.status, LIVE),
         gte(socialPosts.slotDate, addDays(weekOf, -1)),
-        lt(socialPosts.slotDate, addDays(weekOf, 7)),
+        lte(socialPosts.slotDate, date),
       ),
     );
   if (unpack) return "the week's Unpack has the slot";
@@ -1105,6 +1145,9 @@ export async function ensureMashup(
     return skip("GOOGLE_PLACES_KEY isn't set, so no places could be checked.");
   }
   const month = Number(date.slice(5, 7));
+  const spend = placesBudget(now);
+  // Well inside the cron's 300 s: rendering and storing come after.
+  const deadline = Date.now() + 120_000;
   const [points, profiles, history, recent, cooling] = await Promise.all([
     parkPoints(),
     currentProfiles(now),
@@ -1130,7 +1173,7 @@ export async function ensureMashup(
     recent: recent.map((r) => ({
       kind: r.kind as PostKind,
       slotDate: r.slotDate,
-      modelText: (r.spec as PostSpec).modelText,
+      modelText: (r.spec as PostSpec).modelText ?? "",
     })),
     dms: dmsOn(),
     places: (theme) =>
@@ -1138,8 +1181,14 @@ export async function ensureMashup(
         key,
         fetchImpl: placesFetch,
         backoffMs: placesBackoffMs,
+        spend,
+        deadline,
       }),
+    deadline,
   });
+  // The day's quota, our cap, a refused key or the run's time: skip once
+  // and tell James, never throw and start over next run.
+  if (!made.ok && made.fatal) return skip(made.fatal);
   if (!made.ok)
     return skip(
       `No theme had 3 good pairs: ${made.tried.map((t) => `${THEME_LABEL[t.theme]}: ${t.why}`).join("; ")}`,

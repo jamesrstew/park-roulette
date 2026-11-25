@@ -22,7 +22,6 @@ import {
   type Pairing,
   pickPairs,
   type Place,
-  placeChips,
   placeProblem,
   postableParks,
   themeOrder,
@@ -294,15 +293,16 @@ describe("which places", () => {
     expect(chainOf("Lone Pine Coffee Roasters")).toBeNull();
   });
 
-  it("chips say only what Google marks true; no patio in winter", () => {
-    expect(placeChips(place(), 12)).toEqual(["Kids' menu"]);
-    expect(placeChips(place(), 7)).toEqual(["Kids' menu", "Patio"]);
-    expect(placeChips(place({ menuForChildren: null }), 12)).toEqual([
-      "Good for kids",
-    ]);
-    expect(
-      placeChips(place({ menuForChildren: false, goodForChildren: null }), 12),
-    ).toEqual([]);
+  it("catches chains behind a leading 'the' and the ones the review named", () => {
+    for (const n of [
+      "The Coffee Bean & Tea Leaf",
+      "Cinnabon",
+      "Auntie Anne's",
+      "Bruegger's Bagels",
+      "Wendy's",
+      "The Human Bean",
+    ])
+      expect(chainOf(n)).not.toBeNull();
   });
 });
 
@@ -428,6 +428,12 @@ describe("pairing and rotation", () => {
     });
     expect(themeOrder([], 12)[0]).toBe("coffee");
     expect(themeOrder([h("coffee", "2026-12-02")], 12)[0]).toBe("food_trucks");
+    // A fallback week that ran treats first: coffee is still owed, and
+    // treats never comes round twice in the first four.
+    expect(themeOrder([h("treats", "2026-12-02")], 12)[0]).toBe("coffee");
+    expect(
+      themeOrder([h("treats", "2026-12-02"), h("coffee", "2026-12-16")], 12)[0],
+    ).toBe("food_trucks");
     expect(
       themeOrder(
         [h("coffee", "2026-12-02"), h("food_trucks", "2026-12-16")],
@@ -581,9 +587,13 @@ describe("the post", () => {
       },
     );
     expect(spec.caption).toMatch(
-      /1\. WildRoots Coffeehouse \+ Empire Crossing Park, Bend \(\d-minute walk\)\nThe cafe has a kids' menu\./,
+      /1\. WildRoots Coffeehouse \+ Empire Crossing Park, Bend \(\d-minute walk\)\nAt the park: /,
     );
     expect(spec.caption).toContain("(short drive)");
+    // Google's attributes only choose places: none is printed or kept.
+    expect(JSON.stringify(spec)).not.toMatch(
+      /kids' menu|patio|good for kids|rating|4\.7|lat|lng|formatted/i,
+    );
     expect(spec.headline).toBe("3 cafes near a playground");
     expect(spec.caption).toContain(
       "At the park: a two-tiered play area built into the hillside.",
@@ -624,9 +634,6 @@ describe("the post", () => {
       f(s as Extract<typeof s, { t: "pair" }>);
       return mashupProblems(copy, pairs, o);
     };
-    expect(tamper((s) => (s.chips = [...s.chips, "Patio"]))).toEqual([
-      expect.stringMatching(/a detail Google doesn't mark true/),
-    ]);
     expect(tamper((s) => (s.apart = "2-minute walk"))).toEqual([
       expect.stringMatching(/the distance doesn't match/),
     ]);
@@ -637,7 +644,7 @@ describe("the post", () => {
       expect.stringMatching(/no drinks words/),
     );
     expect(tamper((s) => (s.place = "The Bend Buzz Cafe"))).toContainEqual(
-      expect.stringMatching(/never name another newsletter/),
+      expect.stringMatching(/isn't the place's own name/),
     );
     // A recent post with the same words: write it fresh.
     expect(
@@ -681,11 +688,9 @@ describe("the post", () => {
       label: "Their website",
       to: "venue",
     });
+    expect(got[1].placeLink.href).toBe(mapsLink(pairs[1].place.placeId));
     expect(got[1].placeLink.href).toBe(
-      mapsLink(got[1].place, got[1].town, pairs[1].place.placeId),
-    );
-    expect(got[1].placeLink.href).toMatch(
-      /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=.+&query_place_id=/,
+      `https://www.google.com/maps/place/?q=place_id:${pairs[1].place.placeId}`,
     );
     expect(
       got.find((p) => p.park === "Farewell Bend Park")?.parkHref,
@@ -694,6 +699,129 @@ describe("the post", () => {
       destinationOf({ id: 42, kind: "mashup", slotDate: "2026-12-02", spec }),
     ).toEqual({ href: "/social/42", to: "post" });
     expect(tileLabel("mashup", spec)).toBe("Coffee + park");
+  });
+});
+
+describe("our own names never trip the drinks rule", () => {
+  it("Diamond Bar Ranch Park pairs fine; a bad place drops alone", async () => {
+    const diamond = park({
+      slug: "diamond-bar-ranch-park-redmond",
+      name: "Diamond Bar Ranch Park",
+      city: "Redmond",
+      lat: 44.25,
+      lng: -121.17,
+      trait: "Monkey bars and a big climbing net",
+    });
+    const others = [
+      park(),
+      park({
+        slug: "farewell-bend-park-bend",
+        name: "Farewell Bend Park",
+        lat: 44.04112,
+        lng: -121.32568,
+      }),
+      park({
+        slug: "sam-johnson-park-redmond",
+        name: "Sam Johnson Park",
+        city: "Redmond",
+        lat: 44.27362,
+        lng: -121.18474,
+      }),
+    ];
+    const parks = [diamond, ...others];
+    const spots = [
+      place({
+        placeId: "d",
+        name: "Redmond Roasters",
+        town: "Redmond",
+        ...north(diamond, 0.1),
+      }),
+      place({ placeId: "e", name: "Empire Cafe", ...north(others[0], 0.1) }),
+      place({ placeId: "f", name: "Farewell Cafe", ...north(others[1], 0.1) }),
+      // A name that passes the place screen but trips a pair rule: it
+      // drops alone (a competitor's name).
+      place({
+        placeId: "g",
+        name: "Bend Buzz Coffee",
+        town: "Redmond",
+        ...north(others[2], 0.1),
+      }),
+    ];
+    const made = await makeMashup({
+      month: 12,
+      slotDate: "2026-12-02",
+      parks,
+      history: [],
+      recent: [],
+      dms: true,
+      places: async () => spots,
+    });
+    expect(made.ok).toBe(true);
+    if (!made.ok) return;
+    expect(made.theme).toBe("coffee");
+    expect(made.pairs.map((p) => p.place.placeId).sort()).toEqual([
+      "d",
+      "e",
+      "f",
+    ]);
+    expect(made.spec.caption).toContain("Diamond Bar Ranch Park");
+    expect(made.out.some((o) => o.name === "g")).toBe(true);
+  });
+
+  it("a fatal Places refusal skips the week without trying more themes", async () => {
+    let n = 0;
+    const made = await makeMashup({
+      month: 12,
+      slotDate: "2026-12-02",
+      parks: [park()],
+      history: [],
+      recent: [],
+      dms: true,
+      places: async () => {
+        n++;
+        throw new PlacesError(
+          "Places: today's 60 requests are used",
+          false,
+          true,
+        );
+      },
+    });
+    expect(made).toMatchObject({
+      ok: false,
+      fatal: expect.stringMatching(/60/),
+    });
+    expect(n).toBe(1);
+  });
+
+  it("a 403 or the day's quota is fatal; a budget stops requests before they go", async () => {
+    const forbidden = (async () =>
+      Response.json(
+        { error: { status: "PERMISSION_DENIED" } },
+        { status: 403 },
+      )) as unknown as typeof fetch;
+    await expect(
+      searchTown("coffee shop", "Bend", 1, { key: "k", fetchImpl: forbidden }),
+    ).rejects.toMatchObject({ fatal: true });
+    const never = vi.fn(async () =>
+      Response.json({ places: [] }),
+    ) as unknown as typeof fetch;
+    await expect(
+      searchTown("coffee shop", "Bend", 1, {
+        key: "k",
+        fetchImpl: never,
+        spend: async () => {
+          throw new PlacesError("spent", false, true);
+        },
+      }),
+    ).rejects.toMatchObject({ fatal: true });
+    expect(never).not.toHaveBeenCalled();
+    await expect(
+      searchTown("coffee shop", "Bend", 1, {
+        key: "k",
+        fetchImpl: never,
+        deadline: Date.now() - 1,
+      }),
+    ).rejects.toMatchObject({ fatal: true });
   });
 });
 
@@ -797,8 +925,8 @@ describe("Places", () => {
     expect(seen).toEqual([
       "food truck lot in Bend, Oregon",
       "food truck lot in Redmond, Oregon",
+      // The second query only where most places are.
       "food cart pod in Bend, Oregon",
-      "food cart pod in Redmond, Oregon",
     ]);
   });
 });

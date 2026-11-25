@@ -1222,3 +1222,14 @@ export const newsletterIssues = pgTable(
     index("newsletter_issues_received").on(t.receivedAt),
   ],
 );
+
+/**
+ * Google Places requests per Pacific day (the park pairings' searches),
+ * so a run of retries never spends the key's small daily quota: each
+ * request takes one first (lib/social/store.ts placesBudget). Counts only,
+ * never anything of Google's.
+ */
+export const placesUsage = pgTable("places_usage", {
+  day: date("day").primaryKey(),
+  requests: integer("requests").notNull().default(0),
+});

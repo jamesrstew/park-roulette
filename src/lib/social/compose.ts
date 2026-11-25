@@ -17,13 +17,10 @@ import {
 import { eventsWeekPath, fbLink, PENDING_POST_LINK } from "./links";
 import {
   apartChip,
-  chipSentence,
   cleanName,
   type MashupCopy,
   type MashupTheme,
   type Pairing,
-  placeChips,
-  placeNoun,
   THEME_ICON,
   traitClause,
 } from "./mashup";
@@ -736,10 +733,12 @@ export function composeEventsWeek(
 /**
  * The park pairings carousel (mashup.ts): a cover with the theme's
  * headline and the towns, one slide per pair, and the usual close. Every
- * word is code's: the names, the distance, the chips Google marks true,
- * the park's own trait, and the theme's copy variant. `sites`: each
- * place's verified site (data/ig-handles.json) by place id, for the post
- * page's link. `tags`: the verified accounts, in pair order.
+ * word is code's: the names, our own distance, the park's own trait, and
+ * the theme's copy variant. Google only found and chose the places: of its
+ * content, nothing is printed but each business's own public name, so no
+ * Google attribution is owed (and none is drawn). `sites`: each place's
+ * verified site (data/ig-handles.json, our data) by place id, for the
+ * post page's link. `tags`: the verified accounts, in pair order.
  */
 export function composeMashup(
   theme: MashupTheme,
@@ -763,8 +762,6 @@ export function composeMashup(
     placeTown: noAt(p.place.town ?? p.park.city),
     apart: apartChip(p.apart),
     walk: p.apart.walk,
-    chips: placeChips(p.place, o.month),
-    noun: placeNoun(theme, p.place),
     trait: noAt(p.park.trait),
     placeId: p.place.placeId,
     parkSlug: p.park.slug,
@@ -776,7 +773,7 @@ export function composeMashup(
     pairFit({
       place: r.place,
       park: r.park,
-      chips: [r.apart, ...r.chips],
+      chips: [r.apart],
       trait: r.trait,
     }),
   );
@@ -791,7 +788,7 @@ export function composeMashup(
                 {
                   place: r.place,
                   park: r.park,
-                  chips: [r.apart, ...r.chips],
+                  chips: [r.apart],
                   trait: r.trait,
                 },
                 { bodies: [body] },
@@ -822,7 +819,6 @@ export function composeMashup(
       town: r.placeTown,
       apart: r.apart,
       walk: r.walk,
-      chips: r.chips,
       trait: r.trait,
       placeId: r.placeId,
       parkSlug: r.parkSlug,
@@ -844,7 +840,6 @@ export function composeMashup(
     "",
     ...rows.flatMap((r, i) => [
       `${i + 1}. ${r.place} + ${r.park}, ${r.placeTown} (${r.apart.toLowerCase()})`,
-      ...(r.chips.length ? [chipSentence(r.noun, r.chips)] : []),
       `At the park: ${traitClause(r.trait)}.`,
       "",
     ]),
@@ -1061,7 +1056,7 @@ export function slideAlt(s: SlideSpec): string {
     case "event":
       return `${s.n} of ${s.of}: ${s.title}.${s.desc ? ` ${s.desc}.` : ""} ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}.${s.cost ? ` ${s.cost}.` : ""}${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
     case "pair":
-      return `${s.n} of ${s.of}: ${s.place} plus ${s.park}, ${s.town}. ${s.walk ? `A ${s.apart.toLowerCase()}` : "A short drive"} apart.${s.chips.length ? ` ${s.chips.join(", ")}.` : ""} At the park: ${strip(s.trait)}.`;
+      return `${s.n} of ${s.of}: ${s.place} plus ${s.park}, ${s.town}. ${s.walk ? `A ${s.apart.toLowerCase()}` : "A short drive"} apart. At the park: ${strip(s.trait)}.`;
     case "cta":
       return [s.url ? `${s.line} ${s.url}.` : s.line, s.sub, s.fine, s.cta]
         .filter(Boolean)

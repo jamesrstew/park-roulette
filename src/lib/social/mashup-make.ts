@@ -14,7 +14,8 @@ import {
   themeOrder,
 } from "./mashup";
 import type { PostSpec } from "./model";
-import { mashupProblems, type RecentPost } from "./validate";
+import { PlacesError } from "./places";
+import { mashupProblems, pairProblems, type RecentPost } from "./validate";
 
 /**
  * Making one park pairings carousel: try the themes in rotation order,
@@ -36,7 +37,18 @@ export type MashupMade =
       /** Places left out of the chosen theme, with why (for the report). */
       out: { name: string; why: string }[];
     }
-  | { ok: false; tried: { theme: MashupTheme; why: string }[] };
+  | {
+      ok: false;
+      tried: { theme: MashupTheme; why: string }[];
+      /**
+       * Places refused for good today (the day's quota or our cap, a bad
+       * key, the run's time): skip the week, never try again this run.
+       */
+      fatal?: string;
+    };
+
+/** One make stops trying themes after this long (the cron allows 300 s). */
+export const MAKE_BUDGET_MS = 120_000;
 
 export async function makeMashup(o: {
   month: number;
@@ -48,19 +60,47 @@ export async function makeMashup(o: {
   places: (theme: MashupTheme) => Promise<Place[]>;
   /** Only this theme (the sample script); default: the rotation. */
   only?: MashupTheme;
+  /** Stop starting themes after this instant (ms); default: 120 s from now. */
+  deadline?: number;
 }): Promise<MashupMade> {
+  const deadline = o.deadline ?? Date.now() + MAKE_BUDGET_MS;
+  // Each theme's search results, once per make.
+  const cache = new Map<MashupTheme, Place[]>();
+  const placesFor = async (theme: MashupTheme) => {
+    if (!cache.has(theme)) cache.set(theme, await o.places(theme));
+    return cache.get(theme)!;
+  };
   const tried: { theme: MashupTheme; why: string }[] = [];
   if (o.parks.length === 0)
     return { ok: false, tried: [{ theme: "coffee", why: "no vetted parks" }] };
   const themes = o.only ? [o.only] : themeOrder(o.history, o.month);
   for (const theme of themes) {
-    const found = pairPlaces(await o.places(theme), o.parks, theme, o.month);
-    const { cycle, used } = cycleFor(o.history, theme, found.pairs);
-    const pairs = pickPairs(found.pairs, used);
+    if (Date.now() > deadline) {
+      tried.push({ theme, why: "out of time for this run" });
+      break;
+    }
+    let got: Place[];
+    try {
+      got = await placesFor(theme);
+    } catch (e) {
+      if (e instanceof PlacesError && e.fatal)
+        return { ok: false, tried, fatal: e.message };
+      throw e;
+    }
+    const found = pairPlaces(got, o.parks, theme, o.month);
+    // A pair whose own words break a rule drops alone, not the theme.
+    const clean = found.pairs.filter((p) => {
+      const bad = pairProblems(p, o.month);
+      if (bad.length)
+        found.out.push({ name: p.place.placeId, why: bad.join(" ") });
+      return !bad.length;
+    });
+    const { cycle, used } = cycleFor(o.history, theme, clean);
+    const pairs = pickPairs(clean, used);
     if (pairs.length < PAIRS_MIN) {
       tried.push({
         theme,
-        why: `only ${pairs.length} pairs (${found.pairs.length} before the rotation)`,
+        why: `only ${pairs.length} pairs (${clean.length} before the rotation)`,
       });
       continue;
     }

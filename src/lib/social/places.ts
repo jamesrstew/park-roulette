@@ -18,9 +18,9 @@ import {
  * is ever shown. The key is GOOGLE_PLACES_KEY (never logged, never
  * committed).
  *
- * The project's quota is small (on the order of 100 searches a day), so a
- * theme costs one search per town and query (two pages in Bend): about
- * 5 to 10 searches.
+ * The project's quota is small (about 100 searches a day), so a theme
+ * costs about 5 or 6 searches, a make at most 15 and a day at most 60
+ * (store.ts placesBudget, counted in places_usage).
  */
 
 const SEARCH = "https://places.googleapis.com/v1/places:searchText";
@@ -103,6 +103,11 @@ export class PlacesError extends Error {
     message: string,
     /** A per-minute hiccup or a server error: worth another try soon. */
     readonly retry = false,
+    /**
+     * Won't get better today (the day's quota or our own cap, a refused
+     * key or request, the run's time): skip, don't throw and start over.
+     */
+    readonly fatal = false,
   ) {
     super(message);
   }
@@ -123,15 +128,25 @@ export type PlacesOpts = {
   key: string;
   fetchImpl?: typeof fetch;
   backoffMs?: number;
+  /**
+   * Called before every request (retries too): throws a fatal PlacesError
+   * when the make's or the day's budget is spent (store.ts placesBudget).
+   */
+  spend?: () => Promise<void>;
+  /** No request starts after this instant (ms). */
+  deadline?: number;
 };
 
 /** One page of Text Search (New). */
 async function searchPage(
   textQuery: string,
   pageToken: string | null,
-  { key, fetchImpl = fetch, backoffMs = 3_000 }: PlacesOpts,
+  { key, fetchImpl = fetch, backoffMs = 3_000, spend, deadline }: PlacesOpts,
 ): Promise<{ places: Place[]; next: string | null }> {
   for (let i = 0; ; i++) {
+    if (deadline != null && Date.now() > deadline)
+      throw new PlacesError("Places: out of time for this run", false, true);
+    await spend?.();
     const res = await fetchImpl(SEARCH, {
       method: "POST",
       headers: {
@@ -148,7 +163,7 @@ async function searchPage(
         locationRestriction: { rectangle: REGION },
         ...(pageToken ? { pageToken } : {}),
       }),
-      signal: AbortSignal.timeout(15_000),
+      signal: AbortSignal.timeout(10_000),
       cache: "no-store",
     });
     const body = (await res.json().catch(() => null)) as {
@@ -169,6 +184,8 @@ async function searchPage(
       throw new PlacesError(
         `Places search failed (${res.status} ${body?.error?.status ?? ""}${daily ? ", daily quota" : ""})`.trim(),
         retry,
+        // A refused key or request, or the day's quota: no retry helps today.
+        daily || (res.status >= 400 && res.status < 500 && res.status !== 429),
       );
     await sleep(backoffMs * (i + 1));
   }
@@ -209,8 +226,10 @@ export async function themePlaces(
 ): Promise<Place[]> {
   const towns = [...new Set(parks.map((p) => p.city))];
   const byId = new Map<string, Place>();
+  // The first query in every town (two pages in Bend); any other only in
+  // Bend, where most places are: about 5 or 6 requests a theme.
   for (const [qi, query] of themeQueries(theme, month).entries())
-    for (const town of towns)
+    for (const town of qi === 0 ? towns : towns.filter((t) => t === "Bend"))
       for (const p of await searchTown(
         query,
         town,

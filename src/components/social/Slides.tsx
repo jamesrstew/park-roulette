@@ -797,7 +797,7 @@ function ItemSlide({
 
 /**
  * One park pairing: the place, "+" the park, in big type; how far apart
- * and the place's details as chips; then the park's own trait under a
+ * (our own measure) as a chip; then the park's own trait under a
  * small label. The theme's icon and the playground meet in the top row.
  */
 function PairSlide({
@@ -811,7 +811,7 @@ function PairSlide({
   const copy = {
     place: s.place,
     park: s.park,
-    chips: [s.apart, ...s.chips],
+    chips: [s.apart],
     trait: s.trait,
   };
   // The carousel's own sizes (storySizes sets a Story frame's); a slide
@@ -851,15 +851,15 @@ function PairSlide({
           <SlideIcon name="playground" size={150} />
         </div>
       </div>
-      {/* Top-aligned under the header, so every slide's names and chips
-          sit at the same height and any spare room falls above the footer. */}
+      {/* Centered between the header and the footer: with one chip row on
+          every slide, the names and chips only shift by a name line. */}
       <div
         style={{
           display: "flex",
           flexDirection: "column",
           flex: 1,
-          justifyContent: "flex-start",
-          marginTop: 40,
+          justifyContent: "center",
+          paddingBottom: 40,
         }}
       >
         <div
@@ -931,9 +931,6 @@ function PairSlide({
             <SlideIcon name={s.walk ? "trail" : "car"} size={52} />
             <span>{s.apart}</span>
           </div>
-          {s.chips.map((c) => (
-            <Chip key={c} text={c} fill={CARD} />
-          ))}
         </div>
         <div
           style={{
@@ -2059,7 +2056,7 @@ export function storySizes(slides: SlideSpec[]): SlideSpec[] {
   const pairCopy = (s: Extract<SlideSpec, { t: "pair" }>) => ({
     place: s.place,
     park: s.park,
-    chips: [s.apart, ...s.chips],
+    chips: [s.apart],
     trait: s.trait,
   });
   const pairBody = commonBody(

@@ -25,8 +25,8 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { CATALOG } from "../src/lib/news/catalog";
 import { PROFILES } from "../src/lib/park-profiles";
+import { pacific } from "../src/lib/news/time";
 import {
-  cleanName,
   MASHUP_THEMES,
   pairPlaces,
   postableParks,
@@ -147,6 +147,9 @@ for (const v of catalog.venues) if (v.url) add(v.url, v.name, "catalog venue");
 // 4. Park pairings' places (--mashups, with GOOGLE_PLACES_KEY): the sites
 // of the cafes, lots, breweries and bakeries that pass the pairing rules
 // today. Their handles still need the same two-way proof as any other.
+// Nothing of Google's is written: the key is the business's own site, and
+// the entry's org name comes from its Instagram account (no name here, so
+// a name never counts as the back link for these).
 if (process.argv.includes("--mashups")) {
   const key = placesKey();
   const allParks = (
@@ -159,7 +162,8 @@ if (process.argv.includes("--mashups")) {
       play: string;
     }[]
   ).map((p) => ({ ...p, approved: true, status: "active" }));
-  const month = Number(new Date().toISOString().slice(5, 7));
+  // The Pacific month (the posts' own), not UTC's.
+  const month = Number(pacific(new Date()).date.slice(5, 7));
   const vetted = postableParks(allParks, PROFILES, CATALOG, month);
   for (const theme of MASHUP_THEMES) {
     const found = pairPlaces(
@@ -170,11 +174,7 @@ if (process.argv.includes("--mashups")) {
     );
     for (const p of found.pairs)
       if (p.place.domain)
-        add(
-          `https://${p.place.domain}/`,
-          cleanName(p.place.name),
-          "park pairings place",
-        );
+        add(`https://${p.place.domain}/`, "", "park pairings place");
   }
 }
 
@@ -337,7 +337,8 @@ for (const c of [...candidates.values()].sort((a, b) =>
   entries[c.domain] = {
     handle: won.handle,
     igId: won.acct.id,
-    org: c.org,
+    // A park pairings place has no name of ours: its account's own name.
+    org: c.org || won.acct.name || won.handle,
     name: won.acct.name,
     followers: won.acct.followers,
     forward: won.page,
