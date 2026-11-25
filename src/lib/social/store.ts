@@ -34,13 +34,12 @@ import {
   withHostTags,
 } from "./roundup";
 import {
-  cachedDiscover,
   igLinksIn,
   mentionProblems,
   parkTag,
   publishCaption,
   REGISTRY,
-  registryHandles,
+  postHandles,
   siteDomain,
   withoutMentions,
 } from "./handles";
@@ -877,7 +876,7 @@ export async function ensureCodePost(
     kind === "teaser"
       ? composeTeaser(issue, park, dmsOn(), operator ? [operator] : [])
       : composeStory(issue, park, dmsOn());
-  if (mentionProblems(spec.caption, registryHandles()).length)
+  if (mentionProblems(spec.caption, postHandles(spec)).length)
     spec = composeTeaser(issue, park, dmsOn());
   // The issue's words were checked when it was sent; the competitor,
   // emoji and safety rules run again on the headline.
@@ -953,7 +952,7 @@ export async function ensureEventsWeek(
   let fit = fitRoundup(withHostTags(pick.events, rows), window, dmsOn());
   if (
     !("skip" in fit) &&
-    mentionProblems(fit.spec.caption, registryHandles()).length
+    mentionProblems(fit.spec.caption, postHandles(fit.spec)).length
   )
     fit = fitRoundup(pick.events, window, dmsOn());
   if ("skip" in fit) return skip(fit.skip);
@@ -1296,7 +1295,7 @@ async function forwardHandlesNow(
   const res = await fetchImpl(entry.forward, {
     headers: { "user-agent": UA, accept: "text/html" },
     redirect: "follow",
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(5_000),
     cache: "no-store",
   });
   if (!res.ok || siteDomain(res.url || entry.forward) !== domain) return [];
@@ -1310,15 +1309,10 @@ async function createStep(
   now: Date,
 ) {
   const final = await publishCaption(post, {
-    discover: cachedDiscover((h) => businessDiscovery(h, o)),
+    // Fresh answers (each post publishes once), within a small budget.
+    discover: (h) => businessDiscovery(h, o),
     forwardHandles: (d) => forwardHandlesNow(d, o.fetchImpl),
   });
-  if ("error" in final) {
-    await setPost(post.id, { status: "skipped", reason: final.error });
-    tell(post, "skipped", `Skipped just before it went out: ${final.error}`);
-    notes.push(`${post.id}: skipped (${final.error})`);
-    return;
-  }
   for (const n of final.notes) notes.push(`${post.id}: ${n}`);
   if (final.caption !== post.caption)
     await setPost(post.id, { caption: final.caption });

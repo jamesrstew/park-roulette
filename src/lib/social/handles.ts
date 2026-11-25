@@ -191,18 +191,23 @@ export const NOT_HOST_DOMAINS = new Set([
   "bendbulletin.com",
   "bendsource.com",
   "ktvz.com",
+  // Calendars that list other people's events as well as their own: the
+  // organizer named there isn't always who runs it.
+  "downtownbend.org",
+  "oldmilldistrict.com",
+  "towertheatre.org",
   ...COMPETITOR_DOMAINS.map(registrableDomain),
 ]);
 
 /**
- * An event's host domain: its organizer's site, else its own page's site
- * when that's an organization's own (never a platform or a listing).
+ * An event's host domain: its named organizer's own site, and only that.
+ * The event's page may be a venue's or a listing's, so it never names the
+ * host; nor does a platform, a listing calendar or a competitor.
  */
 export function hostDomain(e: {
-  url: string;
   organizer?: { url: string } | null;
 }): string | null {
-  const d = siteDomain(e.organizer?.url ?? e.url);
+  const d = siteDomain(e.organizer?.url);
   if (!d || NOT_HOST_DOMAINS.has(d) || competitor(d)) return null;
   return d;
 }
@@ -449,15 +454,37 @@ export function withoutMentions(text: string): string {
 
 /** Every @handle in a caption (not an email address), lowercased. */
 export function captionMentions(caption: string): string[] {
-  return [
-    ...caption.matchAll(/(?<![A-Za-z0-9._@])@([A-Za-z0-9._]{1,30})/g),
-  ].map((m) => m[1].replace(/\.+$/, "").toLowerCase());
+  return [...caption.matchAll(MENTION)].map((m) =>
+    m[1].replace(/\.+$/, "").toLowerCase(),
+  );
+}
+const MENTION = /(?<![A-Za-z0-9._@])@([A-Za-z0-9._]{1,30})/g;
+const EMAIL =
+  /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/g;
+
+/**
+ * Words from an event page, a venue, a host or a sent issue, with no "@"
+ * left: an email address goes, and "@10am" or "@TheGrove" reads "at 10am",
+ * "at TheGrove". Code-sourced text never tags anyone; only our tag line does.
+ */
+export function noAt(text: string): string;
+export function noAt(text: string | null): string | null;
+export function noAt(text: string | null): string | null {
+  if (text == null || !text.includes("@")) return text;
+  return text
+    .replace(EMAIL, "")
+    .replace(/\s*@+\s*/g, " at ")
+    .replace(/ {2,}/g, " ")
+    .replace(/ ([.,;:!?)])/g, "$1")
+    .trim();
 }
 
 /**
- * Any @handle that isn't a proven one: `allowed` is the registry's
- * handles (when a post is made) or the tags that passed the re-check
- * (right before it goes out). A model-written @ can't get through.
+ * The caption's @-problems, the same rule when a post is made and right
+ * before it goes out: an @ belongs only in our tag line, and every handle
+ * there is one of `allowed` (the post's own verified tags when it's made;
+ * the ones that passed the re-check when it goes out). Any other @ is in
+ * words someone wrote, and is refused when the draft is checked.
  */
 export function mentionProblems(
   caption: string | null,
@@ -465,15 +492,38 @@ export function mentionProblems(
 ): string[] {
   if (!caption) return [];
   const ok = new Set([...allowed].map((h) => h.toLowerCase()));
-  const bad = [...new Set(captionMentions(caption).filter((h) => !ok.has(h)))];
-  const out = bad.length
-    ? [
-        `The caption tags ${bad.map((h) => `@${h}`).join(", ")}, which isn't a verified host handle (data/ig-handles.json).`,
-      ]
-    : [];
-  if (captionMentions(caption).length > MAX_TAGS)
+  const out: string[] = [];
+  const stray = new Set<string>();
+  const bad = new Set<string>();
+  let n = 0;
+  for (const line of caption.split("\n")) {
+    const found = captionMentions(line);
+    n += found.length;
+    if (!MENTION_LINE.test(line)) found.forEach((h) => stray.add(h));
+    else found.filter((h) => !ok.has(h)).forEach((h) => bad.add(h));
+  }
+  if (stray.size)
+    out.push(
+      `An @ in the post's words (${[...stray].map((h) => `@${h}`).join(", ")}): no handles in the words; code adds the verified tag line.`,
+    );
+  if (bad.size)
+    out.push(
+      `The tag line has ${[...bad].map((h) => `@${h}`).join(", ")}, which isn't a verified host handle (data/ig-handles.json).`,
+    );
+  if (n > MAX_TAGS)
     out.push(`The caption tags more than ${MAX_TAGS} accounts.`);
   return out;
+}
+
+/** A post's own verified tags, as mentionProblems takes them. */
+export function postHandles(
+  spec: { tags?: readonly Tag[] },
+  registry: Registry = REGISTRY,
+): string[] {
+  const proven = new Set(registryHandles(registry));
+  return (spec.tags ?? [])
+    .map((t) => t.handle.toLowerCase())
+    .filter((h) => proven.has(h));
 }
 
 /** The registry's handles (what a caption may tag). */
@@ -486,7 +536,10 @@ export function registryHandles(registry: Registry = REGISTRY): string[] {
 // --- The check right before publishing ----------------------------------------
 
 export type RecheckDeps = {
-  /** Business Discovery (throws on any error: a personal or missing account). */
+  /**
+   * Business Discovery. Throws on any error; a clear "no such user" (see
+   * noSuchUser) is the only one that may mean a rename.
+   */
   discover: (handle: string) => Promise<DiscoveredAccount>;
   /**
    * The handles the organization's page links now (for a renamed account):
@@ -495,6 +548,10 @@ export type RecheckDeps = {
    */
   forwardHandles?: (domain: string) => Promise<string[]>;
   registry?: Registry;
+  /** At most this many lookups and page fetches in all (default 15). */
+  budget?: number;
+  /** Each lookup or fetch gives up after this long (default 5 s). */
+  timeoutMs?: number;
 };
 
 export type Recheck = {
@@ -503,86 +560,113 @@ export type Recheck = {
 };
 
 /**
- * Check every tag again, right before the caption goes out: the account
- * must still be there with the same id and username. A rename (same id,
- * new username) keeps the tag only when the organization's page now links
- * the new username and its back link to the site still holds. Anything
- * else (an error, another id, a broken back link) drops the tag. Never
- * throws: tagging never holds up a post.
+ * Meta's clear answer that no account has this username (Business
+ * Discovery: code 110, subcode 2207013, "Cannot find User"). Rate limits,
+ * outages and timeouts aren't: they never send us looking for a rename.
+ */
+export function noSuchUser(e: unknown): boolean {
+  const x = e as { code?: number | null; subcode?: number | null } | null;
+  return (
+    !!x && (x.subcode === 2207013 || (x.code === 110 && x.subcode == null))
+  );
+}
+
+type Budget = { left: number; timeoutMs: number };
+
+/** One lookup or fetch, counted against the budget, with a time limit. */
+async function spend<T>(b: Budget, f: () => Promise<T>): Promise<T> {
+  if (b.left <= 0) throw new Error("check budget used up");
+  b.left--;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      f(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("timed out")), b.timeoutMs);
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Check every tag again, right before the caption goes out, all at once
+ * and within a budget: the account must still be there with the same id
+ * and username. Only when Meta clearly says the username doesn't exist
+ * does it look for a rename: the organization's page must now link the
+ * new username, with the same id and the back link to the site intact.
+ * Anything else (an error, a timeout, another id, a broken back link, the
+ * budget used up) drops the tag. Never throws: tagging never holds up a
+ * post.
  */
 export async function recheckTags(
   tags: readonly Tag[],
   deps: RecheckDeps,
 ): Promise<Recheck> {
+  const registry = deps.registry ?? REGISTRY;
+  const budget: Budget = {
+    left: deps.budget ?? 15,
+    timeoutMs: deps.timeoutMs ?? 5_000,
+  };
+  const results = await Promise.all(
+    tags.map(async (tag): Promise<{ kept: Tag } | { why: string }> => {
+      try {
+        const entry = registry.entries[tag.domain];
+        if (!entry || entry.igId !== tag.igId)
+          return { why: "no longer in the registry" };
+        if (NEVER_TAG[tag.domain] || competitor(tag.domain, tag.handle))
+          return { why: "never tagged" };
+        let acct: DiscoveredAccount;
+        try {
+          acct = await spend(budget, () => deps.discover(tag.handle));
+        } catch (e) {
+          if (!noSuchUser(e))
+            return {
+              why: `can't check it now (${(e as Error)?.message ?? "error"})`,
+            };
+          const renamed = await renamedTo(tag, deps, budget);
+          return renamed
+            ? { kept: { ...tag, handle: renamed } }
+            : { why: `@${tag.handle} can't be found (Business Discovery)` };
+        }
+        if (acct.id !== tag.igId)
+          return { why: `@${tag.handle} is now another account (id changed)` };
+        if (acct.username.toLowerCase() !== tag.handle.toLowerCase())
+          return { why: "Business Discovery named another username" };
+        return { kept: { ...tag, handle: acct.username } };
+      } catch (e) {
+        return { why: `check failed (${(e as Error)?.message})` };
+      }
+    }),
+  );
   const kept: Tag[] = [];
   const dropped: Recheck["dropped"] = [];
-  const registry = deps.registry ?? REGISTRY;
-  for (const tag of tags) {
-    try {
-      const entry = registry.entries[tag.domain];
-      if (!entry || entry.igId !== tag.igId) {
-        dropped.push({ tag, why: "no longer in the registry" });
-        continue;
-      }
-      if (NEVER_TAG[tag.domain] || competitor(tag.domain, tag.handle)) {
-        dropped.push({ tag, why: "never tagged" });
-        continue;
-      }
-      let acct: DiscoveredAccount | null = null;
-      try {
-        acct = await deps.discover(tag.handle);
-      } catch {
-        acct = null;
-      }
-      if (
-        acct &&
-        acct.id === tag.igId &&
-        acct.username.toLowerCase() === tag.handle.toLowerCase()
-      ) {
-        kept.push({ ...tag, handle: acct.username });
-        continue;
-      }
-      if (acct && acct.id !== tag.igId) {
-        dropped.push({
-          tag,
-          why: `@${tag.handle} is now another account (id changed)`,
-        });
-        continue;
-      }
-      // Gone under this name (or an error): maybe renamed. The site's own
-      // page decides which name to look at; the id and back link decide
-      // whether it's the same account.
-      const renamed = await renamedTo(tag, deps);
-      if (renamed) {
-        kept.push({ ...tag, handle: renamed });
-        continue;
-      }
-      dropped.push({
-        tag,
-        why: acct
-          ? "Business Discovery named another username"
-          : `@${tag.handle} can't be found (Business Discovery)`,
-      });
-    } catch (e) {
-      dropped.push({ tag, why: `check failed (${(e as Error)?.message})` });
-    }
-  }
+  results.forEach((r, i) =>
+    "kept" in r
+      ? kept.push(r.kept)
+      : dropped.push({ tag: tags[i], why: r.why }),
+  );
   return { kept, dropped };
 }
 
-async function renamedTo(tag: Tag, deps: RecheckDeps): Promise<string | null> {
+async function renamedTo(
+  tag: Tag,
+  deps: RecheckDeps,
+  budget: Budget,
+): Promise<string | null> {
   if (!deps.forwardHandles) return null;
   let linked: string[];
   try {
-    linked = await deps.forwardHandles(tag.domain);
+    linked = await spend(budget, () => deps.forwardHandles!(tag.domain));
   } catch {
     return null;
   }
-  for (const h of linked) {
+  for (const h of linked.slice(0, 3)) {
     if (h === tag.handle.toLowerCase()) continue;
     let acct: DiscoveredAccount;
     try {
-      acct = await deps.discover(h);
+      acct = await spend(budget, () => deps.discover(h));
     } catch {
       continue;
     }
@@ -596,6 +680,18 @@ async function renamedTo(tag: Tag, deps: RecheckDeps): Promise<string | null> {
     if (v.ok) return acct.username;
   }
   return null;
+}
+
+/** Any @ outside our tag lines reads "at" (it was never a tag of ours). */
+export function neutralizeStray(caption: string): string {
+  return caption
+    .split("\n")
+    .map((l) =>
+      MENTION_LINE.test(l)
+        ? l
+        : l.replace(/(?<![A-Za-z0-9._@])@(?=[A-Za-z0-9._])/g, "at "),
+    )
+    .join("\n");
 }
 
 /**
@@ -622,21 +718,24 @@ export function finalizeMentions(
 
 /**
  * The caption as it goes to Instagram: every tag checked again first
- * (Business Discovery, cached a few hours), and the tag line rewritten
- * with the ones that held. A tag that fails is dropped, never the post.
- * Any other @handle left (one no code put there) stops the post.
+ * (fresh Business Discovery answers, no cache), and the tag line
+ * rewritten with the ones that held. A tag that fails is dropped, never
+ * the post. A validated caption has no other @ (mentionProblems refused
+ * it when the draft was checked); if one is there anyway, it reads "at"
+ * rather than tag anyone or hold the post up.
  */
 export async function publishCaption(
   post: { kind: string; caption: string | null; spec: unknown },
   deps: RecheckDeps,
-): Promise<{ caption: string | null; notes: string[] } | { error: string }> {
+): Promise<{ caption: string | null; notes: string[] }> {
   const spec = post.spec as PostSpec;
   const tags = spec.tags ?? [];
   // The composed caption is the source, so a second try writes the same.
   const source = tags.length ? (spec.caption ?? post.caption) : post.caption;
   if (source == null) return { caption: null, notes: [] };
   const notes: string[] = [];
-  let caption = source;
+  let caption = neutralizeStray(source);
+  if (caption !== source) notes.push('an @ in the words reads "at"');
   let allowed: string[] = [];
   if (tags.length) {
     const r = await recheckTags(tags, deps);
@@ -645,7 +744,7 @@ export async function publishCaption(
     for (const k of r.kept)
       if (k.handle !== tags.find((t) => t.igId === k.igId)?.handle)
         notes.push(`tag renamed to @${k.handle}`);
-    caption = finalizeMentions(source, post.kind as PostKind, tags, r.kept);
+    caption = finalizeMentions(caption, post.kind as PostKind, tags, r.kept);
     allowed = r.kept.map((t) => t.handle);
     if (caption.length > CAPTION_MAX) {
       caption = withoutMentions(caption);
@@ -653,17 +752,17 @@ export async function publishCaption(
       notes.push("tags dropped: the caption ran long");
     }
   }
-  const bad = mentionProblems(caption, allowed);
-  if (bad.length) {
-    // Not ours: strip our tag lines and look again.
-    const bare = withoutMentions(caption);
-    if (mentionProblems(bare, []).length) return { error: bad.join(" ") };
-    return { caption: bare, notes: [...notes, "tags dropped: unverified"] };
+  if (mentionProblems(caption, allowed).length) {
+    caption = neutralizeStray(withoutMentions(caption));
+    notes.push("tags dropped: unverified");
   }
   return { caption, notes };
 }
 
-/** A short in-memory cache of Business Discovery answers (a few hours). */
+/**
+ * A short in-memory cache of Business Discovery answers (a few hours), for
+ * previews only: the publish path always asks fresh.
+ */
 export function cachedDiscover(
   discover: (handle: string) => Promise<DiscoveredAccount>,
   {
@@ -685,11 +784,6 @@ export function cachedDiscover(
     cache.set(key, { at: now(), acct });
     return acct;
   };
-}
-
-/** Forget the cached answers (tests; a registry change). */
-export function forgetDiscoveries() {
-  DISCOVERY_CACHE.clear();
 }
 
 const DISCOVERY_CACHE = new Map<

@@ -20,6 +20,9 @@ import {
   MAX_TAGS,
   mentionLines,
   mentionProblems,
+  noAt,
+  noSuchUser,
+  postHandles,
   parkTag,
   publishCaption,
   recheckTags,
@@ -85,20 +88,22 @@ describe("domains", () => {
     expect(siteDomain("")).toBeNull();
     expect(siteDomain(null)).toBeNull();
   });
-  it("finds an event's host domain, never a platform or a listing", () => {
+  it("finds an event's host from its organizer only, never a listing", () => {
     expect(
-      hostDomain({
-        url: "https://www.deschuteslibrary.org/calendar/event/1",
-        organizer: { url: "https://www.deschuteslibrary.org/" },
-      }),
+      hostDomain({ organizer: { url: "https://www.deschuteslibrary.org/" } }),
     ).toBe("deschuteslibrary.org");
-    expect(hostDomain({ url: "https://www.brasadaranch.com/x.htm" })).toBe(
-      "brasadaranch.com",
-    );
-    expect(hostDomain({ url: "https://www.instagram.com/p/abc/" })).toBeNull();
-    expect(hostDomain({ url: "https://runsignup.com/Race/1" })).toBeNull();
-    expect(hostDomain({ url: "https://exploresisters.com/e" })).toBeNull();
-    expect(hostDomain({ url: "https://bendbuzz.com/events/x" })).toBeNull();
+    // No named organizer: no host (the event's page never names one).
+    expect(hostDomain({})).toBeNull();
+    expect(hostDomain({ organizer: null })).toBeNull();
+    for (const u of [
+      "https://www.instagram.com/x",
+      "https://runsignup.com/Race/1",
+      "https://www.oldmilldistrict.com/",
+      "https://www.downtownbend.org/",
+      "https://www.towertheatre.org/",
+      "https://bendbuzz.com/",
+    ])
+      expect(hostDomain({ organizer: { url: u } })).toBeNull();
   });
 });
 
@@ -393,8 +398,15 @@ describe("the roundup's host tags", () => {
         },
       ],
       ["e1", { data: { url: "https://www.instagram.com/p/1/" } }],
+      // The event's page is the host's site, but no organizer is named.
+      ["e2", { data: { url: "https://www.host1.org/event" } }],
     ]) as unknown as Parameters<typeof withHostTags>[1];
-    const out = withHostTags([week(0, null), week(1, null)], rows, reg);
+    const out = withHostTags(
+      [week(0, null), week(1, null), week(2, null)],
+      rows,
+      reg,
+    );
+    expect(out[2].tag).toBeNull();
     expect(out[0].tag).toMatchObject({ handle: "host1", domain: "host1.org" });
     expect(out[1].tag).toBeNull();
   });
@@ -487,36 +499,99 @@ describe("the park's operator", () => {
 
 // --- Validation ------------------------------------------------------------------------
 
-describe("validate: only verified handles", () => {
-  it("rejects an @handle that isn't in the registry", () => {
-    expect(mentionProblems("Hi @bendparks", ["bendparks"])).toEqual([]);
-    expect(mentionProblems("Hi @BendParks.", ["bendparks"])).toEqual([]);
-    expect(mentionProblems("Hi @madeup", ["bendparks"])[0]).toMatch(
-      /@madeup, which isn't a verified host handle/,
-    );
-    // An email address isn't a mention.
-    expect(mentionProblems("hello@parkroulette.quest", [])).toEqual([]);
+describe("validate: an @ only in our tag line, with verified handles", () => {
+  it("rejects a tag-line handle that isn't allowed", () => {
+    expect(
+      mentionProblems("Hosts this week: @bendparks", ["bendparks"]),
+    ).toEqual([]);
+    expect(mentionProblems("Park by @BendParks", ["bendparks"])).toEqual([]);
+    expect(
+      mentionProblems("Hosts this week: @bendparks @madeup", ["bendparks"])[0],
+    ).toMatch(/@madeup, which isn't a verified host handle/);
     expect(captionMentions("a @x.y. and @z")).toEqual(["x.y", "z"]);
   });
-  it("rejects more than 10", () => {
-    const many = Array.from({ length: 11 }, (_, i) => `@h${i}`).join(" ");
+  it("rejects any @ in the words, even a registry handle", () => {
     expect(
-      mentionProblems(
-        many,
-        Array.from({ length: 11 }, (_, i) => `h${i}`),
-      ),
-    ).toEqual([expect.stringMatching(/more than 10/)]);
+      mentionProblems("Thanks @bendparks for the sled hill.", ["bendparks"])[0],
+    ).toMatch(/An @ in the post's words \(@bendparks\)/);
+    // An email address isn't a mention.
+    expect(mentionProblems("hello@parkroulette.quest", [])).toEqual([]);
   });
-  it("accepts every committed handle", () => {
-    const all = registryHandles()
-      .map((h) => `@${h}`)
-      .join(" ");
-    expect(captionMentions(all).length).toBe(registryHandles().length);
+  it("rejects more than 10, and the 11th unverified one too", () => {
+    const ok = Array.from({ length: 10 }, (_, i) => `h${i}`);
+    const line = `Hosts this week: ${[...ok, "stranger"].map((h) => `@${h}`).join(" ")}`;
+    const p = mentionProblems(line, ok);
+    expect(p).toEqual([
+      expect.stringMatching(/@stranger, which isn't a verified/),
+      expect.stringMatching(/more than 10/),
+    ]);
+  });
+  it("takes a post's own verified tags as the allowed list", () => {
     expect(
-      mentionProblems(all, registryHandles()).filter(
-        (p) => !/more than/.test(p),
-      ),
-    ).toEqual([]);
+      postHandles({
+        tags: [
+          {
+            domain: "bendparksandrec.org",
+            handle: "BendParks",
+            igId: "1",
+            role: "park",
+          },
+        ],
+      }),
+    ).toEqual(["bendparks"]);
+    // A tag whose handle isn't in the registry never counts.
+    expect(postHandles({ tags: [tag(1)] })).toEqual([]);
+    expect(postHandles({})).toEqual([]);
+  });
+});
+
+describe("code's words never tag anyone", () => {
+  it("rewrites @ as at, and drops email addresses", () => {
+    expect(noAt("Storytime @10am")).toBe("Storytime at 10am");
+    expect(noAt("Teen Night @TheGrove")).toBe("Teen Night at TheGrove");
+    expect(noAt("@bendparks open house")).toBe("at bendparks open house");
+    expect(noAt("RSVP to kids@library.org, please")).toBe("RSVP to, please");
+    expect(noAt("No at sign here")).toBe("No at sign here");
+    expect(noAt(null)).toBeNull();
+  });
+  it("an event titled with an @ still makes a roundup that validates", () => {
+    const evs = [
+      { ...week(0, null), title: "Storytime @10am" },
+      {
+        ...week(1, null),
+        title: "Teen Night @TheGrove",
+        host: "Ask@library.org",
+      },
+      { ...week(2, tag(1)), venue: "Library @bendparks" },
+      week(3, null),
+    ];
+    const spec = composeEventsWeek(evs, win, false);
+    expect(spec.caption).toContain("Storytime at 10am");
+    expect(spec.caption).toContain("Teen Night at TheGrove");
+    expect(spec.caption).toContain("Library at bendparks");
+    expect(mentionProblems(spec.caption, ["host1"])).toEqual([]);
+    const slide = spec.slides.find((x) => x.t === "event" && x.n === 1);
+    expect(slide).toMatchObject({ title: "Storytime at 10am" });
+  });
+  it("the teaser and park post clean the issue's and park's words", () => {
+    const issue = {
+      issue_date: "2026-11-26",
+      preview: "Snow on Saturday @ the parks.",
+      wheel_pick: {
+        park: park.slug,
+        why_now: "Ask @bendparks about the hill.",
+      },
+      weekend_ahead: { days: [] },
+    } as unknown as Issue;
+    const t = composeTeaser(issue, park, false);
+    expect(t.caption).not.toMatch(/@/);
+    const pp = composeParkPost(
+      draft,
+      { ...park, name: "Al @Moody Park" },
+      null,
+      false,
+    );
+    expect(pp.caption).not.toMatch(/@/);
   });
 });
 
@@ -564,6 +639,13 @@ const tower0 = acct({
   website: "https://www.towertheatre.org/",
 });
 
+/** Meta's "no such user" (Business Discovery, code 110 / 2207013). */
+const missing = () =>
+  Object.assign(new Error("Meta said 400: Invalid user id"), {
+    code: 110,
+    subcode: 2207013,
+  });
+
 describe("recheckTags", () => {
   it("keeps an account with the same id and username", async () => {
     const r = await recheckTags([bprd, tower], {
@@ -576,19 +658,36 @@ describe("recheckTags", () => {
     ]);
     expect(r.dropped).toEqual([]);
   });
-  it("drops an account that's gone, or any API error", async () => {
+  it("drops an account that's gone, and on any API error, with no rename hunt", async () => {
+    const forwardHandles = vi.fn(async () => ["bendparksrec"]);
     const r = await recheckTags([bprd, tower], {
       discover: async (h) => {
-        if (h === "bendparks") throw new Error("Meta said 400: not found");
-        throw new Error("Meta didn't answer (TimeoutError)");
+        if (h === "bendparks") throw missing();
+        throw Object.assign(new Error("Meta said 400: rate"), {
+          code: 4,
+          subcode: null,
+        });
       },
+      forwardHandles: async (d) =>
+        d === "towertheatre.org" ? forwardHandles() : [],
       registry: reg,
     });
     expect(r.kept).toEqual([]);
     expect(r.dropped.map((d) => d.why)).toEqual([
       "@bendparks can't be found (Business Discovery)",
-      "@towertheatrebend can't be found (Business Discovery)",
+      "can't check it now (Meta said 400: rate)",
     ]);
+    // A rate limit never sends us to the organization's site.
+    expect(forwardHandles).not.toHaveBeenCalled();
+    const net = await recheckTags([bprd], {
+      discover: async () => {
+        throw new Error("Meta didn't answer (TimeoutError)");
+      },
+      forwardHandles,
+      registry: reg,
+    });
+    expect(net.kept).toEqual([]);
+    expect(forwardHandles).not.toHaveBeenCalled();
   });
   it("drops a handle now on another account (id mismatch)", async () => {
     const r = await recheckTags([bprd], {
@@ -602,7 +701,7 @@ describe("recheckTags", () => {
     const renamed = acct({ username: "bendparksrec" });
     const discover = async (h: string) => {
       if (h === "bendparksrec") return renamed;
-      throw new Error("gone");
+      throw missing();
     };
     const ok = await recheckTags([bprd], {
       discover,
@@ -610,36 +709,32 @@ describe("recheckTags", () => {
       registry: reg,
     });
     expect(ok.kept).toEqual([{ ...bprd, handle: "bendparksrec" }]);
-    // The site doesn't link the new name: dropped.
     const noLink = await recheckTags([bprd], {
       discover,
       forwardHandles: async () => ["somethingelse"],
       registry: reg,
     });
     expect(noLink.kept).toEqual([]);
-    // Same id, but its website no longer names the site: dropped.
     const noBack = await recheckTags([bprd], {
       discover: async (h) => {
         if (h === "bendparksrec")
           return acct({ username: "bendparksrec", website: "https://x.com" });
-        throw new Error("gone");
+        throw missing();
       },
       forwardHandles: async () => ["bendparksrec"],
       registry: reg,
     });
     expect(noBack.kept).toEqual([]);
-    // The new name is another account: dropped.
     const other = await recheckTags([bprd], {
       discover: async (h) => {
         if (h === "bendparksrec")
           return acct({ username: "bendparksrec", id: "5" });
-        throw new Error("gone");
+        throw missing();
       },
       forwardHandles: async () => ["bendparksrec"],
       registry: reg,
     });
     expect(other.kept).toEqual([]);
-    // No way to read the site: dropped.
     const fail = await recheckTags([bprd], {
       discover,
       forwardHandles: async () => {
@@ -661,7 +756,60 @@ describe("recheckTags", () => {
     expect(r.kept).toEqual([]);
     expect(discover).not.toHaveBeenCalled();
   });
-  it("caches answers for a few hours, never errors", async () => {
+  it("stays inside its budget, in parallel, with a time limit", async () => {
+    const many: Registry = { entries: {} };
+    const tags: Tag[] = Array.from({ length: 10 }, (_, i) => {
+      many.entries[`h${i}.org`] = {
+        ...reg.entries["bendparksandrec.org"],
+        handle: `h${i}`,
+        igId: `${i}`,
+        forward: `https://h${i}.org/`,
+      };
+      return {
+        domain: `h${i}.org`,
+        handle: `h${i}`,
+        igId: `${i}`,
+        role: "host",
+      };
+    });
+    // Every handle gone, every site linking three new names: without a
+    // budget that's 10 lookups, 10 fetches and 30 more lookups.
+    const discover = vi.fn(async () => {
+      throw missing();
+    });
+    const forwardHandles = vi.fn(async () => ["a", "b", "c"]);
+    const r = await recheckTags(tags, {
+      discover,
+      forwardHandles,
+      registry: many,
+      budget: 15,
+    });
+    expect(r.kept).toEqual([]);
+    expect(
+      discover.mock.calls.length + forwardHandles.mock.calls.length,
+    ).toBeLessThanOrEqual(15);
+    // A hung lookup gives up, and the others still answer.
+    const t0 = Date.now();
+    const slow = await recheckTags([bprd, tower], {
+      discover: (h) =>
+        h === "bendparks"
+          ? new Promise<DiscoveredAccount>(() => {})
+          : Promise.resolve(tower0),
+      registry: reg,
+      timeoutMs: 50,
+    });
+    expect(Date.now() - t0).toBeLessThan(1000);
+    expect(slow.kept.map((t) => t.handle)).toEqual(["towertheatrebend"]);
+    expect(slow.dropped[0].why).toMatch(/timed out/);
+  });
+  it("noSuchUser is only Meta's clear answer", () => {
+    expect(noSuchUser(missing())).toBe(true);
+    expect(noSuchUser({ code: 110, subcode: null })).toBe(true);
+    expect(noSuchUser({ code: 4, subcode: null })).toBe(false);
+    expect(noSuchUser(new Error("timeout"))).toBe(false);
+    expect(noSuchUser(null)).toBe(false);
+  });
+  it("the preview cache keeps answers a few hours, never errors", async () => {
     let t = 0;
     const cache = new Map();
     const inner = vi.fn(async () => acct());
@@ -703,11 +851,10 @@ describe("the caption as it goes out", () => {
     const r = await publishCaption(post, {
       discover: async (h) => {
         if (h === "bendparks") return acct();
-        throw new Error("gone");
+        throw missing();
       },
       registry: reg,
     });
-    if ("error" in r) throw new Error(r.error);
     expect(r.caption).toContain("\nHosts this week: @bendparks\n");
     expect(r.caption).not.toMatch(/towertheatrebend/);
     expect(r.notes).toEqual([
@@ -721,7 +868,6 @@ describe("the caption as it goes out", () => {
       },
       registry: reg,
     });
-    if ("error" in r) throw new Error(r.error);
     expect(r.caption).not.toMatch(/@|Hosts this week/);
     expect(r.caption).toBe(withoutMentions(caption));
     expect(r.caption).not.toMatch(/\n\n\n/);
@@ -731,12 +877,11 @@ describe("the caption as it goes out", () => {
       discover: async (h) => {
         if (h === "bendparksrec") return acct({ username: "bendparksrec" });
         if (h === "towertheatrebend") return tower0;
-        throw new Error("gone");
+        throw missing();
       },
       forwardHandles: async () => ["bendparksrec"],
       registry: reg,
     });
-    if ("error" in r) throw new Error(r.error);
     expect(r.caption).toContain(
       "Hosts this week: @bendparksrec @towertheatrebend",
     );
@@ -753,30 +898,35 @@ describe("the caption as it goes out", () => {
     );
     expect(a).toEqual(b);
   });
-  it("stops a post with an @handle no code put there", async () => {
-    const bad = `${caption}\nThanks @stranger`;
+  it('still publishes with an @ in an event\'s words (it reads "at")', async () => {
+    const odd = caption.replace(
+      "Hosts run these events.",
+      "Storytime @10am. Teen Night @TheGrove.",
+    );
     const r = await publishCaption(
       {
         kind: "events_week",
-        caption: bad,
-        spec: { caption: bad, tags: [bprd] },
+        caption: odd,
+        spec: { caption: odd, tags: [bprd] },
       },
       { discover: async () => acct(), registry: reg },
     );
-    expect(r).toMatchObject({ error: expect.stringMatching(/@stranger/) });
-    const untagged = await publishCaption(
-      {
-        kind: "park_post",
-        caption: "Hi @stranger",
-        spec: { caption: "Hi @stranger" },
-      },
-      { discover: async () => acct(), registry: reg },
-    );
-    expect(untagged).toMatchObject({
-      error: expect.stringMatching(/@stranger/),
-    });
+    expect(r.caption).toContain("Storytime at 10am. Teen Night at TheGrove.");
+    expect(mentionProblems(r.caption, ["bendparks"])).toEqual([]);
   });
-  it("leaves a post with no tags alone", async () => {
+  it("still publishes with a registry handle in the words and no tags", async () => {
+    const words = "Thanks @bendparks for the sled hill.\nLink in bio.";
+    const discover = vi.fn();
+    const r = await publishCaption(
+      { kind: "park_post", caption: words, spec: { caption: words } },
+      { discover, registry: reg },
+    );
+    expect(r.caption).toBe(
+      "Thanks at bendparks for the sled hill.\nLink in bio.",
+    );
+    expect(discover).not.toHaveBeenCalled();
+  });
+  it("leaves a post with no tags and no @ alone", async () => {
     const discover = vi.fn();
     const r = await publishCaption(
       {

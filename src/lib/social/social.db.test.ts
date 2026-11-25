@@ -119,7 +119,13 @@ const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
     return discovered[bd[1]]
       ? Response.json({ business_discovery: discovered[bd[1]] })
       : Response.json(
-          { error: { message: "Invalid user id", code: 110 } },
+          {
+            error: {
+              message: "Invalid user id",
+              code: 110,
+              error_subcode: 2207013,
+            },
+          },
           { status: 400 },
         );
   if (path.endsWith("/content_publishing_limit") && quotaFails)
@@ -402,9 +408,8 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       expect(fb).toBeTruthy();
       expect(fbText).not.toMatch(/@|Park by/);
 
-      // Another week (past the cache's few hours): the account is gone
-      // (Meta errors), so the tag goes, and the post still goes out.
-      (await import("./handles")).forgetDiscoveries();
+      // Another week: the account is gone (Meta says no such user; every
+      // publish asks fresh), so the tag goes, and the post still goes out.
       await q("truncate social_posts restart identity cascade");
       calls.length = 0;
       discovered = {};
@@ -1020,6 +1025,65 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       )[0],
     ).toEqual({ status: "dry_run" });
     expect(calls).toEqual([]);
+  });
+
+  it("Tuesday live: an @ in an event's words never holds the roundup, and a verified host is tagged", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const { REGISTRY } = await import("./handles");
+    const bprd = REGISTRY.entries["bendparksandrec.org"];
+    await fourEvents();
+    await addEvent("at-title", "2026-11-27", "Bend", {
+      title: "Teen Night @TheGrove",
+    });
+    await addEvent("parks", "2026-11-29", "Bend", {
+      title: "Winter Wonderland",
+      venue: { name: "Larkspur Community Center", town: "Bend" },
+      what: "Kids make snowflakes, email info@bendparksandrec.org with questions.",
+      organizer: {
+        name: "Bend Park and Recreation District",
+        url: "https://www.bendparksandrec.org/",
+      },
+    });
+    discovered[bprd.handle] = {
+      id: bprd.igId,
+      username: bprd.handle,
+      website: "https://www.bendparksandrec.org/",
+    };
+    let r = await store.runSocial(TUE_0645, { fetchImpl });
+    expect(r.notes).toContain("events_week: made");
+    const [made] = await q(`select caption from social_posts`);
+    expect(String(made.caption)).toContain(`Hosts this week: @${bprd.handle}`);
+    r = await store.runSocial(TUE_0715, { fetchImpl });
+    const [row] = await q(`select status, caption from social_posts`);
+    expect(row.status).toBe("creating");
+    const create = calls.find(
+      (c) => c.method === "POST" && c.body.get("media_type") === "CAROUSEL",
+    );
+    const caption = create?.body.get("caption") ?? "";
+    expect(caption).toContain(`Hosts this week: @${bprd.handle}`);
+    // The only @ is the verified tag line's.
+    expect(caption.match(/@/g)).toHaveLength(1);
+  });
+
+  it('live: a registry handle in a post\'s words, with no tags, still goes out (as "at")', async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    // A queued caption with an @ in its words (stored before the rule).
+    await q(`update social_posts
+      set caption = 'Thanks @bendparks for the sled hill.' || chr(10) || 'Link in bio.',
+          spec = (spec - 'tags') || jsonb_build_object('caption', 'Thanks @bendparks for the sled hill.' || chr(10) || 'Link in bio.')
+      where id = ${id}`);
+    await store.runSocial(MON_1150, { fetchImpl });
+    const [row] = await q(
+      `select status, caption from social_posts where id = ${id}`,
+    );
+    expect(row.status).toBe("creating");
+    const create = calls.find(
+      (c) => c.method === "POST" && c.path.endsWith("/media"),
+    );
+    expect(create?.body.get("caption")).toBe(
+      "Thanks at bendparks for the sled hill.\nLink in bio.",
+    );
   });
 
   it("Tuesday: fewer than 4 events skips the week and tells James", async () => {

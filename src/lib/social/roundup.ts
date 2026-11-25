@@ -30,7 +30,7 @@ import {
   type PostSpec,
 } from "./model";
 import { eventFit } from "@/components/social/fit";
-import { hostDomain, REGISTRY, type Registry, tagFor } from "./handles";
+import { hostDomain, noAt, REGISTRY, type Registry, tagFor } from "./handles";
 import { eventTextProblem, textProblems } from "./validate";
 
 /** ageTags' open top ("6 and up" reads as [6, 99]). */
@@ -275,16 +275,17 @@ export function pickWeekEvents(
       day: first.day,
       start: first.start!,
       at: pacificAt(first.day, first.start!).getTime(),
-      title: e.data.title.trim(),
+      // The host's words never tag anyone ("Storytime @10am").
+      title: noAt(e.data.title.trim()),
       weekday: DAYS3[weekdayOf(first.day)],
       date: monthDay(first.day),
       time: timeLine(first),
-      venue: e.data.venue.name,
-      town: e.data.venue.town,
+      venue: noAt(e.data.venue.name),
+      town: noAt(e.data.venue.town),
       ages: ages.chips,
-      desc: descResult.desc,
+      desc: noAt(descResult.desc),
       cost,
-      host: hostOf(e.data.venue.name, e.data.organizer),
+      host: noAt(hostOf(e.data.venue.name, e.data.organizer)),
       also: more.length
         ? `Also ${more.map((d) => DAYS3[weekdayOf(d)]).join(", ")}`
         : null,

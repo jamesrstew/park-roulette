@@ -83,7 +83,7 @@ function add(url: string, org: string, why: string) {
   candidates.set(domain, c);
 }
 
-// 1. The events in production (read-only), by organizer domain.
+// 1. The events in production (read-only), by their named organizer's domain.
 const known = (await (
   await fetch("https://parkroulette.quest/api/events/known?days=60", {
     headers: { authorization: `Bearer ${env("NEWS_INGEST_TOKEN")}` },
@@ -97,9 +97,10 @@ const known = (await (
   }[];
 };
 for (const e of known.events) {
-  const d = hostDomain(e);
-  if (!d) continue;
-  add(e.organizer?.url ?? e.url, e.organizer?.name ?? e.venue.name, "events");
+  // The named organizer only: an event's own page may be a venue's or a
+  // listing's, and never says who hosts it.
+  if (!e.organizer || !hostDomain(e)) continue;
+  add(e.organizer.url, e.organizer.name, "events");
 }
 
 // 2. Park operators: a park's official page on its operator's site.

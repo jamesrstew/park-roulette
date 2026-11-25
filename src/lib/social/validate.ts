@@ -43,7 +43,7 @@ import {
   hostDomain,
   mentionProblems,
   parkTag,
-  registryHandles,
+  postHandles,
   siteDomain,
   type Tag,
   tagFor,
@@ -1167,6 +1167,21 @@ function slotProblems(
   return null;
 }
 
+/**
+ * The post with its tags, unless they push the caption over Instagram's
+ * limit: then without them (as the roundup does), never a refused draft.
+ */
+function untaggedIfLong(
+  r: PostReport,
+  make: (tags: readonly Tag[]) => PostSpec,
+  tags: readonly Tag[],
+): PostSpec {
+  const spec = make(tags);
+  if (!tags.length || (spec.caption ?? "").length <= CAPTION_MAX) return spec;
+  r.warnings.push("The host tags were left out: the caption ran long.");
+  return make([]);
+}
+
 function common(
   r: PostReport,
   spec: PostSpec,
@@ -1174,9 +1189,10 @@ function common(
   hashtags: readonly string[],
 ) {
   r.errors.push(...hashtagProblems(hashtags));
-  // Any @handle must be a verified one (data/ig-handles.json): code adds
-  // them, so a model-written @ never gets through.
-  r.errors.push(...mentionProblems(spec.caption, registryHandles()));
+  // An @ only in the tag line code adds, with the post's own verified
+  // handles: the same rule the publisher applies, so a model-written @
+  // is refused here, at draft time, and never at publish.
+  r.errors.push(...mentionProblems(spec.caption, postHandles(spec)));
   if ((spec.caption ?? "").length > CAPTION_MAX)
     r.errors.push(`The caption is over ${CAPTION_MAX} characters.`);
   for (const p of ctx.recent.slice(0, 8)) {
@@ -1385,11 +1401,9 @@ export async function validateParkPost(
   );
   if (school) r.errors.push(school);
   if (!park) return r;
-  const spec = composeParkPost(
-    d,
-    park,
-    ctx.photoFor(park.slug),
-    ctx.dms,
+  const spec = untaggedIfLong(
+    r,
+    (tags) => composeParkPost(d, park, ctx.photoFor(park.slug), ctx.dms, tags),
     [parkTag(park.slug)].filter((t): t is Tag => !!t),
   );
   common(r, spec, ctx, d.hashtags);
@@ -1494,7 +1508,11 @@ export async function validateUnpack(
     r.errors.push(
       `The headline says ${n}, but the carousel has ${items.length} items${r.cut.length ? " after cuts" : ""}.`,
     );
-  const spec = composeUnpack(d, items, facts, ctx.dms, tags);
+  const spec = untaggedIfLong(
+    r,
+    (t) => composeUnpack(d, items, facts, ctx.dms, t),
+    tags,
+  );
   common(r, spec, ctx, d.hashtags);
   r.spec = spec;
   r.ok = r.errors.length === 0;

@@ -6,7 +6,13 @@ import {
   itemFit,
 } from "@/components/social/fit";
 import { ideaText } from "./at-home";
-import { mentionLines, type Tag, usedTags, withoutMentions } from "./handles";
+import {
+  mentionLines,
+  noAt,
+  type Tag,
+  usedTags,
+  withoutMentions,
+} from "./handles";
 import { eventsWeekPath, fbLink, PENDING_POST_LINK } from "./links";
 import {
   type AtHomeDraft,
@@ -129,6 +135,14 @@ export function composeParkPost(
 ): PostSpec {
   const cta = ctaLine(dms, "park_post");
   const mentions = mentionLines("park_post", tags);
+  // The park's record and the photo's credit are code's words: no "@".
+  park = {
+    ...park,
+    name: noAt(park.name),
+    city: noAt(park.city),
+    address: noAt(park.address),
+  };
+  photo = photo && { ...photo, credit: noAt(photo.credit) };
   const story = d.story.replace(/\s+/g, " ").trim();
   const caption = [
     // The story opens the caption: its first sentence names the park and
@@ -179,6 +193,16 @@ export function composeUnpack(
   tags: readonly Tag[] = [],
 ): PostSpec {
   const cta = ctaLine(dms, "unpack");
+  // Names, places, hosts and chips come from event pages and the catalog:
+  // no "@" in them (the model's own words were checked for one).
+  items = items.map((it) => ({
+    ...it,
+    name: noAt(it.name),
+    facts: it.facts.map((f) => noAt(f)),
+    ...(it.place ? { place: noAt(it.place) } : {}),
+    ...(it.host ? { host: noAt(it.host) } : {}),
+    ...(it.venueChip ? { venueChip: noAt(it.venueChip) } : {}),
+  }));
   const headline = d.headline.trim();
   const slides: SlideSpec[] = [
     {
@@ -585,6 +609,15 @@ export function composeEventsWeek(
   range: { label: string; caption: string; firstDay: string },
   dms: boolean,
 ): PostSpec {
+  events = events.map((e) => ({
+    ...e,
+    title: noAt(e.title),
+    desc: noAt(e.desc),
+    venue: noAt(e.venue),
+    town: noAt(e.town),
+    host: noAt(e.host),
+    also: noAt(e.also),
+  }));
   // The hosts' verified handles, in event order, once each (at most 10).
   const tags = events.map((e) => e.tag ?? null).filter((t): t is Tag => !!t);
   const mentions = mentionLines("events_week", tags);
@@ -733,6 +766,16 @@ export function composeTeaser(
   tags: readonly Tag[] = [],
 ): PostSpec {
   const cta = ctaLine(dms, "teaser");
+  // The sent issue's words and the park's record: no "@" in them.
+  park = { ...park, name: noAt(park.name), city: noAt(park.city) };
+  issue = {
+    ...issue,
+    preview: noAt(issue.preview),
+    wheel_pick: {
+      ...issue.wheel_pick,
+      why_now: noAt(issue.wheel_pick.why_now),
+    },
+  };
   const word = weatherWord(weekendDay(issue)?.icon);
   const headline = word
     ? `This weekend: ${word} + ${park.name}`
