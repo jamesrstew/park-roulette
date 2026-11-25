@@ -80,10 +80,10 @@ function Tile({
 async function Grid({ searchParams }: Props) {
   // The visit's source rides on to where the tile leads, so a signup there
   // still counts for Instagram or Facebook.
-  const [tiles, from] = await Promise.all([
-    socialGrid(),
-    searchParams.then((s) => carryFrom(s.from)),
-  ]);
+  // searchParams first: it makes this request-time, so the build never
+  // queries the database (CI has none, and the build failed on Nov 23).
+  const from = carryFrom((await searchParams).from);
+  const tiles = await socialGrid();
   // Empty (before the first post): the signup is the whole page.
   if (!tiles.length) return null;
   return (

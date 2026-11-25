@@ -42,11 +42,13 @@ export function withConnectRetries(url: string, tries: number): string {
   } catch {
     return url;
   }
-  if (tries < 2 || !u.host || url.includes(",")) return url;
+  if (tries < 2 || !u.host || u.host.includes(",")) return url;
   const at = url.indexOf("@" + u.host);
   const start = at >= 0 ? at + 1 : url.indexOf(u.host);
   if (start < 0) return url;
   const end = start + u.host.length;
   const hostPort = u.port ? u.host : `${u.host}:5432`;
-  return url.slice(0, start) + Array(tries).fill(hostPort).join(",") + url.slice(end);
+  return (
+    url.slice(0, start) + Array(tries).fill(hostPort).join(",") + url.slice(end)
+  );
 }

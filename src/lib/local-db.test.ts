@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { isLocalDb, withConnectRetries } from "./local-db";
 
 describe("withConnectRetries", () => {
-  const url = "postgresql://postgres:p%40ss@altaria.proxy.rlwy.net:44873/railway?sslmode=require";
+  const url =
+    "postgresql://postgres:p%40ss@altaria.proxy.rlwy.net:44873/railway?sslmode=require";
 
   it("lists the same host and port three times, keeping user, db and params", () => {
     expect(withConnectRetries(url, 3)).toBe(
@@ -33,6 +34,12 @@ describe("withConnectRetries", () => {
     const tricky = "postgres://u:db.example.com@db.example.com:5432/x";
     expect(withConnectRetries(tricky, 2)).toBe(
       "postgres://u:db.example.com@db.example.com:5432,db.example.com:5432/x",
+    );
+  });
+
+  it("keeps retrying when only the query string has a comma", () => {
+    expect(withConnectRetries("postgres://u:p@h:1/x?options=a,b", 2)).toBe(
+      "postgres://u:p@h:1,h:1/x?options=a,b",
     );
   });
 
