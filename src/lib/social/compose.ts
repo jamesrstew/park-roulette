@@ -6,6 +6,7 @@ import {
   itemFit,
 } from "@/components/social/fit";
 import { ideaText } from "./at-home";
+import { mentionLines, type Tag, usedTags, withoutMentions } from "./handles";
 import { eventsWeekPath, fbLink, PENDING_POST_LINK } from "./links";
 import {
   type AtHomeDraft,
@@ -64,8 +65,9 @@ const sentence = (s: string) => {
 };
 
 /**
- * The Facebook caption: the same words, with the post's own link in place
- * of "Link in bio." (a Page has no bio link). `path` is where the post
+ * The Facebook caption: the same words without the Instagram tag lines,
+ * with the post's own link in place of "Link in bio." (a Page has no bio
+ * link). `path` is where the post
  * leads (lib/social/links.ts): the park, the issue, the week's events, or
  * the pending link that storing the post turns into its own page.
  */
@@ -75,7 +77,8 @@ function forFacebook(
   path: string | null,
 ): string {
   const link = path ? fbLink(path) : PENDING_POST_LINK;
-  return caption.replace(ctaText, `${COPY.fbDetails} ${link}`);
+  // Instagram handles mean nothing on Facebook: the tag lines stay off it.
+  return withoutMentions(caption).replace(ctaText, `${COPY.fbDetails} ${link}`);
 }
 
 /** A model fragment as a labeled line ("Bring: warm layers"): no end period. */
@@ -121,8 +124,11 @@ export function composeParkPost(
   park: ParkInfo,
   photo: PhotoRef | null,
   dms: boolean,
+  /** The park's operator, when its handle is verified (handles.ts parkTag). */
+  tags: readonly Tag[] = [],
 ): PostSpec {
   const cta = ctaLine(dms, "park_post");
+  const mentions = mentionLines("park_post", tags);
   const story = d.story.replace(/\s+/g, " ").trim();
   const caption = [
     // The story opens the caption: its first sentence names the park and
@@ -133,7 +139,10 @@ export function composeParkPost(
     `Bring: ${fragment(d.bring)}`,
     `Where: ${park.address ?? `${park.name}, ${park.city}, Oregon`}`,
     "",
+    // The photo credit stays plain words (Facebook keeps it, and a
+    // crayon redraw takes it out); the operator's tag is its own line.
     ...(photo?.credit ? [photo.credit] : []),
+    ...mentions,
     COPY.captionClose.park_post,
     cta,
     "",
@@ -155,6 +164,7 @@ export function composeParkPost(
     headline: sentencesOf(story)[0] ?? park.name,
     modelText: [story, d.who, d.bring].join("\n"),
     facts: { parks: [park.slug], events: [], venues: [], issue: null },
+    ...tagsField("park_post", tags),
   };
 }
 
@@ -165,6 +175,8 @@ export function composeUnpack(
   items: ResolvedItem[],
   facts: PostFacts,
   dms: boolean,
+  /** The items' verified hosts, places and park operators, in item order. */
+  tags: readonly Tag[] = [],
 ): PostSpec {
   const cta = ctaLine(dms, "unpack");
   const headline = d.headline.trim();
@@ -220,6 +232,7 @@ export function composeUnpack(
       it.facts.join(" · "),
       "",
     ]),
+    ...mentionLines("unpack", tags),
     COPY.captionClose.unpack,
     cta,
     "",
@@ -239,7 +252,14 @@ export function composeUnpack(
       ...items.map((i) => i.what),
     ].join("\n"),
     facts,
+    ...tagsField("unpack", tags),
   };
+}
+
+/** The spec's tags: the ones its caption prints (none: no field). */
+function tagsField(kind: PostSpec["kind"], tags: readonly Tag[]) {
+  const used = usedTags(kind, tags);
+  return used.length ? { tags: used } : {};
 }
 
 // --- E. At home (Saturday) -------------------------------------------------
@@ -435,6 +455,11 @@ export type WeekEvent = {
   cost: string | null;
   host: string | null;
   also: string | null;
+  /**
+   * The host's verified Instagram account (handles.ts), from its organizer
+   * domain; tagged in the Instagram caption only.
+   */
+  tag?: Tag | null;
 };
 
 const NUMBER_WORDS = [
@@ -560,6 +585,9 @@ export function composeEventsWeek(
   range: { label: string; caption: string; firstDay: string },
   dms: boolean,
 ): PostSpec {
+  // The hosts' verified handles, in event order, once each (at most 10).
+  const tags = events.map((e) => e.tag ?? null).filter((t): t is Tag => !!t);
+  const mentions = mentionLines("events_week", tags);
   const cta = ctaLine(dms, "events_week");
   const headline = COPY.eventsHeadline;
   // One body and one title size for the whole carousel, so its slides
@@ -626,6 +654,7 @@ export function composeEventsWeek(
     ...eventsByDay(events),
     COPY.eventsFineCaption,
     "",
+    ...(mentions.length ? [...mentions, ""] : []),
     COPY.captionClose.events_week,
     cta,
     "",
@@ -652,6 +681,7 @@ export function composeEventsWeek(
       venues: [],
       issue: null,
     },
+    ...tagsField("events_week", tags),
   };
 }
 
@@ -699,6 +729,8 @@ export function composeTeaser(
   issue: Issue,
   park: ParkInfo,
   dms: boolean,
+  /** The featured park's operator, when its handle is verified. */
+  tags: readonly Tag[] = [],
 ): PostSpec {
   const cta = ctaLine(dms, "teaser");
   const word = weatherWord(weekendDay(issue)?.icon);
@@ -737,6 +769,7 @@ export function composeTeaser(
     issue.preview,
     "",
     `This week's pick is ${park.name} in ${park.city}. ${issue.wheel_pick.why_now}`,
+    ...mentionLines("teaser", tags),
     "",
     COPY.teaserClose,
     cta,
@@ -758,6 +791,7 @@ export function composeTeaser(
       venues: [],
       issue: issue.issue_date,
     },
+    ...tagsField("teaser", tags),
   };
 }
 

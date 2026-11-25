@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { addDays, pacificInstant, weekdayOf } from "@/lib/news/time";
+import type { Tag } from "./handles";
 
 /**
  * Park Roulette on Instagram (@park_roulette): the post types, the weekly
@@ -655,6 +656,11 @@ export type PostSpec = {
   /** Only the model's words (for the overlap check against later posts). */
   modelText: string;
   facts: PostFacts;
+  /**
+   * The verified accounts the caption tags (lib/social/handles.ts),
+   * checked again right before it goes out. Instagram only.
+   */
+  tags?: Tag[];
 };
 
 /** Words in a headline (hyphenated words count once). */

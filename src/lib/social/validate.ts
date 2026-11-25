@@ -40,6 +40,15 @@ import {
   titleSimilarity,
 } from "./at-home";
 import {
+  hostDomain,
+  mentionProblems,
+  parkTag,
+  registryHandles,
+  siteDomain,
+  type Tag,
+  tagFor,
+} from "./handles";
+import {
   composeAtHome,
   composeParkPost,
   composeUnpack,
@@ -941,6 +950,25 @@ function venueIcon(v: Venue): ItemIcon {
   return "home";
 }
 
+/**
+ * An Unpack item's verified Instagram account: an event's host (its
+ * organizer's domain), a park's operator, or a catalog venue's own site.
+ */
+function itemTag(ref: string, ctx: SocialCtx): Tag | null {
+  const i = ref.indexOf(":");
+  const [kind, rest] = [ref.slice(0, i), ref.slice(i + 1)];
+  if (kind === "event") {
+    const e = ctx.events.get(rest.split("@")[0]);
+    return e ? tagFor(hostDomain(e.data), "host") : null;
+  }
+  if (kind === "park") return parkTag(rest);
+  if (kind === "venue") {
+    const v = ctx.catalog.venues.find((x) => x.id === rest);
+    return tagFor(siteDomain(v?.url), "place");
+  }
+  return null;
+}
+
 type ItemOutcome =
   | { ok: true; item: ResolvedItem; fact: Partial<PostFacts> }
   | { ok: false; cut: string };
@@ -1146,6 +1174,9 @@ function common(
   hashtags: readonly string[],
 ) {
   r.errors.push(...hashtagProblems(hashtags));
+  // Any @handle must be a verified one (data/ig-handles.json): code adds
+  // them, so a model-written @ never gets through.
+  r.errors.push(...mentionProblems(spec.caption, registryHandles()));
   if ((spec.caption ?? "").length > CAPTION_MAX)
     r.errors.push(`The caption is over ${CAPTION_MAX} characters.`);
   for (const p of ctx.recent.slice(0, 8)) {
@@ -1354,7 +1385,13 @@ export async function validateParkPost(
   );
   if (school) r.errors.push(school);
   if (!park) return r;
-  const spec = composeParkPost(d, park, ctx.photoFor(park.slug), ctx.dms);
+  const spec = composeParkPost(
+    d,
+    park,
+    ctx.photoFor(park.slug),
+    ctx.dms,
+    [parkTag(park.slug)].filter((t): t is Tag => !!t),
+  );
   common(r, spec, ctx, d.hashtags);
   if (!spec.slides.some((s) => s.t === "parkcard" && s.photo))
     r.warnings.push(
@@ -1423,6 +1460,7 @@ export async function validateUnpack(
   if (new Set(refs).size !== refs.length) r.errors.push("An item is repeated.");
 
   const items: ResolvedItem[] = [];
+  const tags: Tag[] = [];
   const facts: PostFacts = { parks: [], events: [], venues: [], issue: null };
   for (const it of d.items) {
     const label = `item ${it.ref}`;
@@ -1438,6 +1476,8 @@ export async function validateUnpack(
         r.warnings.push(`${park.name} was on Instagram in the last 8 weeks.`);
     }
     items.push(got.item);
+    const tag = itemTag(it.ref, ctx);
+    if (tag) tags.push(tag);
     facts.parks.push(...(got.fact.parks ?? []));
     facts.events.push(...(got.fact.events ?? []));
     facts.venues.push(...(got.fact.venues ?? []));
@@ -1454,7 +1494,7 @@ export async function validateUnpack(
     r.errors.push(
       `The headline says ${n}, but the carousel has ${items.length} items${r.cut.length ? " after cuts" : ""}.`,
     );
-  const spec = composeUnpack(d, items, facts, ctx.dms);
+  const spec = composeUnpack(d, items, facts, ctx.dms, tags);
   common(r, spec, ctx, d.hashtags);
   r.spec = spec;
   r.ok = r.errors.length === 0;

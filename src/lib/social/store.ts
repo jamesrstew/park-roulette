@@ -16,6 +16,7 @@ import { listed } from "@/lib/events/state";
 import { pacificAt, upcomingDates } from "@/lib/events/model";
 import { CATALOG, type Catalog, isClosedPark } from "@/lib/news/catalog";
 import { fetchPage } from "@/lib/news/fetcher";
+import { UA } from "@/lib/news/ua";
 import { IssueSchema, type Issue } from "@/lib/news/issue";
 import { addDays, pacific } from "@/lib/news/time";
 import { normalizeText, type Fetcher } from "@/lib/news/validate";
@@ -26,8 +27,25 @@ import { type RecentIdea, themesFor } from "./at-home";
 import { listableParks, postCandidates } from "./candidates";
 import { composeStory, composeTeaser, type ParkInfo } from "./compose";
 import { type EchoFrame, runEchoes } from "./echo";
-import { fitRoundup, pickWeekEvents, roundupWindow } from "./roundup";
 import {
+  fitRoundup,
+  pickWeekEvents,
+  roundupWindow,
+  withHostTags,
+} from "./roundup";
+import {
+  cachedDiscover,
+  igLinksIn,
+  mentionProblems,
+  parkTag,
+  publishCaption,
+  REGISTRY,
+  registryHandles,
+  siteDomain,
+  withoutMentions,
+} from "./handles";
+import {
+  businessDiscovery,
   containerStatus,
   createContainer,
   facebookPost,
@@ -854,10 +872,13 @@ export async function ensureCodePost(
     return skip(
       `The featured park ${issue.wheel_pick.park} isn't open on the map.`,
     );
-  const spec =
+  const operator = parkTag(park.slug);
+  let spec =
     kind === "teaser"
-      ? composeTeaser(issue, park, dmsOn())
+      ? composeTeaser(issue, park, dmsOn(), operator ? [operator] : [])
       : composeStory(issue, park, dmsOn());
+  if (mentionProblems(spec.caption, registryHandles()).length)
+    spec = composeTeaser(issue, park, dmsOn());
   // The issue's words were checked when it was sent; the competitor,
   // emoji and safety rules run again on the headline.
   const problems = textProblems(spec.modelText, {
@@ -924,9 +945,17 @@ export async function ensureEventsWeek(
   if (now.getTime() > publishAt.getTime() + LATE_LIMIT_MIN * 60_000)
     return skip("Over 2 hours late.");
   const window = roundupWindow(date, publishAt);
-  const pick = pickWeekEvents((await eventRows()).values(), window, now);
+  const rows = await eventRows();
+  const pick = pickWeekEvents(rows.values(), window, now);
   if (pick.skip) return skip(pick.skip);
-  const fit = fitRoundup(pick.events, window, dmsOn());
+  // The hosts' verified handles ride along; a tag that fails a check is
+  // dropped (the roundup goes out without it), never the post.
+  let fit = fitRoundup(withHostTags(pick.events, rows), window, dmsOn());
+  if (
+    !("skip" in fit) &&
+    mentionProblems(fit.spec.caption, registryHandles()).length
+  )
+    fit = fitRoundup(pick.events, window, dmsOn());
   if ("skip" in fit) return skip(fit.skip);
   const { spec } = fit;
   const R = await render();
@@ -1253,13 +1282,47 @@ export async function runSocial(
   }
 }
 
+/**
+ * The handles an organization's site links right now (its registry
+ * entry's forward page, fetched plainly with our honest User-Agent), for
+ * a renamed account. Any trouble: none.
+ */
+async function forwardHandlesNow(
+  domain: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string[]> {
+  const entry = REGISTRY.entries[domain];
+  if (!entry) return [];
+  const res = await fetchImpl(entry.forward, {
+    headers: { "user-agent": UA, accept: "text/html" },
+    redirect: "follow",
+    signal: AbortSignal.timeout(10_000),
+    cache: "no-store",
+  });
+  if (!res.ok || siteDomain(res.url || entry.forward) !== domain) return [];
+  return igLinksIn((await res.text()).slice(0, 3_000_000));
+}
+
 async function createStep(
   post: PostRow,
   o: GraphOpts,
   notes: string[],
   now: Date,
 ) {
-  const plan = containersFor(post);
+  const final = await publishCaption(post, {
+    discover: cachedDiscover((h) => businessDiscovery(h, o)),
+    forwardHandles: (d) => forwardHandlesNow(d, o.fetchImpl),
+  });
+  if ("error" in final) {
+    await setPost(post.id, { status: "skipped", reason: final.error });
+    tell(post, "skipped", `Skipped just before it went out: ${final.error}`);
+    notes.push(`${post.id}: skipped (${final.error})`);
+    return;
+  }
+  for (const n of final.notes) notes.push(`${post.id}: ${n}`);
+  if (final.caption !== post.caption)
+    await setPost(post.id, { caption: final.caption });
+  const plan = containersFor({ ...post, caption: final.caption });
   try {
     let childIds = post.childIds ?? [];
     if (
@@ -1478,7 +1541,10 @@ async function crossPost(post: PostRow, notes: string[]) {
       page,
       {
         imageUrls: (post.media as MediaFile[]).map(mediaUrl),
-        caption: fbCaptionFor(spec.fbCaption, { ...post, spec })!,
+        // Never an Instagram handle on Facebook.
+        caption: withoutMentions(
+          fbCaptionFor(spec.fbCaption, { ...post, spec })!,
+        ),
       },
       o,
     );

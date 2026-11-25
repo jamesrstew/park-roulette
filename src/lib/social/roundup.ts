@@ -30,6 +30,7 @@ import {
   type PostSpec,
 } from "./model";
 import { eventFit } from "@/components/social/fit";
+import { hostDomain, REGISTRY, type Registry, tagFor } from "./handles";
 import { eventTextProblem, textProblems } from "./validate";
 
 /** ageTags' open top ("6 and up" reads as [6, 99]). */
@@ -362,9 +363,28 @@ export function pickWeekEvents(
 }
 
 /**
+ * The roundup's events with their hosts' verified Instagram accounts
+ * (the organizer's domain in data/ig-handles.json), for the caption's
+ * "Hosts this week" line. An event with no proven account gets none.
+ */
+export function withHostTags(
+  events: readonly WeekEvent[],
+  rows: ReadonlyMap<string, Pick<EventRow, "data">>,
+  registry: Registry = REGISTRY,
+): WeekEvent[] {
+  return events.map((e) => {
+    const row = rows.get(e.slug);
+    return {
+      ...e,
+      tag: row ? tagFor(hostDomain(row.data), "host", registry) : null,
+    };
+  });
+}
+
+/**
  * The roundup, cut to Instagram's 2,200-character caption: descriptors
  * go first (the latest event's first), then the "Also ..." lines, then
- * the latest events, down to 4. Still too long: no roundup (the caller
+ * the "Hosts this week" tags, then the latest events, down to 4. Still too long: no roundup (the caller
  * skips the slot and tells James). The slides lose the same words, so
  * the caption and the slides always agree.
  */
@@ -386,6 +406,11 @@ export function fitRoundup(
           `${es[i].slug}: ${field === "desc" ? "descriptor" : "also line"} cut for caption length`,
         );
       }
+  // The hosts' tags go before any event does.
+  if (!fits() && es.some((e) => e.tag)) {
+    es = es.map((e) => ({ ...e, tag: null }));
+    cut.push("host tags cut for caption length");
+  }
   while (!fits() && es.length > EVENTS_MIN) {
     const last = es[es.length - 1];
     es = es.slice(0, -1);

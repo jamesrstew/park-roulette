@@ -105,11 +105,23 @@ let quota = 1;
 /** Meta's publishing limit can't be read. */
 let quotaFails = false;
 let comments: { id: string; text: string; from: { id: string } }[] = [];
+/** Business Discovery's answers by handle (missing: Meta's error). */
+let discovered: Record<string, Record<string, unknown>> = {};
 const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
   const url = new URL(String(u));
   const path = url.pathname.replace(/^\/v\d+\.\d+\//, "");
   const body = new URLSearchParams(String(init?.body ?? ""));
   calls.push({ method: init?.method ?? "GET", path, body });
+  const bd = /^business_discovery\.username\(([^)]+)\)/.exec(
+    url.searchParams.get("fields") ?? "",
+  );
+  if (bd)
+    return discovered[bd[1]]
+      ? Response.json({ business_discovery: discovered[bd[1]] })
+      : Response.json(
+          { error: { message: "Invalid user id", code: 110 } },
+          { status: 400 },
+        );
   if (path.endsWith("/content_publishing_limit") && quotaFails)
     return Response.json(
       { error: { message: "oops", code: 1 } },
@@ -246,6 +258,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     quota = 1;
     quotaFails = false;
     comments = [];
+    discovered = {};
     delete process.env.SOCIAL_PUBLISH;
     delete process.env.SOCIAL_KEYWORD_DMS;
     delete process.env.FB_PAGE_ID;
@@ -352,6 +365,64 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       ),
     ).toHaveLength(1);
     expect(row).toMatchObject({ status: "published", ig_media_id: "IGMEDIA1" });
+  });
+
+  it("tags the park's operator only when the re-check holds, never on Facebook", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    process.env.SOCIAL_FACEBOOK = "on";
+    process.env.FB_PAGE_ID = "1234567890";
+    vi.stubGlobal("fetch", fetchImpl);
+    try {
+      const { REGISTRY } = await import("./handles");
+      const bprd = REGISTRY.entries["bendparksandrec.org"];
+      const id = await draftPost();
+      const [queued] = await q(
+        `select caption from social_posts where id = ${id}`,
+      );
+      expect(String(queued.caption)).toContain(`\nPark by @${bprd.handle}\n`);
+      // Meta still knows the account under the same id and name: kept.
+      discovered[bprd.handle] = {
+        id: bprd.igId,
+        username: bprd.handle,
+        website: "https://www.bendparksandrec.org/",
+      };
+      await store.runSocial(MON_1150, { fetchImpl });
+      const create = calls.find(
+        (c) => c.method === "POST" && c.path.endsWith("/media"),
+      );
+      expect(create?.body.get("caption")).toContain(`Park by @${bprd.handle}`);
+      await store.runSocial(MON_1215, { fetchImpl });
+      const fb = calls.find(
+        (c) => c.path.endsWith("/photos") || c.path.endsWith("/feed"),
+      );
+      const fbText = [...calls]
+        .filter((c) => c.path.startsWith("1234567890"))
+        .map((c) => c.body.get("caption") ?? c.body.get("message") ?? "")
+        .join("\n");
+      expect(fb).toBeTruthy();
+      expect(fbText).not.toMatch(/@|Park by/);
+
+      // Another week (past the cache's few hours): the account is gone
+      // (Meta errors), so the tag goes, and the post still goes out.
+      (await import("./handles")).forgetDiscoveries();
+      await q("truncate social_posts restart identity cascade");
+      calls.length = 0;
+      discovered = {};
+      const id2 = await draftPost();
+      await store.runSocial(MON_1150, { fetchImpl });
+      const create2 = calls.find(
+        (c) => c.method === "POST" && c.path.endsWith("/media"),
+      );
+      expect(create2?.body.get("caption")).not.toMatch(/@|Park by/);
+      const [row] = await q(
+        `select status, caption from social_posts where id = ${id2}`,
+      );
+      expect(row.status).toBe("creating");
+      expect(String(row.caption)).not.toMatch(/@/);
+    } finally {
+      vi.unstubAllGlobals();
+      delete process.env.SOCIAL_FACEBOOK;
+    }
   });
 
   it("a queued park post stored in the old shape (hook and what) still publishes, Facebook too", async () => {

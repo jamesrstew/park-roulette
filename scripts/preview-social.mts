@@ -17,10 +17,14 @@ import { join } from "node:path";
 import postgres from "postgres";
 import type { EventRow } from "../src/lib/events/model";
 import { addDays, pacific } from "../src/lib/news/time";
-import { composeEventsWeek } from "../src/lib/social/compose";
 import { mondayOf, slotFor } from "../src/lib/social/model";
 import { renderPost } from "../src/lib/social/render";
-import { pickWeekEvents, roundupWindow } from "../src/lib/social/roundup";
+import {
+  fitRoundup,
+  pickWeekEvents,
+  roundupWindow,
+  withHostTags,
+} from "../src/lib/social/roundup";
 
 const url = process.env.DATABASE_URL;
 if (!url) throw new Error("Set DATABASE_URL on the command line.");
@@ -118,7 +122,18 @@ async function main() {
     console.log(
       `  - ${e.weekday} ${e.date} ${e.time}: ${e.title} (${e.town})${e.desc ? `\n      ${e.desc}` : ""}`,
     );
-  const spec = composeEventsWeek(pick.events, window, false);
+  // As the cron makes it: the hosts' verified tags, cut to the caption.
+  const fit = fitRoundup(
+    withHostTags(pick.events, new Map(rows.map((r) => [r.slug, r]))),
+    window,
+    false,
+  );
+  if ("skip" in fit) {
+    console.log(`No roundup this week: ${fit.skip}`);
+    return;
+  }
+  for (const c of fit.cut) console.log(`  cut: ${c}`);
+  const { spec } = fit;
   await mkdir(out, { recursive: true });
   const files = await renderPost(spec, []);
   for (const [i, f] of files.entries()) {

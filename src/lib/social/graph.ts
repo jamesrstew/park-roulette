@@ -216,6 +216,68 @@ export async function publishContainer(
   return r.id;
 }
 
+// --- Business Discovery (host tags) -----------------------------------------
+
+/** A business or creator account, as Business Discovery describes it. */
+export type DiscoveredAccount = {
+  id: string;
+  username: string;
+  name: string | null;
+  website: string | null;
+  biography: string | null;
+  followers: number | null;
+  mediaCount: number | null;
+};
+
+/**
+ * Look up another account by its username (Business Discovery). Meta
+ * answers only for business and creator accounts; a personal account or a
+ * handle that doesn't exist is an error. The handle goes in the field
+ * expansion, so it must be a plain Instagram username.
+ */
+export async function businessDiscovery(
+  handle: string,
+  o: GraphOpts,
+): Promise<DiscoveredAccount> {
+  if (!/^[A-Za-z0-9._]{1,30}$/.test(handle))
+    throw new GraphError("Not an Instagram username", 400, null, false);
+  const r = await call<{
+    business_discovery?: {
+      id?: string;
+      username?: string;
+      name?: string;
+      website?: string;
+      biography?: string;
+      followers_count?: number;
+      media_count?: number;
+    };
+  }>(
+    "GET",
+    o.igUserId,
+    {
+      fields: `business_discovery.username(${handle}){id,username,name,website,biography,followers_count,media_count}`,
+    },
+    o,
+  );
+  const b = r.business_discovery;
+  if (!b?.id || !b.username)
+    throw new GraphError(
+      "Business Discovery gave no account",
+      200,
+      null,
+      false,
+    );
+  return {
+    id: String(b.id),
+    username: b.username,
+    name: b.name ?? null,
+    website: b.website ?? null,
+    biography: b.biography ?? null,
+    followers: b.followers_count ?? null,
+    mediaCount: b.media_count ?? null,
+  };
+}
+
 // --- The token -------------------------------------------------------------
 
 /**
