@@ -27,3 +27,26 @@ export function testDbOn(url = process.env.TEST_DATABASE_URL ?? ""): boolean {
     );
   return true;
 }
+
+/**
+ * The same host listed `tries` times, so a connection that times out is
+ * tried again on the spot instead of failing the request. Railway's public
+ * proxy sometimes leaves a new TCP connection hanging, and the next try
+ * goes straight through. postgres.js tries a multi-host URL's hosts in
+ * order (as libpq does), each with its own connect_timeout. Pure.
+ */
+export function withConnectRetries(url: string, tries: number): string {
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return url;
+  }
+  if (tries < 2 || !u.host || url.includes(",")) return url;
+  const at = url.indexOf("@" + u.host);
+  const start = at >= 0 ? at + 1 : url.indexOf(u.host);
+  if (start < 0) return url;
+  const end = start + u.host.length;
+  const hostPort = u.port ? u.host : `${u.host}:5432`;
+  return url.slice(0, start) + Array(tries).fill(hostPort).join(",") + url.slice(end);
+}
