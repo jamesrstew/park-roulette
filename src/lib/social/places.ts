@@ -1,5 +1,6 @@
 import { siteDomain } from "./handles";
 import {
+  type Hours,
   type MashupPark,
   type MashupTheme,
   type Place,
@@ -40,6 +41,8 @@ export const PLACE_FIELDS = [
   "rating",
   "userRatingCount",
   "websiteUri",
+  // Hours choose only (a cafe open when an event starts): never kept.
+  "regularOpeningHours",
 ] as const;
 
 /** Central Oregon, so "Sisters" or "Bend" never matches another state's. */
@@ -65,6 +68,7 @@ type Raw = {
   rating?: number;
   userRatingCount?: number;
   websiteUri?: string;
+  regularOpeningHours?: { periods?: Hours };
 };
 
 const bool = (v: unknown) => (typeof v === "boolean" ? v : null);
@@ -95,7 +99,46 @@ export function toPlace(r: Raw): Place | null {
     rating: num(r.rating),
     userRatingCount: num(r.userRatingCount),
     domain: siteDomain(r.websiteUri ?? null),
+    hours: r.regularOpeningHours?.periods ?? null,
   };
+}
+
+/**
+ * An indoor anchor's regular opening hours by its place id (Place
+ * Details, one request, counted like any other): for choosing only, never
+ * kept. Null when Google has none.
+ */
+export async function placeHours(
+  placeId: string,
+  { key, fetchImpl = fetch, spend, deadline }: PlacesOpts,
+): Promise<Hours | null> {
+  if (deadline != null && Date.now() > deadline)
+    throw new PlacesError("Places: out of time for this run", false, true);
+  await spend?.();
+  const res = await fetchImpl(
+    `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
+    {
+      headers: {
+        "x-goog-api-key": key,
+        "x-goog-fieldmask": "regularOpeningHours",
+      },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    },
+  );
+  const body = (await res.json().catch(() => null)) as {
+    regularOpeningHours?: { periods?: Hours };
+    error?: { status?: string };
+  } | null;
+  if (!res.ok || !body || body.error) {
+    const daily = JSON.stringify(body?.error ?? "").includes("PerDay");
+    throw new PlacesError(
+      `Places details failed (${res.status} ${body?.error?.status ?? ""})`.trim(),
+      res.status === 429 || res.status >= 500,
+      daily || (res.status >= 400 && res.status < 500 && res.status !== 429),
+    );
+  }
+  return body.regularOpeningHours?.periods ?? null;
 }
 
 export class PlacesError extends Error {

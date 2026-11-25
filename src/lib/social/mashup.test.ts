@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { CATALOG } from "@/lib/news/catalog";
 import { PROFILES } from "@/lib/park-profiles";
-import { composeMashup } from "./compose";
+import { composeMashup as composeRows, mashupRows } from "./compose";
 import { destinationOf, tileLabel } from "./links";
 import {
   apart,
   apartChip,
   chainOf,
   cleanName,
+  copyFacts,
   cycleFor,
   holidayBreak,
   MASHUP_THEMES,
@@ -33,7 +34,27 @@ import { mapsLink, mashupPairs } from "./post-page";
 import { PlacesError, searchTown, themePlaces, toPlace } from "./places";
 import { mashupProblems, unpackSlotProblem } from "./validate";
 
+/** The carousel from pairs, as the make does it (parks only, good weather). */
+const composeMashup = (
+  theme: MashupTheme,
+  pairs: Pairing[],
+  copy: ReturnType<typeof mashupCopy>,
+  o: Parameters<typeof composeRows>[3] & { sites?: Map<string, string> },
+) => composeRows(theme, mashupRows(pairs, o.sites), copy, o);
+const copyFor = (
+  theme: MashupTheme,
+  pairs: Pairing[],
+  month: number,
+  v: number,
+) =>
+  mashupCopy(theme, copyFacts(theme, pairs, { bad: false }, "parks"), month, v);
+
 const park = (over: Partial<MashupPark> = {}): MashupPark => ({
+  kind: "park",
+  label: "At the park",
+  sheltered: false,
+  href: "/parks/empire-crossing-park-bend",
+  icon: "playground",
   slug: "empire-crossing-park-bend",
   name: "Empire Crossing Park",
   city: "Bend",
@@ -394,12 +415,15 @@ describe("pairing and rotation", () => {
 
   it("pairs each place with its best close park, and says why others are out", () => {
     const { pairs, out } = pairPlaces(cafes, parks, "coffee", 12);
-    expect(pairs.map((p) => p.place.placeId).sort()).toEqual(
+    expect([...new Set(pairs.map((p) => p.place.placeId))].sort()).toEqual(
       ["ChIJ-cafe-1", "c2", "c3", "c5", "c6"].sort(),
     );
     expect(out).toEqual(
       expect.arrayContaining([
-        { name: "Far Away Coffee (c4)", why: "no vetted park within 3 miles" },
+        {
+          name: "Far Away Coffee (c4)",
+          why: "no anchor within 3 miles it may pair with",
+        },
         { name: "Starbucks (c7)", why: "a chain" },
       ]),
     );
@@ -544,7 +568,7 @@ describe("the post", () => {
       const pairs = pairsFor(theme, type, names);
       expect(pairs).toHaveLength(3);
       for (const variant of [0, 1, 2, 3]) {
-        const copy = mashupCopy(theme, pairs, 12, variant);
+        const copy = copyFor(theme, pairs, 12, variant);
         const spec = composeMashup(theme, pairs, copy, {
           month: 12,
           cycle: 1,
@@ -579,7 +603,7 @@ describe("the post", () => {
     const spec = composeMashup(
       "coffee",
       pairs,
-      mashupCopy("coffee", pairs, 12, 0),
+      copyFor("coffee", pairs, 12, 0),
       {
         month: 12,
         cycle: 1,
@@ -602,7 +626,7 @@ describe("the post", () => {
     expect(spec.fbCaption).toContain(
       "Details and links: https://parkroulette.quest/social?from=fb",
     );
-    expect(spec.facts.mashup).toEqual({
+    expect(spec.facts.mashup).toMatchObject({
       theme: "coffee",
       cycle: 1,
       pairs: pairs.map((p) => ({
@@ -618,7 +642,7 @@ describe("the post", () => {
     const spec = composeMashup(
       "coffee",
       pairs,
-      mashupCopy("coffee", pairs, 12, 0),
+      copyFor("coffee", pairs, 12, 0),
       {
         month: 12,
         cycle: 1,
@@ -638,7 +662,7 @@ describe("the post", () => {
       expect.stringMatching(/the distance doesn't match/),
     ]);
     expect(tamper((s) => (s.trait = "A splash pad"))).toEqual([
-      expect.stringMatching(/isn't its own trait/),
+      expect.stringMatching(/isn't its own/),
     ]);
     expect(tamper((s) => (s.place = "Boneyard Beer"))).toContainEqual(
       expect.stringMatching(/no drinks words/),
@@ -671,7 +695,7 @@ describe("the post", () => {
     const spec = composeMashup(
       "coffee",
       pairs,
-      mashupCopy("coffee", pairs, 12, 0),
+      copyFor("coffee", pairs, 12, 0),
       {
         month: 12,
         cycle: 1,

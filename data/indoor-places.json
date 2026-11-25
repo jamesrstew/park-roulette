@@ -1,0 +1,178 @@
+[
+  {
+    "slug": "central-library-bend",
+    "name": "Central Library",
+    "town": "Bend",
+    "type": "library",
+    "place_id": "ChIJ9zBvxbnHuFQRLoMpZMPRihE",
+    "site": "deschuteslibrary.org",
+    "url": "https://www.deschuteslibrary.org/about/libraries/central",
+    "line": "A children's discovery space on the second floor",
+    "evidence": [
+      {
+        "url": "https://www.deschuteslibrary.org/about/libraries/central",
+        "quote": "a dynamic children's discovery space is on the second floor"
+      }
+    ],
+    "lat": 44.0294756,
+    "lng": -121.2631588,
+    "address": "61956 SE Santorini St, Bend, OR 97702",
+    "verified_on": "2026-11-25"
+  },
+  {
+    "slug": "redmond-library",
+    "name": "Redmond Library",
+    "town": "Redmond",
+    "type": "library",
+    "place_id": "ChIJ0wox5yzVuFQRXdS5SDyxaW4",
+    "site": "deschuteslibrary.org",
+    "url": "https://www.deschuteslibrary.org/about/libraries/redmond",
+    "line": "A children's area, and story times in its meeting room",
+    "evidence": [
+      {
+        "url": "https://www.deschuteslibrary.org/about/libraries/redmond",
+        "quote": "Use the interactive floor plan to find meeting rooms, computers, the children's area, restrooms, and other services."
+      },
+      {
+        "url": "https://www.deschuteslibrary.org/about/libraries/redmond",
+        "quote": "A community meeting room serves as a gathering space for programs, lectures, and story times."
+      }
+    ],
+    "lat": 44.2741597,
+    "lng": -121.1769396,
+    "address": "827 SW Deschutes Ave, Redmond, OR 97756",
+    "verified_on": "2026-11-25"
+  },
+  {
+    "slug": "sisters-library",
+    "name": "Sisters Library",
+    "town": "Sisters",
+    "type": "library",
+    "place_id": "ChIJg3UmdrUwv1QRJtczQGaiF_A",
+    "site": "deschuteslibrary.org",
+    "url": "https://www.deschuteslibrary.org/about/libraries/sisters",
+    "line": "A children's discovery space for imaginative play",
+    "evidence": [
+      {
+        "url": "https://www.deschuteslibrary.org/about/libraries/sisters",
+        "quote": "A children's discovery space encourages imaginative play and learning."
+      }
+    ],
+    "lat": 44.2917625,
+    "lng": -121.5447265,
+    "address": "110 N Cedar St, Sisters, OR 97759",
+    "verified_on": "2026-11-25"
+  },
+  {
+    "slug": "la-pine-library",
+    "name": "La Pine Library",
+    "town": "La Pine",
+    "type": "library",
+    "place_id": "ChIJpYzzLUp9x1QRtlM2qSZadag",
+    "site": "deschuteslibrary.org",
+    "url": "https://www.deschuteslibrary.org/about/libraries/lapine",
+    "line": "A children's discovery space and a cozy reading area",
+    "evidence": [
+      {
+        "url": "https://www.deschuteslibrary.org/about/libraries/lapine",
+        "quote": "an engaging children's discovery space, and a cozy fireplace and reading area"
+      }
+    ],
+    "lat": 43.6742349,
+    "lng": -121.50491,
+    "address": "16425 1st St, La Pine, OR 97739",
+    "verified_on": "2026-11-25"
+  },
+  {
+    "slug": "sunriver-library",
+    "name": "Sunriver Library",
+    "town": "Sunriver",
+    "type": "library",
+    "place_id": "ChIJfzcSblO9uFQRrlyPDs0VdoU",
+    "site": "deschuteslibrary.org",
+    "url": "https://www.deschuteslibrary.org/about/libraries/sunriver",
+    "line": "Books for kids and a children's area",
+    "evidence": [
+      {
+        "url": "https://www.deschuteslibrary.org/about/libraries/sunriver",
+        "quote": "the library's collection of books, music and DVDs for adults, children, and teens"
+      },
+      {
+        "url": "https://www.deschuteslibrary.org/about/libraries/sunriver",
+        "quote": "Use the interactive floor plan to find meeting rooms, computers, the children's area, restrooms, and other services."
+      }
+    ],
+    "lat": 43.865876,
+    "lng": -121.4353141,
+    "address": "56855 Venture Lane, Sunriver, OR 97707",
+    "verified_on": "2026-11-25"
+  },
+  {
+    "slug": "the-hub-redmond",
+    "name": "The Hub Aquatic and Recreation Center",
+    "town": "Redmond",
+    "type": "pool",
+    "place_id": "ChIJndRAWAArv1QR9Fz31LL590E",
+    "site": "raprd.org",
+    "url": "https://www.raprd.org/the-hub",
+    "line": "A leisure pool, a lazy river and a water slide",
+    "evidence": [
+      {
+        "url": "https://www.raprd.org/the-hub",
+        "quote": "leisure pool, lazy river, water slide, and hot tub"
+      }
+    ],
+    "lat": 44.2655283,
+    "lng": -121.2090112,
+    "address": "3515 SW Lava Ave, Redmond, OR 97756",
+    "verified_on": "2026-11-25"
+  },
+  {
+    "slug": "trampoline-zone-bend",
+    "name": "Trampoline Zone & Adventure Park",
+    "town": "Bend",
+    "type": "play_gym",
+    "place_id": "ChIJVQO7f5jPuFQRZ0wRbCP37Ws",
+    "site": "tzbend.com",
+    "url": "https://tzbend.com/",
+    "line": "Over 50 trampolines, with times for ages 6 and under",
+    "evidence": [
+      {
+        "url": "https://tzbend.com/",
+        "quote": "With more than 50 trampoline beds"
+      },
+      {
+        "url": "https://tzbend.com/",
+        "quote": "10am \u2013 12pm Ages 6 and under"
+      }
+    ],
+    "lat": 44.0898896,
+    "lng": -121.2809804,
+    "address": "63040 NE 18th St, Bend, OR 97701",
+    "verified_on": "2026-11-25"
+  },
+  {
+    "slug": "cascade-indoor-sports-bend",
+    "name": "Cascade Indoor Sports",
+    "town": "Bend",
+    "type": "play_gym",
+    "place_id": "ChIJGc9WxDnPuFQRWNhlqZYHASs",
+    "site": "cascadeindoorsports.com",
+    "url": "https://cascadeindoorsports.com/",
+    "line": "The Big Play Thing, at an indoor family fun center",
+    "evidence": [
+      {
+        "url": "https://cascadeindoorsports.com/",
+        "quote": "Big Play Thing Parties"
+      },
+      {
+        "url": "https://cascadeindoorsports.com/",
+        "quote": "Central Oregon's Premier Indoor Sports & Family Fun Facility"
+      }
+    ],
+    "lat": 44.0885282,
+    "lng": -121.2868571,
+    "address": "20775 High Desert Lane, Bend, OR 97701",
+    "verified_on": "2026-11-25"
+  }
+]

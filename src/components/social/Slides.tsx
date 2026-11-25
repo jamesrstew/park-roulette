@@ -597,7 +597,7 @@ function HeadlineSlide({
             >
               +
             </div>
-            <SlideIcon name="playground" size={160} />
+            <AnyIcon name={s.pairIcon2 ?? "playground"} size={160} />
           </div>
         ) : (
           <AnyIcon name={s.icon ?? "spin"} size={170} />
@@ -848,7 +848,7 @@ function PairSlide({
           >
             +
           </div>
-          <SlideIcon name="playground" size={150} />
+          <AnyIcon name={s.anchorIcon ?? "playground"} size={150} />
         </div>
       </div>
       {/* Centered between the header and the footer: with one chip row on
@@ -941,7 +941,7 @@ function PairSlide({
             marginTop: PAIR.traitGap,
           }}
         >
-          At the park
+          {s.label ?? "At the park"}
         </div>
         <div
           style={{

@@ -958,6 +958,15 @@ export const DRAWINGS = {
     solid("paper", circle(6.2, 18.6, 0.8)),
     solid("paper", circle(18, 18.6, 0.8)),
   ],
+  // A swim ring (park pairings: an indoor pool; drops read as rain).
+  swim_ring: [
+    ...shape("red", circle(12, 12, 9.4)),
+    ...shape("paper", circle(12, 12, 4.4), { w: 2 }),
+    solid("paper", "M10.6 2.8 L13.4 2.8 L13.2 7.6 L10.8 7.6 Z"),
+    solid("paper", "M10.8 16.4 L13.2 16.4 L13.4 21.2 L10.6 21.2 Z"),
+    solid("paper", "M2.8 10.6 L7.6 10.8 L7.6 13.2 L2.8 13.4 Z"),
+    solid("paper", "M16.4 10.8 L21.2 10.6 L21.2 13.4 L16.4 13.2 Z"),
+  ],
   // A cupcake with sprinkles (park pairings: bakeries and treats).
   cupcake: [
     ...shape(

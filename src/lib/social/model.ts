@@ -531,6 +531,8 @@ export type SlideSpec =
       icon?: string;
       /** Park pairings: the icon, "+", and the playground. */
       pairIcon?: boolean;
+      /** Park pairings: the second icon (default: the playground). */
+      pairIcon2?: string;
       /** Small words under the headline (the roundup's towns), never split. */
       sub?: string[];
     }
@@ -628,7 +630,18 @@ export type SlideSpec =
       trait: string;
       /** For the post page's links: Google's place id and our park. */
       placeId: string;
+      /** The anchor: a park's slug, an indoor place's, or "event@day". */
       parkSlug: string;
+      /** park | indoor | event (older posts: park). */
+      kind?: "park" | "indoor" | "event";
+      /** "At the park", "At the library", "This weekend". */
+      label?: string;
+      /** Indoors (the weather cover's claim). */
+      sheltered?: boolean;
+      /** The anchor's link: our park or event page, or its own site. */
+      href?: string;
+      /** The anchor's icon (default: the playground). */
+      anchorIcon?: string;
       /**
        * The place's own site from our verified handle registry
        * (data/ig-handles.json: our data, proven both ways), or null. Never
@@ -724,7 +737,26 @@ export type PostFacts = {
   mashup?: {
     theme: string;
     cycle: number;
-    pairs: { placeId: string; park: string }[];
+    /** The copy variant, and what shaped it (to redraw it the same way). */
+    variant?: number;
+    weather?: "wet" | "snow" | "cold" | null;
+    shops?: string | null;
+    /** park: the anchor's key; event: the date it holds (re-checked at publish). */
+    pairs: {
+      placeId: string;
+      park: string;
+      kind?: "park" | "indoor" | "event";
+      event?: {
+        slug: string;
+        day: string;
+        start: string;
+        /** What the slide printed of it (a change redraws the post). */
+        venue?: string | null;
+        title?: string;
+        /** Its host's domain (for its verified tag). */
+        host?: string | null;
+      };
+    }[];
   };
 };
 

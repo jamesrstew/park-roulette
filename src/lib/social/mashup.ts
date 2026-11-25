@@ -1,5 +1,7 @@
 import type { Catalog } from "@/lib/news/catalog";
 import { addDays, daysBetween, weekdayOf } from "@/lib/news/time";
+import { clock } from "@/lib/events/model";
+import { INDOOR, INDOOR_LABEL, type IndoorType } from "./indoor";
 import {
   CONTEXT_KINDS,
   MIN_POST_TRAITS,
@@ -11,8 +13,10 @@ import {
 /**
  * Park pairings ("mashups"): every other Wednesday, in place of the Unpack
  * carousel, a code-made carousel that pairs a well-loved, family-friendly
- * local spot (a cafe, a food truck lot, a brewery, a bakery or ice cream
- * shop) with a vetted park nearby. Pure: Google Places comes in through
+ * local spot for the grown-ups (a cafe, a food truck lot, a brewery, a
+ * bakery or ice cream shop) with an anchor for the kids nearby: a vetted
+ * park, an indoor place from our registry (lib/social/indoor.ts), or a
+ * kids' event this weekend from our events listing. Pure: Google Places comes in through
  * lib/social/places.ts, the database through store.ts.
  *
  * Every claim is mechanical, from checked data, and printed in our words:
@@ -20,9 +24,10 @@ import {
  *   - the distance, from the two points: "a 6-minute walk" only when the
  *     straight line is 0.3 mi or less (never over 10 minutes), else "a
  *     short drive" (3 mi at most);
- *   - "Kids' menu" only from Google's menuForChildren, "Patio" only from
- *     outdoorSeating, "Good for kids" only from goodForChildren;
- *   - the park's line only from its own in-season trait (park-profiles).
+ *   - Google's attributes (good for children, kids' menu, patio, hours)
+ *     only choose places, and are never printed or kept;
+ *   - the anchor's line only from our own data: a park's in-season trait,
+ *     an indoor place's grounded line, an event's day, time and short.
  *
  * Google's rating and review count choose places (4.5 and up, 100 reviews
  * and up) and are never printed or stored. No hours, ever.
@@ -182,6 +187,50 @@ export type Place = {
   userRatingCount: number | null;
   /** websiteUri's registrable domain (for a verified tag), or null. */
   domain: string | null;
+  /** regularOpeningHours, for choosing only (never printed or kept). */
+  hours?: Hours | null;
+};
+
+/** Google's regularOpeningHours periods (day 0 is Sunday), in memory only. */
+export type Hours = {
+  open: { day: number; hour: number; minute: number };
+  close?: { day: number; hour: number; minute: number };
+}[];
+
+/** Is it open at this weekday (0 Sunday) and minute of the day? */
+export function openAt(
+  hours: Hours | null | undefined,
+  day: number,
+  min: number,
+) {
+  if (!hours?.length) return false;
+  return hours.some((p) => {
+    // Open around the clock: one period with no close.
+    if (!p.close) return true;
+    const from = p.open.day * 1440 + p.open.hour * 60 + p.open.minute;
+    let to = p.close.day * 1440 + p.close.hour * 60 + p.close.minute;
+    if (to <= from) to += 7 * 1440;
+    const t = day * 1440 + min;
+    return (t >= from && t < to) || (t + 7 * 1440 >= from && t + 7 * 1440 < to);
+  });
+}
+
+/** Open some time between 10 am and 4 pm on this weekday. */
+export function openDaytime(hours: Hours | null | undefined, day: number) {
+  // Two hours straight, somewhere between 10 am and 4 pm.
+  for (let m = 10 * 60; m + 120 <= 16 * 60; m += 30) {
+    let all = true;
+    for (let t = m; t < m + 120; t += 30)
+      if (!openAt(hours, day, t)) all = false;
+    if (all) return true;
+  }
+  return false;
+}
+
+/** "HH:MM" as minutes of the day. */
+export const minutesOf = (t: string) => {
+  const [h, m] = t.split(":").map(Number);
+  return h * 60 + m;
 };
 
 /** The selection bar: Google's rating and review count (never printed). */
@@ -367,6 +416,13 @@ export function placeProblem(
   if (theme === "breweries" && !BREWERY_NAME.test(name))
     return "not named as a brewery";
   if (p.goodForChildren === false) return "not good for children";
+  // A play cafe is the kids' anchor, never the grown-ups' cafe.
+  if (
+    theme === "coffee" &&
+    (/\bplay\b/i.test(p.name) ||
+      INDOOR.some((x) => x.place_id === p.placeId || x.site === p.domain))
+  )
+    return "a play cafe";
   if (
     (theme === "breweries" || theme === "food_trucks") &&
     p.goodForChildren !== true
@@ -379,8 +435,16 @@ export function placeProblem(
 
 // --- Parks ---------------------------------------------------------------------
 
-/** A park a mashup may pair with: one of our postable parks. */
+export type AnchorKind = "park" | "indoor" | "event";
+
+/**
+ * The kids' half of a pair (named for its first kind, a park): a vetted
+ * park, an indoor place from our registry, or a kids' event this weekend.
+ * Everything here is our own data.
+ */
 export type MashupPark = {
+  kind: AnchorKind;
+  /** Unique per anchor: a park's slug, an indoor place's, "event@day". */
   slug: string;
   name: string;
   city: string;
@@ -394,7 +458,29 @@ export type MashupPark = {
   traitKind: string;
   /** Featured on Instagram in the last 8 weeks. */
   cooling: boolean;
+  /** The slide's label: "At the park", "At the library", "This weekend". */
+  label: string;
+  /** Indoors (an indoor place, an indoor event): good in bad weather. */
+  sheltered: boolean;
+  /** Our page for it, or the place's own site (an indoor place). */
+  href: string;
+  /** The slide's icon for it. */
+  icon: string;
+  /** An indoor place: Google's id (for its hours) and its own site. */
+  placeId?: string | null;
+  site?: string | null;
+  indoorType?: IndoorType;
+  /** An event: which date, when, a weekly regular or not, its host's site. */
+  event?: {
+    slug: string;
+    day: string;
+    start: string;
+    regular: boolean;
+    host: string | null;
+    venue?: string | null;
+  };
 };
+export type Anchor = MashupPark;
 
 /** Trait kinds that are about play, best first (park-profiles TRAIT_KINDS). */
 const PLAY_KINDS = [
@@ -462,6 +548,7 @@ export function mashupPark(
   const line = parkLine(profile, month);
   if (!line) return null;
   return {
+    kind: "park",
     slug: p.slug,
     name: p.name,
     city: p.city,
@@ -471,7 +558,164 @@ export function mashupPark(
     trait: line.text,
     traitKind: line.kind,
     cooling: o.cooling,
+    label: "At the park",
+    sheltered: false,
+    href: `/parks/${p.slug}`,
+    icon: "playground",
   };
+}
+
+const INDOOR_ICON: Record<IndoorType, string> = {
+  library: "book",
+  play_gym: "climbing",
+  museum: "star",
+  pool: "swim_ring",
+};
+
+/** The indoor registry as anchors (their hours are checked when picked). */
+export function indoorAnchors(
+  cooling: ReadonlySet<string> = new Set(),
+): Anchor[] {
+  return INDOOR.filter((x) =>
+    (MASHUP_TOWNS as readonly string[]).includes(x.town),
+  ).map((x) => ({
+    kind: "indoor",
+    slug: x.slug,
+    name: x.name,
+    city: x.town,
+    lat: x.lat,
+    lng: x.lng,
+    kinds: x.type === "library" ? 2 : 3,
+    trait: x.line,
+    traitKind: x.type,
+    cooling: cooling.has(x.slug),
+    label: INDOOR_LABEL[x.type],
+    sheltered: true,
+    href: x.url,
+    icon: INDOOR_ICON[x.type],
+    placeId: x.place_id,
+    site: x.site,
+    indoorType: x.type,
+  }));
+}
+
+/** One kids' event date, from our listing (store.ts checks it's live). */
+export type EventAnchorInput = {
+  slug: string;
+  title: string;
+  day: string;
+  start: string;
+  town: string;
+  lat: number;
+  lng: number;
+  /** A weekly regular (a series), not a one-off special. */
+  regular: boolean;
+  /** Indoors, as the listing records it. */
+  indoor: boolean;
+  /** Its checked short line ("Kids sculpt air-dry clay"), or null. */
+  short: string | null;
+  /** Where it is, as the listing names the venue. */
+  venue?: string | null;
+  /** The host's registrable domain (for a verified tag), or null. */
+  host: string | null;
+};
+
+const WEEKDAY = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+/** The weekend after a Wednesday post: Friday, Saturday and Sunday. */
+export function weekendOf(wed: string): string[] {
+  return [2, 3, 4].map((i) => addDays(wed, i));
+}
+
+/** An event anchor starts in the day: 8 am to before 5 pm (no evening shows). */
+export const EVENT_HOURS = { from: "08:00", before: "17:00" } as const;
+
+/**
+ * Kids' events this weekend as anchors: Friday to Sunday after the post,
+ * starting in the day (8 am to before 5 pm), with a point and a line that
+ * says what it is (its checked short, or its own first sentence), in our
+ * towns. The line is the day, time and venue, then that.
+ */
+export function eventAnchors(
+  inputs: readonly EventAnchorInput[],
+  wed: string,
+): Anchor[] {
+  const days = new Set(weekendOf(wed));
+  return inputs
+    .filter(
+      (e) =>
+        days.has(e.day) &&
+        /^\d{2}:\d{2}$/.test(e.start) &&
+        e.start >= EVENT_HOURS.from &&
+        e.start < EVENT_HOURS.before &&
+        !!e.short &&
+        (MASHUP_TOWNS as readonly string[]).includes(e.town),
+    )
+    .map((e) => ({
+      kind: "event",
+      slug: `${e.slug}@${e.day}`,
+      name: e.title,
+      city: e.town,
+      lat: e.lat,
+      lng: e.lng,
+      // One-off specials first; a weekly regular is fine, once.
+      kinds: e.regular ? 2 : 4,
+      trait: `${WEEKDAY[weekdayOf(e.day)]} at ${clock(e.start)}${
+        e.venue && e.venue !== e.title ? `, at ${e.venue}` : ""
+      }.${e.short ? ` ${e.short.replace(/[.\s]+$/, "")}.` : ""}`,
+      traitKind: "event",
+      cooling: false,
+      label: "This weekend",
+      sheltered: e.indoor,
+      href: `/events/${e.slug}`,
+      icon: "calendar",
+      event: {
+        slug: e.slug,
+        day: e.day,
+        start: e.start,
+        regular: e.regular,
+        host: e.host,
+        venue: e.venue ?? null,
+      },
+    }));
+}
+
+/** The same business, or the same building (0.02 mi): never one pair. */
+export const SAME_SPOT_MI = 0.02;
+export function sameSpot(place: Place, anchor: Anchor): boolean {
+  return (
+    (!!anchor.placeId && anchor.placeId === place.placeId) ||
+    (!!anchor.site && !!place.domain && anchor.site === place.domain) ||
+    miles(place, anchor) <= SAME_SPOT_MI
+  );
+}
+
+/**
+ * May this place pair with this anchor at all? Not the same spot; and a
+ * cafe or a treats shop must be open when an event starts (its hours,
+ * read at draft time, choose only).
+ */
+export function pairAllowed(
+  place: Place,
+  anchor: Anchor,
+  theme: MashupTheme,
+): boolean {
+  if (sameSpot(place, anchor)) return false;
+  if (anchor.event && (theme === "coffee" || theme === "treats"))
+    return openAt(
+      place.hours,
+      weekdayOf(anchor.event.day),
+      minutesOf(anchor.event.start),
+    );
+  return true;
 }
 
 /**
@@ -578,7 +822,11 @@ export function pairScore(
   return s;
 }
 
-/** Each place that passes, with its best park (null when none is close). */
+/**
+ * Every pair a place may make: each anchor within 3 miles that it may pair
+ * with (not the same spot; open for an event), best first. A place with
+ * none, or that fails the rules, is said why.
+ */
 export function pairPlaces(
   places: readonly Place[],
   parks: readonly MashupPark[],
@@ -597,20 +845,24 @@ export function pairPlaces(
       out.push({ name: `${place.name} (${place.placeId})`, why });
       continue;
     }
-    let best: Pairing | null = null;
+    let any = false;
     for (const park of parks) {
       const mi = miles(place, park);
       const a = apart(mi);
-      if (!a) continue;
-      const score = pairScore(place, park, mi, month);
-      if (!best || score > best.score)
-        best = { place, park, mi, apart: a, score };
+      if (!a || !pairAllowed(place, park, theme)) continue;
+      any = true;
+      pairs.push({
+        place,
+        park,
+        mi,
+        apart: a,
+        score: pairScore(place, park, mi, month),
+      });
     }
-    if (best) pairs.push(best);
-    else
+    if (!any)
       out.push({
         name: `${place.name} (${place.placeId})`,
-        why: "no vetted park within 3 miles",
+        why: "no anchor within 3 miles it may pair with",
       });
   }
   return { pairs: pairs.sort((a, b) => b.score - a.score), out };
@@ -620,44 +872,150 @@ export const PAIRS_MAX = 5;
 export const PAIRS_MIN = 3;
 /** At most this many pairs from one town, when other towns have some. */
 const PER_TOWN = 3;
+/** At most 2 library branches, and 1 weekly regular event, per carousel. */
+export const MAX_LIBRARIES = 2;
+export const MAX_REGULAR_EVENTS = 1;
 
 /**
- * The carousel's pairs: the best by score, one per place, park and brand,
+ * The carousel's pairs, group by group (the first group leads): the best
+ * by score, one per place, anchor and brand, no two anchors in one spot,
  * none already used in this theme's cycle, at most 3 per town while other
- * towns have pairs. Bend first, then the other towns (as the Unpack).
+ * towns have pairs, 2 libraries and 1 weekly regular event. Within a
+ * group, Bend first, then the other towns (as the Unpack).
  */
 export function pickPairs(
-  pairs: readonly Pairing[],
+  pairs: readonly Pairing[] | readonly (readonly Pairing[])[],
   used: ReadonlySet<string>,
   max = PAIRS_MAX,
 ): Pairing[] {
-  const fresh = pairs.filter((p) => !used.has(p.place.placeId));
-  const towns = new Set(fresh.map((p) => p.place.town));
+  const groups = (
+    Array.isArray(pairs[0]) ? pairs : [pairs]
+  ) as readonly (readonly Pairing[])[];
+  const all = groups.flat().filter((p) => !used.has(p.place.placeId));
+  const towns = new Set(all.map((p) => p.place.town));
   const out: Pairing[] = [];
-  const parks = new Set<string>();
   const brands = new Set<string>();
   const perTown = new Map<string, number>();
-  for (const pass of [true, false])
-    for (const p of fresh) {
-      if (out.length >= max) break;
-      if (out.includes(p)) continue;
-      const brand = cleanName(p.place.name).toLowerCase();
-      if (parks.has(p.park.slug) || brands.has(brand)) continue;
-      const town = p.place.town ?? "";
-      if (pass && towns.size > 1 && (perTown.get(town) ?? 0) >= PER_TOWN)
-        continue;
-      out.push(p);
-      parks.add(p.park.slug);
-      brands.add(brand);
-      perTown.set(town, (perTown.get(town) ?? 0) + 1);
-    }
+  const fits = (p: Pairing, pass: boolean) => {
+    if (out.includes(p)) return false;
+    if (out.some((o) => o.place.placeId === p.place.placeId)) return false;
+    const brand = cleanName(p.place.name).toLowerCase();
+    if (brands.has(brand)) return false;
+    if (
+      out.some(
+        (o) =>
+          o.park.slug === p.park.slug ||
+          (o.park.event &&
+            p.park.event &&
+            o.park.event.slug === p.park.event.slug) ||
+          miles(o.park, p.park) <= SAME_SPOT_MI,
+      )
+    )
+      return false;
+    if (
+      p.park.indoorType === "library" &&
+      out.filter((o) => o.park.indoorType === "library").length >= MAX_LIBRARIES
+    )
+      return false;
+    if (
+      p.park.event?.regular &&
+      out.filter((o) => o.park.event?.regular).length >= MAX_REGULAR_EVENTS
+    )
+      return false;
+    const town = p.place.town ?? "";
+    if (pass && towns.size > 1 && (perTown.get(town) ?? 0) >= PER_TOWN)
+      return false;
+    return true;
+  };
+  const picked: Pairing[][] = [];
+  for (const g of groups) {
+    const fresh = [...g]
+      .filter((p) => !used.has(p.place.placeId))
+      .sort((a, b) => b.score - a.score);
+    const mine: Pairing[] = [];
+    for (const pass of [true, false])
+      for (const p of fresh) {
+        if (out.length >= max) break;
+        if (!fits(p, pass)) continue;
+        out.push(p);
+        mine.push(p);
+        brands.add(cleanName(p.place.name).toLowerCase());
+        const town = p.place.town ?? "";
+        perTown.set(town, (perTown.get(town) ?? 0) + 1);
+      }
+    picked.push(mine);
+  }
   const order = (t: string | null) => (t === "Bend" ? 0 : 1);
-  return out.sort(
-    (a, b) =>
-      order(a.place.town) - order(b.place.town) ||
-      (a.place.town ?? "").localeCompare(b.place.town ?? "") ||
-      b.score - a.score,
+  return picked.flatMap((mine) =>
+    mine.sort(
+      (a, b) =>
+        order(a.place.town) - order(b.place.town) ||
+        (a.place.town ?? "").localeCompare(b.place.town ?? "") ||
+        b.score - a.score,
+    ),
   );
+}
+
+// --- The mix --------------------------------------------------------------------
+
+/** This weekend's weather, as the mix reads it. */
+export type Weather =
+  { bad: false } | { bad: true; kind: "wet" | "snow" | "cold" };
+
+/**
+ * A bad weekend: on Saturday or Sunday, a 50% chance of rain or snow or
+ * more, or a high of 35°F or less (the daytime periods of the forecast).
+ */
+export function weekendWeather(
+  days: readonly {
+    date: string;
+    high: number | null;
+    precip: number | null;
+    /** The forecast's own icon ("snow", "rain", "mixed"), when it has one. */
+    icon?: string;
+  }[],
+  wed: string,
+): Weather {
+  const [, sat, sun] = weekendOf(wed);
+  let wet = false;
+  let snow = false;
+  let cold = false;
+  for (const d of days)
+    if (d.date === sat || d.date === sun) {
+      if ((d.precip ?? 0) >= 50) {
+        wet = true;
+        // Snow is said only when the forecast says snow.
+        if (d.icon === "snow") snow = true;
+      }
+      if (d.high != null && d.high <= 35) cold = true;
+    }
+  if (wet) return { bad: true, kind: snow ? "snow" : "wet" };
+  return cold ? { bad: true, kind: "cold" } : { bad: false };
+}
+
+export type Mix = "parks" | "thin" | "weather";
+
+/**
+ * Which anchors a carousel uses. Good weather and 3 or more park pairs:
+ * parks only, as always. Fewer park pairs: the parks, then indoor places
+ * and events fill it (so a thin theme still runs). A bad weekend: indoor
+ * places and indoor events lead, then the parks fill.
+ */
+export function chooseMix(
+  pairs: readonly Pairing[],
+  used: ReadonlySet<string>,
+  weather: Weather,
+): { mix: Mix; pairs: Pairing[] } {
+  const parks = pairs.filter((p) => p.park.kind === "park");
+  const others = pairs.filter((p) => p.park.kind !== "park");
+  if (weather.bad) {
+    const sheltered = others.filter((p) => p.park.sheltered);
+    const rest = others.filter((p) => !p.park.sheltered);
+    return { mix: "weather", pairs: pickPairs([sheltered, parks, rest], used) };
+  }
+  const only = pickPairs([parks], used);
+  if (only.length >= PAIRS_MIN) return { mix: "parks", pairs: only };
+  return { mix: "thin", pairs: pickPairs([parks, others], used) };
 }
 
 // --- Which theme -------------------------------------------------------------
@@ -710,6 +1068,7 @@ export function cycleFor(
   history: readonly MashupHistory[],
   theme: MashupTheme,
   pairs: readonly Pairing[],
+  weather: Weather = { bad: false },
 ): { cycle: number; used: Set<string> } {
   const mine = history
     .filter((h) => h.theme === theme)
@@ -718,18 +1077,68 @@ export function cycleFor(
   const used = new Set(
     mine.filter((h) => h.cycle === cycle).flatMap((h) => h.placeIds),
   );
-  const fresh = pickPairs(pairs, used);
+  const fresh = chooseMix(pairs, used, weather).pairs;
   if (fresh.length >= PAIRS_MIN || !mine.length) return { cycle, used };
   return { cycle: cycle + 1, used: new Set(mine.at(-1)?.placeIds ?? []) };
 }
 
 // --- Copy ----------------------------------------------------------------------
 
+/** What the cover and intro may say, from the pairs (or the stored slides). */
+export type CopyFacts = {
+  count: number;
+  /** How many pairs are a walk. */
+  walks: number;
+  allParks: boolean;
+  allSheltered: boolean;
+  /** Any anchor is an event (a show, a market): not "somewhere to play". */
+  anyEvent: boolean;
+  /** The weekend's bad weather, when it shaped the mix. */
+  weather: "wet" | "snow" | "cold" | null;
+  /** Treats: "bakeries", "ice cream shops" or "treat shops". */
+  shops: string | null;
+};
+
+export function copyFacts(
+  theme: MashupTheme,
+  pairs: readonly Pairing[],
+  weather: Weather,
+  mix: Mix,
+): CopyFacts {
+  const k = pairs.length;
+  const iceCream = pairs.filter(
+    (p) => p.place.primaryType === "ice_cream_shop",
+  ).length;
+  return {
+    count: k,
+    walks: pairs.filter((p) => p.apart.walk).length,
+    allParks: pairs.every((p) => p.park.kind === "park"),
+    allSheltered: pairs.every((p) => p.park.sheltered),
+    anyEvent: pairs.some((p) => p.park.kind === "event"),
+    // The weather frames the set only when indoor anchors lead and are at
+    // least half of it; otherwise it reads as a plain set.
+    weather:
+      mix === "weather" &&
+      weather.bad &&
+      !!pairs[0]?.park.sheltered &&
+      pairs.filter((p) => p.park.sheltered).length * 2 >= k
+        ? weather.kind
+        : null,
+    shops:
+      theme !== "treats"
+        ? null
+        : iceCream === k
+          ? "ice cream shops"
+          : iceCream === 0
+            ? "bakeries"
+            : "treat shops",
+  };
+}
+
 /** Each pair's distance phrase, for the intro: all walks, all drives, or both. */
-function apartWords(pairs: readonly Pairing[]): string {
-  const walks = pairs.filter((p) => p.apart.walk).length;
-  if (walks === pairs.length) return "a short walk";
-  if (walks === 0) return "a short drive";
+function apartWords(f: CopyFacts): string {
+  if (f.walks === f.count) return "a short walk";
+  if (f.walks === 0) return "a short drive";
   return "a short walk or drive";
 }
 
@@ -742,89 +1151,140 @@ export type MashupCopy = {
   intro: string;
 };
 
+const wordsIn = (s: string) => s.split(/\s+/).length;
+
 /**
  * The cover and intro for a theme, in our voice: a few variants each,
  * picked by how many carousels of the theme came before, so they don't
  * read the same twice in a row. Every variant only says what the pairs
- * hold (the count, walk or drive, kids' menus only when every place has
- * one), and never drinks words.
+ * hold: "a playground" only when every anchor is a park, "indoor play"
+ * only when every one is indoors, a walk only when every pair is one, the
+ * weather only when it shaped the mix. Never drinks, food or mealtime
+ * words, and nothing of Google's.
  */
 export function mashupCopy(
   theme: MashupTheme,
-  pairs: readonly Pairing[],
+  f: CopyFacts,
   month: number,
   variant: number,
 ): MashupCopy {
-  const k = pairs.length;
-  const near = apartWords(pairs);
-  const allWalk = pairs.every((p) => p.apart.walk);
+  const k = f.count;
+  const near = apartWords(f);
+  const allWalk = f.walks === k;
   const winter = WINTER_MONTHS.has(month);
   const pick = <T>(xs: readonly T[]) => xs[Math.abs(variant) % xs.length];
-  // One headline shape for the series ("5 cafes near a playground"), the
-  // walk said only when every pair is a walk; the variants change the
-  // intro's opening, so a theme's next carousel reads fresh.
-  const where = allWalk
-    ? "a short walk from a playground"
-    : "near a playground";
-  const cover = (places: string) => {
-    const walk = `${n(k)} ${places} ${where}`;
-    // 8 words at most: a long name for the places says "near" instead.
-    return {
-      headline:
-        walk.split(/\s+/).length <= 8
-          ? walk
-          : `${n(k)} ${places} near a playground`,
-      highlight: "playground",
-    };
-  };
-  // No food or mealtime words ("lunch"): that reads as an hours claim. No
-  // Google attribute either ("good for kids"): those only choose places.
+  // What the kids get, as the anchors allow.
+  // An event isn't "somewhere to play": then "something for the kids".
+  const spot = f.allParks
+    ? "a playground"
+    : f.anyEvent
+      ? "something for the kids"
+      : f.allSheltered
+        ? "somewhere indoors to play"
+        : "somewhere to play";
+  const theSpot = f.allParks
+    ? "the playground"
+    : f.anyEvent
+      ? "something for the kids"
+      : "somewhere to play";
+  const places =
+    theme === "coffee"
+      ? "cafes"
+      : theme === "food_trucks"
+        ? "food truck lots"
+        : theme === "breweries"
+          ? "breweries"
+          : (f.shops ?? "bakeries");
+  // One headline shape for the series, 8 words at most.
+  const tail = f.allParks
+    ? allWalk
+      ? "a short walk from a playground"
+      : "near a playground"
+    : f.anyEvent
+      ? "+ something for the kids"
+      : f.allSheltered
+        ? "near indoor play"
+        : "near somewhere to play";
+  // Long place names ("food truck lots") take the shorter tail: 8 words.
+  const fallback = f.allParks
+    ? "near a playground"
+    : f.anyEvent
+      ? "+ something for kids"
+      : "near somewhere to play";
+  const headline =
+    wordsIn(`${n(k)} ${places} ${tail}`) <= 8
+      ? `${n(k)} ${places} ${tail}`
+      : `${n(k)} ${places} ${fallback}`;
+  // The weather goes in the cover's kicker (mashupKicker), not the title.
+  const highlight = f.allParks
+    ? "playground"
+    : f.anyEvent
+      ? "kids"
+      : headline.includes("indoor")
+        ? "indoor"
+        : "play";
+  // In bad weather the intro opens on it, plainly.
+  // Said as the set is: all indoors, or the indoor picks first and the
+  // parks (labeled "If it clears up") after.
+  const why =
+    f.weather === "wet"
+      ? "Rain is in the forecast"
+      : f.weather === "snow"
+        ? "Snow is in the forecast"
+        : f.weather === "cold"
+          ? "A cold weekend ahead"
+          : null;
+  const lead = !why
+    ? ""
+    : f.allSheltered
+      ? `${why}, so these are all indoors. `
+      : `${why}, so the indoor picks come first, then parks for if it clears up. `;
+  const intro = (xs: string[]) => `${lead}${pick(xs)}`;
   switch (theme) {
     case "coffee":
       return {
-        ...cover("cafes"),
-        intro: pick([
+        headline,
+        highlight,
+        intro: intro([
+          // "for them" / "for the kids" already said by an event's phrase.
           winter
-            ? "A warm cup for you, a playground for them."
-            : "Coffee for the grown-ups, a playground for the kids.",
-          `Start with a cup, end at the playground. Each pair is ${near} apart.`,
-          `Pick a cafe, then let the kids loose. Every playground here is ${near} away.`,
+            ? f.anyEvent
+              ? "A warm cup for you, and something for the kids."
+              : `A warm cup for you, ${spot} for them.`
+            : f.anyEvent
+              ? "Coffee for the grown-ups, and something for the kids."
+              : `Coffee for the grown-ups, ${spot} for the kids.`,
+          `Start with a cup, then ${theSpot}. Each pair is ${near} apart.`,
+          `Pick a cafe, then let the kids loose. Each pair is ${near} apart.`,
         ]),
       };
     case "food_trucks":
       return {
-        ...cover("food truck lots"),
-        intro: pick([
-          `Pick a truck, then let the kids run. Each lot is ${near} from a playground.`,
-          `A food truck stop, then the playground. Each pair is ${near} apart.`,
+        headline,
+        highlight,
+        intro: intro([
+          `Pick a truck, then let the kids run. Each lot is ${near} from ${spot}.`,
+          `A food truck stop, then ${theSpot}. Each pair is ${near} apart.`,
         ]),
       };
     case "breweries":
       return {
-        ...cover("breweries"),
-        intro: pick([
-          `A brewery stop, then the playground. Each pair is ${near} apart.`,
-          `Each brewery here is ${near} from a playground the kids can run around.`,
+        headline,
+        highlight,
+        intro: intro([
+          `A brewery stop, then ${theSpot}. Each pair is ${near} apart.`,
+          `Each brewery here is ${near} from ${spot}.`,
         ]),
       };
-    case "treats": {
-      const iceCream = pairs.filter(
-        (p) => p.place.primaryType === "ice_cream_shop",
-      ).length;
-      const shops =
-        iceCream === k
-          ? "ice cream shops"
-          : iceCream === 0
-            ? "bakeries"
-            : "treat shops";
+    case "treats":
       return {
-        ...cover(shops),
-        intro: pick([
-          `A treat first, then the playground. Each of these ${shops} is ${near} from a park.`,
-          `Something sweet, then somewhere to climb. Each pair is ${near} apart.`,
+        headline,
+        highlight,
+        intro: intro([
+          `A treat first, then ${theSpot}. Each of these ${places} is ${near} from ${spot}.`,
+          `Something sweet, then ${theSpot}. Each pair is ${near} apart.`,
         ]),
       };
-    }
   }
 }
 

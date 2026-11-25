@@ -210,8 +210,20 @@ export type PagePair = {
   apart: string;
   walk: boolean;
   trait: string;
+  /** "At the park", "At the library", "This weekend". */
+  label: string;
   /** Our park page, or null when the park left the map. */
   parkHref: string | null;
+  /**
+   * The anchor's link: our park or event page, or an indoor place's own
+   * page (null when a park left the map or an event left the listing).
+   */
+  anchorLink: {
+    href: string;
+    label: string;
+    to: "park" | "event" | "venue";
+    external: boolean;
+  } | null;
   /** The place's own verified site, else Google Maps by its place id. */
   placeLink: { href: string; label: string; to: "venue" | "maps" };
 };
@@ -224,9 +236,50 @@ export function mapsLink(placeId: string): string {
 const SITE_RE = /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\/$/i;
 
 /** Each pairing of a park pairings post, with its links. */
+const INDOOR_PAGE: Record<string, string> = {
+  "At the library": "The library's page",
+  "At the pool": "The pool's page",
+  "At the play gym": "The play gym's page",
+  "At the museum": "The museum's page",
+};
+
+function anchorLink(
+  s: PairSlide,
+  L: Pick<Lookups, "park"> & Partial<Pick<Lookups, "event">>,
+): PagePair["anchorLink"] {
+  const kind = s.kind ?? "park";
+  if (kind === "park")
+    return L.park(s.parkSlug)
+      ? {
+          href: `/parks/${s.parkSlug}`,
+          label: "See the park",
+          to: "park",
+          external: false,
+        }
+      : null;
+  if (kind === "event") {
+    const [slug, day] = s.parkSlug.split("@");
+    if (L.event && !L.event(slug, day)) return null;
+    return {
+      href: `/events/${slug}`,
+      label: "See the event",
+      to: "event",
+      external: false,
+    };
+  }
+  return s.href && /^https:\/\//.test(s.href)
+    ? {
+        href: s.href,
+        label: INDOOR_PAGE[s.label ?? ""] ?? "Their page",
+        to: "venue",
+        external: true,
+      }
+    : null;
+}
+
 export function mashupPairs(
   slides: readonly SlideSpec[],
-  L: Pick<Lookups, "park">,
+  L: Pick<Lookups, "park"> & Partial<Pick<Lookups, "event">>,
 ): PagePair[] {
   return slides
     .filter((s): s is PairSlide => s.t === "pair")
@@ -238,7 +291,12 @@ export function mashupPairs(
       apart: s.apart,
       walk: s.walk,
       trait: s.trait,
-      parkHref: L.park(s.parkSlug) ? `/parks/${s.parkSlug}` : null,
+      label: s.label ?? "At the park",
+      parkHref:
+        (s.kind ?? "park") === "park" && L.park(s.parkSlug)
+          ? `/parks/${s.parkSlug}`
+          : null,
+      anchorLink: anchorLink(s, L),
       placeLink:
         s.site && SITE_RE.test(s.site)
           ? { href: s.site, label: "Their website", to: "venue" }

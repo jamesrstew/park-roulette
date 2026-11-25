@@ -285,19 +285,31 @@ function PairCard({ p, from }: { p: PagePair; from: string | null }) {
             {p.town} · {p.apart.toLowerCase()} apart
           </p>
           <p className="leading-snug">
-            <b className="font-semibold">At the park:</b> {p.trait}
+            <b className="font-semibold">{p.label}:</b> {p.trait}
           </p>
         </div>
       </div>
       <div className="flex flex-col gap-2">
-        {p.parkHref ? (
-          <Link
-            href={withFrom(p.parkHref, from)}
-            data-social="park"
-            className="crayon-btn wax min-h-12 self-stretch bg-crayon-yellow text-xl"
-          >
-            See the park <Icon name="arrow_right" size={22} />
-          </Link>
+        {p.anchorLink ? (
+          p.anchorLink.external ? (
+            <a
+              href={p.anchorLink.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-social={p.anchorLink.to}
+              className="crayon-btn wax min-h-12 self-stretch bg-crayon-yellow text-xl"
+            >
+              {p.anchorLink.label} <Icon name="arrow_right" size={22} />
+            </a>
+          ) : (
+            <Link
+              href={withFrom(p.anchorLink.href, from)}
+              data-social={p.anchorLink.to}
+              className="crayon-btn wax min-h-12 self-stretch bg-crayon-yellow text-xl"
+            >
+              {p.anchorLink.label} <Icon name="arrow_right" size={22} />
+            </Link>
+          )
         ) : null}
         <a
           href={p.placeLink.href}
@@ -320,10 +332,8 @@ async function Mashup({
   post: PublicPost;
   from: string | null;
 }) {
-  const parks = new Set((await publicParks()).map((p) => p.slug));
-  const pairs = mashupPairs(post.spec.slides, {
-    park: (slug) => (parks.has(slug) ? { name: slug } : null),
-  });
+  const L = await lookups();
+  const pairs = mashupPairs(post.spec.slides, L);
   return (
     <>
       <ol className="flex flex-col gap-4" aria-label="In this post">

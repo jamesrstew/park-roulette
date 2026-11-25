@@ -2116,11 +2116,47 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     rating: 4.7,
     userRatingCount: 500,
     websiteUri: "https://example.org/",
+    regularOpeningHours: {
+      periods: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+        open: { day, hour: 7, minute: 0 },
+        close: { day, hour: 16, minute: 0 },
+      })),
+    },
   });
   const EMPIRE = { lat: 44.09267, lng: -121.29746 };
   const FAREWELL = { lat: 44.04112, lng: -121.32568 };
   const SAMJ = { lat: 44.27362, lng: -121.18474 };
-  const places = (async (_u: unknown, init?: RequestInit) => {
+  /** The NWS stand-in: a dry weekend, or a wet one. */
+  let wetWeekend = false;
+  const weather = (async (u: unknown) => {
+    const url = String(u);
+    if (url.includes("/points/"))
+      return Response.json({
+        properties: {
+          forecast: "https://api.weather.gov/gridpoints/x/forecast",
+        },
+      });
+    const periods = ["2026-12-04", "2026-12-05", "2026-12-06"].map((d) => ({
+      startTime: `${d}T06:00:00-08:00`,
+      isDaytime: true,
+      temperature: 44,
+      shortForecast: wetWeekend ? "Rain" : "Sunny",
+      probabilityOfPrecipitation: { value: wetWeekend ? 80 : 5 },
+    }));
+    return Response.json({ properties: { periods } });
+  }) as unknown as typeof fetch;
+  const places = (async (u: unknown, init?: RequestInit) => {
+    // Place Details: an indoor anchor's hours (open every day, 9 to 6).
+    if (!init?.body)
+      return Response.json({
+        regularOpeningHours: {
+          periods: [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+            open: { day, hour: 9, minute: 0 },
+            close: { day, hour: 18, minute: 0 },
+          })),
+        },
+      });
+    void u;
     const q: string = JSON.parse(String(init?.body)).textQuery;
     placesCalls.push(q);
     if (placesDown)
@@ -2137,6 +2173,14 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
             "Bend",
           ),
           spot("cafe3", "Coffee Depot", "coffee_shop", SAMJ, "Redmond"),
+          // Near the wet-weekend test's event (and a mile from any park).
+          spot(
+            "cafe4",
+            "Lone Pine Coffee Roasters",
+            "coffee_shop",
+            { lat: EMPIRE.lat + 0.004, lng: EMPIRE.lng + 0.02 },
+            "Bend",
+          ),
         ]
       : /^food/.test(q)
         ? [
@@ -2175,6 +2219,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     let r = await store.runSocial(WED_1745, {
       fetchImpl,
       placesFetch: places,
+      forecastFetch: weather,
       placesBackoffMs: 1,
     });
     expect(r.notes).toContain("mashup: not yet");
@@ -2182,6 +2227,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     r = await store.runSocial(WED_1800, {
       fetchImpl,
       placesFetch: places,
+      forecastFetch: weather,
       placesBackoffMs: 1,
     });
     expect(r.notes, JSON.stringify(r.notes)).toContain("mashup: made (coffee)");
@@ -2218,12 +2264,14 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     r = await store.runSocial(new Date("2026-12-03T02:15:00Z"), {
       fetchImpl,
       placesFetch: places,
+      forecastFetch: weather,
       placesBackoffMs: 1,
     });
     expect(r.notes).toContain("mashup: already made");
     r = await store.runSocial(WED_1915, {
       fetchImpl,
       placesFetch: places,
+      forecastFetch: weather,
       placesBackoffMs: 1,
     });
     expect(
@@ -2234,6 +2282,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     r = await store.runSocial(new Date("2026-12-17T02:00:00Z"), {
       fetchImpl,
       placesFetch: places,
+      forecastFetch: weather,
       placesBackoffMs: 1,
     });
     expect(r.notes).toContain("mashup: made (food_trucks)");
@@ -2245,6 +2294,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(
       await store.ensureMashup(new Date("2026-12-10T02:00:00Z"), {
         placesFetch: places,
+        forecastFetch: weather,
         placesBackoffMs: 1,
       }),
     ).toBe("an Unpack week");
@@ -2252,6 +2302,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(
       await store.ensureMashup(new Date("2026-12-02T02:00:00Z"), {
         placesFetch: places,
+        forecastFetch: weather,
         placesBackoffMs: 1,
       }),
     ).toBe("not its day");
@@ -2260,6 +2311,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(
       await store.ensureMashup(WED_1800, {
         placesFetch: places,
+        forecastFetch: weather,
         placesBackoffMs: 1,
       }),
     ).toBe("the week's Unpack has the slot");
@@ -2312,6 +2364,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     const r = await store.runSocial(WED_1800, {
       fetchImpl,
       placesFetch: places,
+      forecastFetch: weather,
       placesBackoffMs: 1,
     });
     expect(r.notes.join(" ")).toMatch(
@@ -2327,6 +2380,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(
       await store.ensureMashup(WED_1800, {
         placesFetch: places,
+        forecastFetch: weather,
         placesBackoffMs: 1,
       }),
     ).toMatch(/GOOGLE_PLACES_KEY/);
@@ -2349,6 +2403,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     );
     const got = await store.ensureMashup(WED_1800, {
       placesFetch: places,
+      forecastFetch: weather,
       placesBackoffMs: 1,
     });
     expect(got).toMatch(/today's 60 requests are used/);
@@ -2359,16 +2414,79 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       alerts.filter((a) => a.key === "social:skip:mashup:2026-12-02"),
     ).toHaveLength(1);
     // Skipped once: no more searches this week.
-    expect(await store.ensureMashup(WED_1800, { placesFetch: places })).toBe(
-      "already made",
-    );
+    expect(
+      await store.ensureMashup(WED_1800, {
+        placesFetch: places,
+        forecastFetch: weather,
+      }),
+    ).toBe("already made");
+  });
+
+  it("park pairings: a wet weekend leads with an event; a canceled event drops only its slide", async () => {
+    process.env.GOOGLE_PLACES_KEY = "test-places-key";
+    wetWeekend = true;
+    try {
+      await pairingParks();
+      // An indoor event Saturday near Empire Crossing (a cafe's walk away).
+      await addEvent("train-show", "2026-12-05", "Bend", {
+        title: "Train Show",
+        setting: "indoor",
+        point: { lat: EMPIRE.lat + 0.004, lng: EMPIRE.lng + 0.004 },
+      });
+      let r = await store.runSocial(WED_1800, {
+        fetchImpl,
+        placesFetch: places,
+        forecastFetch: weather,
+      });
+      expect(r.notes, JSON.stringify(r.notes)).toContain(
+        "mashup: made (coffee)",
+      );
+      const [row] = await q(
+        `select id, spec from social_posts where kind = 'mashup'`,
+      );
+      const spec = row.spec as {
+        headline: string;
+        slides: { t: string; kind?: string; label?: string }[];
+        facts: { mashup: { weather: string; pairs: { kind: string }[] } };
+      };
+      // The weather is the cover's kicker; an event makes it "something for the kids".
+      expect(spec.headline).toMatch(/\+ something for the kids$/);
+      expect(spec.slides[0]).toMatchObject({ kicker: "Rain this weekend" });
+      expect(spec.facts.mashup.weather).toBe("wet");
+      const pairs = spec.slides.filter((x) => x.t === "pair");
+      expect(pairs[0]).toMatchObject({ kind: "event", label: "This weekend" });
+      // Canceled before it goes out: that slide goes, the rest stay.
+      await q(
+        `update kid_events set status = 'canceled' where slug = 'train-show'`,
+      );
+      r = await store.runSocial(new Date("2026-12-03T03:20:00Z"), {
+        fetchImpl,
+        placesFetch: places,
+        forecastFetch: weather,
+      });
+      expect(r.notes.join(" ")).toMatch(/redrawn without 1 changed event/);
+      const [after] = await q(
+        `select status, spec, caption from social_posts where id = ${row.id}`,
+      );
+      const next = after.spec as { slides: { t: string; kind?: string }[] };
+      expect(next.slides.filter((x) => x.t === "pair")).toHaveLength(
+        pairs.length - 1,
+      );
+      expect(next.slides.some((x) => x.kind === "event")).toBe(false);
+      expect(String(after.caption)).not.toContain("Train Show");
+      expect(after.status).toBe("queued");
+    } finally {
+      wetWeekend = false;
+    }
   });
 
   it("park pairings: fewer than 3 pairs in every theme skips the week", async () => {
     process.env.GOOGLE_PLACES_KEY = "test-places-key";
-    // No parks on the map: nothing to pair with.
+    // No parks on the map: no towns to search, nothing to pair with.
+    await q(`delete from parks`);
     const got = await store.ensureMashup(WED_1800, {
       placesFetch: places,
+      forecastFetch: weather,
       placesBackoffMs: 1,
     });
     expect(got).toMatch(/No theme had 3 good pairs/);

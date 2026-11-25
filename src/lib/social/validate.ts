@@ -69,6 +69,7 @@ import {
   PAIRS_MAX,
   PAIRS_MIN,
   type Pairing,
+  chainOf,
   cleanName,
 } from "./mashup";
 import {
@@ -1668,7 +1669,8 @@ export async function validateAtHome(
  */
 export function mashupProblems(
   spec: PostSpec,
-  pairs: readonly Pairing[],
+  /** The pairs it came from (null: a redraw from its own stored slides). */
+  pairs: readonly Pairing[] | null,
   o: { month: number; recent: readonly RecentPost[]; slotDate: string },
 ): string[] {
   const out: string[] = [];
@@ -1682,7 +1684,8 @@ export function mashupProblems(
     out.push(
       `${slides.length} pairs: a carousel needs ${PAIRS_MIN} to ${PAIRS_MAX}.`,
     );
-  if (slides.length !== pairs.length) out.push("Slides and pairs differ.");
+  if (pairs && slides.length !== pairs.length)
+    out.push("Slides and pairs differ.");
   const words = wordCount(spec.headline);
   if (words > HEADLINE_MAX_WORDS || words < HEADLINE_MIN_WORDS)
     out.push(
@@ -1729,7 +1732,7 @@ export function mashupProblems(
   );
   const bang = exclamationProblem([ours]);
   if (bang) out.push(bang);
-  for (const p of pairs) out.push(...pairProblems(p, o.month));
+  for (const p of pairs ?? []) out.push(...pairProblems(p, o.month));
   // Our parks' and towns' names are our records, not drinks talk
   // ("Diamond Bar Ranch Park"), and "monkey bars" are play equipment.
   const ownNames = [
@@ -1749,15 +1752,24 @@ export function mashupProblems(
       `"${drinks[0]}": no drinks words in a family post, names included.`,
     );
   slides.forEach((x, i) => {
-    const p = pairs[i];
+    const p = pairs?.[i];
     if (!p) return;
     const a = apart(miles(p.place, p.park));
     if (!a || apartChip(a) !== x.apart || a.walk !== x.walk)
       out.push(`${x.place}: the distance doesn't match the two points.`);
     if (a?.walk && a.minutes > 10)
       out.push(`${x.place}: a walk over 10 minutes.`);
-    if (x.trait !== p.park.trait || x.parkSlug !== p.park.slug)
-      out.push(`${x.park}: the park's line isn't its own trait.`);
+    if (
+      x.trait !== p.park.trait ||
+      x.parkSlug !== p.park.slug ||
+      ((x.label ?? "At the park") !== p.park.label &&
+        !(
+          spec.facts.mashup?.weather &&
+          p.park.kind === "park" &&
+          x.label === "If it clears up"
+        ))
+    )
+      out.push(`${x.park}: the anchor's line isn't its own.`);
     if (x.placeId !== p.place.placeId) out.push(`${x.place}: wrong place id.`);
     if (x.place !== noAt(cleanName(p.place.name)))
       out.push(`${x.place}: isn't the place's own name.`);
@@ -1799,6 +1811,25 @@ export function pairProblems(p: Pairing, month: number): string[] {
     out.push(`${name}: no drinks words in a family post, names included.`);
   const trait = p.park.trait.replace(MONKEY_BARS, " ");
   out.push(...textProblems(trait, { month, label: `${p.park.name}'s line` }));
+  // An event's title is its host's words (no "we" of ours there), but the
+  // competitor, link, emoji and safety rules hold. Drinks words in an
+  // anchor's own name are masked like a park's (lib/social/indoor.ts and
+  // the events listing only hold places and events for kids).
+  if (p.park.kind === "event") {
+    out.push(
+      ...textProblems(p.park.name, { month, label: "event" }).filter(
+        (x) => !/first person/.test(x),
+      ),
+    );
+    // A kids' event at a bar or a brewery never anchors a pair (as the
+    // roundup: lib/social/roundup.ts), whatever the theme.
+    const at = p.park.event?.venue;
+    const bad = at ? venueProblem(at, { month, label: "venue" }) : null;
+    if (bad) out.push(bad);
+    // A pub chain by name (McMenamins) is a bar too.
+    if (at && chainOf(at))
+      out.push(`venue "${at}" is a chain, not a kids' spot.`);
+  }
   if (NO_DRINKS.test(trait))
     out.push(`${p.park.name}'s line: no drinks words in a family post.`);
   return out;

@@ -8,8 +8,12 @@ import {
 } from "@/components/social/fit";
 import { ideaText } from "./at-home";
 import {
+  dedupeTags,
   mentionLines,
   noAt,
+  parkTag,
+  siteDomain,
+  tagFor,
   type Tag,
   usedTags,
   withoutMentions,
@@ -18,6 +22,7 @@ import { eventsWeekPath, fbLink, PENDING_POST_LINK } from "./links";
 import {
   apartChip,
   cleanName,
+  type CopyFacts,
   type MashupCopy,
   type MashupTheme,
   type Pairing,
@@ -740,73 +745,213 @@ export function composeEventsWeek(
  * verified site (data/ig-handles.json, our data) by place id, for the
  * post page's link. `tags`: the verified accounts, in pair order.
  */
+/** One pair as the post keeps it: our words and ids only. */
+export type MashupRow = {
+  place: string;
+  park: string;
+  town: string;
+  apart: string;
+  walk: boolean;
+  trait: string;
+  placeId: string;
+  parkSlug: string;
+  site: string | null;
+  kind: "park" | "indoor" | "event";
+  label: string;
+  sheltered: boolean;
+  href: string;
+  anchorIcon: string;
+  event?: {
+    slug: string;
+    day: string;
+    start: string;
+    /** What the slide printed of it (a change redraws the post). */
+    venue?: string | null;
+    title?: string;
+    /** Its host's domain (for its verified tag). */
+    host?: string | null;
+  };
+};
+
+/** The pairs as rows: Google's place only lends its id and its name. */
+export function mashupRows(
+  pairs: readonly Pairing[],
+  sites?: ReadonlyMap<string, string>,
+): MashupRow[] {
+  return pairs.map((p) => ({
+    place: noAt(cleanName(p.place.name)),
+    park: noAt(p.park.name),
+    town: noAt(p.place.town ?? p.park.city),
+    apart: apartChip(p.apart),
+    walk: p.apart.walk,
+    trait: noAt(p.park.trait),
+    placeId: p.place.placeId,
+    parkSlug: p.park.slug,
+    site: sites?.get(p.place.placeId) ?? null,
+    kind: p.park.kind,
+    label: p.park.label,
+    sheltered: p.park.sheltered,
+    href: p.park.href,
+    anchorIcon: p.park.icon,
+    ...(p.park.event
+      ? {
+          event: {
+            slug: p.park.event.slug,
+            day: p.park.event.day,
+            start: p.park.event.start,
+            venue: p.park.event.venue ?? null,
+            title: p.park.name,
+            host: p.park.event.host,
+          },
+        }
+      : {}),
+  }));
+}
+
+/** What the cover and intro may say, from rows (a redraw at publish). */
+export function rowFacts(
+  rows: readonly MashupRow[],
+  m: { weather?: CopyFacts["weather"]; shops?: string | null },
+): CopyFacts {
+  const k = rows.length;
+  const sheltered = rows.filter((r) => r.sheltered).length;
+  return {
+    count: k,
+    walks: rows.filter((r) => r.walk).length,
+    allParks: rows.every((r) => r.kind === "park"),
+    allSheltered: sheltered === k,
+    anyEvent: rows.some((r) => r.kind === "event"),
+    // The weather still frames it only while indoor anchors lead and are half.
+    weather:
+      m.weather && rows[0]?.sheltered && sheltered * 2 >= k ? m.weather : null,
+    shops: m.shops ?? null,
+  };
+}
+
+/** The verified tags of rows (a redraw): places, parks, indoor sites, event hosts. */
+export function rowTags(rows: readonly MashupRow[]): Tag[] {
+  return dedupeTags([
+    ...rows.map((r) => tagFor(siteDomain(r.site), "place")),
+    ...rows.map((r) =>
+      r.kind === "park"
+        ? parkTag(r.parkSlug)
+        : r.kind === "indoor"
+          ? tagFor(siteDomain(r.href), "place")
+          : tagFor(r.event?.host ?? null, "host"),
+    ),
+  ]);
+}
+
+/** The rows back from a stored post's slides and facts (a redraw at publish). */
+export function rowsOf(spec: PostSpec): MashupRow[] {
+  const pairs = spec.facts.mashup?.pairs ?? [];
+  return spec.slides.flatMap((s, i) => {
+    if (s.t !== "pair") return [];
+    const f = pairs[s.n - 1] ?? pairs[i - 1];
+    return [
+      {
+        place: s.place,
+        park: s.park,
+        town: s.town,
+        apart: s.apart,
+        walk: s.walk,
+        trait: s.trait,
+        placeId: s.placeId,
+        parkSlug: s.parkSlug,
+        site: s.site ?? null,
+        kind: s.kind ?? "park",
+        label: s.label ?? "At the park",
+        sheltered: s.sheltered ?? false,
+        href: s.href ?? `/parks/${s.parkSlug}`,
+        anchorIcon: s.anchorIcon ?? "playground",
+        ...(f?.event ? { event: f.event } : {}),
+      },
+    ];
+  });
+}
+
+/**
+ * The park pairings carousel (mashup.ts): a cover with the theme's
+ * headline and the towns, one slide per pair, and the usual close. Every
+ * word is code's: the names, our own distance, the anchor's own line, and
+ * the theme's copy variant. Google only found and chose the places: of its
+ * content, nothing is printed but each business's own public name, so no
+ * Google attribution is owed (and none is drawn). Anchors' names are our
+ * own data. `tags`: the verified accounts, in pair order.
+ */
+/** A park's label in a bad-weather set (the cover leans indoors). */
+export const CLEARS_UP = "If it clears up";
+
 export function composeMashup(
   theme: MashupTheme,
-  pairs: readonly Pairing[],
+  rows: readonly MashupRow[],
   copy: MashupCopy,
   o: {
     month: number;
     cycle: number;
     dms: boolean;
     tags?: readonly Tag[];
-    sites?: ReadonlyMap<string, string>;
+    variant?: number;
+    weather?: "wet" | "snow" | "cold" | null;
+    shops?: string | null;
   },
 ): PostSpec {
   const tags = o.tags ?? [];
   const cta = ctaLine(o.dms, "mashup");
   const icon = THEME_ICON[theme];
-  const rows = pairs.map((p) => ({
-    place: noAt(cleanName(p.place.name)),
-    park: noAt(p.park.name),
-    town: noAt(p.park.city),
-    placeTown: noAt(p.place.town ?? p.park.city),
-    apart: apartChip(p.apart),
-    walk: p.apart.walk,
-    trait: noAt(p.park.trait),
-    placeId: p.place.placeId,
-    parkSlug: p.park.slug,
-    site: o.sites?.get(p.place.placeId) ?? null,
-  }));
+  const fitOf = (r: MashupRow) => ({
+    place: r.place,
+    park: r.park,
+    chips: [r.apart],
+    trait: r.trait,
+  });
   // One name size and one trait size for every pair slide: the largest
   // that fits them all, so the set reads as one.
-  const fits = rows.map((r) =>
-    pairFit({
-      place: r.place,
-      park: r.park,
-      chips: [r.apart],
-      trait: r.trait,
-    }),
-  );
-  const body = commonBody(fits);
+  const body = commonBody(rows.map((r) => pairFit(fitOf(r))));
   const nameSize =
     body === undefined
       ? undefined
       : Math.min(
-          ...rows.map(
-            (r) =>
-              pairFit(
-                {
-                  place: r.place,
-                  park: r.park,
-                  chips: [r.apart],
-                  trait: r.trait,
-                },
-                { bodies: [body] },
-              ).name,
-          ),
+          ...rows.map((r) => pairFit(fitOf(r), { bodies: [body] }).name),
         );
-  const towns = [...new Set(rows.map((r) => r.placeTown))].sort(
+  const towns = [...new Set(rows.map((r) => r.town))].sort(
     (a, b) => Number(b === "Bend") - Number(a === "Bend"),
+  );
+  const allParks = rows.every((r) => r.kind === "park");
+  const allIn = rows.every((r) => r.sheltered);
+  // A bad weekend: the weather is the kicker and the icon, and a park
+  // that fills the set says it's for a dry spell.
+  rows = rows.map((r) =>
+    o.weather && r.kind === "park" ? { ...r, label: CLEARS_UP } : r,
   );
   const slides: SlideSpec[] = [
     {
       t: "headline",
       words: copy.headline,
       highlight: copy.highlight,
-      kicker: COPY.mashupKicker,
+      kicker:
+        o.weather === "wet"
+          ? "Rain this weekend"
+          : o.weather === "snow"
+            ? "Snow this weekend"
+            : o.weather === "cold"
+              ? "Cold this weekend"
+              : COPY.mashupKicker,
       swipe: true,
       icon,
       pairIcon: true,
+      pairIcon2:
+        o.weather === "wet"
+          ? "rain"
+          : o.weather === "snow"
+            ? "snow"
+            : o.weather === "cold"
+              ? "home"
+              : allParks
+                ? "playground"
+                : allIn
+                  ? "home"
+                  : "sparkles",
       sub: towns,
     },
     ...rows.map((r, i): SlideSpec => ({
@@ -816,13 +961,18 @@ export function composeMashup(
       icon,
       place: r.place,
       park: r.park,
-      town: r.placeTown,
+      town: r.town,
       apart: r.apart,
       walk: r.walk,
       trait: r.trait,
       placeId: r.placeId,
       parkSlug: r.parkSlug,
       site: r.site,
+      kind: r.kind,
+      label: r.label,
+      sheltered: r.sheltered,
+      href: r.href,
+      anchorIcon: r.anchorIcon,
       nameSize,
       body,
     })),
@@ -839,8 +989,8 @@ export function composeMashup(
     copy.intro,
     "",
     ...rows.flatMap((r, i) => [
-      `${i + 1}. ${r.place} + ${r.park}, ${r.placeTown} (${r.apart.toLowerCase()})`,
-      `At the park: ${traitClause(r.trait)}.`,
+      `${i + 1}. ${r.place} + ${r.park}, ${r.town} (${r.apart.toLowerCase()})`,
+      `${r.label}: ${traitClause(r.trait.replace(/[.\s]+$/, ""))}.`,
       "",
     ]),
     COPY.mashupHours,
@@ -862,14 +1012,24 @@ export function composeMashup(
     // than a list of names would suggest).
     modelText: [copy.headline, copy.intro].join("\n"),
     facts: {
-      parks: rows.map((r) => r.parkSlug),
+      // Parks are re-checked before publishing as for any post; events
+      // are re-checked per slide (store.ts pruneMashup), not here.
+      parks: rows.filter((r) => r.kind === "park").map((r) => r.parkSlug),
       events: [],
       venues: [],
       issue: null,
       mashup: {
         theme,
         cycle: o.cycle,
-        pairs: rows.map((r) => ({ placeId: r.placeId, park: r.parkSlug })),
+        variant: o.variant ?? 0,
+        weather: o.weather ?? null,
+        shops: o.shops ?? null,
+        pairs: rows.map((r) => ({
+          placeId: r.placeId,
+          park: r.parkSlug,
+          kind: r.kind,
+          ...(r.event ? { event: r.event } : {}),
+        })),
       },
     },
     ...tagsField("mashup", tags),
@@ -1056,7 +1216,7 @@ export function slideAlt(s: SlideSpec): string {
     case "event":
       return `${s.n} of ${s.of}: ${s.title}.${s.desc ? ` ${s.desc}.` : ""} ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}.${s.cost ? ` ${s.cost}.` : ""}${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
     case "pair":
-      return `${s.n} of ${s.of}: ${s.place} plus ${s.park}, ${s.town}. ${s.walk ? `A ${s.apart.toLowerCase()}` : "A short drive"} apart. At the park: ${strip(s.trait)}.`;
+      return `${s.n} of ${s.of}: ${s.place} plus ${s.park}, ${s.town}. ${s.walk ? `A ${s.apart.toLowerCase()}` : "A short drive"} apart. ${s.label ?? "At the park"}: ${strip(s.trait)}.`;
     case "cta":
       return [s.url ? `${s.line} ${s.url}.` : s.line, s.sub, s.fine, s.cta]
         .filter(Boolean)

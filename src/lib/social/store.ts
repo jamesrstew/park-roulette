@@ -14,7 +14,8 @@ import {
 import { alertLater } from "@/lib/alerts";
 import { toRow } from "@/lib/events/store";
 import { listed } from "@/lib/events/state";
-import { pacificAt, upcomingDates } from "@/lib/events/model";
+import { pacificAt, statusOn, upcomingDates } from "@/lib/events/model";
+import { fetchForecast, weekendForecast } from "@/lib/news/weather";
 import { CATALOG, type Catalog, isClosedPark } from "@/lib/news/catalog";
 import { fetchPage } from "@/lib/news/fetcher";
 import { UA } from "@/lib/news/ua";
@@ -29,6 +30,12 @@ import { listableParks, postCandidates } from "./candidates";
 import { composeStory, composeTeaser, type ParkInfo } from "./compose";
 import { type EchoFrame, runEchoes } from "./echo";
 import {
+  eventAnchors,
+  indoorAnchors,
+  mashupCopy,
+  PAIRS_MIN,
+  type Weather,
+  weekendWeather,
   holidayBreak,
   type MashupHistory,
   type MashupTheme,
@@ -38,7 +45,15 @@ import {
   THEME_LABEL,
 } from "./mashup";
 import { makeMashup } from "./mashup-make";
-import { PlacesError, placesKey, themePlaces } from "./places";
+import { eventInputs } from "./mashup-events";
+import { PlacesError, placeHours, placesKey, themePlaces } from "./places";
+import {
+  composeMashup,
+  type MashupRow,
+  rowFacts,
+  rowsOf,
+  rowTags,
+} from "./compose";
 import {
   fitRoundup,
   pickWeekEvents,
@@ -46,6 +61,7 @@ import {
   withHostTags,
 } from "./roundup";
 import {
+  type Tag,
   igLinksIn,
   mentionProblems,
   parkTag,
@@ -110,6 +126,7 @@ import {
 } from "./settings";
 import {
   holidayIn,
+  mashupProblems,
   type PostReport,
   type RecentPost,
   type SocialCtx,
@@ -437,7 +454,7 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
             mashup: {
               day: wed.date,
               publish_at: wed.publishAt.toISOString(),
-              note: "Park pairings week: code makes Wednesday's carousel from Google Places and our parks. Write no Unpack this week, unless unpack_sunday is offered and the school break makes it the better post (then there's no park pairings post this week).",
+              note: "Park pairings week: code makes Wednesday's carousel from Google Places and our parks, indoor places and this weekend's events. Write no Unpack this week, unless unpack_sunday is offered and the school break makes it the better post (then there's no park pairings post this week).",
             },
           }
         : {
@@ -1024,6 +1041,112 @@ async function mashupHistory(exceptSlot: string): Promise<MashupHistory[]> {
   });
 }
 
+/**
+ * The weekend's weather in Bend from the National Weather Service (the
+ * forecast the newsletter uses): bad at 50% rain or snow, or a high of
+ * 35°F or less, on Saturday or Sunday. No forecast: not bad.
+ */
+async function weekendWeatherNow(
+  wed: string,
+  fetchImpl?: typeof fetch,
+): Promise<Weather> {
+  try {
+    const byTown = await fetchForecast(fetchImpl);
+    const days = weekendForecast(addDays(wed, 1), byTown.Bend) ?? [];
+    return weekendWeather(days, wed);
+  } catch {
+    return { bad: false };
+  }
+}
+
+/**
+ * Just before a park pairings post goes out: is each event anchor still
+ * on, at the same time? A canceled, removed or moved event drops only its
+ * slide, and the post is redrawn; under 3 pairs left, it's skipped and
+ * James hears. Null when every event still holds.
+ */
+export async function pruneMashup(
+  post: PostRow,
+  now: Date,
+): Promise<string | null> {
+  const spec = post.spec as PostSpec;
+  const m = spec.facts.mashup;
+  if (!m?.pairs.some((p) => p.event)) return null;
+  const rows = await eventRows();
+  // Still on, the same day and time, at the same venue, with the same title.
+  const holds = (ev: NonNullable<MashupRow["event"]>) => {
+    const e = rows.get(ev.slug);
+    if (!e || e.confirm !== "ok" || !listed(e, now)) return false;
+    if (statusOn(e.data, ev.day, e.status) !== "scheduled") return false;
+    if (ev.venue != null && e.data.venue.name !== ev.venue) return false;
+    if (ev.title != null && e.data.title !== ev.title) return false;
+    if (!e.data.point) return false;
+    return e.data.dates.find((d) => d.day === ev.day)?.start === ev.start;
+  };
+  const all = rowsOf(spec);
+  const keep = all.filter((r) => !r.event || holds(r.event));
+  if (keep.length === all.length) return null;
+  const dropped = all.length - keep.length;
+  const skip = async (why: string) => {
+    await setPost(post.id, { status: "skipped", reason: why });
+    tell(post, "skipped", `Skipped just before it went out: ${why}`);
+    return "skipped (events changed)";
+  };
+  if (keep.length < PAIRS_MIN)
+    return skip(
+      `${dropped} of its events were canceled, removed or changed, leaving under ${PAIRS_MIN} pairs.`,
+    );
+  const theme = m.theme as MashupTheme;
+  const month = Number(post.slotDate.slice(5, 7));
+  const facts = rowFacts(keep, m);
+  const copy = mashupCopy(theme, facts, month, m.variant ?? 0);
+  const compose = (tags: readonly Tag[]) =>
+    withPostLink(
+      composeMashup(theme, keep, copy, {
+        month,
+        cycle: m.cycle,
+        dms: dmsOn(),
+        tags,
+        variant: m.variant ?? 0,
+        weather: facts.weather,
+        shops: m.shops ?? null,
+      }),
+      post.id,
+      post.slotDate,
+    );
+  // Checked again like any post (a bad tag drops, never the post).
+  const o = { month, recent: [], slotDate: post.slotDate };
+  let next = compose(rowTags(keep));
+  let problems = mashupProblems(next, null, o);
+  if (problems.length) {
+    next = compose([]);
+    problems = mashupProblems(next, null, o);
+  }
+  if (problems.length)
+    return skip(
+      `the redraw without its changed events failed a check: ${problems.join(" ")}`,
+    );
+  const R = await render();
+  const media = await R.storeMedia(await R.renderPost(next, []));
+  const done = await db
+    .update(socialPosts)
+    .set({
+      spec: next,
+      media,
+      caption: next.caption,
+      body: next.facts.mashup ?? { pairs: [] },
+      reason: `Redrawn without ${dropped} event${dropped === 1 ? "" : "s"} that changed.`,
+      updatedAt: sql`now()`,
+    })
+    .where(and(eq(socialPosts.id, post.id), eq(socialPosts.status, "queued")))
+    .returning({ id: socialPosts.id });
+  expireSocial();
+  // Not queued any more (skipped meanwhile): never publish the old one.
+  return done.length
+    ? `redrawn without ${dropped} changed event(s)`
+    : "no longer queued";
+}
+
 /** Places requests at most per make, and per Pacific day (the key's quota is about 100). */
 export const PLACES_PER_MAKE = 15;
 export const PLACES_PER_DAY = 60;
@@ -1091,7 +1214,13 @@ export async function ensureMashup(
   {
     placesFetch,
     placesBackoffMs,
-  }: { placesFetch?: typeof fetch; placesBackoffMs?: number } = {},
+    forecastFetch,
+  }: {
+    placesFetch?: typeof fetch;
+    placesBackoffMs?: number;
+    /** The National Weather Service (tests stub it). */
+    forecastFetch?: typeof fetch;
+  } = {},
 ): Promise<string> {
   const weekOf = mondayOf(pacific(now).date);
   const { date, publishAt } = slotFor("mashup", weekOf);
@@ -1165,10 +1294,39 @@ export async function ensureMashup(
     month,
     cooling,
   );
+  const [rows, weather] = await Promise.all([
+    eventRows(),
+    weekendWeatherNow(date, forecastFetch),
+  ]);
+  const events = eventAnchors(eventInputs(rows.values(), date, now), date);
+  const anchors = [...vetted, ...indoorAnchors(cooling), ...events];
+  // Places are searched in the parks' towns (the indoor places and events
+  // are in the same towns): the budget stays small.
+  const searchIn = vetted;
   const made = await makeMashup({
     month,
     slotDate: date,
-    parks: vetted,
+    parks: anchors,
+    weather,
+    // An indoor place's hours: any trouble (a stale id, the budget) means
+    // "not open" for this make, never a skipped week; a stale id tells James.
+    indoorHours: (id) =>
+      placeHours(id, { key, fetchImpl: placesFetch, spend, deadline }).catch(
+        (e) => {
+          if (
+            !/requests are used|out of time|daily quota|429/.test(
+              (e as Error).message,
+            )
+          )
+            alertLater({
+              key: `social:indoor-hours:${id}`,
+              subject: "An indoor place's hours didn't load",
+              text: `Places couldn't read the hours for ${id} (${(e as Error).message}). If it keeps failing, rebuild data/indoor-places.json (scripts/indoor-places.mts).`,
+              everyMinutes: 7 * 24 * 60,
+            });
+          return null;
+        },
+      ),
     history,
     recent: recent.map((r) => ({
       kind: r.kind as PostKind,
@@ -1177,7 +1335,7 @@ export async function ensureMashup(
     })),
     dms: dmsOn(),
     places: (theme) =>
-      themePlaces(theme, vetted, month, {
+      themePlaces(theme, searchIn, month, {
         key,
         fetchImpl: placesFetch,
         backoffMs: placesBackoffMs,
@@ -1347,10 +1505,12 @@ export async function runSocial(
     fetchImpl,
     placesFetch,
     placesBackoffMs,
+    forecastFetch,
   }: {
     fetchImpl?: typeof fetch;
     placesFetch?: typeof fetch;
     placesBackoffMs?: number;
+    forecastFetch?: typeof fetch;
   } = {},
 ): Promise<RunResult> {
   const settings = await getSocialSettings();
@@ -1383,7 +1543,7 @@ export async function runSocial(
     if (wd === 3)
       try {
         notes.push(
-          `mashup: ${await ensureMashup(now, { placesFetch, placesBackoffMs })}`,
+          `mashup: ${await ensureMashup(now, { placesFetch, placesBackoffMs, forecastFetch })}`,
         );
       } catch (e) {
         notes.push(`mashup: failed (${(e as Error).message})`);
@@ -1452,6 +1612,22 @@ export async function runSocial(
           );
           notes.push(`${post.id}: skipped (late)`);
           continue;
+        }
+        if (post.kind === "mashup") {
+          // An event anchor that changed drops its slide (or the post).
+          const pruned = await pruneMashup(post, now).catch((e) => {
+            tell(
+              post,
+              "event re-check failed",
+              `Re-checking its events before it goes out failed (${(e as Error).message}). The next run tries again until it's 2 hours late.`,
+              6 * 60,
+            );
+            return `prune failed (${(e as Error).message})`;
+          });
+          if (pruned) {
+            notes.push(`${post.id}: ${pruned}`);
+            continue;
+          }
         }
         const broken = await factsHold(post, now);
         if (broken && post.kind === "events_week") {
