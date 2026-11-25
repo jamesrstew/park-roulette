@@ -549,7 +549,10 @@ async function Listing({ searchParams }: Props) {
         </Link>
       </p>
 
-      <PrefsMarks />
+      {/* Keyed by the filters: a filter change re-renders the same boxes in
+          place, so the marks must be worked out again (a box emptied by
+          hides in one town isn't empty in the next). */}
+      <PrefsMarks key={JSON.stringify(asked)} />
       <ScrollToHash />
       <JsonLd
         data={{
