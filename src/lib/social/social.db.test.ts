@@ -2090,4 +2090,261 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       (await store.redrawQueued(id, { apply: true, now: SUNDAY })).ok,
     ).toBe(false);
   });
+
+  // --- Park pairings (every other Wednesday, code only) ---------------------
+
+  /** Places' stand-in: three spots near three parks, per theme by query. */
+  const placesCalls: string[] = [];
+  let placesDown = false;
+  const spot = (
+    id: string,
+    name: string,
+    type: string,
+    at: { lat: number; lng: number },
+    town: string,
+  ) => ({
+    id,
+    displayName: { text: name },
+    location: { latitude: at.lat + 0.1 / 69, longitude: at.lng },
+    addressComponents: [{ shortText: town, types: ["locality"] }],
+    businessStatus: "OPERATIONAL",
+    primaryType: type,
+    goodForChildren: true,
+    menuForChildren: true,
+    outdoorSeating: true,
+    dineIn: true,
+    rating: 4.7,
+    userRatingCount: 500,
+    websiteUri: "https://example.org/",
+  });
+  const EMPIRE = { lat: 44.09267, lng: -121.29746 };
+  const FAREWELL = { lat: 44.04112, lng: -121.32568 };
+  const SAMJ = { lat: 44.27362, lng: -121.18474 };
+  const places = (async (_u: unknown, init?: RequestInit) => {
+    const q: string = JSON.parse(String(init?.body)).textQuery;
+    placesCalls.push(q);
+    if (placesDown)
+      return Response.json({ error: { status: "INTERNAL" } }, { status: 500 });
+    const town = / in ([A-Za-z ]+), Oregon$/.exec(q)?.[1];
+    const all = /^coffee/.test(q)
+      ? [
+          spot("cafe1", "WildRoots Coffeehouse", "coffee_shop", EMPIRE, "Bend"),
+          spot(
+            "cafe2",
+            "Dilly Dally Coffee Co.",
+            "coffee_shop",
+            FAREWELL,
+            "Bend",
+          ),
+          spot("cafe3", "Coffee Depot", "coffee_shop", SAMJ, "Redmond"),
+        ]
+      : /^food/.test(q)
+        ? [
+            spot("lot1", "The Lot", "food_court", EMPIRE, "Bend"),
+            spot(
+              "lot2",
+              "The Podski Food Cart Lot",
+              "food_court",
+              FAREWELL,
+              "Bend",
+            ),
+            spot("lot3", "Dry Canyon Club", "food_court", SAMJ, "Redmond"),
+          ]
+        : [];
+    return Response.json({
+      places: all.filter((p) => p.addressComponents[0].shortText === town),
+    });
+  }) as unknown as typeof fetch;
+  /** Wednesday, Dec 2, 2026 (a mashup week), Pacific: 5:45, 6:00 and 7:15 pm. */
+  const WED_1745 = new Date("2026-12-03T01:45:00Z");
+  const WED_1800 = new Date("2026-12-03T02:00:00Z");
+  const WED_1915 = new Date("2026-12-03T03:20:00Z");
+
+  async function pairingParks() {
+    await q(`insert into parks (slug, name, city, lat, lng, approved_at, features) values
+      ('empire-crossing-park-bend', 'Empire Crossing Park', 'Bend', ${EMPIRE.lat}, ${EMPIRE.lng}, now(), '{}'),
+      ('farewell-bend-park-bend', 'Farewell Bend Park', 'Bend', ${FAREWELL.lat}, ${FAREWELL.lng}, now(), '{}'),
+      ('sam-johnson-park-redmond', 'Sam Johnson Park', 'Redmond', ${SAMJ.lat}, ${SAMJ.lng}, now(), '{}')`);
+  }
+
+  it("park pairings: made by code on a mashup Wednesday at 6 pm, once, then out (dry run)", async () => {
+    process.env.GOOGLE_PLACES_KEY = "test-places-key";
+    placesCalls.length = 0;
+    placesDown = false;
+    await pairingParks();
+    let r = await store.runSocial(WED_1745, {
+      fetchImpl,
+      placesFetch: places,
+      placesBackoffMs: 1,
+    });
+    expect(r.notes).toContain("mashup: not yet");
+    expect(placesCalls).toEqual([]);
+    r = await store.runSocial(WED_1800, {
+      fetchImpl,
+      placesFetch: places,
+      placesBackoffMs: 1,
+    });
+    expect(r.notes, JSON.stringify(r.notes)).toContain("mashup: made (coffee)");
+    const [row] = await q(
+      `select kind, slot_date::text as day, status, origin, body, spec, caption from social_posts where kind = 'mashup'`,
+    );
+    expect(row).toMatchObject({
+      kind: "mashup",
+      day: "2026-12-02",
+      status: "queued",
+      origin: "code",
+    });
+    const spec = row.spec as {
+      slides: { t: string }[];
+      facts: { parks: string[]; mashup: { theme: string; cycle: number } };
+    };
+    expect(spec.slides.map((x) => x.t)).toEqual([
+      "headline",
+      "pair",
+      "pair",
+      "pair",
+      "cta",
+    ]);
+    expect(spec.facts.mashup).toMatchObject({ theme: "coffee", cycle: 1 });
+    expect(spec.facts.parks).toHaveLength(3);
+    // Only place ids and our parks are kept of Google's (the body).
+    expect(JSON.stringify(row.body)).not.toMatch(/Coffee|rating|4\.7/);
+    expect(String(row.caption)).toContain(
+      "cafes a short walk from a playground",
+    );
+    expect(String(row.caption)).not.toMatch(/4\.7|rating|stars/i);
+    // The key never leaves in a request body or URL.
+    expect(placesCalls.join(" ")).not.toContain("test-places-key");
+    r = await store.runSocial(new Date("2026-12-03T02:15:00Z"), {
+      fetchImpl,
+      placesFetch: places,
+      placesBackoffMs: 1,
+    });
+    expect(r.notes).toContain("mashup: already made");
+    r = await store.runSocial(WED_1915, {
+      fetchImpl,
+      placesFetch: places,
+      placesBackoffMs: 1,
+    });
+    expect(
+      (await q(`select status from social_posts where kind = 'mashup'`))[0],
+    ).toEqual({ status: "dry_run" });
+    expect(calls).toEqual([]);
+    // Two weeks on, the rotation's next theme.
+    r = await store.runSocial(new Date("2026-12-17T02:00:00Z"), {
+      fetchImpl,
+      placesFetch: places,
+      placesBackoffMs: 1,
+    });
+    expect(r.notes).toContain("mashup: made (food_trucks)");
+  });
+
+  it("park pairings: none on an Unpack week, and the week's holiday Unpack wins", async () => {
+    process.env.GOOGLE_PLACES_KEY = "test-places-key";
+    await pairingParks();
+    expect(
+      await store.ensureMashup(new Date("2026-12-10T02:00:00Z"), {
+        placesFetch: places,
+        placesBackoffMs: 1,
+      }),
+    ).toBe("an Unpack week");
+    // Not Wednesday: nothing.
+    expect(
+      await store.ensureMashup(new Date("2026-12-02T02:00:00Z"), {
+        placesFetch: places,
+        placesBackoffMs: 1,
+      }),
+    ).toBe("not its day");
+    await q(`insert into social_posts (kind, slot_date, publish_at, origin, status, body, spec)
+      values ('unpack', '2026-11-29', '2026-11-30T03:45:00Z', 'writer', 'queued', '{}', '{"facts":{"parks":[]}}')`);
+    expect(
+      await store.ensureMashup(WED_1800, {
+        placesFetch: places,
+        placesBackoffMs: 1,
+      }),
+    ).toBe("the week's Unpack has the slot");
+    expect(
+      (
+        await q(
+          `select count(*)::int as n from social_posts where kind = 'mashup'`,
+        )
+      )[0],
+    ).toEqual({ n: 0 });
+  });
+
+  it("park pairings: the routine's Wednesday Unpack is refused on a mashup week", async () => {
+    const { WeekDraft } = await import("./model");
+    const r = await store.handleDrafts(
+      WeekDraft.parse({
+        week_of: "2026-11-30",
+        posts: [
+          {
+            type: "unpack",
+            headline: "Three warm spots for a cold week",
+            highlight: "warm",
+            items: [
+              {
+                ref: "park:larkspur-park-bend",
+                what: "Universal-design play for every ability.",
+              },
+              {
+                ref: "park:larkspur-park-bend",
+                what: "Universal-design play for every ability.",
+              },
+              {
+                ref: "park:larkspur-park-bend",
+                what: "Universal-design play for every ability.",
+              },
+            ],
+          },
+        ],
+      }),
+      new Date("2026-11-30T02:00:00Z"),
+      { store: false },
+    );
+    expect(r[0].errors.join(" ")).toMatch(/park pairings week/);
+  });
+
+  it("park pairings: Places down retries next run; no key or no pairs skips and tells James", async () => {
+    await pairingParks();
+    process.env.GOOGLE_PLACES_KEY = "test-places-key";
+    placesDown = true;
+    const r = await store.runSocial(WED_1800, {
+      fetchImpl,
+      placesFetch: places,
+      placesBackoffMs: 1,
+    });
+    expect(r.notes.join(" ")).toMatch(
+      /mashup: failed \(Places search failed \(500/,
+    );
+    expect(alerts.map((a) => a.key)).toContain("social:make:mashup:2026-12-02");
+    expect((await q(`select count(*)::int as n from social_posts`))[0]).toEqual(
+      { n: 0 },
+    );
+    placesDown = false;
+    // No key: skipped, and James hears.
+    delete process.env.GOOGLE_PLACES_KEY;
+    expect(
+      await store.ensureMashup(WED_1800, {
+        placesFetch: places,
+        placesBackoffMs: 1,
+      }),
+    ).toMatch(/GOOGLE_PLACES_KEY/);
+    expect(alerts.map((a) => a.key)).toContain("social:skip:mashup:2026-12-02");
+    const [row] = await q(
+      `select status from social_posts where kind = 'mashup'`,
+    );
+    expect(row).toEqual({ status: "skipped" });
+  });
+
+  it("park pairings: fewer than 3 pairs in every theme skips the week", async () => {
+    process.env.GOOGLE_PLACES_KEY = "test-places-key";
+    // No parks on the map: nothing to pair with.
+    const got = await store.ensureMashup(WED_1800, {
+      placesFetch: places,
+      placesBackoffMs: 1,
+    });
+    expect(got).toMatch(/No theme had 3 good pairs/);
+    expect(alerts.map((a) => a.key)).toContain("social:skip:mashup:2026-12-02");
+  });
 });

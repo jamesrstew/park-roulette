@@ -12,7 +12,8 @@ import type { Tag } from "./handles";
  *
  *   Mon 12:15 pm  park_post    the park post (one 4:5 image, the photo or the crayon card)
  *   Tue  7:30 am  events_week  family events this week (code only, from kid_events)
- *   Wed  7:45 pm  unpack       the Unpack carousel (@nowbam pattern)
+ *   Wed  7:45 pm  unpack       the Unpack carousel (@nowbam pattern), every other week
+ *   Wed  7:45 pm  mashup       park pairings (code only, lib/social/mashup.ts), the other weeks
  *   Thu  7:15 am  teaser       the issue teaser (code only, from the sent issue)
  *   Fri  4:30 pm  story        the Weekend Pick Story (code only)
  *   Sat  7:45 am  at_home      things to do at home (the Sunday routine, 6 days ahead)
@@ -27,8 +28,34 @@ export const POST_KINDS = [
   "story",
   "events_week",
   "at_home",
+  "mashup",
 ] as const;
 export type PostKind = (typeof POST_KINDS)[number];
+
+/** The park pairings' themes (lib/social/mashup.ts), in James's first order. */
+export const MASHUP_THEMES = [
+  "coffee",
+  "food_trucks",
+  "breweries",
+  "treats",
+] as const;
+export type MashupTheme = (typeof MASHUP_THEMES)[number];
+
+/** The icon a theme's slides use (components/icons). */
+export const THEME_ICON: Record<MashupTheme, string> = {
+  coffee: "cup",
+  food_trucks: "food_truck",
+  breweries: "pizza",
+  treats: "cupcake",
+};
+
+/** The tile and page label for a theme's carousel. */
+export const THEME_LABEL: Record<MashupTheme, string> = {
+  coffee: "Coffee + park",
+  food_trucks: "Food trucks + park",
+  breweries: "Brewery + park",
+  treats: "Treats + park",
+};
 
 /** Feed posts are 4:5; Stories 9:16. Words stay inside the center 1012 px. */
 export const FEED = { width: 1080, height: 1350 } as const;
@@ -46,6 +73,8 @@ export const SLOTS: Record<
   story: { weekday: 5, hh: 16, mm: 30 },
   events_week: { weekday: 2, hh: 7, mm: 30 },
   at_home: { weekday: 6, hh: 7, mm: 45 },
+  // Unpack's slot: the two alternate week by week (mashup.ts mashupParity).
+  mashup: { weekday: 3, hh: 19, mm: 45 },
 };
 /** The school-break carousel: Sunday 7:45 pm, the day before week_of. */
 export const HOLIDAY_UNPACK = { weekday: 0, hh: 19, mm: 45 } as const;
@@ -72,6 +101,11 @@ export const EVENTS_MIN = 4;
 export const EVENTS_MAX = 8;
 /** The roundup is made from kid_events this long before its slot (fresh data). */
 export const EVENTS_MAKE_LEAD_MIN = 60;
+/**
+ * The park pairings are made from this long before their slot: Wednesday
+ * 6 pm Pacific, the first run of the evening window (Places at draft time).
+ */
+export const MASHUP_MAKE_LEAD_MIN = 105;
 /** Trigram overlap is checked against this many recent posts. */
 export const OVERLAP_POSTS = 8;
 /** Share of a post's word trigrams found in one recent post: too close. */
@@ -118,7 +152,12 @@ export const COPY = {
     unpack: "Our free Thursday email has the weekend forecast and one plan.",
     at_home:
       "When you're ready to get out, our free Thursday email has a plan.",
+    mashup:
+      "For the weekend, our free Thursday email has the forecast and one plan.",
   },
+  /** The park pairings' caption line: we print no hours, so they check. */
+  mashupHours: "Hours change with the seasons, so check before you go.",
+  mashupKicker: "Park pairings",
   /** The teaser's closing line (it goes out the morning the email does). */
   teaserClose: "The whole plan is in today's email. It's free.",
   /**
@@ -159,15 +198,16 @@ export const COPY = {
 
 /**
  * The call to action under a feed post. "Comment PARK" goes only on the
- * Wednesday Unpack carousel, and only with keyword DMs on (James, Nov 23);
- * every other post says "Link in bio." `slide`: the slide's shorter words.
+ * Wednesday carousel (the Unpack, or the park pairings in its place), and
+ * only with keyword DMs on (James, Nov 23); every other post says "Link in
+ * bio." `slide`: the slide's shorter words.
  */
 export function ctaLine(
   dms: boolean,
   kind: PostKind,
   { slide = false }: { slide?: boolean } = {},
 ): string {
-  if (!dms || kind !== "unpack") return COPY.bio;
+  if (!dms || (kind !== "unpack" && kind !== "mashup")) return COPY.bio;
   return slide ? COPY.commentSlide : COPY.comment;
 }
 
@@ -489,6 +529,8 @@ export type SlideSpec =
       swipe: boolean;
       /** The top-right icon (default: the wheel). */
       icon?: string;
+      /** Park pairings: the icon, "+", and the playground. */
+      pairIcon?: boolean;
       /** Small words under the headline (the roundup's towns), never split. */
       sub?: string[];
     }
@@ -562,6 +604,37 @@ export type SlideSpec =
       host: string | null;
       /** "Also Thu, Sat" when it repeats in the window. */
       also: string | null;
+    }
+  | {
+      /**
+       * One park pairing (mashup.ts): a place and a vetted park, how far
+       * apart, the place's details Google marks true, and the park's own
+       * trait. Our words only; no rating, hours or Google text.
+       */
+      t: "pair";
+      n: number;
+      of: number;
+      /** The theme's icon (cup, food_truck, picnic, cupcake). */
+      icon: string;
+      place: string;
+      park: string;
+      town: string;
+      /** "6-minute walk" or "Short drive". */
+      apart: string;
+      walk: boolean;
+      /** "Kids' menu", "Patio", "Good for kids" (from Places, at draft time). */
+      chips: string[];
+      /** The park's lead in-season trait, as park-profiles has it. */
+      trait: string;
+      /** For the post page's links: Google's place id and our park. */
+      placeId: string;
+      parkSlug: string;
+      /** The place's verified site (data/ig-handles.json), or null. */
+      site?: string | null;
+      /** Name type for every pair slide of the post (fit.ts), px. */
+      nameSize?: number;
+      /** The trait line's type for every pair slide of the post, px. */
+      body?: number;
     }
   | {
       t: "cta";
@@ -640,6 +713,15 @@ export type PostFacts = {
   ideas?: string[];
   /** The same ideas' whole text (title, need, steps), in the same order. */
   ideaTexts?: string[];
+  /**
+   * Park pairings: the theme, its rotation cycle and each pair (Google's
+   * place id, which may be kept, and our park), for the no-repeat rule.
+   */
+  mashup?: {
+    theme: string;
+    cycle: number;
+    pairs: { placeId: string; park: string }[];
+  };
 };
 
 export type PostSpec = {

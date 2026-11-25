@@ -28,6 +28,17 @@ import { listableParks, postCandidates } from "./candidates";
 import { composeStory, composeTeaser, type ParkInfo } from "./compose";
 import { type EchoFrame, runEchoes } from "./echo";
 import {
+  holidayBreak,
+  type MashupHistory,
+  type MashupTheme,
+  MASHUP_THEMES,
+  mashupParity,
+  postableParks,
+  THEME_LABEL,
+} from "./mashup";
+import { makeMashup } from "./mashup-make";
+import { placesKey, themePlaces } from "./places";
+import {
   fitRoundup,
   pickWeekEvents,
   roundupWindow,
@@ -70,6 +81,7 @@ import {
   HASHTAGS,
   IDEA_COOLDOWN_WEEKS,
   IDEA_ICONS,
+  MASHUP_MAKE_LEAD_MIN,
   ideaLimitsText,
   ITEM_ICONS,
   LATE_LIMIT_MIN,
@@ -409,18 +421,34 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
       photo: photo ? { src: photo.src, check: photoState(photo.src) } : null,
     };
   };
+  // Every other week the Wednesday carousel is code's park pairings; the
+  // holiday Unpack (Sunday) may still take a school-break week.
+  const mashupWeek = mashupParity(weekOf);
+  const sundayOk = mashupWeek
+    ? !!holidayBreak(CATALOG, weekOf)
+    : breaks.length > 0;
   return {
     week_of: weekOf,
     slots: {
       park_post: { day: mon.date, publish_at: mon.publishAt.toISOString() },
-      unpack: { day: wed.date, publish_at: wed.publishAt.toISOString() },
+      ...(mashupWeek
+        ? {
+            mashup: {
+              day: wed.date,
+              publish_at: wed.publishAt.toISOString(),
+              note: "Park pairings week: code makes Wednesday's carousel from Google Places and our parks. Write no Unpack this week, unless unpack_sunday is offered and the school break makes it the better post (then there's no park pairings post this week).",
+            },
+          }
+        : {
+            unpack: { day: wed.date, publish_at: wed.publishAt.toISOString() },
+          }),
       at_home: { day: sat.date, publish_at: sat.publishAt.toISOString() },
       events_week: {
         day: tue.date,
         publish_at: tue.publishAt.toISOString(),
         note: "Made by code from the events listing that morning. Nothing to write.",
       },
-      ...(breaks.length
+      ...(sundayOk
         ? {
             unpack_sunday: {
               day: sun.date,
@@ -972,6 +1000,170 @@ export async function ensureEventsWeek(
   return id == null ? "slot already going out" : rebuild ? "remade" : "made";
 }
 
+/** The park pairings already made (live), for the rotation and the cycles. */
+async function mashupHistory(exceptSlot: string): Promise<MashupHistory[]> {
+  const rows = await db
+    .select({ slotDate: socialPosts.slotDate, spec: socialPosts.spec })
+    .from(socialPosts)
+    .where(
+      and(eq(socialPosts.kind, "mashup"), inArray(socialPosts.status, LIVE)),
+    );
+  return rows.flatMap((r) => {
+    const m = (r.spec as PostSpec).facts?.mashup;
+    if (r.slotDate === exceptSlot || !m) return [];
+    if (!(MASHUP_THEMES as readonly string[]).includes(m.theme)) return [];
+    return [
+      {
+        slotDate: r.slotDate,
+        theme: m.theme as MashupTheme,
+        cycle: m.cycle,
+        placeIds: m.pairs.map((p) => p.placeId),
+      },
+    ];
+  });
+}
+
+/** Parks with their points (the pairings measure from them). */
+async function parkPoints() {
+  return db
+    .select({
+      slug: parks.slug,
+      name: parks.name,
+      city: parks.city,
+      lat: parks.lat,
+      lng: parks.lng,
+      status: parks.status,
+      play: parks.play,
+      approvedAt: parks.approvedAt,
+    })
+    .from(parks);
+}
+
+/**
+ * Wednesday's park pairings, made by code on a mashup week (the weeks
+ * alternate with the Unpack: lib/social/mashup.ts mashupParity), from 105
+ * minutes before its slot (6 pm Pacific), with Places fetched then. A
+ * holiday Unpack handed in for the week wins: then there's no pairings
+ * post. Fewer than 3 pairs in every theme, or no key: skipped, and James
+ * hears. A Places error throws: the next run tries again until it's late.
+ */
+export async function ensureMashup(
+  now: Date,
+  {
+    placesFetch,
+    placesBackoffMs,
+  }: { placesFetch?: typeof fetch; placesBackoffMs?: number } = {},
+): Promise<string> {
+  const weekOf = mondayOf(pacific(now).date);
+  const { date, publishAt } = slotFor("mashup", weekOf);
+  if (pacific(now).date !== date) return "not its day";
+  if (!mashupParity(weekOf)) return "an Unpack week";
+  if (await slotTaken("mashup", date)) return "already made";
+  // The week's Unpack, if the routine handed one in (the holiday Unpack,
+  // the Sunday before; or one stored before the alternation began).
+  const [unpack] = await db
+    .select({ id: socialPosts.id })
+    .from(socialPosts)
+    .where(
+      and(
+        eq(socialPosts.kind, "unpack"),
+        inArray(socialPosts.status, LIVE),
+        gte(socialPosts.slotDate, addDays(weekOf, -1)),
+        lt(socialPosts.slotDate, addDays(weekOf, 7)),
+      ),
+    );
+  if (unpack) return "the week's Unpack has the slot";
+  if (now.getTime() < publishAt.getTime() - MASHUP_MAKE_LEAD_MIN * 60_000)
+    return "not yet";
+  const skip = async (reason: string) => {
+    await upsertPost({
+      kind: "mashup",
+      slotDate: date,
+      publishAt,
+      origin: "code",
+      body: { pairs: [] },
+      spec: emptySpec("mashup"),
+      media: [],
+      report: null,
+      status: "skipped",
+      reason,
+    });
+    alertLater({
+      key: `social:skip:mashup:${date}`,
+      subject: "Instagram park pairings skipped",
+      text: `The park pairings carousel for ${date} was skipped: ${reason}`,
+      everyMinutes: 24 * 60,
+    });
+    return reason;
+  };
+  if (now.getTime() > publishAt.getTime() + LATE_LIMIT_MIN * 60_000)
+    return skip("Over 2 hours late.");
+  let key: string;
+  try {
+    key = placesKey();
+  } catch {
+    return skip("GOOGLE_PLACES_KEY isn't set, so no places could be checked.");
+  }
+  const month = Number(date.slice(5, 7));
+  const [points, profiles, history, recent, cooling] = await Promise.all([
+    parkPoints(),
+    currentProfiles(now),
+    mashupHistory(date),
+    recentPosts(),
+    coolingParks(date, { kind: "mashup", slotDate: date }),
+  ]);
+  const vetted = postableParks(
+    points.map(({ approvedAt, ...p }) => ({
+      ...p,
+      approved: approvedAt != null,
+    })),
+    profiles,
+    CATALOG,
+    month,
+    cooling,
+  );
+  const made = await makeMashup({
+    month,
+    slotDate: date,
+    parks: vetted,
+    history,
+    recent: recent.map((r) => ({
+      kind: r.kind as PostKind,
+      slotDate: r.slotDate,
+      modelText: (r.spec as PostSpec).modelText,
+    })),
+    dms: dmsOn(),
+    places: (theme) =>
+      themePlaces(theme, vetted, month, {
+        key,
+        fetchImpl: placesFetch,
+        backoffMs: placesBackoffMs,
+      }),
+  });
+  if (!made.ok)
+    return skip(
+      `No theme had 3 good pairs: ${made.tried.map((t) => `${THEME_LABEL[t.theme]}: ${t.why}`).join("; ")}`,
+    );
+  const R = await render();
+  const media = await R.storeMedia(await R.renderPost(made.spec, []));
+  const id = await upsertPost({
+    kind: "mashup",
+    slotDate: date,
+    publishAt,
+    origin: "code",
+    // Place ids and our parks only: nothing else of Google's is kept.
+    body: made.spec.facts.mashup ?? { pairs: [] },
+    spec: made.spec,
+    media,
+    report: {
+      errors: [],
+      warnings: [],
+      cut: made.tried.map((t) => `${THEME_LABEL[t.theme]}: ${t.why}`),
+    },
+  });
+  return id == null ? "slot already going out" : `made (${made.theme})`;
+}
+
 function emptySpec(kind: PostKind): PostSpec {
   return {
     kind,
@@ -1102,7 +1294,15 @@ async function factsHold(post: PostRow, now: Date): Promise<string | null> {
  */
 export async function runSocial(
   now = new Date(),
-  { fetchImpl }: { fetchImpl?: typeof fetch } = {},
+  {
+    fetchImpl,
+    placesFetch,
+    placesBackoffMs,
+  }: {
+    fetchImpl?: typeof fetch;
+    placesFetch?: typeof fetch;
+    placesBackoffMs?: number;
+  } = {},
 ): Promise<RunResult> {
   const settings = await getSocialSettings();
   if (envKilled() || !settings.enabled)
@@ -1128,6 +1328,20 @@ export async function runSocial(
           key: `social:make:events_week:${pacific(now).date}`,
           subject: "Instagram events roundup: making it failed",
           text: `Making the family events roundup threw an error (${(e as Error).message}). The next run tries again until the slot is 2 hours late.`,
+          everyMinutes: 6 * 60,
+        });
+      }
+    if (wd === 3)
+      try {
+        notes.push(
+          `mashup: ${await ensureMashup(now, { placesFetch, placesBackoffMs })}`,
+        );
+      } catch (e) {
+        notes.push(`mashup: failed (${(e as Error).message})`);
+        alertLater({
+          key: `social:make:mashup:${pacific(now).date}`,
+          subject: "Instagram park pairings: making it failed",
+          text: `Making the park pairings carousel threw an error (${(e as Error).message}). The next run tries again until the slot is 2 hours late.`,
           everyMinutes: 6 * 60,
         });
       }

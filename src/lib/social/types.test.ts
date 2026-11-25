@@ -111,8 +111,8 @@ describe("post kinds and slots", () => {
     expect(sat.publishAt.toISOString()).toBe("2026-11-28T15:45:00.000Z");
   });
 
-  it("the migration and the schema allow both new kinds", () => {
-    const sql = readFileSync("drizzle/0022_social_kinds.sql", "utf8");
+  it("the latest kinds migration and the schema allow every kind", () => {
+    const sql = readFileSync("drizzle/0028_social_mashup.sql", "utf8");
     for (const k of POST_KINDS) expect(sql).toContain(`'${k}'`);
   });
 

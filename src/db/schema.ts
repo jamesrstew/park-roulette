@@ -998,7 +998,7 @@ export const socialPosts = pgTable(
   "social_posts",
   {
     id: serial("id").primaryKey(),
-    /** park_post | unpack | teaser | story | events_week | at_home */
+    /** park_post | unpack | teaser | story | events_week | at_home | mashup */
     kind: text("kind").notNull(),
     /** The Pacific day it goes out. */
     slotDate: date("slot_date").notNull(),
@@ -1059,7 +1059,7 @@ export const socialPosts = pgTable(
     index("social_posts_due").on(t.status, t.publishAt),
     check(
       "social_posts_kind",
-      sql`${t.kind} in ('park_post', 'unpack', 'teaser', 'story', 'events_week', 'at_home')`,
+      sql`${t.kind} in ('park_post', 'unpack', 'teaser', 'story', 'events_week', 'at_home', 'mashup')`,
     ),
     check(
       "social_posts_status",

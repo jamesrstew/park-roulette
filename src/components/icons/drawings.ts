@@ -929,6 +929,61 @@ export const DRAWINGS = {
     solid("blue", circle(7.4, 15.2, 1.1)),
     solid("green", circle(16.6, 15.2, 1.1)),
   ],
+  // A mug with steam (park pairings: coffee and cafes).
+  cup: [
+    line("M8.2 2.6 C7 4 9.4 5 8.2 6.6 M12 2.2 C10.8 3.6 13.2 4.6 12 6.2", {
+      w: 1.4,
+      color: "brown",
+    }),
+    ...shape(
+      "orange",
+      "M4.2 8.4 L17 8.4 L16 18.4 C15.8 20.2 14.6 21 13 21 L8.2 21 C6.6 21 5.4 20.2 5.2 18.4 Z",
+    ),
+    ink("M16.8 10.6 C21.4 10.2 21.4 16.2 16.2 16.4", { w: 2 }),
+    solid("paper", "M6.8 10.6 L14.4 10.6 L14.2 12 L7 12 Z", { opacity: 0.7 }),
+  ],
+  // A food truck with a serving window and an awning.
+  food_truck: [
+    ...shape("teal", "M2 6.4 L16.4 6.4 L16.4 18 L2 18 Z"),
+    ...shape("yellow", "M16.4 9.6 L19.6 9.6 L22 13.4 L22 18 L16.4 18 Z"),
+    ...shape("paper", rect(4.2, 8.6, 9.8, 4.4, 0.6), { w: 1.4 }),
+    ...shape("red", "M3.4 8.2 L14.8 8.2 L14 10 L4.2 10 Z", { w: 1.2 }),
+    solid("paper", "M17.4 10.8 L19.2 10.8 L20.6 13 L17.4 13 Z", {
+      opacity: 0.85,
+    }),
+    ...shape("ink", circle(6.2, 18.6, 2.1), { w: 1.4 }),
+    ...shape("ink", circle(18, 18.6, 2.1), { w: 1.4 }),
+    solid("paper", circle(6.2, 18.6, 0.8)),
+    solid("paper", circle(18, 18.6, 0.8)),
+  ],
+  // A slice of pizza (park pairings: lunch at a family brewery).
+  pizza: [
+    ...shape("yellow", "M3.4 5.4 C9 2.6 15 2.6 20.6 5.4 L12 21.4 Z"),
+    ...shape(
+      "orange",
+      "M3.4 5.4 C9 2.6 15 2.6 20.6 5.4 L19.6 7.4 C14.4 5 9.6 5 4.4 7.4 Z",
+      { w: 1.6 },
+    ),
+    solid("red", circle(10, 10, 1.5)),
+    solid("red", circle(14.4, 9.6, 1.4)),
+    solid("red", circle(12.2, 14.4, 1.3)),
+    solid("green", rect(9.8, 12.6, 1.4, 0.8, 0.3)),
+  ],
+  // A cupcake with sprinkles (park pairings: bakeries and treats).
+  cupcake: [
+    ...shape(
+      "pink",
+      "M4.6 11.4 C3.4 8.6 5.6 6.8 8 7.2 C8.6 4.4 12 3.2 14.2 5 C16.4 4.8 19.6 6.6 19.2 9.6 C20.8 10.6 20 12.6 19.2 12.8 L4.8 12.8 C4 12.6 3.8 11.8 4.6 11.4 Z",
+    ),
+    ...shape("blue", "M5.2 12.8 L18.8 12.8 L17.2 21.2 L6.8 21.2 Z"),
+    line("M9 13.2 L9.6 20.8 M12 13.2 L12 20.8 M15 13.2 L14.4 20.8", {
+      w: 1.1,
+    }),
+    solid("red", circle(12, 3.6, 1.4)),
+    solid("yellow", rect(8.4, 9, 1.6, 0.8, 0.3)),
+    solid("green", rect(13.6, 8.2, 1.6, 0.8, 0.3)),
+    solid("purple", rect(11, 10.6, 1.6, 0.8, 0.3)),
+  ],
   arrow_left: [
     ink("M20.6 12 L4 12"),
     ink("M10.6 5.4 L3.8 12 L10.6 18.6", { w: 2.4 }),

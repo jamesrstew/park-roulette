@@ -4,6 +4,7 @@ import {
   eventFit,
   ideaFit,
   itemFit,
+  pairFit,
 } from "@/components/social/fit";
 import { ideaText } from "./at-home";
 import {
@@ -14,6 +15,18 @@ import {
   withoutMentions,
 } from "./handles";
 import { eventsWeekPath, fbLink, PENDING_POST_LINK } from "./links";
+import {
+  apartChip,
+  chipSentence,
+  cleanName,
+  type MashupCopy,
+  type MashupTheme,
+  type Pairing,
+  placeChips,
+  placeNoun,
+  THEME_ICON,
+  traitClause,
+} from "./mashup";
 import {
   type AtHomeDraft,
   COPY,
@@ -718,6 +731,156 @@ export function composeEventsWeek(
   };
 }
 
+// --- G. Park pairings (Wednesday, every other week, code only) --------------
+
+/**
+ * The park pairings carousel (mashup.ts): a cover with the theme's
+ * headline and the towns, one slide per pair, and the usual close. Every
+ * word is code's: the names, the distance, the chips Google marks true,
+ * the park's own trait, and the theme's copy variant. `sites`: each
+ * place's verified site (data/ig-handles.json) by place id, for the post
+ * page's link. `tags`: the verified accounts, in pair order.
+ */
+export function composeMashup(
+  theme: MashupTheme,
+  pairs: readonly Pairing[],
+  copy: MashupCopy,
+  o: {
+    month: number;
+    cycle: number;
+    dms: boolean;
+    tags?: readonly Tag[];
+    sites?: ReadonlyMap<string, string>;
+  },
+): PostSpec {
+  const tags = o.tags ?? [];
+  const cta = ctaLine(o.dms, "mashup");
+  const icon = THEME_ICON[theme];
+  const rows = pairs.map((p) => ({
+    place: noAt(cleanName(p.place.name)),
+    park: noAt(p.park.name),
+    town: noAt(p.park.city),
+    placeTown: noAt(p.place.town ?? p.park.city),
+    apart: apartChip(p.apart),
+    walk: p.apart.walk,
+    chips: placeChips(p.place, o.month),
+    noun: placeNoun(theme, p.place),
+    trait: noAt(p.park.trait),
+    placeId: p.place.placeId,
+    parkSlug: p.park.slug,
+    site: o.sites?.get(p.place.placeId) ?? null,
+  }));
+  // One name size and one trait size for every pair slide: the largest
+  // that fits them all, so the set reads as one.
+  const fits = rows.map((r) =>
+    pairFit({
+      place: r.place,
+      park: r.park,
+      chips: [r.apart, ...r.chips],
+      trait: r.trait,
+    }),
+  );
+  const body = commonBody(fits);
+  const nameSize =
+    body === undefined
+      ? undefined
+      : Math.min(
+          ...rows.map(
+            (r) =>
+              pairFit(
+                {
+                  place: r.place,
+                  park: r.park,
+                  chips: [r.apart, ...r.chips],
+                  trait: r.trait,
+                },
+                { bodies: [body] },
+              ).name,
+          ),
+        );
+  const towns = [...new Set(rows.map((r) => r.placeTown))].sort(
+    (a, b) => Number(b === "Bend") - Number(a === "Bend"),
+  );
+  const slides: SlideSpec[] = [
+    {
+      t: "headline",
+      words: copy.headline,
+      highlight: copy.highlight,
+      kicker: COPY.mashupKicker,
+      swipe: true,
+      icon,
+      pairIcon: true,
+      sub: towns,
+    },
+    ...rows.map((r, i): SlideSpec => ({
+      t: "pair",
+      n: i + 1,
+      of: rows.length,
+      icon,
+      place: r.place,
+      park: r.park,
+      town: r.placeTown,
+      apart: r.apart,
+      walk: r.walk,
+      chips: r.chips,
+      trait: r.trait,
+      placeId: r.placeId,
+      parkSlug: r.parkSlug,
+      site: r.site,
+      nameSize,
+      body,
+    })),
+    {
+      t: "cta",
+      line: COPY.thursday,
+      cta: ctaLine(o.dms, "mashup", { slide: true }),
+      sub: COPY.free,
+    },
+  ];
+  const caption = [
+    copy.headline,
+    "",
+    copy.intro,
+    "",
+    ...rows.flatMap((r, i) => [
+      `${i + 1}. ${r.place} + ${r.park}, ${r.placeTown} (${r.apart.toLowerCase()})`,
+      ...(r.chips.length ? [chipSentence(r.noun, r.chips)] : []),
+      `At the park: ${traitClause(r.trait)}.`,
+      "",
+    ]),
+    COPY.mashupHours,
+    ...mentionLines("mashup", tags),
+    COPY.captionClose.mashup,
+    cta,
+    "",
+    hashtagLine(HASHTAGS),
+  ].join("\n");
+  return {
+    kind: "mashup",
+    size: "feed",
+    slides,
+    alts: slides.map(slideAlt),
+    caption,
+    fbCaption: forFacebook(caption, cta, null),
+    headline: copy.headline,
+    // Code's words, for the overlap check (a theme's copy repeats less
+    // than a list of names would suggest).
+    modelText: [copy.headline, copy.intro].join("\n"),
+    facts: {
+      parks: rows.map((r) => r.parkSlug),
+      events: [],
+      venues: [],
+      issue: null,
+      mashup: {
+        theme,
+        cycle: o.cycle,
+        pairs: rows.map((r) => ({ placeId: r.placeId, park: r.parkSlug })),
+      },
+    },
+    ...tagsField("mashup", tags),
+  };
+}
+
 // --- C. Issue teaser (Thursday) and D. Weekend Pick Story (Friday) --------
 
 /** One word or two for the weekend, from the issue's own forecast icon. */
@@ -897,6 +1060,8 @@ export function slideAlt(s: SlideSpec): string {
       return `${s.n} of ${s.of}: ${s.title}. ${s.ages}. You need: ${s.need}. ${s.steps.map((x, i) => `${i + 1}. ${x}`).join(" ")}${s.payoff ? ` ${COPY.payoffLabel}: ${s.payoff}` : ""}${s.safety ? ` ${s.safety}` : ""}`;
     case "event":
       return `${s.n} of ${s.of}: ${s.title}.${s.desc ? ` ${s.desc}.` : ""} ${s.weekday}, ${s.date}, ${s.time}. At ${s.venue}, ${s.town}. ${s.ages.join(", ")}.${s.cost ? ` ${s.cost}.` : ""}${s.host ? ` Hosted by ${s.host}.` : ""}${s.also ? ` ${s.also}.` : ""}`;
+    case "pair":
+      return `${s.n} of ${s.of}: ${s.place} plus ${s.park}, ${s.town}. ${s.walk ? `A ${s.apart.toLowerCase()}` : "A short drive"} apart.${s.chips.length ? ` ${s.chips.join(", ")}.` : ""} At the park: ${strip(s.trait)}.`;
     case "cta":
       return [s.url ? `${s.line} ${s.url}.` : s.line, s.sub, s.fine, s.cta]
         .filter(Boolean)

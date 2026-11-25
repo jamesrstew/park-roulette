@@ -8,8 +8,10 @@
  *
  * Candidates: the organizer domains of the events in production (the
  * harvest's read-only GET /api/events/known?days=60), the park operators
- * (the official sites in data/parks.json), and the catalog's venues and
- * series (data/news-catalog.json). For each domain it fetches the
+ * (the official sites in data/parks.json), the catalog's venues and
+ * series (data/news-catalog.json), and with --mashups (and
+ * GOOGLE_PLACES_KEY) the sites of the park pairings' places that pass the
+ * pairing rules today (lib/social/mashup.ts). For each domain it fetches the
  * organizer's own page, its homepage and a contact or about page, plainly
  * and with our honest User-Agent (a bot wall means no handle, never a way
  * around it), reads the instagram.com links, and asks Business Discovery
@@ -21,6 +23,15 @@
  * handle); --dry prints the table without writing.
  */
 import { readFileSync, writeFileSync } from "node:fs";
+import { CATALOG } from "../src/lib/news/catalog";
+import { PROFILES } from "../src/lib/park-profiles";
+import {
+  cleanName,
+  MASHUP_THEMES,
+  pairPlaces,
+  postableParks,
+} from "../src/lib/social/mashup";
+import { placesKey, themePlaces } from "../src/lib/social/places";
 import { botWall } from "../src/lib/news/fetcher";
 import { UA } from "../src/lib/news/ua";
 import {
@@ -132,6 +143,40 @@ const catalog = JSON.parse(readFileSync("data/news-catalog.json", "utf8")) as {
   event_series: { name: string; url?: string }[];
 };
 for (const v of catalog.venues) if (v.url) add(v.url, v.name, "catalog venue");
+
+// 4. Park pairings' places (--mashups, with GOOGLE_PLACES_KEY): the sites
+// of the cafes, lots, breweries and bakeries that pass the pairing rules
+// today. Their handles still need the same two-way proof as any other.
+if (process.argv.includes("--mashups")) {
+  const key = placesKey();
+  const allParks = (
+    JSON.parse(readFileSync("data/parks.json", "utf8")) as {
+      slug: string;
+      name: string;
+      city: string;
+      lat: number;
+      lng: number;
+      play: string;
+    }[]
+  ).map((p) => ({ ...p, approved: true, status: "active" }));
+  const month = Number(new Date().toISOString().slice(5, 7));
+  const vetted = postableParks(allParks, PROFILES, CATALOG, month);
+  for (const theme of MASHUP_THEMES) {
+    const found = pairPlaces(
+      await themePlaces(theme, vetted, month, { key }),
+      vetted,
+      theme,
+      month,
+    );
+    for (const p of found.pairs)
+      if (p.place.domain)
+        add(
+          `https://${p.place.domain}/`,
+          cleanName(p.place.name),
+          "park pairings place",
+        );
+  }
+}
 
 // --- Fetching, plainly ---------------------------------------------------------
 

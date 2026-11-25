@@ -28,7 +28,10 @@ import {
   itemHostSize,
   itemPlaceSize,
   oneLine,
+  PAIR,
+  pairFit,
   STORY_CONTENT,
+  STORY_PAIR,
   STORY_TYPE,
   textWidth,
   TOP_ROW,
@@ -581,7 +584,24 @@ function HeadlineSlide({
         <div style={{ display: "flex", fontSize: 50, color: SOFT }}>
           {s.kicker}
         </div>
-        <AnyIcon name={s.icon ?? "spin"} size={170} />
+        {s.pairIcon && s.icon ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <AnyIcon name={s.icon} size={160} />
+            <div
+              style={{
+                display: "flex",
+                fontSize: 100,
+                color: CRAYONS.red,
+                marginTop: -10,
+              }}
+            >
+              +
+            </div>
+            <SlideIcon name="playground" size={160} />
+          </div>
+        ) : (
+          <AnyIcon name={s.icon ?? "spin"} size={170} />
+        )}
       </div>
       <div style={{ display: "flex", marginTop: 6 }}>
         <Scribble width={300} color={color} />
@@ -771,6 +791,174 @@ function ItemSlide({
         {story ? chips : null}
       </div>
       {story ? null : chips}
+    </Frame>
+  );
+}
+
+/**
+ * One park pairing: the place, "+" the park, in big type; how far apart
+ * and the place's details as chips; then the park's own trait under a
+ * small label. The theme's icon and the playground meet in the top row.
+ */
+function PairSlide({
+  s,
+  page,
+  story,
+}: Where & {
+  s: Extract<SlideSpec, { t: "pair" }>;
+}) {
+  const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
+  const copy = {
+    place: s.place,
+    park: s.park,
+    chips: [s.apart, ...s.chips],
+    trait: s.trait,
+  };
+  // The carousel's own sizes (storySizes sets a Story frame's); a slide
+  // stored without them fits itself.
+  const fit =
+    s.nameSize && s.body
+      ? { name: s.nameSize, body: s.body }
+      : pairFit(copy, story ? { height: STORY_CONTENT.height } : {});
+  return (
+    <Frame page={page} color={color} story={story}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          height: PAIR.header - 30,
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 26 }}>
+          <NumberBlob n={s.n} color={color} size={120} />
+          <div style={{ display: "flex", fontSize: 54, color: SOFT }}>
+            {s.town}
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <AnyIcon name={s.icon} size={150} />
+          <div
+            style={{
+              display: "flex",
+              fontSize: 96,
+              color: CRAYONS.red,
+              marginTop: -10,
+            }}
+          >
+            +
+          </div>
+          <SlideIcon name="playground" size={150} />
+        </div>
+      </div>
+      {/* Top-aligned under the header, so every slide's names and chips
+          sit at the same height and any spare room falls above the footer. */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          justifyContent: "flex-start",
+          marginTop: 40,
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            flexShrink: 0,
+            width: CONTENT.width,
+            fontSize: fit.name,
+            lineHeight: 1.04,
+            textWrap: "balance",
+          }}
+        >
+          {keepAmp(s.place)}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexShrink: 0,
+            width: CONTENT.width,
+            fontSize: fit.name,
+            lineHeight: 1.04,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexShrink: 0,
+              color: CRAYONS.red,
+              width: fit.name * PAIR.plus,
+            }}
+          >
+            +
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexShrink: 1,
+              width: CONTENT.width - fit.name * PAIR.plus,
+              textWrap: "balance",
+            }}
+          >
+            {keepAmp(s.park)}
+          </div>
+        </div>
+        <div style={{ display: "flex", flexShrink: 0, marginTop: 4 }}>
+          <Scribble width={360} color={color} />
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            flexShrink: 0,
+            gap: 16,
+            marginTop: PAIR.chipsGap,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
+              fontSize: PAIR.chip,
+              padding: "6px 22px 10px 14px",
+              border: `5px solid ${INK}`,
+              borderRadius: "26px 18px 28px 16px",
+              background: tint(color, 0.3),
+            }}
+          >
+            <SlideIcon name={s.walk ? "trail" : "car"} size={52} />
+            <span>{s.apart}</span>
+          </div>
+          {s.chips.map((c) => (
+            <Chip key={c} text={c} fill={CARD} />
+          ))}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexShrink: 0,
+            fontSize: PAIR.label,
+            color: SOFT,
+            marginTop: PAIR.traitGap,
+          }}
+        >
+          At the park
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexShrink: 0,
+            fontSize: fit.body,
+            lineHeight: 1.2,
+            marginTop: 6,
+            textWrap: "balance",
+          }}
+        >
+          {keepAmp(s.trait)}
+        </div>
+      </div>
     </Frame>
   );
 }
@@ -1867,12 +2055,43 @@ export function storySizes(slides: SlideSpec[]): SlideSpec[] {
               ).title,
           ),
         );
+  const pairs = slides.flatMap((s) => (s.t === "pair" ? [s] : []));
+  const pairCopy = (s: Extract<SlideSpec, { t: "pair" }>) => ({
+    place: s.place,
+    park: s.park,
+    chips: [s.apart, ...s.chips],
+    trait: s.trait,
+  });
+  const pairBody = commonBody(
+    pairs.map((s) =>
+      pairFit(pairCopy(s), {
+        names: [...STORY_PAIR.name, ...atLeast(PAIR.name, s.nameSize)],
+        bodies: [...STORY_PAIR.body, ...atLeast(PAIR.body, s.body)],
+        height: STORY_CONTENT.height,
+      }),
+    ),
+  );
+  const pairName =
+    pairBody === undefined
+      ? undefined
+      : Math.min(
+          ...pairs.map(
+            (s) =>
+              pairFit(pairCopy(s), {
+                names: [...STORY_PAIR.name, ...atLeast(PAIR.name, s.nameSize)],
+                bodies: [pairBody],
+                height: STORY_CONTENT.height,
+              }).name,
+          ),
+        );
   return slides.map((s) =>
-    s.t === "idea" && ideaBody !== undefined
-      ? { ...s, body: ideaBody }
-      : s.t === "event" && eventBody !== undefined
-        ? { ...s, body: eventBody, titleSize: eventTitle }
-        : s,
+    s.t === "pair" && pairBody !== undefined
+      ? { ...s, body: pairBody, nameSize: pairName }
+      : s.t === "idea" && ideaBody !== undefined
+        ? { ...s, body: ideaBody }
+        : s.t === "event" && eventBody !== undefined
+          ? { ...s, body: eventBody, titleSize: eventTitle }
+          : s,
   );
 }
 
@@ -1902,6 +2121,8 @@ export function Slide({
       return <HeadlineSlide s={s} {...w} />;
     case "item":
       return <ItemSlide s={s} {...w} />;
+    case "pair":
+      return <PairSlide s={s} {...w} />;
     case "idea":
       return <IdeaSlide s={s} {...w} />;
     case "event":

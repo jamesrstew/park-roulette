@@ -197,3 +197,62 @@ export function headlineOf(slides: readonly SlideSpec[]): {
     ? { words: h.words, highlight: h.highlight, kicker: h.kicker }
     : null;
 }
+
+// --- Park pairings ---------------------------------------------------------------
+
+type PairSlide = Extract<SlideSpec, { t: "pair" }>;
+
+export type PagePair = {
+  n: number;
+  place: string;
+  park: string;
+  town: string;
+  apart: string;
+  walk: boolean;
+  chips: string[];
+  trait: string;
+  /** Our park page, or null when the park left the map. */
+  parkHref: string | null;
+  /** The place's own verified site, else Google Maps by its place id. */
+  placeLink: { href: string; label: string; to: "venue" | "maps" };
+};
+
+/** Google Maps for a place, by its place id (with its name as the query). */
+export function mapsLink(place: string, town: string, placeId: string): string {
+  const q = new URLSearchParams({
+    api: "1",
+    query: `${place}, ${town}, OR`,
+    query_place_id: placeId,
+  });
+  return `https://www.google.com/maps/search/?${q.toString()}`;
+}
+
+const SITE_RE = /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\/$/i;
+
+/** Each pairing of a park pairings post, with its links. */
+export function mashupPairs(
+  slides: readonly SlideSpec[],
+  L: Pick<Lookups, "park">,
+): PagePair[] {
+  return slides
+    .filter((s): s is PairSlide => s.t === "pair")
+    .map((s) => ({
+      n: s.n,
+      place: s.place,
+      park: s.park,
+      town: s.town,
+      apart: s.apart,
+      walk: s.walk,
+      chips: s.chips,
+      trait: s.trait,
+      parkHref: L.park(s.parkSlug) ? `/parks/${s.parkSlug}` : null,
+      placeLink:
+        s.site && SITE_RE.test(s.site)
+          ? { href: s.site, label: "Their website", to: "venue" }
+          : {
+              href: mapsLink(s.place, s.town, s.placeId),
+              label: "Open in Maps",
+              to: "maps",
+            },
+    }));
+}

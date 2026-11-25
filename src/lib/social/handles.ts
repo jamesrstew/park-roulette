@@ -452,14 +452,15 @@ export function dedupeTags(tags: readonly (Tag | null | undefined)[]): Tag[] {
 /**
  * The caption lines that tag, one line per post: "Hosts this week: @a @b"
  * on the roundup, "Park by @x" (the park's operator) on the park post and
- * the teaser, "On this list: @a @b" on the Unpack carousel. [] when none.
+ * the teaser, "On this list: @a @b" on the Unpack carousel and the park
+ * pairings. [] when none.
  */
 export function mentionLines(kind: PostKind, tags: readonly Tag[]): string[] {
   const used = usedTags(kind, tags);
   if (!used.length) return [];
   const at = used.map((t) => `@${t.handle}`).join(" ");
   if (kind === "events_week") return [`Hosts this week: ${at}`];
-  if (kind === "unpack") return [`On this list: ${at}`];
+  if (kind === "unpack" || kind === "mashup") return [`On this list: ${at}`];
   return [`Park by ${at}`];
 }
 
@@ -469,7 +470,7 @@ export function usedTags(kind: PostKind, tags: readonly Tag[]): Tag[] {
     return dedupeTags(tags.filter((t) => t.role === "host"));
   if (kind === "park_post" || kind === "teaser")
     return dedupeTags(tags.filter((t) => t.role === "park")).slice(0, 1);
-  if (kind === "unpack") return dedupeTags(tags);
+  if (kind === "unpack" || kind === "mashup") return dedupeTags(tags);
   return [];
 }
 

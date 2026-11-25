@@ -373,3 +373,96 @@ export function itemFit(
   const name = names[names.length - 1];
   return { name, what, fits: itemHeight(s, name, what) <= height };
 }
+
+// --- The park pairing slide (mashup) --------------------------------------------
+
+export const PAIR = {
+  /** The number blob and the two icons. */
+  header: 200,
+  /** The two names (the place, then "+ the park"), largest first. */
+  name: [104, 96, 88, 80, 72, 66],
+  /** The park's trait line, largest first. */
+  body: [64, 60, 58, 56, 52, 48, 46],
+  /** The "At the park" label over the trait. */
+  label: 46,
+  /** The "+" before the park's name, in ems of the name type. */
+  plus: 0.62,
+  chip: 48,
+  /** Names to scribble; scribble to chips; chips to the park's line. */
+  scribble: 38,
+  chipsGap: 26,
+  traitGap: 34,
+} as const;
+
+/** Story frames: a step larger first (the taller card), then the feed's sizes. */
+export const STORY_PAIR = {
+  name: [120, 112],
+  body: [64, 60],
+} as const;
+
+export type PairCopy = {
+  place: string;
+  park: string;
+  chips: readonly string[];
+  trait: string;
+};
+
+/** A row of chips wraps when it's wider than the card (48 px type). */
+function pairChipRows(chips: readonly string[]): number {
+  let rows = 1;
+  let x = 0;
+  for (const c of chips) {
+    const w = textWidth(c, PAIR.chip) + 44 + 10;
+    if (x && x + 16 + w > CONTENT.width) {
+      rows++;
+      x = w;
+    } else x += (x ? 16 : 0) + w;
+  }
+  return rows;
+}
+
+export function pairHeight(s: PairCopy, name: number, body: number): number {
+  const names =
+    (lines(s.place, name, CONTENT.width) +
+      lines(s.park, name, CONTENT.width - name * PAIR.plus)) *
+    name *
+    1.04;
+  const rows = pairChipRows(s.chips);
+  const chips = rows * (PAIR.chip * 1.2 + 26) + (rows - 1) * 16;
+  const trait =
+    PAIR.label * 1.2 + 6 + lines(s.trait, body, CONTENT.width) * body * 1.2;
+  return (
+    PAIR.header +
+    names +
+    PAIR.scribble +
+    PAIR.chipsGap +
+    chips +
+    PAIR.traitGap +
+    trait
+  );
+}
+
+/**
+ * A pair slide's sizes: the largest trait line that fits, with names at
+ * least 1.35 times it (the names give way first).
+ */
+export function pairFit(
+  s: PairCopy,
+  {
+    names = PAIR.name,
+    bodies = PAIR.body,
+    height = CONTENT.height,
+  }: {
+    names?: readonly number[];
+    bodies?: readonly number[];
+    height?: number;
+  } = {},
+): { name: number; body: number; fits: boolean } {
+  for (const body of bodies)
+    for (const name of names)
+      if (name >= body * TITLE_OVER_BODY && pairHeight(s, name, body) <= height)
+        return { name, body, fits: true };
+  const body = bodies[bodies.length - 1];
+  const name = names[names.length - 1];
+  return { name, body, fits: pairHeight(s, name, body) <= height };
+}

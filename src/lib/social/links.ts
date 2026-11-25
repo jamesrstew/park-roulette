@@ -1,4 +1,10 @@
-import { type PhotoRef, type PostKind, type PostSpec, SITE } from "./model";
+import {
+  type PhotoRef,
+  type PostKind,
+  type PostSpec,
+  SITE,
+  THEME_LABEL,
+} from "./model";
 
 /**
  * Where a post sends people (parkroulette.quest/social, the link in bio,
@@ -12,6 +18,7 @@ import { type PhotoRef, type PostKind, type PostSpec, SITE } from "./model";
  *   events_week  /events?week=<the roundup's Tuesday>
  *   unpack       /social/<id>
  *   at_home      /social/<id>
+ *   mashup       /social/<id>
  *
  * Stories aren't on the grid (they're gone in a day, and they echo a post).
  */
@@ -23,13 +30,18 @@ export const GRID_KINDS = [
   "unpack",
   "teaser",
   "at_home",
+  "mashup",
 ] as const satisfies readonly PostKind[];
 export type GridKind = (typeof GRID_KINDS)[number];
 export const isGridKind = (k: string): k is GridKind =>
   (GRID_KINDS as readonly string[]).includes(k);
 
 /** Kinds whose destination is our own post page (several places in one post). */
-export const PAGE_KINDS = ["unpack", "at_home"] as const satisfies GridKind[];
+export const PAGE_KINDS = [
+  "unpack",
+  "at_home",
+  "mashup",
+] as const satisfies GridKind[];
 export const hasPostPage = (k: string) =>
   (PAGE_KINDS as readonly string[]).includes(k);
 
@@ -44,6 +56,7 @@ export const KIND_LABEL: Record<GridKind, string> = {
   unpack: "Places to go",
   teaser: "Weekend email",
   at_home: "At home",
+  mashup: "Park pairings",
 };
 
 const SLUG = /^[a-z0-9-]+$/;
@@ -82,6 +95,7 @@ export function destinationOf(p: {
         : null;
     case "unpack":
     case "at_home":
+    case "mashup":
       return { href: postPath(p.id), to: "post" };
     default:
       return null;
@@ -286,6 +300,11 @@ export function tileLabel(kind: GridKind, spec: PostSpec) {
     if (card && card.t === "parkcard" && card.park) return card.park;
   }
   if (kind === "events_week") return "Family events";
+  if (kind === "mashup") {
+    const theme = spec.facts?.mashup?.theme;
+    if (theme && theme in THEME_LABEL)
+      return THEME_LABEL[theme as keyof typeof THEME_LABEL];
+  }
   return KIND_LABEL[kind];
 }
 

@@ -59,6 +59,18 @@ import {
   sentencesOf,
 } from "./compose";
 import {
+  apart,
+  apartChip,
+  holidayBreak,
+  mashupParity,
+  miles,
+  NO_DRINKS,
+  PAIRS_MAX,
+  PAIRS_MIN,
+  type Pairing,
+  placeChips,
+} from "./mashup";
+import {
   type AtHomeDraft,
   COPY,
   CAPTION_MAX,
@@ -73,6 +85,7 @@ import {
   MAX_HASHTAGS,
   mondayOf,
   OVERLAP_LIMIT,
+  OVERLAP_POSTS,
   SENTENCE_MAX_WORDS,
   STORY_LIMITS,
   type ParkPostDraft,
@@ -81,6 +94,7 @@ import {
   type PostFacts,
   type PostKind,
   type PostSpec,
+  type SlideSpec,
   slotFor,
   type UnpackDraft,
   wordCount,
@@ -1426,6 +1440,9 @@ export async function validateUnpack(
   const r = base("unpack", date, publishAt);
   const slot = slotProblems(weekOf, publishAt, ctx.now);
   if (slot) r.errors.push(slot);
+  // Every other week the Wednesday carousel is code's park pairings.
+  const alternate = unpackSlotProblem(weekOf, d.slot, ctx.catalog);
+  if (alternate) r.errors.push(alternate);
   const month = Number(date.slice(5, 7));
   const words = wordCount(d.headline);
   if (words > HEADLINE_MAX_WORDS || words < HEADLINE_MIN_WORDS)
@@ -1635,6 +1652,148 @@ export async function validateAtHome(
   r.spec = spec;
   r.ok = r.errors.length === 0;
   return r;
+}
+
+// --- Park pairings (code only) -----------------------------------------------
+
+/**
+ * A park pairings carousel, as code composed it, checked like any other
+ * post before it's stored: the text rules on every word code wrote (the
+ * headline, intro, chips and the parks' traits), no drinks words anywhere
+ * (place names included), the headline's shape and count, and each slide
+ * against the data it came from (the distance from the two points, the
+ * chips Google marks true, the park's own trait, a postable park). Names
+ * are proper names: first person ("Our Daily Bread") is fine there.
+ */
+export function mashupProblems(
+  spec: PostSpec,
+  pairs: readonly Pairing[],
+  o: { month: number; recent: readonly RecentPost[]; slotDate: string },
+): string[] {
+  const out: string[] = [];
+  const head = spec.slides[0];
+  const slides = spec.slides.filter(
+    (x): x is Extract<SlideSpec, { t: "pair" }> => x.t === "pair",
+  );
+  if (spec.kind !== "mashup") out.push("Not a park pairings post.");
+  if (!head || head.t !== "headline") out.push("No cover slide.");
+  if (slides.length < PAIRS_MIN || slides.length > PAIRS_MAX)
+    out.push(
+      `${slides.length} pairs: a carousel needs ${PAIRS_MIN} to ${PAIRS_MAX}.`,
+    );
+  if (slides.length !== pairs.length) out.push("Slides and pairs differ.");
+  const words = wordCount(spec.headline);
+  if (words > HEADLINE_MAX_WORDS || words < HEADLINE_MIN_WORDS)
+    out.push(
+      `The headline needs ${HEADLINE_MIN_WORDS} to ${HEADLINE_MAX_WORDS} words (it has ${words}).`,
+    );
+  if (head?.t === "headline") {
+    const hl = head.highlight.toLowerCase();
+    if (
+      !head.words
+        .toLowerCase()
+        .split(/[^a-z0-9'-]+/)
+        .includes(hl)
+    )
+      out.push("highlight must be one word of the headline.");
+  }
+  const count = headlineCount(spec.headline);
+  if (count != null && count !== slides.length)
+    out.push(
+      `The headline says ${count}, but there are ${slides.length} pairs.`,
+    );
+  // Our words: everything but the names (checked on their own below).
+  const names = new Set(
+    slides
+      .flatMap((x) => [x.place, x.park, x.town])
+      .map((x) => x.toLowerCase()),
+  );
+  const mask = (t: string) =>
+    [...names]
+      .sort((a, b) => b.length - a.length)
+      .reduce((acc, nm) => acc.replace(new RegExp(escapeRe(nm), "gi"), " "), t);
+  const ours = mask(
+    [
+      spec.headline,
+      spec.modelText,
+      ...slides.flatMap((x) => [x.apart, ...x.chips, x.trait]),
+    ].join("\n"),
+  );
+  out.push(
+    ...textProblems(ours, { month: o.month, label: "pairings" }),
+    ...voiceProblems(ours, "pairings"),
+    ...spec.modelText
+      .split("\n")
+      .flatMap((line) => longSentences(line, "pairings")),
+  );
+  const bang = exclamationProblem([ours]);
+  if (bang) out.push(bang);
+  for (const x of slides) {
+    // A brewery is a family stop here (James, Nov 25, 2026): the brewery
+    // word itself is allowed; a bar, pub or taproom in the name never is.
+    const bad = venueProblem(x.place.replace(BREWERY_WORD, " "), {
+      month: o.month,
+      label: "place",
+    });
+    if (bad) out.push(bad);
+  }
+  const all = [
+    spec.caption ?? "",
+    ...spec.alts,
+    ...slides.map((x) => x.place),
+  ].join("\n");
+  const drinks = NO_DRINKS.exec(all);
+  if (drinks)
+    out.push(
+      `"${drinks[0]}": no drinks words in a family post, names included.`,
+    );
+  slides.forEach((x, i) => {
+    const p = pairs[i];
+    if (!p) return;
+    const a = apart(miles(p.place, p.park));
+    if (!a || apartChip(a) !== x.apart || a.walk !== x.walk)
+      out.push(`${x.place}: the distance doesn't match the two points.`);
+    if (a?.walk && a.minutes > 10)
+      out.push(`${x.place}: a walk over 10 minutes.`);
+    const chips = placeChips(p.place, o.month);
+    if (x.chips.some((c) => !chips.includes(c)))
+      out.push(`${x.place}: a detail Google doesn't mark true.`);
+    if (x.trait !== p.park.trait || x.parkSlug !== p.park.slug)
+      out.push(`${x.park}: the park's line isn't its own trait.`);
+    if (x.placeId !== p.place.placeId) out.push(`${x.place}: wrong place id.`);
+  });
+  for (const r of o.recent.slice(0, OVERLAP_POSTS)) {
+    if (r.kind === "mashup" && r.slotDate === o.slotDate) continue;
+    const ov = overlap(spec.modelText, r.modelText);
+    if (ov > OVERLAP_LIMIT)
+      out.push(
+        `Too close to the ${r.kind} of ${r.slotDate} (${Math.round(ov * 100)}% of its word runs repeat).`,
+      );
+  }
+  out.push(...mentionProblems(spec.caption, postHandles(spec)));
+  if ((spec.caption ?? "").length > CAPTION_MAX)
+    out.push(`The caption is over ${CAPTION_MAX} characters.`);
+  return out;
+}
+
+/** The brewery word in a name (allowed in park pairings, as the place type). */
+const BREWERY_WORD = /\bbrew(ing|ery|eries|pub)\b/gi;
+
+/**
+ * May the routine hand in an Unpack for this week? Not on a mashup week's
+ * Wednesday (code makes the park pairings), unless it's the holiday
+ * Unpack: Sunday, in a school-break week (3 or more weekdays off).
+ */
+export function unpackSlotProblem(
+  weekOf: string,
+  slot: "wed" | "sun",
+  catalog: Pick<Catalog, "breaks">,
+): string | null {
+  if (!mashupParity(weekOf)) return null;
+  if (slot === "sun" && holidayBreak(catalog, weekOf)) return null;
+  return slot === "sun"
+    ? "This is a park pairings week: a Sunday carousel is only for a school-break week (3 or more weekdays off)."
+    : "This is a park pairings week: code makes Wednesday's carousel. Hand in no Unpack (a school-break week may use the Sunday slot).";
 }
 
 export async function validatePost(

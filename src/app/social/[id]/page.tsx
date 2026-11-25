@@ -25,7 +25,9 @@ import {
   atHomeIdeas,
   headlineOf,
   type Lookups,
+  mashupPairs,
   type PageItem,
+  type PagePair,
   stateLine,
   unpackItems,
 } from "@/lib/social/post-page";
@@ -35,8 +37,10 @@ import { type PublicPost, socialPost } from "@/lib/social/public";
 
 /**
  * One post's page (/social/<id>), for the posts with several places in
- * them: Unpack (each item with its event, park or venue link) and at home
- * (the ideas, readable, then the Thursday email). Every other post has one
+ * them: Unpack (each item with its event, park or venue link), the park
+ * pairings (each place and park, with the park's page and the place's own
+ * site or its Google Maps page) and at home (the ideas, readable, then the
+ * Thursday email). Every other post has one
  * place, so its address goes straight there (the grid links there too).
  *
  * noindex: the words are the post's own, already on Instagram, and the
@@ -57,6 +61,8 @@ async function load(raw: string): Promise<PublicPost | null> {
 }
 
 function describe(p: PublicPost): string {
+  if (p.kind === "mashup")
+    return "Each place and the park beside it, with a link to each.";
   if (p.kind === "at_home")
     return `${atHomeIdeas(p.spec.slides).length} things to try at home with Central Oregon kids, step by step.`;
   return "Every place from our post, with a link to each.";
@@ -264,6 +270,72 @@ async function Unpack({
   );
 }
 
+function PairCard({ p, from }: { p: PagePair; from: string | null }) {
+  return (
+    <li className="doodle-box flex flex-col gap-2 px-4 py-3">
+      <div className="flex items-start gap-3">
+        <span className="font-hand text-3xl leading-none text-crayon-orange">
+          {p.n}
+        </span>
+        <div className="flex min-w-0 flex-col gap-1">
+          <h2 className="text-2xl leading-tight">
+            {p.place} <span className="text-crayon-red">+</span> {p.park}
+          </h2>
+          <p className="text-sm leading-snug text-ink-soft">
+            {[p.town, `${p.apart.toLowerCase()} apart`, ...p.chips].join(" · ")}
+          </p>
+          <p className="leading-snug">
+            <b className="font-semibold">At the park:</b> {p.trait}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        {p.parkHref ? (
+          <Link
+            href={withFrom(p.parkHref, from)}
+            data-social="park"
+            className="crayon-btn wax min-h-12 self-stretch bg-crayon-yellow text-xl"
+          >
+            See the park <Icon name="arrow_right" size={22} />
+          </Link>
+        ) : null}
+        <a
+          href={p.placeLink.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          data-social={p.placeLink.to}
+          className="crayon-btn wax min-h-12 self-stretch bg-crayon-blue text-xl text-white"
+        >
+          {p.placeLink.label} <Icon name="arrow_right" size={22} />
+        </a>
+      </div>
+    </li>
+  );
+}
+
+async function Mashup({
+  post,
+  from,
+}: {
+  post: PublicPost;
+  from: string | null;
+}) {
+  const parks = new Set((await publicParks()).map((p) => p.slug));
+  const pairs = mashupPairs(post.spec.slides, {
+    park: (slug) => (parks.has(slug) ? { name: slug } : null),
+  });
+  return (
+    <>
+      <ol className="flex flex-col gap-4" aria-label="In this post">
+        {pairs.map((p) => (
+          <PairCard key={p.n} p={p} from={from} />
+        ))}
+      </ol>
+      <p className="text-sm text-ink-soft">{COPY.mashupHours}</p>
+    </>
+  );
+}
+
 function AtHome({ post }: { post: PublicPost }) {
   const ideas = atHomeIdeas(post.spec.slides);
   return (
@@ -322,6 +394,8 @@ async function Post({ params, searchParams }: Props) {
       <SocialTracker source="social_post" className="flex flex-col gap-5">
         {post.kind === "unpack" ? (
           <Unpack post={post} from={carryFrom((await searchParams).from)} />
+        ) : post.kind === "mashup" ? (
+          <Mashup post={post} from={carryFrom((await searchParams).from)} />
         ) : (
           <AtHome post={post} />
         )}
