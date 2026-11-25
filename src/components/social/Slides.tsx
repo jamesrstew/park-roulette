@@ -16,6 +16,7 @@ import { ALIASES, DRAWINGS } from "@/components/icons/drawings";
 import { compile, type Mark } from "@/components/icons/kit";
 import { CRAYONS } from "@/lib/crayons";
 import {
+  commonBody,
   CONTENT,
   EVENT,
   eventFit,
@@ -27,6 +28,8 @@ import {
   itemHostSize,
   itemPlaceSize,
   oneLine,
+  STORY_CONTENT,
+  STORY_TYPE,
   textWidth,
   TOP_ROW,
   venueSize,
@@ -184,21 +187,51 @@ export function Scribble({ width, color }: { width: number; color: string }) {
   );
 }
 
-/** The paper card every feed slide sits on, with the brand and page count. */
+/**
+ * Where the card, its content and its footer sit: on the 4:5 feed slide,
+ * and on the 9:16 Story frame (the Story echo). On a Story, Instagram's
+ * own top and bottom bands (about 250 px each) cover the frame, so the
+ * card's words and footer stay between 290 and 1630; only the card's
+ * edge reaches into them.
+ */
+export const FRAME = {
+  feed: {
+    ...FEED,
+    card: { top: 34, bottom: 48 },
+    stripe: 120,
+    content: { top: 92, bottom: 170 },
+    foot: 82,
+  },
+  story: {
+    ...STORY,
+    card: { top: 210, bottom: 210 },
+    stripe: 296,
+    content: { top: 290, bottom: 1920 - 290 - STORY_CONTENT.height },
+    foot: 290,
+  },
+} as const;
+
+/** Props every slide takes: its page count, and whether it's a Story frame. */
+type Where = { page?: { n: number; of: number }; story?: boolean };
+
+/** The paper card every slide sits on, with the brand and page count. */
 export function Frame({
   children,
   page,
   color,
+  story = false,
 }: {
   children: ReactNode;
   page?: { n: number; of: number };
   color: string;
+  story?: boolean;
 }) {
+  const f = story ? FRAME.story : FRAME.feed;
   return (
     <div
       style={{
-        width: FEED.width,
-        height: FEED.height,
+        width: f.width,
+        height: f.height,
         display: "flex",
         background: PAPER,
         fontFamily: "Gochi",
@@ -210,9 +243,9 @@ export function Frame({
         style={{
           position: "absolute",
           left: 34,
-          top: 34,
+          top: f.card.top,
           right: 48,
-          bottom: 48,
+          bottom: f.card.bottom,
           display: "flex",
           border: `7px solid ${INK}`,
           borderRadius: "46px 20px 52px 18px",
@@ -225,7 +258,7 @@ export function Frame({
         style={{
           position: "absolute",
           left: 34,
-          top: 120,
+          top: f.stripe,
           width: 14,
           height: 220,
           background: color,
@@ -237,9 +270,9 @@ export function Frame({
         style={{
           position: "absolute",
           left: 90,
-          top: 92,
+          top: f.content.top,
           right: 100,
-          bottom: 170,
+          bottom: f.content.bottom,
           display: "flex",
           flexDirection: "column",
         }}
@@ -250,7 +283,7 @@ export function Frame({
         style={{
           position: "absolute",
           left: 86,
-          bottom: 82,
+          bottom: f.foot,
           display: "flex",
           alignItems: "center",
           gap: 12,
@@ -266,7 +299,7 @@ export function Frame({
           style={{
             position: "absolute",
             right: 104,
-            bottom: 90,
+            bottom: f.foot + 8,
             display: "flex",
             fontSize: 38,
             color: SOFT,
@@ -409,12 +442,15 @@ export function CrayonParkArt({
   height,
   seed = 0,
   ground = 0.64,
+  sunTop,
 }: {
   width: number;
   height: number;
   seed?: number;
   /** Where the grass starts, from the top (0 to 1). */
   ground?: number;
+  /** The sun's top, px (default: near the top edge). */
+  sunTop?: number;
 }) {
   const g = height * ground;
   const sky = [CRAYONS.blue, CRAYONS.teal, CRAYONS.purple][seed % 3];
@@ -447,7 +483,7 @@ export function CrayonParkArt({
         style={{
           position: "absolute",
           right: width * 0.08,
-          top: height * 0.06,
+          top: sunTop ?? height * 0.06,
           display: "flex",
         }}
       >
@@ -494,12 +530,14 @@ function Picture({
   height,
   seed,
   ground,
+  sunTop,
 }: {
   src: string | null;
   width: number;
   height: number;
   seed: number;
   ground?: number;
+  sunTop?: number;
 }) {
   return src ? (
     // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
@@ -510,7 +548,13 @@ function Picture({
       style={{ width, height, objectFit: "cover" }}
     />
   ) : (
-    <CrayonParkArt width={width} height={height} seed={seed} ground={ground} />
+    <CrayonParkArt
+      width={width}
+      height={height}
+      seed={seed}
+      ground={ground}
+      sunTop={sunTop}
+    />
   );
 }
 
@@ -519,13 +563,13 @@ function Picture({
 function HeadlineSlide({
   s,
   page,
-}: {
+  story,
+}: Where & {
   s: Extract<SlideSpec, { t: "headline" }>;
-  page?: { n: number; of: number };
 }) {
   const color = SLIDE_CRAYONS[0];
   return (
-    <Frame page={page} color={color}>
+    <Frame page={page} color={color} story={story}>
       <div
         style={{
           display: "flex",
@@ -572,7 +616,8 @@ function HeadlineSlide({
           </div>
         ) : null}
       </div>
-      {s.swipe ? (
+      {/* A swipe on a Story skips to the next account: no "Swipe" there. */}
+      {s.swipe && !story ? (
         <div
           style={{
             display: "flex",
@@ -593,14 +638,47 @@ function HeadlineSlide({
 function ItemSlide({
   s,
   page,
-}: {
+  story,
+}: Where & {
   s: Extract<SlideSpec, { t: "item" }>;
-  page?: { n: number; of: number };
 }) {
   const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
-  const fit = itemFit(s);
+  const fit = story
+    ? itemFit(s, {
+        whats: [...STORY_TYPE.itemWhat, ...ITEM.what],
+        names: [...STORY_TYPE.itemName, ...ITEM.name],
+        height: STORY_CONTENT.height,
+      })
+    : itemFit(s);
+  const chips = (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        flexShrink: 0,
+        gap: 16,
+        marginTop: story ? ITEM.chipsGap + 16 : ITEM.chipsGap,
+      }}
+    >
+      {s.facts.map((f, i) => (
+        <div
+          key={i}
+          style={{
+            display: "flex",
+            fontSize: 48,
+            padding: "6px 22px 10px",
+            border: `5px solid ${INK}`,
+            borderRadius: "26px 18px 28px 16px",
+            background: i === 0 ? tint(color, 0.22) : CARD,
+          }}
+        >
+          {f}
+        </div>
+      ))}
+    </div>
+  );
   return (
-    <Frame page={page} color={color}>
+    <Frame page={page} color={color} story={story}>
       <div
         style={{
           display: "flex",
@@ -689,32 +767,10 @@ function ItemSlide({
             {keepAmp(`Hosted by ${s.host}`)}
           </div>
         ) : null}
+        {/* On a Story frame's tall card the chips stay with their words. */}
+        {story ? chips : null}
       </div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          flexShrink: 0,
-          gap: 16,
-          marginTop: ITEM.chipsGap,
-        }}
-      >
-        {s.facts.map((f, i) => (
-          <div
-            key={i}
-            style={{
-              display: "flex",
-              fontSize: 48,
-              padding: "6px 22px 10px",
-              border: `5px solid ${INK}`,
-              borderRadius: "26px 18px 28px 16px",
-              background: i === 0 ? tint(color, 0.22) : CARD,
-            }}
-          >
-            {f}
-          </div>
-        ))}
-      </div>
+      {story ? null : chips}
     </Frame>
   );
 }
@@ -791,16 +847,20 @@ function Kicker({ text }: { text: string }) {
 function IdeaSlide({
   s,
   page,
-}: {
+  story,
+}: Where & {
   s: Extract<SlideSpec, { t: "idea" }>;
-  page?: { n: number; of: number };
 }) {
   const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
   const payoff = s.payoff ?? "";
-  const fit = ideaFit({ ...s, payoff }, s.body ? [s.body] : undefined);
+  const fit = ideaFit(
+    { ...s, payoff },
+    s.body ? [s.body] : undefined,
+    story ? STORY_CONTENT.height : undefined,
+  );
   const body = fit.body;
   return (
-    <Frame page={page} color={color}>
+    <Frame page={page} color={color} story={story}>
       <div
         style={{
           display: "flex",
@@ -951,9 +1011,9 @@ function IdeaSlide({
 function EventSlide({
   s,
   page,
-}: {
+  story,
+}: Where & {
   s: Extract<SlideSpec, { t: "event" }>;
-  page?: { n: number; of: number };
 }) {
   const color = SLIDE_CRAYONS[s.n % SLIDE_CRAYONS.length];
   const place = placeLine(s.venue, s.town);
@@ -968,9 +1028,10 @@ function EventSlide({
     },
     s.body ? [s.body] : undefined,
     s.titleSize ? [s.titleSize] : undefined,
+    story ? STORY_CONTENT.height : undefined,
   );
   return (
-    <Frame page={page} color={color}>
+    <Frame page={page} color={color} story={story}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 40 }}>
         <div
           style={{
@@ -1163,12 +1224,15 @@ function EventSlide({
 function CtaSlide({
   s,
   page,
-}: {
+  story,
+}: Where & {
   s: Extract<SlideSpec, { t: "cta" }>;
-  page?: { n: number; of: number };
 }) {
+  // A Story has no comments (and a Story reply only answers PICK): its
+  // close points at the bio link instead.
+  const cta = story && s.cta === COPY.commentSlide ? COPY.bio : s.cta;
   return (
-    <Frame page={page} color={CRAYONS.blue}>
+    <Frame page={page} color={CRAYONS.blue} story={story}>
       {/*
         The roundup's close (with fine print) is one group centered on the
         card: icon, line, link, tagline, fine print, then the button close
@@ -1178,7 +1242,8 @@ function CtaSlide({
         style={{
           display: "flex",
           justifyContent: "center",
-          marginTop: s.fine ? "auto" : 20,
+          // A Story frame centers the whole close: its card is tall.
+          marginTop: s.fine || story ? "auto" : 20,
         }}
       >
         <SlideIcon name={s.icon ?? "mail"} size={s.url ? 190 : 230} />
@@ -1247,8 +1312,8 @@ function CtaSlide({
       <div
         style={{
           display: "flex",
-          marginTop: s.fine ? 40 : "auto",
-          marginBottom: s.fine ? "auto" : 60,
+          marginTop: s.fine || story ? 40 : "auto",
+          marginBottom: s.fine || story ? "auto" : 60,
           alignSelf: "center",
           fontSize: 56,
           background: CRAYONS.yellow,
@@ -1259,7 +1324,7 @@ function CtaSlide({
           textAlign: "center",
         }}
       >
-        {s.cta}
+        {cta}
       </div>
     </Frame>
   );
@@ -1268,13 +1333,13 @@ function CtaSlide({
 function WeatherSlide({
   s,
   page,
-}: {
+  story,
+}: Where & {
   s: Extract<SlideSpec, { t: "weather" }>;
-  page?: { n: number; of: number };
 }) {
   const colors = [CRAYONS.orange, CRAYONS.blue, CRAYONS.green];
   return (
-    <Frame page={page} color={CRAYONS.teal}>
+    <Frame page={page} color={CRAYONS.teal} story={story}>
       <div style={{ display: "flex", fontSize: 96, marginTop: 10 }}>
         {s.title}
       </div>
@@ -1290,7 +1355,13 @@ function WeatherSlide({
         }}
       >
         {s.days.slice(0, 3).map((d, i) => (
-          <DayCard key={d.label} d={d} color={colors[i]} width={282} />
+          <DayCard
+            key={d.label}
+            d={d}
+            color={colors[i]}
+            width={282}
+            tall={story}
+          />
         ))}
       </div>
       <div style={{ display: "flex", fontSize: 42, color: SOFT }}>
@@ -1304,17 +1375,24 @@ function ParkSlide({
   s,
   photo,
   page,
-}: {
+  story,
+}: Where & {
   s: Extract<SlideSpec, { t: "park" }>;
   photo: string | null;
-  page?: { n: number; of: number };
 }) {
   const w = 890;
-  const h = 560;
+  // The Story frame's taller card gives the picture the room.
+  const h = story ? 760 : 560;
   return (
-    <Frame page={page} color={CRAYONS.green}>
+    <Frame page={page} color={CRAYONS.green} story={story}>
+      {/* On a Story frame the picture and its words sit centered on the card. */}
       <div
-        style={{ display: "flex", position: "relative", alignSelf: "center" }}
+        style={{
+          display: "flex",
+          position: "relative",
+          alignSelf: "center",
+          ...(story ? { marginTop: "auto" } : {}),
+        }}
       >
         <div
           style={{
@@ -1356,6 +1434,7 @@ function ParkSlide({
           fontSize: s.why.length > 180 ? 40 : s.why.length > 110 ? 46 : 54,
           lineHeight: 1.2,
           marginTop: 12,
+          ...(story ? { marginBottom: "auto" } : {}),
         }}
       >
         {s.why}
@@ -1374,10 +1453,13 @@ function ParkSlide({
 function ParkCardSlide({
   s,
   photo,
+  story,
 }: {
   s: Extract<SlideSpec, { t: "parkcard" }>;
   photo: string | null;
+  story?: boolean;
 }) {
+  if (story) return <ParkCardStory s={s} photo={photo} />;
   return (
     <div
       style={{
@@ -1438,14 +1520,109 @@ function ParkCardSlide({
   );
 }
 
+/**
+ * The park post on a Story frame: the photo (or the crayon card) fills the
+ * top of the frame at about the feed's own scale (the catalog photos are
+ * landscape: a full 9:16 bleed would blow them up), and the same taped
+ * label sits across its foot, with the credit under it, all above the
+ * band Instagram draws over the bottom.
+ */
+const PARKCARD_STORY = { picture: 1400, label: 1290 } as const;
+
+function ParkCardStory({
+  s,
+  photo,
+}: {
+  s: Extract<SlideSpec, { t: "parkcard" }>;
+  photo: string | null;
+}) {
+  return (
+    <div
+      style={{
+        width: STORY.width,
+        height: STORY.height,
+        display: "flex",
+        position: "relative",
+        fontFamily: "Gochi",
+        color: INK,
+        background: PAPER,
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: 0,
+          display: "flex",
+          borderBottom: `7px solid ${INK}`,
+        }}
+      >
+        <Picture
+          src={photo}
+          width={STORY.width}
+          height={PARKCARD_STORY.picture}
+          seed={0}
+          // Below Instagram's own top bar and its close button.
+          sunTop={300}
+        />
+      </div>
+      <div
+        style={{
+          position: "absolute",
+          left: 70,
+          right: 70,
+          top: PARKCARD_STORY.label,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          background: CARD,
+          border: `7px solid ${INK}`,
+          borderRadius: "40px 18px 46px 16px",
+          boxShadow: `12px 14px 0 ${INK}`,
+          padding: "26px 30px 30px",
+          transform: "rotate(-2deg)",
+        }}
+      >
+        <div
+          style={{ display: "flex", fontSize: s.park.length > 22 ? 84 : 100 }}
+        >
+          {s.park}
+        </div>
+        <div style={{ display: "flex", fontSize: 56, color: SOFT }}>
+          {`${s.town}, Oregon`}
+        </div>
+      </div>
+      {photo && s.photo?.credit ? (
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: PARKCARD_STORY.label + 270,
+            display: "flex",
+            justifyContent: "center",
+            fontSize: 36,
+            color: SOFT,
+          }}
+        >
+          {s.photo.credit}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function DayCard({
   d,
   color,
   width,
+  tall = false,
 }: {
   d: Extract<SlideSpec, { t: "story" }>["days"][number];
   color: string;
   width: number;
+  /** On a Story frame's taller card: a bigger glyph and more air. */
+  tall?: boolean;
 }) {
   const ok = !d.missing && d.high != null;
   const pop = ok && d.precip != null && d.precip >= 20 ? d.precip : null;
@@ -1461,16 +1638,19 @@ function DayCard({
         border: `6px solid ${INK}`,
         borderRadius: "34px 18px 38px 16px",
         boxShadow: `6px 8px 0 ${INK}`,
-        padding: "10px 8px 18px",
+        padding: tall ? "24px 8px 34px" : "10px 8px 18px",
+        gap: tall ? 10 : 0,
       }}
     >
-      <div style={{ display: "flex", fontSize: big ? 58 : 52 }}>{d.label}</div>
+      <div style={{ display: "flex", fontSize: big || tall ? 58 : 52 }}>
+        {d.label}
+      </div>
       <div style={{ display: "flex", marginTop: -6 }}>
         <Scribble width={160} color={color} />
       </div>
       <WeatherGlyph
         icon={ok ? (d.icon as WeatherIcon) : "unknown"}
-        size={big ? 140 : 150}
+        size={tall ? 200 : big ? 140 : 150}
       />
       <div
         style={{
@@ -1483,7 +1663,7 @@ function DayCard({
         {ok ? d.condition : "No forecast yet"}
       </div>
       {ok ? (
-        <div style={{ display: "flex", fontSize: big ? 58 : 62 }}>
+        <div style={{ display: "flex", fontSize: big ? 58 : tall ? 68 : 62 }}>
           {`${d.high}°${d.low != null ? ` / ${d.low}°` : ""}`}
         </div>
       ) : null}
@@ -1612,43 +1792,128 @@ function StorySlide({
 
 // --- One entry point -----------------------------------------------------------
 
-/** A slide's pixel size: Stories 9:16, everything else 4:5. */
-export function slideSize(s: SlideSpec): { width: number; height: number } {
-  return s.t === "story" ? { ...STORY } : { ...FEED };
+/**
+ * A slide's pixel size: Stories 9:16, everything else 4:5, and any slide
+ * drawn as a Story frame (the Story echo) 9:16.
+ */
+export function slideSize(
+  s: SlideSpec,
+  frame: SlideFrame = "feed",
+): { width: number; height: number } {
+  return s.t === "story" || frame === "story" ? { ...STORY } : { ...FEED };
+}
+
+/** How a slide is drawn: as the feed post's slide, or as a Story frame. */
+export type SlideFrame = "feed" | "story";
+
+/**
+ * A carousel's slides with their Story-frame type sizes: one body (and
+ * one event title) for the whole set, as on the feed, but the largest
+ * that fits the taller Story card, never smaller than the feed's.
+ */
+export function storySizes(slides: SlideSpec[]): SlideSpec[] {
+  const ideas = slides.flatMap((s) => (s.t === "idea" ? [s] : []));
+  const events = slides.flatMap((s) => (s.t === "event" ? [s] : []));
+  const ideaCopy = (s: Extract<SlideSpec, { t: "idea" }>) => ({
+    ...s,
+    payoff: s.payoff ?? "",
+  });
+  const ideaBody = commonBody(
+    ideas.map((s) =>
+      ideaFit(
+        ideaCopy(s),
+        [
+          ...STORY_TYPE.ideaBody,
+          ...IDEA.body.filter((b) => b >= (s.body ?? 0)),
+        ],
+        STORY_CONTENT.height,
+      ),
+    ),
+  );
+  const eventCopy = (s: Extract<SlideSpec, { t: "event" }>) => ({
+    title: s.title,
+    desc: s.desc,
+    place: placeLine(s.venue, s.town),
+    chips: [...s.ages, ...(s.cost ? [s.cost] : [])],
+    host: s.host,
+    also: s.also,
+  });
+  const atLeast = (ladder: readonly number[], floor?: number) =>
+    ladder.filter((v) => v >= (floor ?? 0));
+  const eventBody = commonBody(
+    events.map((s) =>
+      eventFit(
+        eventCopy(s),
+        [...STORY_TYPE.eventBody, ...atLeast(EVENT.body, s.body)],
+        [...STORY_TYPE.eventTitle, ...atLeast(EVENT.title, s.titleSize)],
+        STORY_CONTENT.height,
+      ),
+    ),
+  );
+  const eventTitle =
+    eventBody === undefined
+      ? undefined
+      : Math.min(
+          ...events.map(
+            (s) =>
+              eventFit(
+                eventCopy(s),
+                [eventBody],
+                [
+                  ...STORY_TYPE.eventTitle,
+                  ...atLeast(EVENT.title, s.titleSize),
+                ],
+                STORY_CONTENT.height,
+              ).title,
+          ),
+        );
+  return slides.map((s) =>
+    s.t === "idea" && ideaBody !== undefined
+      ? { ...s, body: ideaBody }
+      : s.t === "event" && eventBody !== undefined
+        ? { ...s, body: eventBody, titleSize: eventTitle }
+        : s,
+  );
 }
 
 /**
  * Draw slide `i` of `slides`. `photo` is a data: URL of the checked photo
- * the slide names (null draws the crayon card, with no credit).
+ * the slide names (null draws the crayon card, with no credit). `frame`
+ * "story" draws the same slide re-laid out for a 9:16 Story frame (the
+ * Story echo): the same words and picture, a taller card.
  */
 export function Slide({
   slides,
   i,
   photo,
+  frame = "feed",
 }: {
   slides: SlideSpec[];
   i: number;
   photo: string | null;
+  frame?: SlideFrame;
 }) {
-  const s = slides[i];
+  const story = frame === "story";
+  const s = story ? storySizes(slides)[i] : slides[i];
   const page = slides.length > 1 ? { n: i + 1, of: slides.length } : undefined;
+  const w = { page, story };
   switch (s.t) {
     case "headline":
-      return <HeadlineSlide s={s} page={page} />;
+      return <HeadlineSlide s={s} {...w} />;
     case "item":
-      return <ItemSlide s={s} page={page} />;
+      return <ItemSlide s={s} {...w} />;
     case "idea":
-      return <IdeaSlide s={s} page={page} />;
+      return <IdeaSlide s={s} {...w} />;
     case "event":
-      return <EventSlide s={s} page={page} />;
+      return <EventSlide s={s} {...w} />;
     case "cta":
-      return <CtaSlide s={s} page={page} />;
+      return <CtaSlide s={s} {...w} />;
     case "weather":
-      return <WeatherSlide s={s} page={page} />;
+      return <WeatherSlide s={s} {...w} />;
     case "park":
-      return <ParkSlide s={s} photo={photo} page={page} />;
+      return <ParkSlide s={s} photo={photo} {...w} />;
     case "parkcard":
-      return <ParkCardSlide s={s} photo={photo} />;
+      return <ParkCardSlide s={s} photo={photo} story={story} />;
     case "story":
       return <StorySlide s={s} photo={photo} />;
   }

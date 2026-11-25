@@ -3,7 +3,10 @@
  * design review (no database, no Meta). Photos are fetched from BPRD and
  * used only when their sha256 matches the one given here, as in production.
  *
- *   pnpm exec tsx --conditions react-server scripts/social-samples.tsx <out-dir>
+ *   pnpm exec tsx --conditions react-server scripts/social-samples.tsx <out-dir> [only] [story-dir]
+ *
+ * Each feed post's Story echo frames (every slide again at 9:16) are drawn
+ * too, into story-dir (default: out-dir).
  */
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -18,8 +21,8 @@ import {
   composeUnpack,
   type ParkInfo,
 } from "../src/lib/social/compose";
-import { AtHomeDraft, echoLine, slotFor } from "../src/lib/social/model";
-import { renderEcho } from "../src/lib/social/echo-render";
+import { AtHomeDraft, slotFor } from "../src/lib/social/model";
+import { renderFrame } from "../src/lib/social/echo-render";
 import { CATALOG } from "../src/lib/news/catalog";
 import { validateAtHome } from "../src/lib/social/validate";
 import { photosFor, renderPost } from "../src/lib/social/render";
@@ -27,7 +30,9 @@ import { pickWeekEvents, roundupWindow } from "../src/lib/social/roundup";
 
 const out = process.argv[2] ?? "/tmp/social-samples";
 /** Optional: only these posts ("at_home,events_week"). */
-const only = process.argv[3]?.split(",");
+const only = process.argv[3]?.split(",").filter(Boolean);
+/** Optional: the Story echo's frames go here (default: next to the slides). */
+const storyOut = process.argv[4] ?? out;
 
 /** A sample kids' event, as kid_events stores it (sample data, not real listings). */
 function sampleEvent(e: {
@@ -565,7 +570,7 @@ async function main() {
     events_worst: worstSample(),
   };
   for (const [name, spec] of Object.entries(posts)) {
-    if (only && !only.includes(name)) continue;
+    if (only?.length && !only.includes(name)) continue;
     const files = await renderPost(spec, await photosFor(spec));
     let n = 0;
     for (const f of files) {
@@ -581,16 +586,16 @@ async function main() {
         "bytes",
       );
     }
-    // The Story echo: the cover that went out, on the 9:16 crayon card.
-    if (spec.kind !== "story" && files[0]) {
-      const echo = await renderEcho(
-        spec.kind,
-        echoLine(spec),
-        files[0].bytes,
-        spec.slides[0].t === "headline",
-      );
-      await writeFile(join(out, `${name}-echo-story.jpg`), echo.bytes);
-      console.log(`${name}-echo-story.jpg`, echoLine(spec));
+    // The Story echo: every slide again as a 9:16 Story frame, in order.
+    if (spec.kind !== "story") {
+      const photos = await photosFor(spec);
+      await mkdir(storyOut, { recursive: true });
+      for (let i = 0; i < spec.slides.length; i++) {
+        const f = await renderFrame(spec.slides, i, photos[i] ?? null);
+        const file = `${name}-story-${i + 1}.jpg`;
+        await writeFile(join(storyOut, file), f.bytes);
+        console.log(file, f.file.width, "x", f.file.height);
+      }
     }
     await writeFile(
       join(out, `${name}-caption.txt`),

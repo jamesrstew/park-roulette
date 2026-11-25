@@ -25,7 +25,7 @@ import { currentProfiles } from "@/lib/park-profiles-check";
 import { type RecentIdea, themesFor } from "./at-home";
 import { listableParks, postCandidates } from "./candidates";
 import { composeStory, composeTeaser, type ParkInfo } from "./compose";
-import { coverFlagged, runEchoes } from "./echo";
+import { type EchoFrame, runEchoes } from "./echo";
 import { fitRoundup, pickWeekEvents, roundupWindow } from "./roundup";
 import {
   containerStatus,
@@ -1535,7 +1535,11 @@ export async function preflight(
 
 // --- Reads ---------------------------------------------------------------------
 
-/** May Meta (or anyone) fetch this file? Only media of posts that passed the checks. */
+/**
+ * May Meta (or anyone) fetch this file? Only media of posts that passed
+ * the checks: a slide while every photo of its post is still clear, a
+ * Story echo frame while its own photo is (a photo-free frame always).
+ */
 export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
   const rows = await db
     .select({
@@ -1543,6 +1547,7 @@ export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
       spec: socialPosts.spec,
       media: socialPosts.media,
       echoMedia: socialPosts.echoMedia,
+      echoFrames: socialPosts.echoFrames,
     })
     .from(socialPosts)
     .where(
@@ -1551,6 +1556,7 @@ export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
         or(
           sql`${socialPosts.media} @> ${JSON.stringify([{ sha, ext }])}::jsonb`,
           sql`${socialPosts.echoMedia} @> ${JSON.stringify({ sha, ext })}::jsonb`,
+          sql`${socialPosts.echoFrames} @> ${JSON.stringify([{ sha, ext }])}::jsonb`,
         ),
       ),
     )
@@ -1561,8 +1567,19 @@ export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
       "photo" in s && s.photo ? [s.photo] : [],
     );
   // The looks at these posts' photos only (never the whole table).
+  const frameOf = (r: (typeof rows)[number]) =>
+    Array.isArray(r.echoFrames)
+      ? (r.echoFrames as EchoFrame[]).find(
+          (f) => f.sha === sha && f.ext === ext,
+        )
+      : undefined;
   const srcs = [
-    ...new Set(rows.flatMap((r) => photosOf(r.spec).map((p) => p.src))),
+    ...new Set(
+      rows.flatMap((r) => [
+        ...photosOf(r.spec).map((p) => p.src),
+        ...(frameOf(r)?.photo ? [frameOf(r)!.photo!.src] : []),
+      ]),
+    ),
   ];
   const verdicts: PhotoVerdicts = { clear: new Set(), flagged: new Set() };
   if (srcs.length)
@@ -1577,15 +1594,25 @@ export async function mediaAllowed(sha: string, ext: string): Promise<boolean> {
       if (c.verdict === "clear") verdicts.clear.add(`${c.src} ${c.sha256}`);
       else verdicts.flagged.add(c.src);
   for (const r of rows) {
+    // A Story echo frame: photo-free is always fine; else its own photo
+    // must still be clear on its exact bytes, as the echo itself judges.
+    const frame = frameOf(r);
+    if (frame) {
+      if (!frame.photo || photoClear(frame.photo, verdicts)) return true;
+      continue;
+    }
+    // An echo from before frames (one card from the cover): the same rule,
+    // with the cover's photo.
     const echo = r.echoMedia as {
       sha?: string;
       ext?: string;
       photoFree?: boolean;
     } | null;
     if (echo?.sha === sha && echo.ext === ext) {
-      // The Story echo: drawn photo-free (the crayon cover) is always fine;
-      // otherwise only its cover photo counts (as the echo itself judges).
-      if (echo.photoFree || !(await coverFlagged(r.spec as PostSpec)))
+      const cover = photosOf({
+        slides: (r.spec as PostSpec | null)?.slides?.slice(0, 1) ?? [],
+      });
+      if (echo.photoFree || cover.every((p) => photoClear(p, verdicts)))
         return true;
       continue;
     }

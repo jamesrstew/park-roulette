@@ -4,7 +4,7 @@ import { put } from "@vercel/blob";
 import { ImageResponse } from "next/og";
 import sharp from "sharp";
 import { handFont } from "@/components/me/og-card";
-import { Slide, slideSize } from "@/components/social/Slides";
+import { Slide, type SlideFrame, slideSize } from "@/components/social/Slides";
 import { fetchImage } from "@/lib/news/fetcher";
 import {
   mediaPath,
@@ -70,16 +70,20 @@ export async function loadPhoto(
   }
 }
 
-/** One slide as a PNG (the preview route and the JPEG both start here). */
+/**
+ * One slide as a PNG (the preview route and the JPEG both start here).
+ * `frame` "story": the same slide as a 9:16 Story frame (the Story echo).
+ */
 export async function slidePng(
   slides: SlideSpec[],
   i: number,
   photo: string | null,
+  frame: SlideFrame = "feed",
 ): Promise<Buffer> {
-  const res = new ImageResponse(<Slide slides={slides} i={i} photo={photo} />, {
-    ...slideSize(slides[i]),
-    fonts: await handFont(),
-  });
+  const res = new ImageResponse(
+    <Slide slides={slides} i={i} photo={photo} frame={frame} />,
+    { ...slideSize(slides[i], frame), fonts: await handFont() },
+  );
   return Buffer.from(await res.arrayBuffer());
 }
 

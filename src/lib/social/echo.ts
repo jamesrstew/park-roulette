@@ -12,46 +12,90 @@ import {
   publishContainer,
   publishingQuota,
 } from "./graph";
+import { photoClear, type PhotoVerdicts } from "./links";
 import {
   DAILY_PUBLISH_LIMIT,
   ECHO_MAX_AGE_MIN,
-  echoLine,
-  type PostKind,
+  type PhotoRef,
   type PostSpec,
 } from "./model";
-import type { EchoFile } from "./echo-render";
-import type { MediaFile } from "./render";
 
 /**
- * The Story echo: once a feed post is out, one Instagram Story points
- * people at it (its cover on a crayon card, "New post" and a line by post
- * type). It runs at the end of each social cron run, under the same lease,
- * kill switch, SOCIAL_PUBLISH and dry run, and it never touches the feed
- * post's own status: everything it records is in the echo_* columns.
+ * The Story echo: once a feed post is out, the post itself goes out again
+ * as Instagram Stories, one per slide, in slide order (a single image is
+ * one Story; a carousel of N slides is N Stories). Each frame is the
+ * slide drawn again at 9:16 by the same slide components (echo-render,
+ * Slides.tsx frame "story"). It runs at the end of each social cron run,
+ * under the same lease, kill switch, SOCIAL_PUBLISH and dry run, and it
+ * never touches the feed post's own status: everything it records is in
+ * the echo_* columns, the frames in echo_frames.
  *
- *   null -> creating (container made) -> publishing (claimed) -> published
+ *   null -> creating -> publishing (one frame's publish, claimed)
+ *        -> creating (the next frame) ... -> published
  *   null -> dry_run (drawn, never sent) | skipped (too old, or no quota)
  *   any  -> failed (James is told, once a day per post)
  *
- * Only the cover that went out is used (the stored JPEG), so a post that
- * drew the crayon card because of the photo check echoes the same card.
- * The photo check is asked again before every create and every publish:
- * flagged before the container, the crayon cover is drawn; flagged once a
- * container with the photo exists, it is skipped and never published.
- * The Friday Story is never echoed. Facebook gets no echo: the Story
- * path doesn't cross-post (crossPost skips Stories).
+ * Frames go out strictly one after another: the first frame not yet
+ * published or skipped is the only one with a container in flight, so a
+ * run that stops midway (an error, the time budget, the quota) resumes at
+ * that frame next run and never makes or publishes one twice. In one run
+ * a frame is created, and published as soon as Meta has it ready.
+ *
+ * Child safety: a frame draws its slide's photo only while that photo is
+ * clear on its exact bytes and never flagged (links.ts photoClear, the
+ * rule /social/m serves by), else the crayon card. That is asked again
+ * before every create (a flagged frame is redrawn photo-free) and every
+ * publish (flagged once its container exists: that frame is skipped and
+ * never published; the rest go on).
+ *
+ * The quota: the frames all count against Meta's 50 API publishes a day.
+ * An echo starts only when the whole post fits (a carousel's Stories cut
+ * short read as broken); if the room runs out midway anyway (something
+ * else published meanwhile), it stops and resumes next run, until the
+ * 6-hour limit closes it.
+ *
+ * The Friday Story is never echoed. Facebook gets no echo: the Story path
+ * doesn't cross-post (crossPost skips Stories). Echoes from before frames
+ * (one "New post" card in echo_media) finish as a single frame.
  */
 
+const render = () => import("./render");
 const echoRender = () => import("./echo-render");
 
 type PostRow = typeof socialPosts.$inferSelect;
+
+/** One Story frame: one slide of the post, at 9:16. */
+export type EchoFrame = {
+  /** The feed slide it shows (0-based, in slide order). */
+  slide: number;
+  sha: string;
+  ext: "jpg";
+  width: number;
+  height: number;
+  /** The checked photo drawn in it, pinned to its bytes; null: photo-free. */
+  photo: Pick<PhotoRef, "src" | "sha256"> | null;
+  status: "pending" | "published" | "skipped";
+  containerId: string | null;
+  mediaId: string | null;
+  reason?: string;
+};
+
+/** An echo from before frames (echo_media): one card, from the cover. */
+type LegacyEcho = {
+  sha: string;
+  ext: "jpg";
+  width: number;
+  height: number;
+  photoFree?: boolean;
+};
 
 /** A null echo looks back this far, so an old one is closed as skipped. */
 const LOOKBACK_DAYS = 7;
 /** The cron allows 300 s; echoes stop after this much of a run is gone. */
 export const ECHO_BUDGET_MS = 200_000;
 
-const echoUrl = (f: EchoFile) => `${SITE_URL}/social/m/${f.sha}.${f.ext}`;
+const frameUrl = (f: Pick<EchoFrame, "sha" | "ext">) =>
+  `${SITE_URL}/social/m/${f.sha}.${f.ext}`;
 
 /**
  * When the feed post went out: never before its slot time (a dry run
@@ -81,78 +125,133 @@ function tellEcho(post: PostRow, what: string, text: string) {
   });
 }
 
-async function fail(post: PostRow, reason: string, notes: string[]) {
-  await setEcho(post.id, {
-    echoStatus: "failed",
-    echoReason: reason.slice(0, 300),
-  });
-  tellEcho(post, "failed", `The Story echo failed: ${reason}.`);
-  notes.push(`${post.id}: echo failed (${reason})`);
-}
+// --- The photo check ---------------------------------------------------------
 
-/** Was the cover's photo flagged (people or unsure) since it was drawn? */
-export async function coverFlagged(spec: PostSpec): Promise<boolean> {
-  const s = spec.slides[0];
-  const ref = s && "photo" in s ? s.photo : null;
-  if (!ref) return false;
-  const rows = await db
-    .select({ verdict: socialPhotoChecks.verdict })
-    .from(socialPhotoChecks)
-    .where(eq(socialPhotoChecks.src, ref.src));
-  return rows.some((r) => r.verdict !== "clear");
-}
-
-/** Does the cover name a photo at all? */
-const coverHasPhoto = (spec: PostSpec) => {
-  const s = spec.slides[0];
-  return !!(s && "photo" in s && s.photo);
-};
-
-/** Draw and store the Story from the post's cleared cover. */
-async function drawEcho(post: PostRow): Promise<EchoFile> {
-  const spec = post.spec as PostSpec;
-  const media = post.media as MediaFile[];
-  if (!media[0] || !spec.slides[0]) throw new Error("The post has no cover");
-  const R = await echoRender();
-  const flagged = await coverFlagged(spec);
-  const cover = flagged
-    ? await R.crayonCover(spec.slides)
-    : await R.storedBytes(media[0]);
-  const file = await R.storeEcho(
-    await R.renderEcho(
-      spec.kind as PostKind,
-      echoLine(spec),
-      cover,
-      spec.slides[0].t === "headline",
-    ),
-  );
-  return { ...file, photoFree: flagged || !coverHasPhoto(spec) };
-}
-
-/** Would this Story show a photo that is flagged now? */
-async function flaggedNow(post: PostRow, file: EchoFile | null) {
-  return !file?.photoFree && (await coverFlagged(post.spec as PostSpec));
+/** The photo slide `i` names (null: none). */
+function slidePhoto(spec: PostSpec, i: number): PhotoRef | null {
+  const s = spec.slides[i];
+  return s && "photo" in s && s.photo ? s.photo : null;
 }
 
 /**
- * Asked right before every media_publish: a Story whose photo was flagged
- * after its container was made is skipped, never published.
+ * The photo frame `i` may draw: the one its feed slide drew (a post that
+ * fell back to the crayon card names none), only while it's clear on
+ * those exact bytes and never flagged. Null: the crayon card.
  */
-async function safeToPublish(post: PostRow, notes: string[]) {
-  if (!(await flaggedNow(post, post.echoMedia as EchoFile | null))) return true;
-  await setEcho(post.id, {
-    echoStatus: "skipped",
-    echoReason: "Photo flagged after the Story was made; never published.",
-  });
-  if (post.echoStatus === "publishing")
-    // An earlier publish didn't answer: it may be up.
-    tellEcho(
-      post,
-      "photo flagged",
-      "The cover photo was flagged after an earlier publish of its Story didn't answer. Check @park_roulette's Stories and delete it if it's up.",
-    );
-  notes.push(`${post.id}: echo skipped (photo flagged)`);
-  return false;
+export function framePhoto(
+  spec: PostSpec,
+  i: number,
+  verdicts: PhotoVerdicts,
+): PhotoRef | null {
+  const ref = slidePhoto(spec, i);
+  return ref && photoClear(ref, verdicts) ? ref : null;
+}
+
+/** The vision check's verdicts on these photos (never the whole table). */
+export async function verdictsFor(srcs: string[]): Promise<PhotoVerdicts> {
+  const v: PhotoVerdicts = { clear: new Set(), flagged: new Set() };
+  if (!srcs.length) return v;
+  for (const c of await db
+    .select({
+      src: socialPhotoChecks.src,
+      sha256: socialPhotoChecks.sha256,
+      verdict: socialPhotoChecks.verdict,
+    })
+    .from(socialPhotoChecks)
+    .where(inArray(socialPhotoChecks.src, [...new Set(srcs)])))
+    if (c.verdict === "clear") v.clear.add(`${c.src} ${c.sha256}`);
+    else v.flagged.add(c.src);
+  return v;
+}
+
+/** Would this frame show a photo that isn't clear now? */
+async function frameFlagged(f: EchoFrame): Promise<boolean> {
+  return !!f.photo && !photoClear(f.photo, await verdictsFor([f.photo.src]));
+}
+
+// --- Drawing -------------------------------------------------------------------
+
+/**
+ * Draw and store slide `i` as a Story frame. Its photo is drawn only if
+ * the feed post drew it (the spec still names it: a post that fell back
+ * to the crayon card names none), it's clear on those exact bytes now,
+ * and the bytes still load and hash to what was checked; anything else
+ * draws the crayon card.
+ */
+async function drawFrame(
+  spec: PostSpec,
+  i: number,
+  verdicts?: PhotoVerdicts,
+): Promise<EchoFrame> {
+  const named = slidePhoto(spec, i);
+  const ref = named
+    ? framePhoto(spec, i, verdicts ?? (await verdictsFor([named.src])))
+    : null;
+  const photo = ref ? await (await render()).loadPhoto(ref) : null;
+  const E = await echoRender();
+  const file = await E.storeFrame(await E.renderFrame(spec.slides, i, photo));
+  return {
+    slide: i,
+    ...file,
+    photo: photo && ref ? { src: ref.src, sha256: ref.sha256 } : null,
+    status: "pending",
+    containerId: null,
+    mediaId: null,
+  };
+}
+
+/** Every slide of the post as a Story frame, in slide order. */
+async function drawFrames(post: PostRow): Promise<EchoFrame[]> {
+  const spec = post.spec as PostSpec;
+  if (!spec.slides?.length) throw new Error("The post has no slides");
+  const verdicts = await verdictsFor(
+    spec.slides.flatMap((_, i) => slidePhoto(spec, i)?.src ?? []),
+  );
+  const frames: EchoFrame[] = [];
+  for (let i = 0; i < spec.slides.length; i++)
+    frames.push(await drawFrame(spec, i, verdicts));
+  return frames;
+}
+
+/**
+ * The echo's frames: echo_frames, or an echo from before frames as its
+ * one frame (its card, its container, its cover photo).
+ */
+export function framesOf(post: {
+  spec: unknown;
+  echoFrames: unknown;
+  echoMedia: unknown;
+  echoContainerId: string | null;
+}): EchoFrame[] {
+  if (Array.isArray(post.echoFrames))
+    return (post.echoFrames as EchoFrame[]).map((f) => ({ ...f }));
+  const m = post.echoMedia as LegacyEcho | null;
+  if (!m?.sha) return [];
+  const ref = slidePhoto(post.spec as PostSpec, 0);
+  return [
+    {
+      slide: 0,
+      sha: m.sha,
+      ext: m.ext,
+      width: m.width,
+      height: m.height,
+      photo: m.photoFree || !ref ? null : { src: ref.src, sha256: ref.sha256 },
+      status: "pending",
+      containerId: post.echoContainerId,
+      mediaId: null,
+    },
+  ];
+}
+
+// --- The run -------------------------------------------------------------------
+
+/** What one run knows about Meta's publishing quota. */
+type Quota = { usage: number | null | undefined; used: number };
+
+async function quotaLeft(q: Quota, o: GraphOpts): Promise<number | null> {
+  if (q.usage === undefined)
+    q.usage = await publishingQuota(o).catch(() => null);
+  return q.usage == null ? null : DAILY_PUBLISH_LIMIT - q.usage - q.used;
 }
 
 /**
@@ -188,7 +287,7 @@ export async function runEchoes(
       ),
     )
     .orderBy(socialPosts.publishAt);
-  let quota: number | null | undefined;
+  const quota: Quota = { usage: undefined, used: 0 };
   for (const post of rows) {
     if (outOfTime()) {
       notes.push("echo: out of time, the next run goes on");
@@ -213,48 +312,59 @@ export async function runEchoes(
         }
         if (!live) {
           if (post.status === "published") continue; // went live; dry run now: wait
-          const file = await drawEcho(post);
+          const frames = await drawFrames(post);
           await setEcho(post.id, {
             echoStatus: "dry_run",
-            echoMedia: file,
+            echoFrames: frames,
             echoReason: "Dry run.",
           });
-          notes.push(`${post.id}: echo dry run ${echoUrl(file)}`);
+          notes.push(
+            `${post.id}: echo dry run, ${frames.length} ${frames.length === 1 ? "Story" : "Stories"}: ${frames.map(frameUrl).join(" ")}`,
+          );
           continue;
         }
         if (post.status !== "published") continue; // a dry-run post never echoes live
-        if (quota === undefined)
-          quota = await publishingQuota(live).catch(() => null);
-        if (quota != null && quota >= DAILY_PUBLISH_LIMIT) {
+        const n = (post.spec as PostSpec).slides?.length ?? 0;
+        const left = await quotaLeft(quota, live);
+        if (left != null && left < n) {
           await setEcho(post.id, {
             echoStatus: "skipped",
             echoReason: "Daily publishing limit reached.",
           });
-          notes.push(`${post.id}: echo skipped (quota)`);
-          continue;
-        }
-        await createEcho(post, live, notes, now);
-        continue;
-      }
-      if (!live) continue; // a live echo caught by a switch to dry run waits
-      if (post.echoStatus === "creating") {
-        if (tooOld(post, now)) {
-          await setEcho(post.id, {
-            echoStatus: "skipped",
-            echoReason: "No publisher run in time (6 hours).",
-          });
-          tellEcho(
-            post,
-            "skipped",
-            "No publisher run got the Story out in time: the cron runs only in each post's window, and 6 hours after the post it still wasn't published. It was skipped; no Story went out.",
+          notes.push(
+            `${post.id}: echo skipped (quota: ${n} Stories, ${left} left)`,
           );
           continue;
         }
-        if (!post.echoContainerId) await createEcho(post, live, notes, now);
-        else await publishEchoStep(post, live, notes);
+        const frames = await drawFrames(post);
+        await setEcho(post.id, {
+          echoStatus: "creating",
+          echoFrames: frames,
+          echoReason: null,
+        });
+        await advance(
+          { post, frames, status: "creating" },
+          live,
+          notes,
+          now,
+          quota,
+          outOfTime,
+        );
         continue;
       }
-      await resolveEcho(post, live, notes, now);
+      if (!live) continue; // a live echo caught by a switch to dry run waits
+      await advance(
+        {
+          post,
+          frames: framesOf(post),
+          status: post.echoStatus as "creating" | "publishing",
+        },
+        live,
+        notes,
+        now,
+        quota,
+        outOfTime,
+      );
     } catch (e) {
       // Drawing or Blob: try again next run (closed as skipped at 6 hours).
       const msg = ((e as Error)?.message ?? "error").slice(0, 300);
@@ -264,65 +374,265 @@ export async function runEchoes(
   }
 }
 
-async function createEcho(
-  post: PostRow,
+/** An echo under way: the row, its frames and its status, as stored. */
+type Echo = {
+  post: PostRow;
+  frames: EchoFrame[];
+  status: "creating" | "publishing";
+};
+
+/** What a step leaves: go on to the next frame now, or stop this run. */
+type Step = "next" | "stop";
+
+async function save(
+  e: Echo,
+  patch: Partial<typeof socialPosts.$inferInsert> = {},
+) {
+  await setEcho(e.post.id, {
+    echoFrames: e.frames,
+    echoStatus: e.status,
+    ...patch,
+  });
+}
+
+const count = (e: Echo, s: EchoFrame["status"]) =>
+  e.frames.filter((f) => f.status === s).length;
+const sentLine = (e: Echo) => {
+  const k = count(e, "published");
+  return k
+    ? ` ${k} of its ${e.frames.length} Stories went out before it.`
+    : " No Story went out.";
+};
+const label = (e: Echo, i: number) =>
+  e.frames.length > 1 ? `frame ${i + 1} of ${e.frames.length}` : "the Story";
+
+async function fail(e: Echo, i: number, reason: string, notes: string[]) {
+  await setEcho(e.post.id, {
+    echoFrames: e.frames,
+    echoStatus: "failed",
+    echoReason: reason.slice(0, 300),
+  });
+  tellEcho(
+    e.post,
+    "failed",
+    `The Story echo failed at ${label(e, i)}: ${reason}.${sentLine(e)}`,
+  );
+  notes.push(`${e.post.id}: echo failed (${reason})`);
+}
+
+/**
+ * Work through the frames in order, as far as this run can: each step
+ * creates, publishes or settles the first frame still pending.
+ */
+async function advance(
+  e: Echo,
   o: GraphOpts,
   notes: string[],
   now: Date,
-) {
-  const old = post.echoMedia as EchoFile | null;
-  // The photo check, again: a flagged photo is redrawn as the crayon card.
-  const file =
-    old && !(await flaggedNow(post, old)) ? old : await drawEcho(post);
-  // Recorded before Meta is asked, so a crash never draws a second one.
-  await setEcho(post.id, { echoStatus: "creating", echoMedia: file });
-  try {
-    const id = await createContainer(
-      { kind: "story", imageUrl: echoUrl(file) },
-      o,
-    );
-    await setEcho(post.id, { echoContainerId: id, echoReason: null });
-    notes.push(`${post.id}: echo container ${id}`);
-  } catch (e) {
-    const err = e as GraphError;
-    if (err instanceof GraphError && err.retryable && !tooOld(post, now)) {
-      await setEcho(post.id, { echoReason: err.message });
-      notes.push(`${post.id}: echo create retry (${err.message})`);
+  quota: Quota,
+  outOfTime: () => boolean,
+): Promise<void> {
+  // The row was "publishing" when the run found it: that publish never answered.
+  let unanswered = e.status === "publishing";
+  for (;;) {
+    const i = e.frames.findIndex((f) => f.status === "pending");
+    if (i < 0) return finish(e, notes);
+    if (outOfTime()) {
+      notes.push("echo: out of time, the next run goes on");
       return;
     }
-    await fail(post, `creating it failed: ${err?.message ?? "error"}`, notes);
+    let step: Step;
+    if (e.status === "publishing") {
+      step = await resolveFrame(e, i, o, notes, now, quota, unanswered);
+      unanswered = false;
+    } else if (tooOld(e.post, now)) {
+      return closeLate(e, notes);
+    } else if (!e.frames[i].containerId) {
+      step = await createFrame(e, i, o, notes, now, quota);
+    } else {
+      step = await publishStep(e, i, o, notes, quota);
+    }
+    if (step === "stop") return;
   }
 }
 
-async function publishEchoStep(post: PostRow, o: GraphOpts, notes: string[]) {
+/** Every frame published or skipped: the echo is done. */
+async function finish(e: Echo, notes: string[]) {
+  const sent = count(e, "published");
+  const skipped = count(e, "skipped");
+  if (!sent) {
+    await setEcho(e.post.id, {
+      echoFrames: e.frames,
+      echoStatus: "skipped",
+      echoReason: "Photo flagged after the Story was made; never published.",
+    });
+    notes.push(`${e.post.id}: echo skipped (photo flagged)`);
+    return;
+  }
+  await setEcho(e.post.id, {
+    echoFrames: e.frames,
+    echoStatus: "published",
+    echoMediaId: e.frames.find((f) => f.mediaId)?.mediaId ?? null,
+    echoPublishedAt: new Date(),
+    echoReason: skipped
+      ? `${skipped} of ${e.frames.length} frames skipped (photo flagged).`
+      : null,
+  });
+  notes.push(
+    `${e.post.id}: echo published (${sent} ${sent === 1 ? "Story" : "Stories"})`,
+  );
+}
+
+/** 6 hours on and frames still waiting: they never go out. */
+async function closeLate(e: Echo, notes: string[]) {
+  const sent = count(e, "published");
+  for (const f of e.frames)
+    if (f.status === "pending")
+      Object.assign(f, { status: "skipped", reason: "Too late (6 hours)." });
+  await setEcho(e.post.id, {
+    echoFrames: e.frames,
+    echoStatus: sent ? "published" : "skipped",
+    echoReason: sent
+      ? `Only ${sent} of ${e.frames.length} Stories went out: no publisher run in time (6 hours).`
+      : "No publisher run in time (6 hours).",
+    ...(sent ? { echoPublishedAt: new Date() } : {}),
+  });
+  tellEcho(
+    e.post,
+    "skipped",
+    sent
+      ? `No publisher run got the rest of the Stories out in time (6 hours after the post): only ${sent} of ${e.frames.length} went out, the rest were skipped.`
+      : "No publisher run got the Story out in time: the cron runs only in each post's window, and 6 hours after the post it still wasn't published. It was skipped; no Story went out.",
+  );
+  notes.push(`${e.post.id}: echo closed (6 hours)`);
+}
+
+async function createFrame(
+  e: Echo,
+  i: number,
+  o: GraphOpts,
+  notes: string[],
+  now: Date,
+  quota: Quota,
+): Promise<Step> {
+  const left = await quotaLeft(quota, o);
+  if (left != null && left < 1) {
+    await save(e, {
+      echoReason: `Daily publishing limit reached at ${label(e, i)}; it goes on next run.`,
+    });
+    notes.push(`${e.post.id}: echo waits (quota)`);
+    return "stop";
+  }
+  // The photo check, again: a flagged photo is redrawn as the crayon card.
+  if (await frameFlagged(e.frames[i]))
+    e.frames[i] = await drawFrame(e.post.spec as PostSpec, i);
+  // Recorded before Meta is asked, so a crash never draws a second one.
+  await save(e);
+  try {
+    const id = await createContainer(
+      { kind: "story", imageUrl: frameUrl(e.frames[i]) },
+      o,
+    );
+    e.frames[i].containerId = id;
+    await save(e, { echoReason: null });
+    notes.push(`${e.post.id}: echo container ${id} (${label(e, i)})`);
+    return "next";
+  } catch (err) {
+    const g = err as GraphError;
+    if (g instanceof GraphError && g.retryable && !tooOld(e.post, now)) {
+      await setEcho(e.post.id, { echoReason: g.message });
+      notes.push(`${e.post.id}: echo create retry (${g.message})`);
+      return "stop";
+    }
+    await fail(e, i, `creating it failed: ${g?.message ?? "error"}`, notes);
+    return "stop";
+  }
+}
+
+/**
+ * Asked right before every media_publish: a frame whose photo was flagged
+ * after its container was made is skipped, never published. The echo
+ * goes on with the next frame.
+ */
+async function safeToPublish(
+  e: Echo,
+  i: number,
+  notes: string[],
+  unanswered: boolean,
+): Promise<boolean> {
+  if (!(await frameFlagged(e.frames[i]))) return true;
+  Object.assign(e.frames[i], {
+    status: "skipped",
+    reason: "Photo flagged after the Story was made; never published.",
+  });
+  e.status = "creating";
+  await save(e);
+  if (unanswered)
+    // An earlier publish didn't answer: it may be up.
+    tellEcho(
+      e.post,
+      "photo flagged",
+      `A photo was flagged after an earlier publish of its Story (${label(e, i)}) didn't answer. Check @park_roulette's Stories and delete it if it's up.`,
+    );
+  notes.push(`${e.post.id}: echo ${label(e, i)} skipped (photo flagged)`);
+  return false;
+}
+
+async function published(
+  e: Echo,
+  i: number,
+  mediaId: string | null,
+  quota: Quota,
+  notes: string[],
+  how = "",
+) {
+  Object.assign(e.frames[i], { status: "published", mediaId });
+  quota.used++;
+  e.status = "creating";
+  await save(e, { echoReason: null });
+  notes.push(
+    `${e.post.id}: echo ${label(e, i)} published${mediaId ? ` ${mediaId}` : ""}${how}`,
+  );
+}
+
+async function publishStep(
+  e: Echo,
+  i: number,
+  o: GraphOpts,
+  notes: string[],
+  quota: Quota,
+): Promise<Step> {
   let status;
   try {
-    status = await containerStatus(post.echoContainerId!, o);
-  } catch (e) {
-    notes.push(`${post.id}: echo status unknown (${(e as Error).message})`);
-    return;
+    status = await containerStatus(e.frames[i].containerId!, o);
+  } catch (err) {
+    notes.push(`${e.post.id}: echo status unknown (${(err as Error).message})`);
+    return "stop";
   }
-  if (status.code === "IN_PROGRESS") return;
-  if (status.code === "ERROR" || status.code === "EXPIRED")
-    return fail(post, `Meta couldn't process it (${status.code})`, notes);
+  if (status.code === "IN_PROGRESS") return "stop";
+  if (status.code === "ERROR" || status.code === "EXPIRED") {
+    await fail(e, i, `Meta couldn't process it (${status.code})`, notes);
+    return "stop";
+  }
   if (status.code === "PUBLISHED") {
-    await setEcho(post.id, {
-      echoStatus: "published",
-      echoPublishedAt: new Date(),
-    });
-    return;
+    await published(e, i, null, quota, notes, " (resolved)");
+    return "next";
   }
-  if (!(await safeToPublish(post, notes))) return;
-  // Claim it, so no other run ever publishes the same Story.
+  if (!(await safeToPublish(e, i, notes, false))) return "next";
+  // Claim it, so no other run ever publishes the same frame.
   const claimed = await db
     .update(socialPosts)
     .set({ echoStatus: "publishing", updatedAt: sql`now()` })
     .where(
-      and(eq(socialPosts.id, post.id), eq(socialPosts.echoStatus, "creating")),
+      and(
+        eq(socialPosts.id, e.post.id),
+        eq(socialPosts.echoStatus, "creating"),
+      ),
     )
     .returning({ id: socialPosts.id });
-  if (!claimed.length) return;
-  await publishEcho(post, o, notes);
+  if (!claimed.length) return "stop";
+  e.status = "publishing";
+  return publishFrame(e, i, o, notes, quota, false);
 }
 
 /**
@@ -330,107 +640,93 @@ async function publishEchoStep(post: PostRow, o: GraphOpts, notes: string[]) {
  * feed posts (store.ts publish): PUBLISHED went out, FINISHED with a
  * retryable error goes back to creating, unclear waits, anything else fails.
  */
-async function publishEcho(post: PostRow, o: GraphOpts, notes: string[]) {
-  if (!(await safeToPublish(post, notes))) return;
+async function publishFrame(
+  e: Echo,
+  i: number,
+  o: GraphOpts,
+  notes: string[],
+  quota: Quota,
+  unanswered: boolean,
+): Promise<Step> {
+  if (!(await safeToPublish(e, i, notes, unanswered))) return "next";
+  const container = e.frames[i].containerId!;
   try {
-    const mediaId = await publishContainer(post.echoContainerId!, o);
-    await setEcho(post.id, {
-      echoStatus: "published",
-      echoMediaId: mediaId,
-      echoPublishedAt: new Date(),
-      echoReason: null,
-    });
-    notes.push(`${post.id}: echo published ${mediaId}`);
-  } catch (e) {
-    const err = e as GraphError;
-    if (/already (been )?published/i.test(err?.message ?? "")) {
-      await setEcho(post.id, {
-        echoStatus: "published",
-        echoPublishedAt: new Date(),
-        echoReason: null,
-      });
-      notes.push(`${post.id}: echo published (Meta: already published)`);
-      return;
+    const mediaId = await publishContainer(container, o);
+    await published(e, i, mediaId, quota, notes);
+    return "next";
+  } catch (err) {
+    const g = err as GraphError;
+    if (/already (been )?published/i.test(g?.message ?? "")) {
+      await published(e, i, null, quota, notes, " (Meta: already published)");
+      return "next";
     }
     let status;
     try {
-      status = await containerStatus(post.echoContainerId!, o);
+      status = await containerStatus(container, o);
     } catch {
-      await setEcho(post.id, { echoReason: err?.message ?? "error" });
-      notes.push(`${post.id}: echo publish unclear (${err?.message})`);
-      return;
+      await setEcho(e.post.id, { echoReason: g?.message ?? "error" });
+      notes.push(`${e.post.id}: echo publish unclear (${g?.message})`);
+      return "stop";
     }
     if (status.code === "PUBLISHED") {
-      await setEcho(post.id, {
-        echoStatus: "published",
-        echoPublishedAt: new Date(),
-        echoReason: null,
-      });
-      notes.push(`${post.id}: echo published (resolved)`);
-      return;
+      await published(e, i, null, quota, notes, " (resolved)");
+      return "next";
     }
     if (
-      err instanceof GraphError &&
-      err.ambiguous &&
+      g instanceof GraphError &&
+      g.ambiguous &&
       status.code !== "ERROR" &&
       status.code !== "EXPIRED"
     ) {
-      await setEcho(post.id, { echoReason: err.message });
-      notes.push(`${post.id}: echo publish unclear (${err.message})`);
-      return;
+      await setEcho(e.post.id, { echoReason: g.message });
+      notes.push(`${e.post.id}: echo publish unclear (${g.message})`);
+      return "stop";
     }
-    if (
-      status.code === "FINISHED" &&
-      err instanceof GraphError &&
-      err.retryable
-    ) {
-      await setEcho(post.id, {
-        echoStatus: "creating",
-        echoReason: err.message,
-      });
-      notes.push(`${post.id}: echo publish retry (${err.message})`);
-      return;
+    if (status.code === "FINISHED" && g instanceof GraphError && g.retryable) {
+      e.status = "creating";
+      await save(e, { echoReason: g.message });
+      notes.push(`${e.post.id}: echo publish retry (${g.message})`);
+      return "stop";
     }
-    await fail(post, `publishing failed: ${err?.message ?? "error"}`, notes);
+    await fail(e, i, `publishing failed: ${g?.message ?? "error"}`, notes);
+    return "stop";
   }
 }
 
 /** A publish that didn't answer: ask the container (it publishes once, ever). */
-async function resolveEcho(
-  post: PostRow,
+async function resolveFrame(
+  e: Echo,
+  i: number,
   o: GraphOpts,
   notes: string[],
   now: Date,
-) {
+  quota: Quota,
+  unanswered: boolean,
+): Promise<Step> {
   let status;
   try {
-    status = await containerStatus(post.echoContainerId!, o);
+    status = await containerStatus(e.frames[i].containerId!, o);
   } catch {
-    if (tooOld(post, now)) {
-      await setEcho(post.id, {
+    if (tooOld(e.post, now)) {
+      await setEcho(e.post.id, {
+        echoFrames: e.frames,
         echoStatus: "failed",
         echoReason: "Publish never confirmed, and Meta's status can't be read.",
       });
       tellEcho(
-        post,
+        e.post,
         "unclear",
-        "Publishing the Story didn't answer and its status still can't be read. Check @park_roulette: it may or may not be up.",
+        `Publishing ${label(e, i)} didn't answer and its status still can't be read. Check @park_roulette: it may or may not be up.${sentLine(e)}`,
       );
     }
-    return;
+    return "stop";
   }
   if (status.code === "PUBLISHED") {
-    await setEcho(post.id, {
-      echoStatus: "published",
-      echoPublishedAt: new Date(),
-      echoReason: null,
-    });
-    notes.push(`${post.id}: echo published (resolved)`);
-    return;
+    await published(e, i, null, quota, notes, " (resolved)");
+    return "next";
   }
-  if (status.code === "FINISHED" && !tooOld(post, now)) {
-    await publishEcho(post, o, notes);
-    return;
-  }
-  await fail(post, `unclear publish, then ${status.code}`, notes);
+  if (status.code === "FINISHED" && !tooOld(e.post, now))
+    return publishFrame(e, i, o, notes, quota, unanswered);
+  await fail(e, i, `unclear publish, then ${status.code}`, notes);
+  return "stop";
 }

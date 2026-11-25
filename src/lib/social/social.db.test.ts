@@ -21,6 +21,8 @@ let photoLoads = true;
 /** Runs inside the stub storeMedia (null: nothing). */
 let onStore: (() => Promise<void>) | null = null;
 vi.mock("./render", () => ({
+  loadPhoto: async (ref: unknown) =>
+    ref && photoLoads ? "data:image/jpeg;base64,AA" : null,
   photosFor: async (spec: { slides: { photo?: unknown }[] }) =>
     spec.slides.map((s) =>
       s.photo && photoLoads ? "data:image/jpeg;base64,AA" : null,
@@ -48,21 +50,32 @@ vi.mock("./render", () => ({
     return files.map((f) => f.file);
   },
 }));
-/** What the Story echo was drawn from (the stub records the cover). */
-const echoes: { kind: string; line: string; cover: string }[] = [];
+/**
+ * The Story frames the stub drew: which slide, with its photo or not. A
+ * frame's sha says both (slide number, then "a" with the photo, "c" the
+ * crayon card).
+ */
+const echoes: { slide: number; photo: boolean }[] = [];
 let echoBreaks = false;
+const frameSha = (slide: number, photo: boolean) =>
+  `${slide.toString(16).padStart(2, "0")}${photo ? "a" : "c"}`
+    .repeat(22)
+    .slice(0, 64);
 vi.mock("./echo-render", () => ({
-  storedBytes: async (f: { sha: string }) => Buffer.from(`stored:${f.sha}`),
-  crayonCover: async () => Buffer.from("crayon"),
-  renderEcho: async (kind: string, line: string, cover: Uint8Array) => {
+  renderFrame: async (_slides: unknown[], i: number, photo: string | null) => {
     if (echoBreaks) throw new Error("drawing broke");
-    echoes.push({ kind, line, cover: Buffer.from(cover).toString() });
+    echoes.push({ slide: i, photo: !!photo });
     return {
-      bytes: Buffer.from("echo"),
-      file: { sha: "e".repeat(64), ext: "jpg", width: 1080, height: 1920 },
+      bytes: Buffer.from("frame"),
+      file: {
+        sha: frameSha(i, !!photo),
+        ext: "jpg",
+        width: 1080,
+        height: 1920,
+      },
     };
   },
-  storeEcho: async (r: { file: unknown }) => r.file,
+  storeFrame: async (r: { file: unknown }) => r.file,
 }));
 vi.mock("@vercel/blob", () => ({
   get: async () => ({
@@ -79,8 +92,13 @@ let containerState = "FINISHED";
 /** The container's status once a publish was tried (null: containerState). */
 let afterPublish: string | null = null;
 let publishFails: "no" | "timeout" | "rate" | "bad" | "5xx" | "already" = "no";
+/** Only the nth media_publish (1-based) fails, as publishFails says (null: all). */
+let publishFailsOn: number | null = null;
 /** A Story container create that times out (Meta may or may not have it). */
 let storyCreateFails = false;
+/** Story containers' status (null: containerState, as for feed posts). */
+let storyState: string | null = null;
+const storyContainers = new Set<string>();
 /** Runs when a container's status is read (another worker, mid-run). */
 let onStatus: ((id: string) => Promise<void>) | null = null;
 let quota = 1;
@@ -93,6 +111,9 @@ const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
   if (path.endsWith("/content_publishing_limit"))
     return Response.json({ data: [{ quota_usage: quota }] });
   if (path.endsWith("/media_publish")) {
+    const nth = calls.filter((c) => c.path.endsWith("/media_publish")).length;
+    if (publishFailsOn != null && nth !== publishFailsOn)
+      return Response.json({ id: `IGMEDIA${nth}` });
     if (publishFails === "timeout") throw new Error("timeout");
     if (publishFails === "rate")
       return Response.json(
@@ -125,6 +146,8 @@ const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
   if (path.endsWith("/media")) {
     if (storyCreateFails && body.get("media_type") === "STORIES")
       throw new Error("timeout");
+    if (body.get("media_type") === "STORIES")
+      storyContainers.add(`C${calls.length}`);
     return Response.json({ id: `C${calls.length}` });
   }
   if (path.endsWith("/photos"))
@@ -155,7 +178,9 @@ const meta = async (u: RequestInfo | URL, init?: RequestInit) => {
             c.body.get("creation_id") === path,
         )
           ? afterPublish
-          : containerState,
+          : storyContainers.has(path)
+            ? (storyState ?? containerState)
+            : containerState,
     });
   }
   return new Response("no", { status: 404 });
@@ -201,7 +226,10 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     containerState = "FINISHED";
     afterPublish = null;
     publishFails = "no";
+    publishFailsOn = null;
     storyCreateFails = false;
+    storyState = null;
+    storyContainers.clear();
     onStatus = null;
     quota = 1;
     comments = [];
@@ -351,8 +379,16 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
         (c) => c.method === "POST" && c.path.endsWith("/media"),
       );
       expect(create?.body.get("caption")).toBe(oldCaption);
+      // The feed post's own container (the Story echo publishes its own).
+      const [{ container_id }] = await q(
+        `select container_id from social_posts where id = ${id}`,
+      );
       expect(
-        calls.filter((c) => c.path.endsWith("/media_publish")),
+        calls.filter(
+          (c) =>
+            c.path.endsWith("/media_publish") &&
+            c.body.get("creation_id") === container_id,
+        ),
       ).toHaveLength(1);
       const feed = calls.find((c) => c.path.endsWith("/feed"));
       expect(feed?.body.get("message")).toBe(oldFb);
@@ -406,11 +442,18 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     publishFails = "no";
     afterPublish = "PUBLISHED";
     await store.runSocial(new Date("2026-11-23T20:30:00Z"), { fetchImpl });
-    [row] = await q(`select status from social_posts where id = ${id}`);
-    expect(row.status).toBe("published");
-    expect(calls.filter((c) => c.path.endsWith("/media_publish"))).toHaveLength(
-      1,
+    [row] = await q(
+      `select status, container_id from social_posts where id = ${id}`,
     );
+    expect(row.status).toBe("published");
+    // The feed post's own container (the Story echo publishes its own).
+    expect(
+      calls.filter(
+        (c) =>
+          c.path.endsWith("/media_publish") &&
+          c.body.get("creation_id") === row.container_id,
+      ),
+    ).toHaveLength(1);
   });
 
   it("a rate-limited publish waits and goes out next run; a clear no fails", async () => {
@@ -1064,6 +1107,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
   // --- The Story echo ------------------------------------------------------
 
   const MON_1230 = new Date("2026-11-23T20:30:00Z");
+  const MON_1245 = new Date("2026-11-23T20:45:00Z");
   const storyCreates = () =>
     calls.filter(
       (c) =>
@@ -1072,11 +1116,47 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
   const echoRow = async (id: number) =>
     (
       await q(
-        `select status, echo_status, echo_container_id, echo_media_id, echo_media->>'sha' as echo_sha, media->0->>'sha' as cover_sha from social_posts where id = ${id}`,
+        `select status, echo_status, echo_reason, echo_container_id, echo_media_id, echo_frames from social_posts where id = ${id}`,
       )
-    )[0];
+    )[0] as Record<string, unknown> & {
+      echo_frames: {
+        slide: number;
+        sha: string;
+        photo: unknown;
+        status: string;
+        containerId: string | null;
+        mediaId: string | null;
+      }[];
+    };
+  const frameUrl = (sha: string) =>
+    `https://parkroulette.quest/social/m/${sha}.jpg`;
+  const publishesOf = (container: string | null) =>
+    calls.filter(
+      (c) =>
+        c.path.endsWith("/media_publish") &&
+        c.body.get("creation_id") === container,
+    );
+  const echoAlerts = () => alerts.filter((a) => /echo/i.test(a.subject));
 
-  it("echo: once the feed post is out, one Story from its cover goes out, never twice", async () => {
+  /**
+   * A carousel that is out: the park post's cover (its photo when one is
+   * cleared) and n - 1 more slides with no photo.
+   */
+  async function publishedCarousel(n: number) {
+    const id = await draftPost();
+    const more = Array.from({ length: n - 1 }, (_, k) => ({
+      t: "cta",
+      line: `Slide ${k + 2}`,
+      cta: "Link in bio.",
+      sub: null,
+    }));
+    await q(
+      `update social_posts set status = 'published', published_at = '${MON_1215.toISOString()}', spec = jsonb_set(spec, '{slides}', (spec->'slides') || '${JSON.stringify(more)}'::jsonb) where id = ${id}`,
+    );
+    return id;
+  }
+
+  it("echo: once the feed post is out, the post goes out as a Story, never twice", async () => {
     await settings.setSocialSettings({ dryRun: false });
     const id = await draftPost();
     await store.runSocial(MON_1150, { fetchImpl });
@@ -1084,47 +1164,119 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     await store.runSocial(MON_1215, { fetchImpl });
     let row = await echoRow(id);
     expect(row.status).toBe("published");
-    expect(row.echo_status).toBe("creating");
+    expect(row.echo_status).toBe("published");
     expect(storyCreates()).toHaveLength(1);
     expect(storyCreates()[0].body.get("image_url")).toBe(
-      `https://parkroulette.quest/social/m/${"e".repeat(64)}.jpg`,
+      frameUrl(frameSha(0, false)),
     );
     expect(storyCreates()[0].body.get("caption")).toBeNull();
-    expect(echoes).toEqual([
-      {
-        kind: "park_post",
-        line: "This week's park pick",
-        cover: `stored:${row.cover_sha}`,
-      },
-    ]);
-    await store.runSocial(MON_1230, { fetchImpl });
-    row = await echoRow(id);
-    expect(row).toMatchObject({
-      echo_status: "published",
-      echo_media_id: "IGMEDIA1",
+    // The post's own slide at 9:16, no "New post" card.
+    expect(echoes).toEqual([{ slide: 0, photo: false }]);
+    expect(row.echo_frames).toHaveLength(1);
+    expect(row.echo_frames[0]).toMatchObject({
+      slide: 0,
+      sha: frameSha(0, false),
+      photo: null,
+      status: "published",
     });
-    expect(
-      calls.filter(
-        (c) =>
-          c.path.endsWith("/media_publish") &&
-          c.body.get("creation_id") === row.echo_container_id,
-      ),
-    ).toHaveLength(1);
-    for (const t of ["20:45", "21:00", "21:15"])
+    expect(publishesOf(row.echo_frames[0].containerId)).toHaveLength(1);
+    for (const t of ["20:30", "20:45", "21:00", "21:15"])
       await store.runSocial(new Date(`2026-11-23T${t}:00Z`), { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
     expect(storyCreates()).toHaveLength(1);
     expect(calls.filter((c) => c.path.endsWith("/media_publish"))).toHaveLength(
       2,
     );
     expect(echoes).toHaveLength(1);
-    // Meta may fetch the echo's JPEG; the feed post's status is untouched.
+    // Meta may fetch the frame's JPEG; the feed post's status is untouched.
     const { GET } = await import("@/app/social/m/[file]/route");
-    const file = `${"e".repeat(64)}.jpg`;
+    const file = `${frameSha(0, false)}.jpg`;
     const res = await GET(new Request(`http://x/social/m/${file}`), {
       params: Promise.resolve({ file }),
     });
     expect(res.status).toBe(200);
-    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+    expect(echoAlerts()).toEqual([]);
+  });
+
+  it("echo: a carousel goes out as one Story per slide, in slide order", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(4);
+    await store.runSocial(MON_1230, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(echoes.map((e) => e.slide)).toEqual([0, 1, 2, 3]);
+    expect(storyCreates().map((c) => c.body.get("image_url"))).toEqual(
+      [0, 1, 2, 3].map((i) => frameUrl(frameSha(i, false))),
+    );
+    expect(row.echo_frames.map((f) => [f.slide, f.status])).toEqual([
+      [0, "published"],
+      [1, "published"],
+      [2, "published"],
+      [3, "published"],
+    ]);
+    // Each frame's container published once, in order, before the next was made.
+    const order = calls
+      .filter(
+        (c) =>
+          (c.path.endsWith("/media") &&
+            c.body.get("media_type") === "STORIES") ||
+          c.path.endsWith("/media_publish"),
+      )
+      .map((c) => (c.path.endsWith("/media_publish") ? "publish" : "create"));
+    expect(order).toEqual(Array(4).fill(["create", "publish"]).flat());
+    for (const f of row.echo_frames)
+      expect(publishesOf(f.containerId)).toHaveLength(1);
+    expect(new Set(row.echo_frames.map((f) => f.containerId)).size).toBe(4);
+    await store.runSocial(MON_1245, { fetchImpl });
+    expect(storyCreates()).toHaveLength(4);
+    expect(echoAlerts()).toEqual([]);
+  });
+
+  it("echo: a publish that fails midway resumes at that frame next run, never sending one twice", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(4);
+    publishFails = "5xx";
+    publishFailsOn = 3; // the third frame's publish doesn't answer
+    await store.runSocial(MON_1230, { fetchImpl });
+    let row = await echoRow(id);
+    expect(row.echo_status).toBe("publishing");
+    expect(row.echo_frames.map((f) => f.status)).toEqual([
+      "published",
+      "published",
+      "pending",
+      "pending",
+    ]);
+    expect(storyCreates()).toHaveLength(3);
+    publishFails = "no";
+    publishFailsOn = null;
+    await store.runSocial(MON_1245, { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(row.echo_frames.map((f) => f.status)).toEqual(
+      Array(4).fill("published"),
+    );
+    // No frame drawn or made twice; only the unanswered one asked again.
+    expect(storyCreates()).toHaveLength(4);
+    expect(echoes).toHaveLength(4);
+    expect(
+      row.echo_frames.map((f) => publishesOf(f.containerId).length),
+    ).toEqual([1, 1, 2, 1]);
+    expect(echoAlerts()).toEqual([]);
+  });
+
+  it("echo: a frame Meta already published (its publish unanswered) isn't sent again", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(3);
+    publishFails = "timeout";
+    publishFailsOn = 2;
+    afterPublish = "PUBLISHED";
+    await store.runSocial(MON_1230, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(
+      row.echo_frames.map((f) => publishesOf(f.containerId).length),
+    ).toEqual([1, 1, 1]);
   });
 
   it("echo: none when the feed post fails or is skipped", async () => {
@@ -1142,7 +1294,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(echoes).toHaveLength(0);
   });
 
-  it("echo: the crayon cover when the post drew it, or when its photo was flagged since", async () => {
+  it("echo: the crayon card when the post drew it, or when its photo was flagged before the Story was made", async () => {
     await settings.setSocialSettings({ dryRun: false });
     await store.savePhotoChecks([
       { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
@@ -1152,12 +1304,26 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     await store.runSocial(MON_1150, { fetchImpl });
     await store.runSocial(MON_1215, { fetchImpl });
     let row = await echoRow(id);
-    expect(echoes.at(-1)?.cover).toBe(`stored:${row.cover_sha}`);
     expect(drawn.at(-1)).toEqual([null]);
+    expect(echoes.at(-1)).toEqual({ slide: 0, photo: false });
+    expect(row.echo_frames[0].photo).toBeNull();
 
-    // A photo post, published, then a person is seen in the photo.
+    // A photo post: its Story shows the photo while it's clear.
     await q("truncate social_posts restart identity cascade");
     photoLoads = true;
+    id = await draftPost();
+    await store.runSocial(MON_1150, { fetchImpl });
+    await store.runSocial(MON_1215, { fetchImpl });
+    row = await echoRow(id);
+    expect(echoes.at(-1)).toEqual({ slide: 0, photo: true });
+    expect(row.echo_frames[0]).toMatchObject({
+      sha: frameSha(0, true),
+      photo: { src: LARKSPUR_PHOTO, sha256: "d".repeat(64) },
+      status: "published",
+    });
+
+    // Published, then a person is seen in the photo: the crayon card.
+    await q("truncate social_posts restart identity cascade");
     id = await draftPost();
     await store.runSocial(MON_1150, { fetchImpl });
     await q(
@@ -1168,17 +1334,24 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     ]);
     await store.runSocial(MON_1230, { fetchImpl });
     row = await echoRow(id);
-    expect(row.echo_status).toBe("creating");
-    expect(echoes.at(-1)?.cover).toBe("crayon");
+    expect(row.echo_status).toBe("published");
+    expect(echoes.at(-1)).toEqual({ slide: 0, photo: false });
+    expect(row.echo_frames[0]).toMatchObject({
+      sha: frameSha(0, false),
+      photo: null,
+    });
+    expect(storyCreates().at(-1)?.body.get("image_url")).toBe(
+      frameUrl(frameSha(0, false)),
+    );
   });
 
-  it("echo: dry run draws it once and never calls Meta", async () => {
+  it("echo: dry run draws every frame once and never calls Meta", async () => {
     const id = await draftPost();
     await store.runSocial(MON_1150, { fetchImpl });
     await store.runSocial(MON_1215, { fetchImpl });
     const row = await echoRow(id);
     expect(row).toMatchObject({ status: "dry_run", echo_status: "dry_run" });
-    expect(row.echo_sha).toBe("e".repeat(64));
+    expect(row.echo_frames.map((f) => f.sha)).toEqual([frameSha(0, false)]);
     expect(echoes).toHaveLength(1);
     expect(calls).toEqual([]);
   });
@@ -1211,7 +1384,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     await store.runSocial(new Date("2026-11-24T03:00:00Z"), { fetchImpl });
     expect((await echoRow(id)).echo_status).toBe("skipped");
     expect(storyCreates()).toHaveLength(0);
-    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+    expect(echoAlerts()).toEqual([]);
   });
 
   it("echo: a broken drawing retries and never touches the feed post; Meta's no fails once and tells James", async () => {
@@ -1224,56 +1397,81 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     let row = await echoRow(id);
     expect(row).toMatchObject({ status: "published", echo_status: null });
     echoBreaks = false;
+    containerState = "ERROR";
     await store.runSocial(MON_1230, { fetchImpl });
     row = await echoRow(id);
-    expect(row.echo_status).toBe("creating");
-    containerState = "ERROR";
-    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
-    await store.runSocial(new Date("2026-11-23T21:00:00Z"), { fetchImpl });
-    row = await echoRow(id);
     expect(row).toMatchObject({ status: "published", echo_status: "failed" });
+    await store.runSocial(MON_1245, { fetchImpl });
     const told = alerts.filter((a) => /Story echo failed/.test(a.subject));
     expect(told).toHaveLength(1);
     expect(told[0].key).toBe(`social:echo failed:${id}`);
   });
 
-  /** A live park post that is out, with its echo container made (creating). */
+  /** A live park post that is out, with its Story's container made (creating). */
   async function echoCreating() {
     await settings.setSocialSettings({ dryRun: false });
     const id = await draftPost();
     await store.runSocial(MON_1150, { fetchImpl });
+    storyState = "IN_PROGRESS"; // Meta hasn't finished the Story yet
     await store.runSocial(MON_1215, { fetchImpl });
+    storyState = null;
     const row = await echoRow(id);
     expect(row).toMatchObject({ status: "published", echo_status: "creating" });
-    expect(row.echo_container_id).toBeTruthy();
-    return { id, container: String(row.echo_container_id) };
+    const container = row.echo_frames[0].containerId;
+    expect(container).toBeTruthy();
+    return { id, container: String(container) };
   }
-  const echoPublishes = (container: string) =>
-    calls.filter(
-      (c) =>
-        c.path.endsWith("/media_publish") &&
-        c.body.get("creation_id") === container,
-    );
 
   it("echo: a photo flagged after the container is made never publishes it", async () => {
     await store.savePhotoChecks([
       { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
     ]);
     const { id, container } = await echoCreating();
-    expect(echoes.at(-1)?.cover).toMatch(/^stored:/);
+    expect(echoes.at(-1)).toEqual({ slide: 0, photo: true });
     await store.savePhotoChecks([
       { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
     ]);
     await store.runSocial(MON_1230, { fetchImpl });
-    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
-    const row = await (
-      await q(
-        `select echo_status, echo_reason from social_posts where id = ${id}`,
-      )
-    )[0];
+    await store.runSocial(MON_1245, { fetchImpl });
+    const row = await echoRow(id);
     expect(row).toMatchObject({ echo_status: "skipped" });
     expect(String(row.echo_reason)).toMatch(/photo flagged/i);
-    expect(echoPublishes(container)).toHaveLength(0);
+    expect(row.echo_frames[0].status).toBe("skipped");
+    expect(publishesOf(container)).toHaveLength(0);
+  });
+
+  it("echo: in a carousel, a photo frame flagged after its container is made is skipped; the rest go out", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
+    ]);
+    const id = await publishedCarousel(3);
+    storyState = "IN_PROGRESS";
+    await store.runSocial(MON_1230, { fetchImpl });
+    storyState = null;
+    let row = await echoRow(id);
+    expect(row.echo_status).toBe("creating");
+    expect(row.echo_frames.map((f) => !!f.photo)).toEqual([true, false, false]);
+    const first = row.echo_frames[0].containerId;
+    expect(first).toBeTruthy();
+    expect(storyCreates()).toHaveLength(1);
+    await store.savePhotoChecks([
+      { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
+    ]);
+    await store.runSocial(MON_1245, { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(row.echo_frames.map((f) => f.status)).toEqual([
+      "skipped",
+      "published",
+      "published",
+    ]);
+    expect(String(row.echo_reason)).toMatch(/1 of 3 frames skipped/);
+    expect(publishesOf(first)).toHaveLength(0);
+    // Meta can't fetch the flagged frame; the photo-free ones still serve.
+    expect(await store.mediaAllowed(row.echo_frames[0].sha, "jpg")).toBe(false);
+    expect(await store.mediaAllowed(row.echo_frames[1].sha, "jpg")).toBe(true);
+    expect(echoAlerts()).toEqual([]);
   });
 
   it("echo: a photo flagged after a timed-out create is redrawn as the crayon card", async () => {
@@ -1286,22 +1484,29 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     storyCreateFails = true;
     await store.runSocial(MON_1215, { fetchImpl });
     let row = await echoRow(id);
-    expect(row).toMatchObject({
-      echo_status: "creating",
-      echo_container_id: null,
+    expect(row.echo_status).toBe("creating");
+    expect(row.echo_frames[0]).toMatchObject({
+      containerId: null,
+      sha: frameSha(0, true),
     });
-    expect(echoes.at(-1)?.cover).toMatch(/^stored:/);
+    expect(echoes.at(-1)).toEqual({ slide: 0, photo: true });
     storyCreateFails = false;
     await store.savePhotoChecks([
       { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
     ]);
     await store.runSocial(MON_1230, { fetchImpl });
     row = await echoRow(id);
-    expect(row.echo_status).toBe("creating");
-    expect(row.echo_container_id).toBeTruthy();
-    expect(echoes.at(-1)?.cover).toBe("crayon");
-    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
-    expect((await echoRow(id)).echo_status).toBe("published");
+    expect(echoes.at(-1)).toEqual({ slide: 0, photo: false });
+    expect(row.echo_status).toBe("published");
+    expect(row.echo_frames[0]).toMatchObject({
+      sha: frameSha(0, false),
+      photo: null,
+      status: "published",
+    });
+    // Only the crayon frame was ever made.
+    expect(storyCreates().at(-1)?.body.get("image_url")).toBe(
+      frameUrl(frameSha(0, false)),
+    );
   });
 
   it("echo: a create that times out is made again next run", async () => {
@@ -1310,15 +1515,16 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     await store.runSocial(MON_1150, { fetchImpl });
     storyCreateFails = true;
     await store.runSocial(MON_1215, { fetchImpl });
-    expect(await echoRow(id)).toMatchObject({
-      echo_status: "creating",
-      echo_container_id: null,
-    });
+    let row = await echoRow(id);
+    expect(row.echo_status).toBe("creating");
+    expect(row.echo_frames[0].containerId).toBeNull();
     storyCreateFails = false;
     await store.runSocial(MON_1230, { fetchImpl });
-    expect((await echoRow(id)).echo_container_id).toBeTruthy();
+    row = await echoRow(id);
+    expect(row.echo_frames[0].containerId).toBeTruthy();
+    expect(row.echo_status).toBe("published");
     expect(echoes).toHaveLength(1);
-    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+    expect(echoAlerts()).toEqual([]);
   });
 
   it("echo: a publish that times out but went out is settled as published, never sent again", async () => {
@@ -1328,8 +1534,8 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     await store.runSocial(MON_1230, { fetchImpl });
     expect((await echoRow(id)).echo_status).toBe("published");
     publishFails = "no";
-    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
-    expect(echoPublishes(container)).toHaveLength(1);
+    await store.runSocial(MON_1245, { fetchImpl });
+    expect(publishesOf(container)).toHaveLength(1);
   });
 
   it("echo: a 5xx publish whose container is still FINISHED waits, then goes out next run", async () => {
@@ -1338,13 +1544,13 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     await store.runSocial(MON_1230, { fetchImpl });
     expect((await echoRow(id)).echo_status).toBe("publishing");
     publishFails = "no";
-    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
-    expect(await echoRow(id)).toMatchObject({
-      echo_status: "published",
-      echo_media_id: "IGMEDIA1",
-    });
-    expect(echoPublishes(container)).toHaveLength(2);
-    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+    await store.runSocial(MON_1245, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(row.echo_frames[0].mediaId).toMatch(/^IGMEDIA/);
+    expect(row.echo_media_id).toBe(row.echo_frames[0].mediaId);
+    expect(publishesOf(container)).toHaveLength(2);
+    expect(echoAlerts()).toEqual([]);
   });
 
   it("echo: Meta's 'already published' counts as published", async () => {
@@ -1352,7 +1558,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     publishFails = "already";
     await store.runSocial(MON_1230, { fetchImpl });
     expect((await echoRow(id)).echo_status).toBe("published");
-    expect(alerts.filter((a) => /echo/i.test(a.subject))).toEqual([]);
+    expect(echoAlerts()).toEqual([]);
   });
 
   it("echo: only the run that claims it (creating to publishing) publishes", async () => {
@@ -1364,7 +1570,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
         );
     };
     await store.runSocial(MON_1230, { fetchImpl });
-    expect(echoPublishes(container)).toHaveLength(0);
+    expect(publishesOf(container)).toHaveLength(0);
   });
 
   it("echo: skipped when Meta's daily publishing limit is used up", async () => {
@@ -1385,6 +1591,74 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(calls.filter((c) => c.method === "POST")).toEqual([]);
   });
 
+  it("echo: a carousel starts only when all its Stories fit the quota", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(7);
+    quota = 44; // 6 left: one short
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect(await echoRow(id)).toMatchObject({
+      echo_status: "skipped",
+      echo_reason: "Daily publishing limit reached.",
+    });
+    expect(echoes).toHaveLength(0);
+    expect(calls.filter((c) => c.method === "POST")).toEqual([]);
+    await q(`update social_posts set echo_status = null where id = ${id}`);
+    quota = 43; // exactly 7 left
+    await store.runSocial(MON_1245, { fetchImpl });
+    expect((await echoRow(id)).echo_status).toBe("published");
+    expect(storyCreates()).toHaveLength(7);
+  });
+
+  it("echo: when the quota runs out midway it waits, then goes on where it stopped", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(3);
+    storyState = "IN_PROGRESS";
+    await store.runSocial(MON_1230, { fetchImpl });
+    storyState = null;
+    // Something else used the day's room meanwhile.
+    quota = 49;
+    await store.runSocial(MON_1245, { fetchImpl });
+    let row = await echoRow(id);
+    expect(row.echo_status).toBe("creating");
+    expect(row.echo_frames.map((f) => f.status)).toEqual([
+      "published",
+      "pending",
+      "pending",
+    ]);
+    expect(String(row.echo_reason)).toMatch(/publishing limit/i);
+    expect(storyCreates()).toHaveLength(1);
+    quota = 10;
+    await store.runSocial(new Date("2026-11-23T21:00:00Z"), { fetchImpl });
+    row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(storyCreates()).toHaveLength(3);
+    for (const f of row.echo_frames)
+      expect(publishesOf(f.containerId)).toHaveLength(1);
+  });
+
+  it("echo: frames still waiting 6 hours on are skipped, and James is told how many went out", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await publishedCarousel(3);
+    publishFails = "rate"; // FINISHED and retryable: back to creating
+    publishFailsOn = 2;
+    await store.runSocial(MON_1230, { fetchImpl });
+    expect((await echoRow(id)).echo_frames.map((f) => f.status)).toEqual([
+      "published",
+      "pending",
+      "pending",
+    ]);
+    await store.runSocial(new Date("2026-11-24T03:00:00Z"), { fetchImpl });
+    const row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(String(row.echo_reason)).toMatch(/Only 1 of 3 Stories went out/);
+    expect(row.echo_frames.map((f) => f.status)).toEqual([
+      "published",
+      "skipped",
+      "skipped",
+    ]);
+    expect(echoAlerts()).toHaveLength(1);
+  });
+
   it("echo: a Story waiting when the account flips to dry run waits, then goes out once back live", async () => {
     const { id, container } = await echoCreating();
     await settings.setSocialSettings({ dryRun: true });
@@ -1393,9 +1667,9 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(calls.length).toBe(before);
     expect((await echoRow(id)).echo_status).toBe("creating");
     await settings.setSocialSettings({ dryRun: false });
-    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
+    await store.runSocial(MON_1245, { fetchImpl });
     expect((await echoRow(id)).echo_status).toBe("published");
-    expect(echoPublishes(container)).toHaveLength(1);
+    expect(publishesOf(container)).toHaveLength(1);
   });
 
   it("echo: no echo work once the run is out of time", async () => {
@@ -1418,27 +1692,49 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "clear" },
     ]);
     const { id, container } = await echoCreating();
-    expect(echoes.at(-1)?.cover).toMatch(/^stored:/);
+    expect(echoes.at(-1)).toEqual({ slide: 0, photo: true });
     publishFails = "5xx";
     await store.runSocial(MON_1230, { fetchImpl });
     expect((await echoRow(id)).echo_status).toBe("publishing");
-    expect(echoPublishes(container)).toHaveLength(1);
+    expect(publishesOf(container)).toHaveLength(1);
     publishFails = "no";
     await store.savePhotoChecks([
       { src: LARKSPUR_PHOTO, sha256: "d".repeat(64), verdict: "people" },
     ]);
-    await store.runSocial(new Date("2026-11-23T20:45:00Z"), { fetchImpl });
-    const [row] = await q(
-      `select echo_status, echo_reason from social_posts where id = ${id}`,
-    );
+    await store.runSocial(MON_1245, { fetchImpl });
+    const row = await echoRow(id);
     expect(row.echo_status).toBe("skipped");
     expect(String(row.echo_reason)).toMatch(/photo flagged/i);
-    expect(echoPublishes(container)).toHaveLength(1);
+    expect(publishesOf(container)).toHaveLength(1);
     const told = alerts.filter((a) =>
       /Story echo photo flagged/.test(a.subject),
     );
     expect(told).toHaveLength(1);
     expect(told[0].key).toBe(`social:echo photo flagged:${id}`);
+  });
+
+  it("echo: an echo from before frames (one card) finishes as that one Story", async () => {
+    await settings.setSocialSettings({ dryRun: false });
+    const id = await draftPost();
+    const legacy = JSON.stringify({
+      sha: "e".repeat(64),
+      ext: "jpg",
+      width: 1080,
+      height: 1920,
+      photoFree: true,
+    });
+    await q(
+      `update social_posts set status = 'published', published_at = '${MON_1215.toISOString()}', echo_status = 'creating', echo_media = '${legacy}', echo_container_id = 'C77' where id = ${id}`,
+    );
+    await store.runSocial(MON_1230, { fetchImpl });
+    const row = await echoRow(id);
+    expect(row.echo_status).toBe("published");
+    expect(publishesOf("C77")).toHaveLength(1);
+    expect(storyCreates()).toHaveLength(0);
+    expect(echoes).toHaveLength(0);
+    expect(row.echo_frames).toMatchObject([
+      { sha: "e".repeat(64), containerId: "C77", status: "published" },
+    ]);
   });
 
   it("redrawQueued re-validates a queued writer post and replaces its media in place, never once claimed", async () => {

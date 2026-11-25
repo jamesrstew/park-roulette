@@ -1023,13 +1023,23 @@ export const socialPosts = pgTable(
     reason: text("reason"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
     /**
-     * The Story echo (lib/social/echo.ts): one Instagram Story per feed
-     * post once it's out (or in dry run). Null: not tried yet. Then
-     * creating -> publishing -> published, or skipped / failed / dry_run.
+     * The Story echo (lib/social/echo.ts): the feed post again as Stories,
+     * one per slide, once it's out (or in dry run). Null: not tried yet.
+     * Then creating -> publishing -> published, or skipped / failed /
+     * dry_run; publishing is one frame's publish, claimed.
      */
     echoStatus: text("echo_status"),
-    /** The echo's 1080 x 1920 JPEG ({ sha, ext, width, height }). */
+    /**
+     * Echoes before Story frames (one "New post" card): its 1080 x 1920
+     * JPEG ({ sha, ext, width, height, photoFree }). Kept for those rows.
+     */
     echoMedia: jsonb("echo_media"),
+    /**
+     * The Story frames in slide order (EchoFrame[]): each one's JPEG, the
+     * photo it shows, its container and media ids and its state. Null on
+     * echoes from before frames (they use echo_media).
+     */
+    echoFrames: jsonb("echo_frames"),
     echoContainerId: text("echo_container_id"),
     echoMediaId: text("echo_media_id"),
     echoReason: text("echo_reason"),

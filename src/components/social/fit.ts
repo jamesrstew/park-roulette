@@ -36,6 +36,26 @@ export function textWidth(text: string, size: number, margin = MARGIN): number {
 /** The card's content box (Frame: left 90, right 100, top 92, bottom 170). */
 export const CONTENT = { width: 890, height: 1088 } as const;
 
+/**
+ * The same card on a 9:16 Story frame (the Story echo, lib/social/echo.ts):
+ * the same width, taller, and clear of the bands Instagram draws over (the
+ * top and bottom 250 px). Slides.tsx Frame draws it.
+ */
+export const STORY_CONTENT = { width: 890, height: 1250 } as const;
+
+/**
+ * Story frames try a step or two larger type first (the taller card has
+ * the room), then the feed's own sizes, so a frame never sets smaller
+ * type than its feed slide.
+ */
+export const STORY_TYPE = {
+  ideaBody: [64, 62, 60],
+  eventBody: [74, 72, 70],
+  eventTitle: [128, 122],
+  itemWhat: [76, 72],
+  itemName: [120, 116],
+} as const;
+
 /** Lines a text wraps to at this size in this width (greedy, by words). */
 export function lines(text: string, size: number, width: number): number {
   const space = textWidth(" ", size);
@@ -110,6 +130,7 @@ export function ideaHeight(s: IdeaCopy, body: number): number {
 export function ideaFit(
   s: IdeaCopy,
   bodies: readonly number[] = IDEA.body,
+  height: number = CONTENT.height,
 ): {
   body: number;
   title: number;
@@ -117,10 +138,9 @@ export function ideaFit(
 } {
   const title = ideaTitleSize(s.title).size;
   for (const body of bodies)
-    if (ideaHeight(s, body) <= CONTENT.height)
-      return { body, title, fits: true };
+    if (ideaHeight(s, body) <= height) return { body, title, fits: true };
   const body = bodies[bodies.length - 1];
-  return { body, title, fits: ideaHeight(s, body) <= CONTENT.height };
+  return { body, title, fits: ideaHeight(s, body) <= height };
 }
 
 // --- The roundup's event slide ------------------------------------------------
@@ -219,6 +239,7 @@ export function eventFit(
   s: EventCopy,
   bodies: readonly number[] = EVENT.body,
   titles: readonly number[] = EVENT.title,
+  height: number = CONTENT.height,
 ): {
   title: number;
   body: number;
@@ -229,7 +250,7 @@ export function eventFit(
       if (
         title >= body * TITLE_OVER_BODY &&
         descLines(s, body) <= DESC_LINES &&
-        eventHeight(s, title, body) <= CONTENT.height
+        eventHeight(s, title, body) <= height
       )
         return { title, body, fits: true };
   const body = bodies[bodies.length - 1];
@@ -239,8 +260,7 @@ export function eventFit(
     title,
     body,
     fits:
-      descLines(s, body) <= DESC_LINES &&
-      eventHeight(s, title, body) <= CONTENT.height,
+      descLines(s, body) <= DESC_LINES && eventHeight(s, title, body) <= height,
   };
 }
 
@@ -329,19 +349,27 @@ export function itemHeight(s: ItemCopy, name: number, what: number): number {
  * first and stays 1.35x the "what"), so the where-and-who lines and the
  * chips never collide.
  */
-export function itemFit(s: ItemCopy): {
+export function itemFit(
+  s: ItemCopy,
+  {
+    whats = ITEM.what,
+    names = ITEM.name,
+    height = CONTENT.height,
+  }: {
+    whats?: readonly number[];
+    names?: readonly number[];
+    height?: number;
+  } = {},
+): {
   name: number;
   what: number;
   fits: boolean;
 } {
-  for (const what of ITEM.what)
-    for (const name of ITEM.name)
-      if (
-        name >= what * TITLE_OVER_BODY &&
-        itemHeight(s, name, what) <= CONTENT.height
-      )
+  for (const what of whats)
+    for (const name of names)
+      if (name >= what * TITLE_OVER_BODY && itemHeight(s, name, what) <= height)
         return { name, what, fits: true };
-  const what = ITEM.what[ITEM.what.length - 1];
-  const name = ITEM.name[ITEM.name.length - 1];
-  return { name, what, fits: itemHeight(s, name, what) <= CONTENT.height };
+  const what = whats[whats.length - 1];
+  const name = names[names.length - 1];
+  return { name, what, fits: itemHeight(s, name, what) <= height };
 }
