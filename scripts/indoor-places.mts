@@ -183,27 +183,6 @@ const CANDIDATES: Candidate[] = [
     find: "Trampoline Zone Bend",
     expect: "Trampoline",
   },
-  {
-    slug: "cascade-indoor-sports-bend",
-    name: "Cascade Indoor Sports",
-    town: "Bend",
-    type: "play_gym",
-    url: "https://cascadeindoorsports.com/",
-    line: "The Big Play Thing, at an indoor family fun center",
-    evidence: [
-      {
-        url: "https://cascadeindoorsports.com/",
-        quote: "Big Play Thing Parties",
-      },
-      {
-        url: "https://cascadeindoorsports.com/",
-        quote: "Central Oregon's Premier Indoor Sports & Family Fun Facility",
-      },
-    ],
-    address: "20775 High Desert Lane, Bend, OR 97701",
-    find: "Cascade Indoor Sports Bend",
-    expect: "Cascade Indoor",
-  },
 ];
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

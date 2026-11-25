@@ -39,6 +39,9 @@ vi.mock("@/lib/park-profiles-check", async () => {
   return { currentProfiles: async () => PROFILES };
 });
 vi.mock("@/db", () => ({ db: {} }));
+vi.mock("@/lib/pairing-guides-data", () => ({
+  allPairingGuides: async () => [],
+}));
 
 import { GUIDES } from "@/lib/guides";
 import sitemap from "../sitemap";

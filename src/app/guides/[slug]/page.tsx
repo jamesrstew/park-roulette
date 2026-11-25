@@ -21,6 +21,9 @@ import {
   type VenueItem,
 } from "@/lib/guides";
 import { loadGuide } from "@/lib/guides-data";
+import { pairingGuideDef, pairingGuidePath } from "@/lib/pairing-guides";
+import { allPairingGuides, loadPairingGuide } from "@/lib/pairing-guides-data";
+import { PairingGuide } from "@/components/seo/PairingGuide";
 import { longDate } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
 
@@ -33,7 +36,23 @@ async function load(slug: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const v = await load((await params).slug);
+  const slug = (await params).slug;
+  if (pairingGuideDef(slug)) {
+    await connection();
+    const p = await loadPairingGuide(slug, new Date());
+    if (!p) return { title: "No guide here", robots: { index: false } };
+    return {
+      title: { absolute: `${p.title} · Park Roulette` },
+      description: p.description,
+      alternates: { canonical: pairingGuidePath(slug) },
+      openGraph: {
+        title: p.title,
+        description: p.description,
+        type: "article",
+      },
+    };
+  }
+  const v = await load(slug);
   if (!v) return { title: "No guide here", robots: { index: false } };
   return {
     title: { absolute: `${v.title} · Park Roulette` },
@@ -51,11 +70,30 @@ const COLORS = {
 } as const;
 
 async function Guide({ params }: Props) {
-  const v = await load((await params).slug);
+  const slug = (await params).slug;
+  if (pairingGuideDef(slug)) {
+    await connection();
+    const now = new Date();
+    const [p, all] = await Promise.all([
+      loadPairingGuide(slug, now),
+      allPairingGuides(now),
+    ]);
+    if (!p) notFound();
+    return <PairingGuide v={p} existing={all.map((x) => x.def.slug)} />;
+  }
+  const v = await load(slug);
   if (!v) notFound();
   const today = pacificToday(new Date());
   const c = COLORS[v.def.slug];
   const others = GUIDES.filter((g) => g.slug !== v.def.slug);
+  // The park pairings guide this one leads to, when it exists now.
+  const pairing = (await allPairingGuides(new Date())).find((p) =>
+    v.def.slug === "indoor-play-bend"
+      ? p.def.slug === "rainy-day-cafes-indoor-play-bend"
+      : v.def.slug === "sledding-hills-bend"
+        ? p.def.slug === "coffee-shops-near-playgrounds-bend"
+        : false,
+  );
   return (
     <article className="flex flex-col gap-7">
       <JsonLd data={guideJsonLd(v, SITE_URL)} />
@@ -81,6 +119,14 @@ async function Guide({ params }: Props) {
         {v.intro}
       </p>
       <SeasonLine v={v} />
+      {pairing && v.def.slug === "indoor-play-bend" ? (
+        <p className="flex items-center gap-2 leading-snug">
+          <Icon name="cup" size={24} className="shrink-0" />
+          <Link href={pairingGuidePath(pairing.def.slug)} className="underline">
+            {pairing.def.name}
+          </Link>
+        </p>
+      ) : null}
       {v.updated ? (
         <Updated iso={v.updated} label={longDate(v.updated)} />
       ) : null}
@@ -123,6 +169,17 @@ async function Guide({ params }: Props) {
             </Link>
           </span>
         ))}
+        {pairing ? (
+          <>
+            {" · "}
+            <Link
+              href={pairingGuidePath(pairing.def.slug)}
+              className="underline"
+            >
+              {pairing.def.name}
+            </Link>
+          </>
+        ) : null}
         {" · "}
         <Link href="/guides" className="underline">
           All guides

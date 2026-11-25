@@ -10,17 +10,19 @@ import { SpinCta } from "@/components/seo/Guide";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { guidePath, guidesInOrder, type GuideSlug } from "@/lib/guides";
 import { allGuides } from "@/lib/guides-data";
+import { pairingGuidePath } from "@/lib/pairing-guides";
+import { allPairingGuides } from "@/lib/pairing-guides-data";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
-  title: { absolute: "Seasonal guides for Bend families · Park Roulette" },
+  title: { absolute: "Guides for Bend families · Park Roulette" },
   description:
-    "Sledding hills, holiday events, indoor play and splash pads in Bend and Central Oregon, built from our park and event lists and kept up to date.",
+    "Sledding hills, holiday events, indoor play, splash pads, and coffee shops, breweries and bakeries with a playground close by, in Bend and Central Oregon.",
   alternates: { canonical: "/guides" },
   openGraph: {
-    title: "Seasonal guides for Bend families",
+    title: "Guides for Bend families",
     description:
-      "Sledding hills, holiday events, indoor play and splash pads in Bend and Central Oregon.",
+      "Sledding hills, holiday events, indoor play, splash pads, and places to go with a playground close by, in Bend and Central Oregon.",
     type: "website",
   },
 };
@@ -58,15 +60,60 @@ export default function GuidesPage() {
       />
       <Suspense fallback={<CrayonLoading label="Finding the guides…" />}>
         <List />
+        <Pairings />
       </Suspense>
       <SpinCta />
     </div>
   );
 }
 
+/** Park pairings guides: a place for you and a playground for them. */
+async function Pairings() {
+  await connection();
+  const views = await allPairingGuides(new Date());
+  if (!views.length) return null;
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="font-hand text-3xl leading-tight">Park pairings</h2>
+      <p className="leading-snug">
+        Somewhere for you, and a playground for the kids close by.
+      </p>
+      <ul className="flex flex-col gap-3">
+        {views.map((v) => (
+          <li key={v.def.slug}>
+            <Link
+              href={pairingGuidePath(v.def.slug)}
+              className="doodle-box flex items-start gap-3 px-4 py-3"
+            >
+              <Icon
+                name={v.def.rainy ? "home" : "playground"}
+                size={44}
+                className="mt-1 shrink-0"
+              />
+              <span className="flex min-w-0 flex-1 flex-col gap-1">
+                <span className="font-hand text-2xl leading-tight underline decoration-2 underline-offset-4">
+                  {v.def.name}
+                </span>
+                <span className="leading-snug">{v.def.blurb}</span>
+                <span className="flex flex-wrap gap-1.5">
+                  <Chip>{v.pairs.length} pairs</Chip>
+                </span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 async function List() {
   await connection();
-  const views = guidesInOrder(await allGuides(new Date()));
+  const now = new Date();
+  const [views, pairings] = await Promise.all([
+    allGuides(now).then(guidesInOrder),
+    allPairingGuides(now),
+  ]);
   return (
     <>
       <JsonLd
@@ -78,12 +125,16 @@ async function List() {
           inLanguage: "en-US",
           mainEntity: {
             "@type": "ItemList",
-            itemListElement: views.map((v, i) => ({
-              "@type": "ListItem",
-              position: i + 1,
-              name: v.title,
-              url: `${SITE_URL}${guidePath(v.def.slug)}`,
-            })),
+            itemListElement: [
+              ...views.map((v) => ({
+                name: v.title,
+                url: `${SITE_URL}${guidePath(v.def.slug)}`,
+              })),
+              ...pairings.map((v) => ({
+                name: v.title,
+                url: `${SITE_URL}${pairingGuidePath(v.def.slug)}`,
+              })),
+            ].map((x, i) => ({ "@type": "ListItem", position: i + 1, ...x })),
           },
         }}
       />

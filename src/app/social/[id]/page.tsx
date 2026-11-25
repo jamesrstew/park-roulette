@@ -20,7 +20,9 @@ import {
   KIND_LABEL,
   mediaSrc,
 } from "@/lib/social/links";
-import { COPY } from "@/lib/social/model";
+import { COPY, type MashupTheme } from "@/lib/social/model";
+import { pairingGuidePath } from "@/lib/pairing-guides";
+import { themeGuide } from "@/lib/pairing-guides-data";
 import {
   atHomeIdeas,
   headlineOf,
@@ -334,6 +336,21 @@ async function Mashup({
 }) {
   const L = await lookups();
   const pairs = mashupPairs(post.spec.slides, L);
+  // The theme's evergreen guide in Bend, when it exists now.
+  const theme = post.spec.facts?.mashup?.theme;
+  // The town most of its pairs are in (Bend when it's a tie).
+  const towns = pairs.map((p) => p.town);
+  const town =
+    [...new Set(towns)].sort(
+      (a, b) =>
+        towns.filter((t) => t === b).length -
+          towns.filter((t) => t === a).length ||
+        Number(b === "Bend") - Number(a === "Bend"),
+    )[0] ?? "Bend";
+  const guide = theme
+    ? ((await themeGuide(theme as MashupTheme, town, new Date())) ??
+      (await themeGuide(theme as MashupTheme, "Bend", new Date())))
+    : null;
   return (
     <>
       <ol className="flex flex-col gap-4" aria-label="In this post">
@@ -342,6 +359,14 @@ async function Mashup({
         ))}
       </ol>
       <p className="text-sm text-ink-soft">{COPY.mashupHours}</p>
+      {guide ? (
+        <Link
+          href={pairingGuidePath(guide.def.slug)}
+          className="flex min-h-11 items-center gap-2 font-hand text-xl underline"
+        >
+          <Icon name="playground" size={24} /> {guide.def.name}
+        </Link>
+      ) : null}
     </>
   );
 }

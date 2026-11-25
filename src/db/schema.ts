@@ -1275,3 +1275,27 @@ export const placesUsage = pgTable("places_usage", {
   day: date("day").primaryKey(),
   requests: integer("requests").notNull().default(0),
 });
+
+/**
+ * Park pairings guides (/guides/<slug>, lib/pairing-guides.ts): the last
+ * good set of pairs per page, refreshed in rotation by a daily cron within
+ * the Places budget. `pairs` holds names and our own words, and is kept at
+ * most 30 days after `refreshedAt` (Google's terms for anything from
+ * Places); after that only `placeIds` stay, and the page hides the pairs.
+ */
+export const pairingGuides = pgTable("pairing_guides", {
+  slug: text("slug").primaryKey(),
+  /** The last good refresh (its pairs are shown for 30 days at most). */
+  refreshedAt: timestamp("refreshed_at", { withTimezone: true }),
+  /** The last refresh tried (good or not), for the rotation. */
+  triedAt: timestamp("tried_at", { withTimezone: true }),
+  /** When what the page shows last changed (its sitemap lastmod). */
+  changedAt: timestamp("changed_at", { withTimezone: true }),
+  /** GuidePair[] (lib/pairing-guides.ts), or [] once purged. */
+  pairs: jsonb("pairs").notNull().default([]),
+  /** Google's place ids of the pairs: ids may be kept. */
+  placeIds: text("place_ids")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
+});

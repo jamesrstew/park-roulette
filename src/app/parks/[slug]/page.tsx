@@ -9,6 +9,7 @@ import { featuredIn } from "@/lib/news/data";
 import { isThisWeekendsPick } from "@/lib/asks";
 import { Suspense } from "react";
 import { HappeningNearby } from "@/components/events/Modules";
+import { PairingNearby } from "@/components/seo/PairingNearby";
 import { CrayonLoading } from "@/components/Loading";
 import { ParkView } from "@/components/park/ParkView";
 import { getMe, getParkDetail } from "@/lib/data";
@@ -111,6 +112,7 @@ async function ParkLoader({ params, searchParams }: Props) {
         oneLiner={oneLiner}
       />
       <HappeningNearby park={detail.park} />
+      <PairingNearby slug={detail.park.slug} />
       {featured ? (
         <p className="mt-4 text-sm text-ink-soft">
           Featured in{" "}

@@ -12,6 +12,8 @@ import {
 import { SITE_URL } from "@/lib/site";
 import { guidePath } from "@/lib/guides";
 import { allGuides } from "@/lib/guides-data";
+import { pairingGuidePath } from "@/lib/pairing-guides";
+import { allPairingGuides } from "@/lib/pairing-guides-data";
 
 /**
  * /llms.txt (llmstxt.org): a plain Markdown map of the site for AI
@@ -19,9 +21,10 @@ import { allGuides } from "@/lib/guides-data";
  */
 export async function GET() {
   await connection();
-  const [parks, guides] = await Promise.all([
+  const [parks, guides, pairings] = await Promise.all([
     publicParks(),
     allGuides(new Date()),
+    allPairingGuides(new Date()),
   ]);
   const towns = townsOf(parks);
   const features = FEATURE_PAGES.filter(
@@ -58,6 +61,17 @@ export async function GET() {
         `- [${g.title}](${SITE_URL}${guidePath(g.def.slug)}): ${g.def.blurb}${g.updated ? ` Updated ${longDate(g.updated)}.` : ""}`,
     ),
     "",
+    ...(pairings.length
+      ? [
+          "## Park pairings",
+          "",
+          ...pairings.map(
+            (g) =>
+              `- [${g.title}](${SITE_URL}${pairingGuidePath(g.def.slug)}): ${g.def.blurb} ${g.pairs.length} pairs. Updated ${g.updatedLabel}.`,
+          ),
+          "",
+        ]
+      : []),
     "## Parks",
     "",
     ...[...parks]

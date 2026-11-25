@@ -1,7 +1,8 @@
 import { OG_SIZE, ogCard } from "@/components/me/og-card";
 import { guideDef } from "@/lib/guides";
+import { pairingGuideDef } from "@/lib/pairing-guides";
 
-export const alt = "A seasonal guide on Park Roulette";
+export const alt = "A Park Roulette guide";
 export const size = OG_SIZE;
 export const contentType = "image/png";
 
@@ -11,7 +12,8 @@ export default async function GuideImage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const g = guideDef((await params).slug);
+  const slug = (await params).slug;
+  const g = guideDef(slug) ?? pairingGuideDef(slug);
   return ogCard({
     kicker: g ? "A Park Roulette guide" : "Spin the crayon wheel!",
     title: g?.name ?? "Park Roulette",

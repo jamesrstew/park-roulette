@@ -150,29 +150,5 @@
     "lng": -121.2809804,
     "address": "63040 NE 18th St, Bend, OR 97701",
     "verified_on": "2026-11-25"
-  },
-  {
-    "slug": "cascade-indoor-sports-bend",
-    "name": "Cascade Indoor Sports",
-    "town": "Bend",
-    "type": "play_gym",
-    "place_id": "ChIJGc9WxDnPuFQRWNhlqZYHASs",
-    "site": "cascadeindoorsports.com",
-    "url": "https://cascadeindoorsports.com/",
-    "line": "The Big Play Thing, at an indoor family fun center",
-    "evidence": [
-      {
-        "url": "https://cascadeindoorsports.com/",
-        "quote": "Big Play Thing Parties"
-      },
-      {
-        "url": "https://cascadeindoorsports.com/",
-        "quote": "Central Oregon's Premier Indoor Sports & Family Fun Facility"
-      }
-    ],
-    "lat": 44.0885282,
-    "lng": -121.2868571,
-    "address": "20775 High Desert Lane, Bend, OR 97701",
-    "verified_on": "2026-11-25"
   }
 ]

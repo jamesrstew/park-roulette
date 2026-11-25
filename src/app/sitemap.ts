@@ -20,6 +20,8 @@ import {
 import { townSlug } from "@/lib/towns";
 import { guidePath } from "@/lib/guides";
 import { allGuides } from "@/lib/guides-data";
+import { pairingGuidePath } from "@/lib/pairing-guides";
+import { allPairingGuides } from "@/lib/pairing-guides-data";
 
 /**
  * Every public page. lastmod is when its data really changed (a park added,
@@ -28,11 +30,12 @@ import { allGuides } from "@/lib/guides-data";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection(); // fresh data, not a build-time snapshot
   const now = new Date();
-  const [parks, issues, events, guides] = await Promise.all([
+  const [parks, issues, events, guides, pairings] = await Promise.all([
     publicParks(),
     sentIssues(),
     allEvents(),
     allGuides(now),
+    allPairingGuides(now),
   ]);
   // Upcoming event pages only: lastmod is when their facts last changed
   // (a status change counts), never the nightly check.
@@ -73,6 +76,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         guides.reduce((a, g) => (g.updated > a ? g.updated : a), ""),
       ),
     },
+    // Park pairings guides that exist now: lastmod is their refresh.
+    ...pairings.map((g) => ({
+      url: `${SITE_URL}${pairingGuidePath(g.def.slug)}`,
+      lastModified: new Date(g.changed),
+    })),
     ...guides.map((g) => ({
       url: `${SITE_URL}${guidePath(g.def.slug)}`,
       lastModified: at(g.updated),

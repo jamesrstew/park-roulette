@@ -30,6 +30,8 @@ import {
   townsOf,
 } from "@/lib/seo-data";
 import { GUIDES, guidePath } from "@/lib/guides";
+import { pairingGuidePath } from "@/lib/pairing-guides";
+import { allPairingGuides } from "@/lib/pairing-guides-data";
 import { SITE_URL } from "@/lib/site";
 
 type Props = { params: Promise<{ town: string }> };
@@ -62,6 +64,10 @@ async function Town({ params }: Props) {
   const found = await townFor(slug);
   if (!found) notFound();
   const { town, towns } = found;
+  // This town's park pairings guides that exist now.
+  const pairings = (await allPairingGuides(new Date())).filter(
+    (g) => g.def.town === town.name,
+  );
   const parks = [...town.parks].sort((a, b) => a.name.localeCompare(b.name));
   const play = parks.filter(hasPlay);
   const updated = newest(parks);
@@ -271,6 +277,14 @@ async function Town({ params }: Props) {
             {i > 0 && " · "}
             <Link href={guidePath(g.slug)} className="underline">
               {g.name}
+            </Link>
+          </span>
+        ))}
+        {pairings.map((g) => (
+          <span key={g.def.slug}>
+            {" · "}
+            <Link href={pairingGuidePath(g.def.slug)} className="underline">
+              {g.def.name}
             </Link>
           </span>
         ))}

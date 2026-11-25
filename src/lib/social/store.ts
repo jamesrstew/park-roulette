@@ -1186,7 +1186,7 @@ export function placesBudget(now: Date, perMake = PLACES_PER_MAKE) {
 }
 
 /** Parks with their points (the pairings measure from them). */
-async function parkPoints() {
+export async function parkPoints() {
   return db
     .select({
       slug: parks.slug,
@@ -1196,6 +1196,7 @@ async function parkPoints() {
       lng: parks.lng,
       status: parks.status,
       play: parks.play,
+      features: parks.features,
       approvedAt: parks.approvedAt,
     })
     .from(parks);
@@ -1285,9 +1286,9 @@ export async function ensureMashup(
     coolingParks(date, { kind: "mashup", slotDate: date }),
   ]);
   const vetted = postableParks(
-    points.map(({ approvedAt, ...p }) => ({
+    points.map((p) => ({
       ...p,
-      approved: approvedAt != null,
+      approved: p.approvedAt != null,
     })),
     profiles,
     CATALOG,
