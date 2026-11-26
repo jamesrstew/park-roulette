@@ -172,7 +172,7 @@ describe("a holiday-aware hello", () => {
       "Happy New Year!",
     );
     expect(greetingFor("2027-05-27", hol, breaks)?.opener).toBe(
-      "Happy Memorial Day weekend!",
+      "Memorial Day weekend is here.",
     );
     expect(greetingFor("2026-10-29", hol, breaks)?.opener).toBe(
       "Happy Halloween!",

@@ -211,7 +211,7 @@ const HOLIDAY_GREETINGS: Record<string, string> = {
   "New Year's Day": "Happy New Year!",
   Halloween: "Happy Halloween!",
   "Independence Day": "Happy Fourth of July!",
-  "Memorial Day": "Happy Memorial Day weekend!",
+  "Memorial Day": "Memorial Day weekend is here.",
   "Labor Day": "Happy Labor Day weekend!",
   "Martin Luther King Jr. Day": "Happy long weekend!",
   "Presidents' Day": "Happy long weekend!",

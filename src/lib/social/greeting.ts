@@ -225,7 +225,10 @@ function windows(day: string, breaks: readonly GreetingBreak[]): Window[] {
         to: mon,
         lines: said
           ? [
-              `Happy ${said}.`,
+              // Memorial Day is a day of remembrance: no "Happy" (Nov 26).
+              said === "Memorial Day weekend"
+                ? "Memorial Day weekend is here."
+                : `Happy ${said}.`,
               "Here's to a good long weekend.",
               "We hope the long weekend is a slow one.",
             ]
