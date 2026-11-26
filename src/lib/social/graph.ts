@@ -611,3 +611,129 @@ export async function facebookPost(
   if (!r.id) throw new GraphError("No Facebook post id", 200, null, true);
   return r.id;
 }
+
+// --- Insights (the Monday growth digest, read-only) ---------------------------
+
+/** Followers right now (Meta keeps no history under 100 followers). */
+export async function accountFollowers(o: GraphOpts): Promise<number | null> {
+  const r = await call<{ followers_count?: number }>(
+    "GET",
+    o.igUserId,
+    { fields: "followers_count" },
+    o,
+  );
+  return typeof r.followers_count === "number" ? r.followers_count : null;
+}
+
+/** The account-level totals the digest reads for a window (Meta's names). */
+export const ACCOUNT_METRICS = [
+  "reach",
+  "views",
+  "profile_views",
+  "website_clicks",
+  "profile_links_taps",
+  "accounts_engaged",
+  "total_interactions",
+  "saves",
+  "shares",
+] as const;
+export type AccountMetric = (typeof ACCOUNT_METRICS)[number];
+
+/**
+ * Account totals over [since, until) (instagram_manage_insights). One call
+ * per metric, so a metric Meta refuses (a new account, a renamed metric)
+ * comes back null instead of failing the rest.
+ */
+export async function accountInsights(
+  o: GraphOpts,
+  since: Date,
+  until: Date,
+): Promise<Record<AccountMetric, number | null>> {
+  const s = String(Math.floor(since.getTime() / 1000));
+  const u = String(Math.floor(until.getTime() / 1000));
+  const out = {} as Record<AccountMetric, number | null>;
+  await Promise.all(
+    ACCOUNT_METRICS.map(async (m) => {
+      try {
+        const r = await call<{
+          data?: { total_value?: { value?: number } }[];
+        }>(
+          "GET",
+          `${o.igUserId}/insights`,
+          {
+            metric: m,
+            period: "day",
+            metric_type: "total_value",
+            since: s,
+            until: u,
+          },
+          o,
+        );
+        const v = r.data?.[0]?.total_value?.value;
+        out[m] = typeof v === "number" ? v : null;
+      } catch {
+        out[m] = null;
+      }
+    }),
+  );
+  return out;
+}
+
+export type PostInsights = {
+  reach: number | null;
+  views: number | null;
+  saved: number | null;
+  shares: number | null;
+  likes: number | null;
+  comments: number | null;
+  total_interactions: number | null;
+};
+
+/**
+ * One post's lifetime numbers. Null when Meta won't say (a Story with too
+ * few viewers answers code 10: "Not enough viewers").
+ */
+export async function postInsights(
+  o: GraphOpts,
+  mediaId: string,
+): Promise<PostInsights | null> {
+  try {
+    const r = await call<{
+      data?: { name?: string; values?: { value?: number }[] }[];
+    }>(
+      "GET",
+      `${mediaId}/insights`,
+      { metric: "reach,views,saved,shares,likes,comments,total_interactions" },
+      o,
+    );
+    const get = (n: string) => {
+      const v = r.data?.find((d) => d.name === n)?.values?.[0]?.value;
+      return typeof v === "number" ? v : null;
+    };
+    return {
+      reach: get("reach"),
+      views: get("views"),
+      saved: get("saved"),
+      shares: get("shares"),
+      likes: get("likes"),
+      comments: get("comments"),
+      total_interactions: get("total_interactions"),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** The Facebook Page's followers (a plain field: no extra permission). */
+export async function pageFollowers(
+  page: string,
+  o: Pick<GraphOpts, "token" | "appSecret" | "fetchImpl">,
+): Promise<number | null> {
+  const r = await call<{ followers_count?: number }>(
+    "GET",
+    page,
+    { fields: "followers_count" },
+    o,
+  );
+  return typeof r.followers_count === "number" ? r.followers_count : null;
+}

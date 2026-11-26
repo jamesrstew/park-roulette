@@ -60,6 +60,10 @@
     {
       "path": "/api/cron/social-comments",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/growth-digest",
+      "schedule": "12,42 14-16 * * 1"
     }
   ]
 }

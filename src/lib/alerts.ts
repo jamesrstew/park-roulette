@@ -29,6 +29,11 @@ export type Alert = {
 
 const FROM = "Park Roulette <alerts@parkroulette.quest>";
 
+/** Where James's emails go (alerts and the Monday growth digest). */
+export const alertEmail = () =>
+  process.env.ALERT_EMAIL || "hello@parkroulette.quest";
+export const ALERT_FROM = FROM;
+
 /** Send an alert after the response, so it never slows anyone down. */
 export function alertLater(a: Alert): void {
   try {
@@ -137,7 +142,7 @@ async function deliverOrRelease(a: Alert): Promise<AlertOutcome> {
 /** True if Resend took it (or there's no key: log-only, nothing to retry). */
 async function deliver(a: Alert): Promise<boolean> {
   const key = process.env.RESEND_API_KEY;
-  const to = process.env.ALERT_EMAIL || "hello@parkroulette.quest";
+  const to = alertEmail();
   const text = `${a.text}\n\nAdmin: ${SITE_URL}/admin\n(Park Roulette alert: ${a.key})`;
   if (!key) {
     console.warn(`[alert] ${a.subject} (no RESEND_API_KEY, not emailed)`);

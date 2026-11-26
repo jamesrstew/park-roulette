@@ -1406,3 +1406,44 @@ export const pairingPlaces = pgTable("pairing_places", {
   /** The last refresh tried, good or not. */
   triedAt: timestamp("tried_at", { withTimezone: true }),
 });
+
+/**
+ * The Monday growth digest (lib/growth): one row per week (Monday to
+ * Sunday, Pacific), keyed by the Monday. `metrics` holds the week's
+ * numbers ({ key: number | null }; null means not measured), `details`
+ * the lists behind them (top sources, posts, links). Counts and labels
+ * only: never a person, an address, a number or an IP. Live-only numbers
+ * (Instagram followers, events listed) are kept here because they can't
+ * be worked out again later. A backfilled week was rebuilt from what the
+ * database and Vercel still hold. The email columns make the send
+ * idempotent: claimed before it goes, sent once.
+ */
+export const growthSnapshots = pgTable(
+  "growth_snapshots",
+  {
+    weekStart: date("week_start").primaryKey(),
+    metrics: jsonb("metrics")
+      .$type<Record<string, number | null>>()
+      .notNull()
+      .default({}),
+    details: jsonb("details").notNull().default({}),
+    backfilled: boolean("backfilled").notNull().default(false),
+    computedAt: timestamp("computed_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    /** The send's claim (a run that dies frees it after 15 minutes). */
+    emailClaimedAt: timestamp("email_claimed_at", { withTimezone: true }),
+    emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
+    /** Resend's id for the digest email. */
+    resendId: text("resend_id"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      "growth_snapshots_monday",
+      sql`extract(isodow from ${t.weekStart}) = 1`,
+    ),
+  ],
+);

@@ -73,6 +73,12 @@ export const EVENTS = {
   eventHidden: "Event hidden",
   eventUnhidden: "Event unhidden",
   shortlistViewed: "Shortlist viewed",
+  /**
+   * A landing from one of our own links, once per browser session, so the
+   * Monday growth digest can count arrivals by source (query strings never
+   * reach Vercel). {from: ig | ig_dm | fb | email | text}. Labels only.
+   */
+  arrived: "Arrived",
 } as const;
 
 export type EventName = (typeof EVENTS)[keyof typeof EVENTS];

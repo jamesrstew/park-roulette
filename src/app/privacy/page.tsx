@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 export default function PrivacyPage() {
   return (
     <LegalPage
-      updated="November 25, 2026"
+      updated="November 26, 2026"
       lead="Privacy"
       accent="Policy"
       intro={
@@ -293,7 +293,9 @@ export default function PrivacyPage() {
             profile of you. Vercel uses your IP address to work out the country
             and a visit code that resets every day, and doesn&apos;t keep the IP
             address. Family invite codes and anything after a &ldquo;?&rdquo;
-            are removed from page addresses before a visit is counted.
+            are removed from page addresses before a visit is counted. When you
+            arrive from one of our own links, it notes only which kind (our
+            Instagram, Facebook, email or text), once per visit.
           </li>
           <li>
             <b>Resend</b> sends our emails. If you sign up for Bend Playground

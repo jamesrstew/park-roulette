@@ -3,11 +3,14 @@
 import { Analytics } from "@vercel/analytics/react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect } from "react";
-import { URL_EVENTS } from "@/lib/events";
+import { EVENTS, URL_EVENTS } from "@/lib/events";
+import { arrivalSource } from "@/lib/growth/arrival";
 import { trackEvent } from "@/lib/events-client";
 import { analyticsPath, analyticsUrl } from "@/lib/analytics-url";
 import { ASKS_KEY, parseState, recordOn } from "@/lib/asks";
 import { storage } from "@/lib/storage";
+
+const ARRIVED_KEY = "pr_arrived";
 
 /**
  * Vercel Web Analytics: counts page views with no cookies. We hand it the
@@ -20,6 +23,7 @@ export function SiteAnalytics() {
   const params = useSearchParams();
   const evKey = params.get("ev");
   const via = params.get("via");
+  const arrivedFrom = arrivalSource(params.get("from"), via, params.get("src"));
   // An arrival from an email link (/n/ adds ?via=email): this browser gets
   // the email, so the ask moments never offer it (lib/asks.ts). Then drop it.
   useEffect(() => {
@@ -32,6 +36,18 @@ export function SiteAnalytics() {
     url.searchParams.delete("via");
     window.history.replaceState(window.history.state, "", url);
   }, [via]);
+  // A landing from our own links: once per browser session (the from= key
+  // rides along on links within the site, so later pages don't count).
+  useEffect(() => {
+    if (!arrivedFrom) return;
+    try {
+      if (sessionStorage.getItem(ARRIVED_KEY)) return;
+      sessionStorage.setItem(ARRIVED_KEY, "1");
+    } catch {
+      // No storage (private mode): count it anyway, at worst twice.
+    }
+    trackEvent(EVENTS.arrived, { from: arrivedFrom });
+  }, [arrivedFrom]);
   useEffect(() => {
     if (!evKey) return;
     if (Object.prototype.hasOwnProperty.call(URL_EVENTS, evKey)) {
