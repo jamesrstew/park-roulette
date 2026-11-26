@@ -545,14 +545,25 @@ describe("holiday hours", () => {
 });
 
 describe("the park post", () => {
+  it("a redraw keeps the opener the post was stored with", async () => {
+    const r = await validateParkPost(parkPost(), WEEK, {
+      ...ctx(),
+      redraw: true,
+      storedOpener: null,
+    });
+    expect(r.spec!.opener).toBeUndefined();
+    expect(r.spec!.caption!.startsWith("This week we're featuring")).toBe(true);
+  });
   it("passes with a plan park and builds the caption from code facts", async () => {
     const r = await validateParkPost(parkPost(), WEEK, ctx());
     expect(r.errors).toEqual([]);
     expect(r.ok).toBe(true);
     const c = r.spec!.caption!;
+    // Thanksgiving week: code's greeting starts the story's paragraph.
+    expect(r.spec!.opener).toBe("Thanksgiving is almost here.");
     expect(
       c.startsWith(
-        "This week we're featuring Larkspur Park, a Bend playground for all abilities. There are three play zones",
+        "Thanksgiving is almost here. This week we're featuring Larkspur Park, a Bend playground for all abilities. There are three play zones",
       ),
     ).toBe(true);
     expect(c).toContain(
@@ -912,6 +923,57 @@ describe("Thursday's teaser and Friday's Story", () => {
     );
     expect(s.caption).toContain(`${COPY.teaserClose}\n${COPY.bio}`);
     expect(weatherWord("partly")).toBe("Sun and clouds");
+  });
+  it("opens with the day's greeting, calmed when the issue spends the exclamation point", () => {
+    const opener =
+      "Happy Thanksgiving! The weekend plan is ready when you are.";
+    const s = composeTeaser(issue, park(), false, [], opener);
+    expect(s.caption!.split("\n").slice(0, 2)).toEqual([
+      opener,
+      "This weekend: Snow + Larkspur Park",
+    ]);
+    expect(s.opener).toBe(opener);
+    expect(s.caption!.split("!").length - 1).toBe(1);
+    const loud = composeTeaser(
+      { ...issue, preview: "Snow Friday! Sledding Saturday." },
+      park(),
+      false,
+      [],
+      opener,
+    );
+    expect(loud.caption!.split("\n")[0]).toBe(
+      "Happy Thanksgiving. The weekend plan is ready when you are.",
+    );
+    expect(loud.caption!.split("!").length - 1).toBe(1);
+    // The headline and the overlap check stay the post's own words.
+    expect(loud.headline).toBe("This weekend: Snow + Larkspur Park");
+    expect(loud.modelText).toBe(loud.headline);
+  });
+  it("gives a preview that already greets no second greeting", () => {
+    const s = composeTeaser(
+      { ...issue, preview: "Happy Thanksgiving! Rain Friday, sun Saturday." },
+      park(),
+      false,
+      [],
+      "Happy Thanksgiving! The weekend plan is ready when you are.",
+    );
+    expect(s.caption!.split("\n")[0]).toBe(
+      "This weekend: Snow + Larkspur Park",
+    );
+    expect(s.opener).toBeUndefined();
+    expect(s.caption!.match(/Happy Thanksgiving/g)).toHaveLength(1);
+  });
+  it('the park post\'s greeting is calmed by a "!" in who or bring', () => {
+    const s = composeParkPost(
+      { ...parkPost(), bring: "mittens!" },
+      park(),
+      null,
+      false,
+      [],
+      "Merry Christmas! We hope today is warm and slow.",
+    );
+    expect(s.caption!.split("!").length - 1).toBe(1);
+    expect(s.caption!.startsWith("Merry Christmas. We hope today")).toBe(true);
   });
   it("drops the weather slide without a forecast", () => {
     const s = composeTeaser(
@@ -1338,7 +1400,10 @@ describe("signature traits lead the park post", () => {
     );
     const all = r.errors.join(" ");
     expect(all).toMatch(/story: 5 sentences; 2 to 4/);
-    expect(all).toMatch(/first sentence runs \d+ characters; 130 at most/);
+    // Thanksgiving week: code's greeting takes its room before "more".
+    expect(all).toMatch(
+      /first sentence runs \d+ characters; 101 at most \(it shows before "more", after code's greeting/,
+    );
     expect(all).toMatch(/runs \d+ words; keep each sentence to 22/);
     expect(all).toMatch(/"will love it"/);
     expect(all).toMatch(/2 exclamation points/);

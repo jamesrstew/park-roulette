@@ -45,6 +45,7 @@ import {
   THEME_LABEL,
 } from "./mashup";
 import { makeMashup } from "./mashup-make";
+import { openerFor, previousOpener } from "./greeting";
 import { eventInputs } from "./mashup-events";
 import { PlacesError, placeHours, placesKey, themePlaces } from "./places";
 import {
@@ -345,6 +346,7 @@ export async function socialCtx(
       kind: r.kind as PostKind,
       slotDate: r.slotDate,
       modelText: (r.spec as PostSpec).modelText,
+      opener: (r.spec as PostSpec).opener ?? null,
     })),
     profiles,
     planParks: postCandidates(
@@ -439,6 +441,12 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
       photo: photo ? { src: photo.src, check: photoState(photo.src) } : null,
     };
   };
+  // As the checker will print it: the calendar and the history.
+  const planOpener = (kind: PostKind, day: string) =>
+    openerFor(kind, day, {
+      breaks: CATALOG.breaks,
+      previous: previousOpener(ctx.recent, day),
+    });
   // Every other week the Wednesday carousel is code's park pairings; the
   // holiday Unpack (Sunday) may still take a school-break week.
   const mashupWeek = mashupParity(weekOf);
@@ -483,6 +491,15 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
       to: b.to,
     })),
     holiday: holidayIn(weekOf, 7),
+    // Code's warm first words for each caption (greeting.ts): a holiday or
+    // school-break week's greeting, null on an ordinary week. Don't greet
+    // again in your words.
+    openers: {
+      park_post: planOpener("park_post", mon.date),
+      ...(mashupWeek ? {} : { unpack: planOpener("unpack", wed.date) }),
+      ...(sundayOk ? { unpack_sunday: planOpener("unpack", sun.date) } : {}),
+      at_home: planOpener("at_home", sat.date),
+    },
     post_parks: ctx.planParks.map(park),
     venues: CATALOG.venues
       .filter((v) => v.verified && v.months.includes(month))
@@ -531,7 +548,7 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
         : COPY.bio,
       headline_words:
         "4 to 8 (the carousels). A number in the headline must equal the items left after cuts.",
-      voice: `Warm, plain, specific: one parent to another. Short sentences (${SENTENCE_MAX_WORDS} words at most each), everyday words, a small scene, then the useful bits. One exclamation point at most per post. No cliches: must-see, will love it, magical, make memories, adventure awaits, nestled, boasts, amenities, don't miss, tag a friend, hidden gem, perfect for, something for everyone.`,
+      voice: `Warm, plain, specific: one Bend parent to another, like our Thursday email. Short sentences (${SENTENCE_MAX_WORDS} words at most each), everyday words, a small kind scene (the weather, the season, the morning), then the useful bits. Code opens holiday and school-break captions with a greeting (openers); never greet a holiday yourself. One exclamation point at most per post. No cliches: must-see, will love it, magical, make memories, adventure awaits, nestled, boasts, amenities, don't miss, tag a friend, hidden gem, perfect for, something for everyone.`,
       story: `The park post's story: ${STORY_LIMITS.minSentences} to ${STORY_LIMITS.sentences} short sentences, ${STORY_LIMITS.min} to ${STORY_LIMITS.max} characters. The first (${STORY_LIMITS.first} characters at most, it shows before "more") names the park exactly as post_parks[].name has it, and a signature trait. The scene is weather and season only. Story, who and bring name nothing but the park, its town and words in its traits, and state no weekday, time, price, free, hours, superlative ("the only ... in"), safety promise or event. who and bring are short lowercase fragments with no period, 120 characters at most; code labels them "Best for:" and "Bring:" and adds "Where:". Never ice or frozen water.`,
       intro:
         "The Unpack and at home carousels take an intro: 1 or 2 short sentences above the list, setting the week or the morning. A town is the only name. No price, free, hours, holiday or indoor/heated claims; any number is the item count after cuts (or the idea count). An Unpack intro makes no place claims (the items do); an at home intro follows the hazard and household rules for the youngest idea.",
@@ -542,7 +559,7 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
           ? "No restroom claims (November to March)."
           : "Restroom claims only when the park's features list restrooms.",
       first_person:
-        'No I, me or my. "We", "our" and "us" only as Park Roulette in these frames: we\'re featuring, this week we\'re featuring, we picked, our pick, this week\'s pick, we send, our free Thursday email. Every other we, our or us is refused.',
+        'No I, me or my. "We", "our" and "us" only as Park Roulette in these frames: we\'re featuring, this week we\'re featuring, we picked, our pick, this week\'s pick, we send, our free Thursday email, we hope (a wish: "we hope the sun holds for Saturday"). Every other we, our or us is refused.',
       signature:
         "The park post leads with a signature trait: the story's first sentence names the park and one of post_parks[].profile.traits (by its key words). Generic lines are refused: built for ... fans, something for everyone, fun for all ages, great place.",
       dated: `Dated items start ${DATED_LEAD_HOURS}+ hours after the post goes out.`,
@@ -849,6 +866,27 @@ async function sentIssue(date: string): Promise<Issue | null> {
   return b.success ? b.data : null;
 }
 
+/**
+ * A code-made post's warm first line (greeting.ts), never the one the
+ * post just before it opened with.
+ */
+export async function openerNow(
+  kind: PostKind,
+  day: string,
+): Promise<string | null> {
+  const recent = await recentPosts();
+  return openerFor(kind, day, {
+    breaks: CATALOG.breaks,
+    previous: previousOpener(
+      recent.map((r) => ({
+        slotDate: r.slotDate,
+        opener: (r.spec as PostSpec).opener ?? null,
+      })),
+      day,
+    ),
+  });
+}
+
 async function slotTaken(kind: PostKind, day: string): Promise<boolean> {
   const [r] = await db
     .select({ id: socialPosts.id })
@@ -917,12 +955,13 @@ export async function ensureCodePost(
       `The featured park ${issue.wheel_pick.park} isn't open on the map.`,
     );
   const operator = parkTag(park.slug);
+  const opener = kind === "teaser" ? await openerNow("teaser", date) : null;
   let spec =
     kind === "teaser"
-      ? composeTeaser(issue, park, dmsOn(), operator ? [operator] : [])
+      ? composeTeaser(issue, park, dmsOn(), operator ? [operator] : [], opener)
       : composeStory(issue, park, dmsOn());
   if (mentionProblems(spec.caption, postHandles(spec)).length)
-    spec = composeTeaser(issue, park, dmsOn());
+    spec = composeTeaser(issue, park, dmsOn(), [], opener);
   // The issue's words were checked when it was sent; the competitor,
   // emoji and safety rules run again on the headline.
   const problems = textProblems(spec.modelText, {
@@ -992,14 +1031,21 @@ export async function ensureEventsWeek(
   const rows = await eventRows();
   const pick = pickWeekEvents(rows.values(), window, now);
   if (pick.skip) return skip(pick.skip);
+  const opener = await openerNow("events_week", date);
   // The hosts' verified handles ride along; a tag that fails a check is
   // dropped (the roundup goes out without it), never the post.
-  let fit = fitRoundup(withHostTags(pick.events, rows), window, dmsOn());
+  let fit = fitRoundup(
+    withHostTags(pick.events, rows),
+    window,
+    dmsOn(),
+    undefined,
+    opener,
+  );
   if (
     !("skip" in fit) &&
     mentionProblems(fit.spec.caption, postHandles(fit.spec)).length
   )
-    fit = fitRoundup(pick.events, window, dmsOn());
+    fit = fitRoundup(pick.events, window, dmsOn(), undefined, opener);
   if ("skip" in fit) return skip(fit.skip);
   const { spec } = fit;
   const R = await render();
@@ -1110,6 +1156,8 @@ export async function pruneMashup(
         weather: facts.weather,
         shops: m.shops ?? null,
         slotDate: post.slotDate,
+        // The redraw opens as the post did.
+        opener: spec.opener ?? null,
       }),
       post.id,
       post.slotDate,
@@ -1336,7 +1384,9 @@ export async function ensureMashup(
       kind: r.kind as PostKind,
       slotDate: r.slotDate,
       modelText: (r.spec as PostSpec).modelText ?? "",
+      opener: (r.spec as PostSpec).opener ?? null,
     })),
+    breaks: CATALOG.breaks,
     dms: dmsOn(),
     places: (theme) =>
       themePlaces(theme, searchIn, month, {
@@ -2178,7 +2228,11 @@ export async function redrawQueued(
     draft.data.type === "unpack" && draft.data.slot === "sun"
       ? addDays(post.slotDate, 1)
       : mondayOf(post.slotDate);
-  const ctx = { ...(await socialCtx(weekOf, now)), redraw: true };
+  const ctx = {
+    ...(await socialCtx(weekOf, now)),
+    redraw: true,
+    storedOpener: (post.spec as PostSpec).opener ?? null,
+  };
   let r = await validatePost(draft.data, weekOf, ctx);
   if (!r.ok || !r.spec)
     return {

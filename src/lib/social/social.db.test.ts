@@ -846,6 +846,16 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     expect(String(row.caption)).toContain(
       "Bundle up: Saturday is clear and crisp.",
     );
+    // Thanksgiving Day: the warm greeting opens it, and is kept.
+    expect(String(row.caption).split("\n")[0]).toBe(
+      "Happy Thanksgiving! The weekend plan is ready when you are.",
+    );
+    const [kept] = await q(
+      `select spec->>'opener' as opener from social_posts where kind = 'teaser'`,
+    );
+    expect(kept.opener).toBe(
+      "Happy Thanksgiving! The weekend plan is ready when you are.",
+    );
     expect(String(row.caption)).toContain("Link in bio.");
     expect(drawn.at(-1)!.every((p) => p === null)).toBe(true);
     const fri = new Date("2026-11-28T00:40:00Z");
@@ -854,6 +864,24 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       await store.ensureCodePost("teaser", new Date("2026-12-03T18:00:00Z")),
     ).toMatch(/No issue/);
     expect(alerts.some((a) => /teaser skipped/.test(a.subject))).toBe(true);
+  });
+
+  it("never opens a code post the way the post before it opened (the history)", async () => {
+    // An ordinary week (the roundup's own rotating line).
+    const usual = await store.openerNow("events_week", "2027-01-26");
+    expect(usual).toBeTruthy();
+    // Monday's post opened with that line: Tuesday's steps past it.
+    await q(`insert into social_posts (kind, slot_date, publish_at, origin, status, body, spec)
+      values ('park_post', '2027-01-25', '2027-01-25T19:30:00Z', 'writer', 'published', '{}',
+        '{"opener": ${JSON.stringify(usual).replace(/'/g, "''")}, "modelText": ""}'::jsonb)`);
+    const next = await store.openerNow("events_week", "2027-01-26");
+    expect(next).toBeTruthy();
+    expect(next).not.toBe(usual);
+    // A replaced post isn't history.
+    await q(
+      `update social_posts set status = 'replaced' where slot_date = '2027-01-25'`,
+    );
+    expect(await store.openerNow("events_week", "2027-01-26")).toBe(usual);
   });
 
   it("keyword DMs stay off without SOCIAL_KEYWORD_DMS=on and FB_PAGE_ID", async () => {
@@ -901,7 +929,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
     });
     // The DM links to the commented post's own destination (the park).
     expect(JSON.parse(sent[0].body.get("message")!).text).toBe(
-      "Here are the links from that post. New park picks every Thursday, free.\nhttps://parkroulette.quest/parks/larkspur-park-bend?from=ig_dm",
+      "Here are the links from that post. Have a good time out there. New park picks every Thursday, free.\nhttps://parkroulette.quest/parks/larkspur-park-bend?from=ig_dm",
     );
     expect(
       await q(

@@ -37,7 +37,7 @@ import {
   verifyPair,
   withoutMentions,
 } from "./handles";
-import type { ParkPostDraft, UnpackDraft } from "./model";
+import { COPY, type ParkPostDraft, type UnpackDraft } from "./model";
 import { fitRoundup, withHostTags } from "./roundup";
 import type { Issue } from "@/lib/news/issue";
 
@@ -411,7 +411,7 @@ describe("the roundup's host tags", () => {
     const at = lines.indexOf("Hosts this week: @host2 @host1");
     expect(lines[at - 1]).toBe("");
     expect(lines[at + 1]).toBe("");
-    expect(lines[at + 2]).toMatch(/^Every Thursday/);
+    expect(lines[at + 2]).toBe(COPY.captionClose.events_week);
     expect(spec.tags?.map((t) => t.handle)).toEqual(["host2", "host1"]);
     // Facebook: no handles, no tag line, no stray blank lines.
     expect(spec.fbCaption).not.toMatch(/@/);

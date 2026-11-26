@@ -374,7 +374,7 @@ describe("keyword DMs", () => {
     expect(dmLink({ ...p("park_post"), spec: spec("x") })).toBe(fallback);
     expect(dmLink({ ...p("story") })).toBe(fallback);
     expect(dmText(fallback)).toBe(
-      "Here are the links from that post. New park picks every Thursday, free.\nhttps://parkroulette.quest/social?from=ig_dm",
+      "Here are the links from that post. Have a good time out there. New park picks every Thursday, free.\nhttps://parkroulette.quest/social?from=ig_dm",
     );
     expect(COPY.dm).toBe(dmText(fallback));
   });

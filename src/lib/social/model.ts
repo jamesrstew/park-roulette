@@ -139,21 +139,22 @@ export const COPY = {
     "Comment PARK and we'll DM you every link. Follow us first so it reaches you.",
   commentSlide: "Comment PARK and we'll DM you every link.",
   bio: "Link in bio.",
-  thursday: "Every Thursday: the weekend forecast plus one great plan.",
+  thursday: "Every Thursday: the weekend forecast and one easy plan.",
   /**
-   * The captions' closing line, in our voice (the slides keep `thursday`).
-   * One per post type, so it doesn't read the same four days a week.
+   * The captions' closing line, in our voice (the slides keep `thursday`):
+   * one parent to another, as the Thursday email talks. One per post type,
+   * so it doesn't read the same four days a week.
    */
   captionClose: {
     park_post:
-      "Every Thursday we send one park plan for the weekend. It's free.",
+      "Have a good time out there. Every Thursday we send one weekend plan, free.",
     events_week:
       "Every Thursday we send the weekend forecast and one good plan. It's free.",
-    unpack: "Our free Thursday email has the weekend forecast and one plan.",
+    unpack:
+      "Our free Thursday email has the weekend forecast and one plan we picked.",
     at_home:
       "When you're ready to get out, our free Thursday email has a plan.",
-    mashup:
-      "For the weekend, our free Thursday email has the forecast and one plan.",
+    mashup: "If the weekend needs a plan, our free Thursday email has one.",
   },
   /** The park pairings' caption line: we print no hours, so they check. */
   mashupHours: "Hours change with the seasons, so check before you go.",
@@ -231,7 +232,7 @@ export function ctaLine(
  */
 export function dmText(url: string): string {
   // The link last, on its own line: no period stuck to the end of it.
-  return `Here are the links from that post. New park picks every Thursday, free.\n${url}`;
+  return `Here are the links from that post. Have a good time out there. New park picks every Thursday, free.\n${url}`;
 }
 
 /** The Story's button: "Reply PICK" with DMs on, else "Link in bio". */
@@ -804,6 +805,12 @@ export type PostSpec = {
    * checked again right before it goes out. Instagram only.
    */
   tags?: Tag[];
+  /**
+   * The warm first words the caption opens with (lib/social/greeting.ts),
+   * when it has them: a redraw keeps them, and the next post never
+   * repeats them.
+   */
+  opener?: string;
 };
 
 /** Words in a headline (hyphenated words count once). */

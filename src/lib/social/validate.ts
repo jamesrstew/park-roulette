@@ -16,6 +16,7 @@ import {
 import { listed } from "@/lib/events/state";
 // A cycle (roundup uses eventTextProblem): both only call at run time.
 import { eventDayChip, roundupAges, venueChip } from "./roundup";
+import { HOLIDAY_GREETING, openerFor, previousOpener } from "./greeting";
 import {
   CONTEXT_KINDS,
   genericPhrases,
@@ -125,6 +126,8 @@ export type RecentPost = {
   kind: PostKind;
   slotDate: string;
   modelText: string;
+  /** The warm first words its caption opened with (greeting.ts). */
+  opener?: string | null;
 };
 
 export type SocialCtx = {
@@ -134,6 +137,11 @@ export type SocialCtx = {
    * word rules (whenProblems) aren't held against what was already queued.
    */
   redraw?: boolean;
+  /**
+   * The redrawn post's stored opener (greeting.ts): kept, not recomputed.
+   * Undefined: work it out from the calendar and the history.
+   */
+  storedOpener?: string | null;
   catalog: Catalog;
   parks: ReadonlyMap<string, ParkInfo>;
   /** Kids' events by slug. */
@@ -191,7 +199,7 @@ const FIRST_PERSON_PLURAL =
   /\b(we|we're|we've|we'd|we'll|us|our|ours|ourselves)\b/i;
 /** The only frames "we" and "our" may appear in (case-insensitive). */
 export const PUBLISHER_FRAMES =
-  /\b(?:this week we're featuring|we're featuring|we picked|our pick|this week's pick|we send|our free thursday email)\b/gi;
+  /\b(?:this week we're featuring|we're featuring|we picked|our pick|this week's pick|we send|our free thursday email|we hope(?! to\b))\b/gi;
 /** Text with the publisher frames taken out (what's left may not say we). */
 const withoutFrames = (t: string) => t.replace(PUBLISHER_FRAMES, " ");
 /**
@@ -241,6 +249,13 @@ const CLICHES: [RegExp, string][] = [
 ];
 
 /**
+ * A holiday or school-break greeting: code opens the caption with the
+ * week's own (greeting.ts), so the writer's words never greet one too
+ * (two greetings read as a card, not a parent).
+ */
+export { HOLIDAY_GREETING };
+
+/**
  * Voice problems in words the model wrote: the generic park phrases and
  * the guide's clichés. (Sentence length and exclamation points are
  * checked per post.)
@@ -251,11 +266,19 @@ export function voiceProblems(text: string, label: string): string[] {
     ...genericPhrases(t),
     ...CLICHES.filter(([re]) => re.test(t)).map(([, l]) => l),
   ];
-  return found.length
-    ? [
-        `${label}: ${found.join(", ")} could be about anywhere. Say what makes this one different, in plain words.`,
-      ]
-    : [];
+  const greeting = HOLIDAY_GREETING.exec(t);
+  return [
+    ...(found.length
+      ? [
+          `${label}: ${found.join(", ")} could be about anywhere. Say what makes this one different, in plain words.`,
+        ]
+      : []),
+    ...(greeting
+      ? [
+          `${label}: "${greeting[0]}": code opens the caption with the week's greeting (plan: openers), so your words don't greet the holiday again.`,
+        ]
+      : []),
+  ];
 }
 
 const escapeRe = (x: string) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -335,7 +358,7 @@ export function textProblems(
     );
   else if (plural && FIRST_PERSON_PLURAL.test(withoutFrames(t)))
     out.push(
-      `${label}: first person "we", "our" and "us" only as the publisher ("we're featuring", "we picked", "our pick", "this week's pick", "we send", "our free Thursday email"). Never a family, a visit or a plan to meet.`,
+      `${label}: first person "we", "our" and "us" only as the publisher ("we're featuring", "we picked", "our pick", "this week's pick", "we send", "our free Thursday email", "we hope"). Never a family, a visit or a plan to meet.`,
     );
   if (EXPERIENCE.test(t))
     out.push(
@@ -1177,6 +1200,22 @@ async function resolveItem(
 
 // --- The posts -------------------------------------------------------------
 
+/** The park post's shortest first-sentence limit after a greeting. */
+const FIRST_WITH_OPENER = 95;
+
+/**
+ * A post's warm first words (greeting.ts): the calendar's, never the
+ * same as the post's just before it.
+ */
+function openerIn(kind: PostKind, date: string, ctx: SocialCtx) {
+  // A queued post redrawn keeps the opener it was stored with.
+  if (ctx.storedOpener !== undefined) return ctx.storedOpener;
+  return openerFor(kind, date, {
+    breaks: ctx.catalog.breaks,
+    previous: previousOpener(ctx.recent, date),
+  });
+}
+
 function base(type: PostKind, slotDate: string, publishAt: Date): PostReport {
   return {
     type,
@@ -1456,9 +1495,16 @@ export async function validateParkPost(
     r.errors.push(
       `story: ${sentences.length} sentence${sentences.length === 1 ? "" : "s"}; ${STORY_LIMITS.minSentences} to ${STORY_LIMITS.sentences} (a short paragraph).`,
     );
-  if (first.length > STORY_LIMITS.first)
+  // A holiday week's greeting starts the same paragraph: the park still
+  // has to show before "more", so the first sentence gives up the room
+  // (never below FIRST_WITH_OPENER).
+  const opener = openerIn("park_post", date, ctx);
+  const firstMax = opener
+    ? Math.max(FIRST_WITH_OPENER, STORY_LIMITS.first - opener.length - 1)
+    : STORY_LIMITS.first;
+  if (first.length > firstMax)
     r.errors.push(
-      `story: the first sentence runs ${first.length} characters; ${STORY_LIMITS.first} at most (it shows before "more").`,
+      `story: the first sentence runs ${first.length} characters; ${firstMax} at most (it shows before "more"${opener ? `, after code's greeting "${opener}"` : ""}).`,
     );
   r.errors.push(...longSentences(d.story, "story"));
   const parts = [
@@ -1531,7 +1577,8 @@ export async function validateParkPost(
   if (!park) return r;
   const spec = untaggedIfLong(
     r,
-    (tags) => composeParkPost(d, park, ctx.photoFor(park.slug), ctx.dms, tags),
+    (tags) =>
+      composeParkPost(d, park, ctx.photoFor(park.slug), ctx.dms, tags, opener),
     [parkTag(park.slug)].filter((t): t is Tag => !!t),
   );
   common(r, spec, ctx, d.hashtags);
@@ -1708,6 +1755,7 @@ export async function validateUnpack(
         slotDate: date,
         brk,
         tags: t,
+        opener: openerIn("unpack", date, ctx),
       }),
     tags,
   );
@@ -1834,7 +1882,11 @@ export async function validateAtHome(
       )
         r.errors.push(`${label} repeats "${other.title}" in this post.`);
   });
-  const spec = composeAtHome(d, { dms: ctx.dms, slotDate: date });
+  const spec = composeAtHome(d, {
+    dms: ctx.dms,
+    slotDate: date,
+    opener: openerIn("at_home", date, ctx),
+  });
   r.errors.push(
     ...coverProblems(spec, { expected: atHomeCover(date), slotDate: date }),
   );

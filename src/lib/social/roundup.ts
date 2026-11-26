@@ -394,10 +394,12 @@ export function fitRoundup(
   window: { label: string; caption: string; firstDay: string },
   dms: boolean,
   max = CAPTION_MAX,
+  /** The caption's warm first line (greeting.ts openerFor), or none. */
+  opener: string | null = null,
 ): { spec: PostSpec; events: WeekEvent[]; cut: string[] } | { skip: string } {
   let es = events.map((e) => ({ ...e }));
   const cut: string[] = [];
-  const make = () => composeEventsWeek(es, window, dms);
+  const make = () => composeEventsWeek(es, window, dms, opener);
   const fits = () => (make().caption ?? "").length <= max;
   for (const field of ["desc", "also"] as const)
     for (let i = es.length - 1; i >= 0 && !fits(); i--)

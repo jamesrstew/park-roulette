@@ -320,7 +320,9 @@ describe("validateAtHome", () => {
       ctx(),
     );
     expect(ok.errors).toEqual([]);
-    expect(ok.spec!.caption!.split("\n").slice(0, 3)).toEqual([
+    // Thanksgiving weekend: code's greeting, then the headline and intro.
+    expect(ok.spec!.caption!.split("\n").slice(0, 4)).toEqual([
+      "We hope the long weekend is treating you well.",
       ok.spec!.headline,
       "",
       "A slow, gray morning. Paper and crayons suit it.",
@@ -776,6 +778,26 @@ describe("the roundup caption's own words", () => {
     expect(tight.events.length).toBeLessThan(8);
     expect(tight.cut.at(-1)).toMatch(/left out for caption length/);
     expect(tight.spec.caption!.length).toBeLessThanOrEqual(1500);
+    // The opener counts toward the limit, and the tags still close it.
+    const greeted = fitRoundup(
+      eight,
+      win,
+      false,
+      1500,
+      "We hope Thanksgiving week is off to an easy start.",
+    );
+    if ("skip" in greeted) throw new Error(greeted.skip);
+    expect(greeted.spec.caption!.length).toBeLessThanOrEqual(1500);
+    expect(greeted.spec.caption!.split("\n")[0]).toBe(
+      "We hope Thanksgiving week is off to an easy start.",
+    );
+    expect(greeted.spec.caption!.split("\n").at(-1)).toMatch(/^#/);
+    expect(greeted.spec.opener).toBe(
+      "We hope Thanksgiving week is off to an easy start.",
+    );
+    expect(greeted.spec.fbCaption!.split("\n")[0]).toBe(
+      "We hope Thanksgiving week is off to an easy start.",
+    );
     // Too long even at 4 events with nothing extra: no roundup.
     expect(fitRoundup(eight, win, false, 400)).toMatchObject({
       skip: expect.stringMatching(/over 400 characters even with 4 events/),

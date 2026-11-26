@@ -9,6 +9,7 @@ import {
   pairFit,
 } from "@/components/social/fit";
 import { ideaText } from "./at-home";
+import { withOpener } from "./greeting";
 import {
   dedupeTags,
   mentionLines,
@@ -337,6 +338,8 @@ export function composeParkPost(
   dms: boolean,
   /** The park's operator, when its handle is verified (handles.ts parkTag). */
   tags: readonly Tag[] = [],
+  /** The week's warm first words (greeting.ts openerFor), or none. */
+  opener: string | null = null,
 ): PostSpec {
   const cta = ctaLine(dms, "park_post");
   const mentions = mentionLines("park_post", tags);
@@ -351,8 +354,12 @@ export function composeParkPost(
   const story = d.story.replace(/\s+/g, " ").trim();
   const caption = [
     // The story opens the caption: its first sentence names the park and
-    // a signature trait (the validator holds it).
-    story,
+    // a signature trait (the validator holds it). A holiday week's
+    // greeting starts the same paragraph, as the newsletter's hello does.
+    ...withOpener(opener, [story], {
+      inline: true,
+      words: [d.who, d.bring].join("\n"),
+    }),
     "",
     `Best for: ${fragment(d.who)}`,
     `Bring: ${fragment(d.bring)}`,
@@ -384,6 +391,7 @@ export function composeParkPost(
     modelText: [story, d.who, d.bring].join("\n"),
     facts: { parks: [park.slug], events: [], venues: [], issue: null },
     ...tagsField("park_post", tags),
+    ...openerField(caption, opener),
   };
 }
 
@@ -401,6 +409,8 @@ export function composeUnpack(
     brk?: BreakSpan | null;
     /** The items' verified hosts, places and park operators, in item order. */
     tags?: readonly Tag[];
+    /** The week's warm first line (greeting.ts openerFor), or none. */
+    opener?: string | null;
   },
 ): PostSpec {
   const { dms } = o;
@@ -457,7 +467,7 @@ export function composeUnpack(
     },
   ];
   const intro = d.intro?.replace(/\s+/g, " ").trim();
-  const caption = [
+  const caption = withOpener(o.opener, [
     headline,
     "",
     ...(intro ? [intro, ""] : []),
@@ -475,7 +485,7 @@ export function composeUnpack(
     cta,
     "",
     hashtagLine(d.hashtags),
-  ].join("\n");
+  ]).join("\n");
   return {
     kind: "unpack",
     size: "feed",
@@ -491,6 +501,7 @@ export function composeUnpack(
     ].join("\n"),
     facts,
     ...tagsField("unpack", tags),
+    ...openerField(caption, o.opener),
   };
 }
 
@@ -498,6 +509,16 @@ export function composeUnpack(
 function tagsField(kind: PostSpec["kind"], tags: readonly Tag[]) {
   const used = usedTags(kind, tags);
   return used.length ? { tags: used } : {};
+}
+
+/**
+ * The opener the caption printed (none: no field), kept so a redraw opens
+ * the same way and the next post never repeats it.
+ */
+function openerField(caption: string, opener: string | null | undefined) {
+  // "!" may have been calmed to "." (greeting.ts calmOpener).
+  const bare = (t: string) => t.replace(/[!.]/g, "");
+  return opener && bare(caption).startsWith(bare(opener)) ? { opener } : {};
 }
 
 // --- E. At home (Saturday) -------------------------------------------------
@@ -522,6 +543,8 @@ export function composeAtHome(
     dms: boolean;
     /** The Saturday it goes out (slotFor): the cover's dates. */
     slotDate: string;
+    /** The week's warm first line (greeting.ts openerFor), or none. */
+    opener?: string | null;
   },
 ): PostSpec {
   const { dms } = o;
@@ -571,7 +594,7 @@ export function composeAtHome(
     { t: "cta", line: COPY.thursday, cta, sub: COPY.free },
   ];
   const intro = d.intro?.replace(/\s+/g, " ").trim();
-  const caption = [
+  const caption = withOpener(o.opener, [
     headline,
     "",
     ...(intro ? [intro, ""] : []),
@@ -588,7 +611,7 @@ export function composeAtHome(
     cta,
     "",
     hashtagLine(d.hashtags),
-  ].join("\n");
+  ]).join("\n");
   return {
     kind: "at_home",
     size: "feed",
@@ -615,6 +638,7 @@ export function composeAtHome(
       ideas: ideas.map((i) => i.title),
       ideaTexts: ideas.map(ideaText),
     },
+    ...openerField(caption, o.opener),
   };
 }
 
@@ -831,6 +855,8 @@ export function composeEventsWeek(
   events: WeekEvent[],
   range: { label: string; caption: string; firstDay: string },
   dms: boolean,
+  /** The warm first line (greeting.ts openerFor), or none. */
+  opener: string | null = null,
 ): PostSpec {
   events = events.map((e) => ({
     ...e,
@@ -902,7 +928,7 @@ export function composeEventsWeek(
       icon: "calendar",
     },
   ];
-  const caption = [
+  const caption = withOpener(opener, [
     `${headline} (${range.caption})`,
     "",
     eventsIntro(events),
@@ -915,7 +941,7 @@ export function composeEventsWeek(
     cta,
     "",
     hashtagLine(HASHTAGS),
-  ].join("\n");
+  ]).join("\n");
   return {
     kind: "events_week",
     size: "feed",
@@ -938,6 +964,7 @@ export function composeEventsWeek(
       issue: null,
     },
     ...tagsField("events_week", tags),
+    ...openerField(caption, opener),
   };
 }
 
@@ -1104,6 +1131,8 @@ export function composeMashup(
     shops?: string | null;
     /** The Wednesday it goes out: the cover's weekend dates. */
     slotDate: string;
+    /** The warm first line (greeting.ts openerFor), or none. */
+    opener?: string | null;
   },
 ): PostSpec {
   const tags = o.tags ?? [];
@@ -1186,7 +1215,7 @@ export function composeMashup(
       sub: COPY.free,
     },
   ];
-  const caption = [
+  const caption = withOpener(o.opener, [
     copy.headline,
     "",
     copy.intro,
@@ -1202,7 +1231,7 @@ export function composeMashup(
     cta,
     "",
     hashtagLine(HASHTAGS),
-  ].join("\n");
+  ]).join("\n");
   return {
     kind: "mashup",
     size: "feed",
@@ -1236,6 +1265,7 @@ export function composeMashup(
       },
     },
     ...tagsField("mashup", tags),
+    ...openerField(caption, o.opener),
   };
 }
 
@@ -1285,6 +1315,8 @@ export function composeTeaser(
   dms: boolean,
   /** The featured park's operator, when its handle is verified. */
   tags: readonly Tag[] = [],
+  /** The warm first line (greeting.ts openerFor), or none. */
+  opener: string | null = null,
 ): PostSpec {
   const cta = ctaLine(dms, "teaser");
   // The sent issue's words and the park's record: no "@" in them.
@@ -1327,7 +1359,7 @@ export function composeTeaser(
     },
     { t: "cta", line: COPY.readFree, cta, sub: COPY.thursday },
   ];
-  const caption = [
+  const caption = withOpener(opener, [
     headline,
     "",
     issue.preview,
@@ -1339,7 +1371,7 @@ export function composeTeaser(
     cta,
     "",
     hashtagLine(["#BendOregon", "#CentralOregon", "#BendKids"]),
-  ].join("\n");
+  ]).join("\n");
   return {
     kind: "teaser",
     size: "feed",
@@ -1356,6 +1388,7 @@ export function composeTeaser(
       issue: issue.issue_date,
     },
     ...tagsField("teaser", tags),
+    ...openerField(caption, opener),
   };
 }
 

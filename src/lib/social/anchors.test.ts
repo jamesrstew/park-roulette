@@ -448,8 +448,17 @@ describe("the post", () => {
         12,
         0,
       ),
-      { month: 12, cycle: 1, dms: true, tags: made.spec.tags, slotDate: WED },
+      {
+        month: 12,
+        cycle: 1,
+        dms: true,
+        tags: made.spec.tags,
+        slotDate: WED,
+        // As pruneMashup redraws it: the stored opener.
+        opener: made.spec.opener,
+      },
     );
+    expect(made.spec.opener).toBeTruthy();
     expect(again.caption).toBe(made.spec.caption);
   });
 

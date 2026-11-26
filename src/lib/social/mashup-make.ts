@@ -24,6 +24,7 @@ import type { PostSpec } from "./model";
 import { PlacesError } from "./places";
 import { weekdayOf } from "@/lib/news/time";
 import { mashupProblems, pairProblems, type RecentPost } from "./validate";
+import { type GreetingBreak, openerFor, previousOpener } from "./greeting";
 
 /**
  * Making one park pairings carousel: try the themes in rotation order,
@@ -70,6 +71,8 @@ export async function makeMashup(o: {
   parks: readonly Anchor[];
   history: readonly MashupHistory[];
   recent: readonly RecentPost[];
+  /** The catalog's school breaks (the opener's calendar; greeting.ts). */
+  breaks?: readonly GreetingBreak[];
   dms: boolean;
   places: (theme: MashupTheme) => Promise<Place[]>;
   /** An indoor place's opening hours by its place id (null: unknown). */
@@ -172,6 +175,10 @@ export async function makeMashup(o: {
         ),
       );
       const rows = mashupRows(pairs, sites);
+      const opener = openerFor("mashup", o.slotDate, {
+        breaks: o.breaks ?? [],
+        previous: previousOpener(o.recent, o.slotDate),
+      });
       const compose = (t: readonly Tag[]) =>
         composeMashup(theme, rows, copy, {
           month: o.month,
@@ -182,6 +189,7 @@ export async function makeMashup(o: {
           weather: facts.weather,
           shops: facts.shops,
           slotDate: o.slotDate,
+          opener,
         });
       let spec = compose(tags);
       let problems = mashupProblems(spec, pairs, o);
