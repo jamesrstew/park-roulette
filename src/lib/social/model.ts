@@ -181,10 +181,13 @@ export const COPY = {
   atHomeKicker: "At home this weekend",
   /** The Unpack cover's context line (compose.ts unpackCover picks one). */
   coverWeekendEvents: "Events this weekend",
+  /** The small line under an Unpack or "at home" headline: where. */
+  region: "Central Oregon",
   coverWeekend: "This weekend",
   coverWeek: "This week",
   coverNextWeek: "Next week",
-  coverWeekAndNext: "This week and next",
+  coverWeekendAndBeyond: "This weekend and beyond",
+  coverWeekAndBeyond: "This week and beyond",
   coverPlaces: "Places to go with kids",
   eventsHeadline: "Family events this week in Central Oregon",
   eventsHighlight: "week",

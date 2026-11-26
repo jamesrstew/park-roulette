@@ -466,3 +466,82 @@ export function pairFit(
   const name = names[names.length - 1];
   return { name, body, fits: pairHeight(s, name, body) <= height };
 }
+
+/**
+ * The cover's top row (Slides.tsx HeadlineSlide): the context label and
+ * date chip on the left, the icon (or the pairings' icon, "+", icon) on
+ * the right. What's left for the label block, px.
+ */
+export const COVER = {
+  icon: 170,
+  pairIcon: 160,
+  plus: 100,
+  gap: 24,
+  /** The tape's padding, each side. */
+  labelPad: 26,
+  labelSizes: [56, 52, 48, 44] as const,
+  /** A label that won't fit one line at the last size wraps to two at this. */
+  wrapSize: 48,
+  chipSizes: [52, 48, 44] as const,
+  /** Chip padding (24 + 16), border (2 x 5) and the icon's gap (12). */
+  chipChrome: 62,
+} as const;
+
+/** The label block's width beside the cover's icons. */
+export function coverLabelWidth(pair: boolean): number {
+  const icons = pair
+    ? 2 * COVER.pairIcon + 8 + textWidth("+", COVER.plus)
+    : COVER.icon;
+  return CONTENT.width - icons - COVER.gap;
+}
+
+/** Words in lines no wider than `width` at `size` (greedy). */
+function wrapWords(text: string, size: number, width: number): string[] {
+  const lines: string[] = [];
+  for (const w of text.split(/\s+/)) {
+    const last = lines[lines.length - 1];
+    if (last && textWidth(`${last} ${w}`, size) <= width)
+      lines[lines.length - 1] = `${last} ${w}`;
+    else lines.push(w);
+  }
+  return lines;
+}
+
+/**
+ * The cover label's type: the largest size that keeps it on one line,
+ * else two lines at COVER.wrapSize; and the chip's (its icon the same
+ * size). `fits`: false only when even that overflows (tests hold every
+ * label code writes to true).
+ */
+export function coverFit(
+  kicker: string,
+  date: string | undefined,
+  width: number,
+): { label: number; lines: string[]; chip: number; fits: boolean } {
+  const inner = width - 2 * COVER.labelPad;
+  const one = COVER.labelSizes.find((z) => textWidth(kicker, z) <= inner);
+  // Two lines break after a district's colon when they can ("Jefferson
+  // County:" over "November break"), else wherever the words run out.
+  const colon = kicker.indexOf(": ");
+  const atColon =
+    colon > 0 ? [kicker.slice(0, colon + 1), kicker.slice(colon + 2)] : [];
+  const lines = one
+    ? [kicker]
+    : atColon.length &&
+        atColon.every((l) => textWidth(l, COVER.wrapSize) <= inner)
+      ? atColon
+      : wrapWords(kicker, COVER.wrapSize, inner);
+  const label = one ?? COVER.wrapSize;
+  const chipW = (z: number) =>
+    date ? textWidth(date, z) + z + COVER.chipChrome : 0;
+  const chip = COVER.chipSizes.find((z) => chipW(z) <= width) ?? 44;
+  return {
+    label,
+    lines,
+    chip,
+    fits:
+      lines.length <= 2 &&
+      lines.every((l) => textWidth(l, label) <= inner) &&
+      chipW(chip) <= width,
+  };
+}

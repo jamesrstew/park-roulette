@@ -18,6 +18,9 @@ import { CRAYONS } from "@/lib/crayons";
 import {
   commonBody,
   CONTENT,
+  COVER,
+  coverFit,
+  coverLabelWidth,
   EVENT,
   eventFit,
   hostSize,
@@ -563,13 +566,11 @@ function Picture({
 
 // --- Feed slides -------------------------------------------------------------
 
-/** The cover's context line: as big as fits its width, 44 px at least. */
-const LABEL_SIZES = [56, 52, 48, 44] as const;
-
 /**
  * What the list is, and when: the context line in ink on a strip of
- * crayon-tinted tape ("This weekend"), and under it the date chip ("Nov 28 to 29"), so
- * the cover says it at a glance. The headline stays the hero.
+ * crayon-tinted tape ("This weekend"), and under it the date chip ("Nov
+ * 28 to 29"), so the cover says it at a glance. The headline stays the
+ * hero. Sizes come from fit.ts coverFit.
  */
 function CoverLabel({
   kicker,
@@ -582,9 +583,8 @@ function CoverLabel({
   color: string;
   width: number;
 }) {
-  const pad = 26;
-  const size =
-    LABEL_SIZES.find((z) => textWidth(kicker, z) + 2 * pad <= width) ?? 44;
+  const fit = coverFit(kicker, date, width);
+  const size = fit.label;
   return (
     <div
       style={{
@@ -598,9 +598,11 @@ function CoverLabel({
       <div
         style={{
           display: "flex",
+          flexDirection: "column",
           position: "relative",
-          padding: `2px ${pad}px 10px`,
+          padding: `2px ${COVER.labelPad}px 10px`,
           fontSize: size,
+          lineHeight: 1.1,
           color: INK,
         }}
       >
@@ -618,7 +620,11 @@ function CoverLabel({
             display: "flex",
           }}
         />
-        <span style={{ position: "relative" }}>{kicker}</span>
+        {fit.lines.map((line) => (
+          <span key={line} style={{ position: "relative" }}>
+            {line}
+          </span>
+        ))}
       </div>
       {date ? (
         <div
@@ -626,14 +632,14 @@ function CoverLabel({
             display: "flex",
             alignItems: "center",
             gap: 12,
-            fontSize: 52,
+            fontSize: fit.chip,
             padding: "4px 24px 10px 16px",
             border: `5px solid ${INK}`,
             borderRadius: "26px 18px 28px 16px",
             background: CARD,
           }}
         >
-          <SlideIcon name="calendar" size={54} />
+          <SlideIcon name="calendar" size={fit.chip} />
           <span>{date}</span>
         </div>
       ) : null}
@@ -663,25 +669,25 @@ function HeadlineSlide({
           kicker={s.kicker}
           date={s.date}
           color={color}
-          width={CONTENT.width - (s.pairIcon && s.icon ? 400 : 190)}
+          width={coverLabelWidth(!!(s.pairIcon && s.icon))}
         />
         {s.pairIcon && s.icon ? (
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-            <AnyIcon name={s.icon} size={160} />
+            <AnyIcon name={s.icon} size={COVER.pairIcon} />
             <div
               style={{
                 display: "flex",
-                fontSize: 100,
+                fontSize: COVER.plus,
                 color: CRAYONS.red,
                 marginTop: -10,
               }}
             >
               +
             </div>
-            <AnyIcon name={s.pairIcon2 ?? "playground"} size={160} />
+            <AnyIcon name={s.pairIcon2 ?? "playground"} size={COVER.pairIcon} />
           </div>
         ) : (
-          <AnyIcon name={s.icon ?? "spin"} size={170} />
+          <AnyIcon name={s.icon ?? "spin"} size={COVER.icon} />
         )}
       </div>
       {/* The date chip does the scribble's work: one mark up there, not two. */}

@@ -1754,6 +1754,7 @@ describe("the cover says what the list is, and when", () => {
   const WED = "2026-11-25";
   const ev = (day: string) => ({ ref: `event:x-${day}@${day}` });
   const daily = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+  const brk = (id: string) => CATALOG.breaks.find((b) => b.id === id)!;
 
   it("prints a span in our date style", async () => {
     const { spanText } = await import("./compose");
@@ -1765,44 +1766,62 @@ describe("the cover says what the list is, and when", () => {
 
   it("says this weekend only for Friday to Sunday after the post", async () => {
     const { unpackCover } = await import("./compose");
+    // All events: their own span.
     expect(
-      unpackCover(
-        [ev("2026-11-28"), ev("2026-11-29"), { ref: "park:a" }],
-        WED,
-        null,
-      ),
+      unpackCover([ev("2026-11-28"), ev("2026-11-29")], WED, null),
     ).toEqual({
-      kicker: "This weekend",
+      kicker: "Events this weekend",
       date: "Nov 28 to 29",
       span: { from: "2026-11-28", to: "2026-11-29" },
     });
+    // With places: the whole weekend.
+    expect(
+      unpackCover([ev("2026-11-28"), { ref: "park:a" }], WED, null),
+    ).toMatchObject({ kicker: "This weekend", date: "Nov 27 to 29" });
     // Thursday is this week, not this weekend.
     expect(
       unpackCover([ev("2026-11-26"), ev("2026-11-28")], WED, null),
     ).toMatchObject({ kicker: "This week", date: "Nov 26 to 28" });
-    // Into next week: "This week and next".
-    expect(
-      unpackCover([ev("2026-11-28"), ev("2026-12-01")], WED, null),
-    ).toMatchObject({ kicker: "This week and next", date: "Nov 28 to Dec 1" });
-    // A venue closed on the weekend: not "this weekend".
+    // With places, "this week" starts the day after the post.
     expect(
       unpackCover(
-        [ev("2026-11-28"), { ref: "venue:v", open: ["tue", "wed"] }],
+        [
+          ev("2026-11-28"),
+          { ref: "park:a" },
+          { ref: "venue:v", open: ["tue"] },
+        ],
         WED,
         null,
       ),
-    ).toMatchObject({ kicker: "This week" });
+    ).toMatchObject({ kicker: "This week", date: "Nov 26 to 28" });
+    // Into next week.
+    expect(
+      unpackCover([ev("2026-11-28"), ev("2026-12-01")], WED, null),
+    ).toMatchObject({
+      kicker: "This weekend and beyond",
+      date: "Nov 28 to Dec 1",
+    });
+    expect(
+      unpackCover([ev("2026-11-30"), ev("2026-12-01")], WED, null),
+    ).toMatchObject({ kicker: "Next week", date: "Nov 30 to Dec 1" });
+    // Starting Thursday and running past Sunday: the week's, not the weekend's.
+    expect(
+      unpackCover([ev("2026-11-26"), ev("2026-12-01")], WED, null),
+    ).toMatchObject({
+      kicker: "This week and beyond",
+      date: "Nov 26 to Dec 1",
+    });
     expect(
       unpackCover(
         [ev("2026-11-28"), { ref: "venue:v", open: daily }],
         WED,
         null,
       ),
-    ).toMatchObject({ kicker: "This weekend", date: "Sat, Nov 28" });
+    ).toMatchObject({ kicker: "This weekend", date: "Nov 27 to 29" });
   });
 
-  it("names places with no dates, and a break by its own name and days", async () => {
-    const { breakName, unpackCover } = await import("./compose");
+  it("names places with no dates", async () => {
+    const { unpackCover } = await import("./compose");
     expect(
       unpackCover(
         [{ ref: "park:a" }, { ref: "venue:v", open: daily }],
@@ -1810,18 +1829,66 @@ describe("the cover says what the list is, and when", () => {
         null,
       ),
     ).toEqual({ kicker: "Places to go with kids" });
-    const winter = CATALOG.breaks.find((b) => b.id === "break-bls-winter")!;
-    expect(unpackCover([ev("2026-12-22")], "2026-12-20", winter)).toEqual({
-      kicker: "Winter break",
-      date: "Dec 21 to Jan 1",
-      span: { from: "2026-12-21", to: "2027-01-01" },
+  });
+
+  it("names a break with its district, through the Sunday after it", async () => {
+    const { unpackCover } = await import("./compose");
+    // A Mon to Fri break keeps its weekend.
+    expect(
+      unpackCover(
+        [ev("2026-11-28")],
+        "2026-11-22",
+        brk("break-rsd-thanksgiving"),
+      ),
+    ).toEqual({
+      kicker: "Redmond: Thanksgiving break",
+      date: "Nov 23 to 29",
+      span: { from: "2026-11-23", to: "2026-11-29" },
     });
-    expect(breakName("Redmond Thanksgiving break")).toBe("Thanksgiving break");
-    expect(breakName("Redmond no school (MLK Day)")).toBe("No school");
+    // Never a day already past: a post Dec 27 starts at Dec 28.
+    expect(
+      unpackCover([], "2026-12-27", brk("break-bls-winter")),
+    ).toMatchObject({
+      kicker: "Bend-La Pine: winter break",
+      date: "Dec 28 to Jan 3",
+    });
+    // Summer has no end to name: no chip.
+    expect(unpackCover([], "2027-06-13", brk("rsd-summer-2027"))).toEqual({
+      kicker: "Redmond: summer break",
+    });
+  });
+
+  it("names every catalog break by its district, never a bare day off", async () => {
+    const { breakName } = await import("./compose");
+    for (const b of CATALOG.breaks) {
+      const name = breakName(b);
+      expect(name, b.id).toMatch(
+        /^(Bend-La Pine|Redmond|Sisters|Crook County|Jefferson County): /,
+      );
+    }
+    expect(breakName(brk("break-rsd-mlk"))).toBe("Redmond: no school");
+    expect(breakName(brk("break-jcsd-thanksgiving"))).toBe(
+      "Jefferson County: November break",
+    );
+  });
+
+  it("offers the Sunday carousel only for a whole-district break of 3+ weekdays", async () => {
+    const { holidayBreak, isPartialBreak, sundayBreakOk } =
+      await import("./mashup");
+    expect(sundayBreakOk(brk("break-bls-fall"), "2026-11-23")).toBe(true);
+    // One day off: no.
+    expect(sundayBreakOk(brk("break-bls-mlk"), "2027-01-18")).toBe(false);
+    expect(holidayBreak(CATALOG, "2027-01-18")).toBeNull();
+    // Some grades only: no.
+    expect(isPartialBreak(brk("break-rsd-spring-conf"))).toBe(true);
+    expect(isPartialBreak(brk("ssd-ses-sms-2027-06-16"))).toBe(true);
+    expect(isPartialBreak(brk("break-bls-feb5"))).toBe(false);
+    expect(holidayBreak(CATALOG, "2027-03-15")).toBeNull();
   });
 
   it("at home and park pairings name their weekend", async () => {
-    const { atHomeCover, fridayToSunday } = await import("./compose");
+    const { atHomeCover, fridayToSunday, mashupCover } =
+      await import("./compose");
     expect(atHomeCover("2026-11-28")).toMatchObject({
       kicker: "At home this weekend",
       date: "Nov 28 to 29",
@@ -1830,14 +1897,44 @@ describe("the cover says what the list is, and when", () => {
       from: "2026-11-27",
       to: "2026-11-29",
     });
-    expect(fridayToSunday("2026-12-20")).toEqual({
-      from: "2026-12-25",
-      to: "2026-12-27",
+    expect(mashupCover(WED, "wet")).toMatchObject({
+      kicker: "Rainy-day pairings",
+      date: "Nov 27 to 29",
     });
   });
 
-  it("the validator refuses a cover whose dates don't match the items", async () => {
-    const { composeUnpack } = await import("./compose");
+  it("refuses when words: dates, this weekend, a break's name", async () => {
+    const { whenProblems } = await import("./validate");
+    for (const t of [
+      "Events this weekend in Bend",
+      "Things to do next week",
+      "Santa lands tomorrow",
+      "Winter break: 5 warm spots",
+      "Parades on Dec 5",
+    ])
+      expect(whenProblems([["headline", t]]), t).toHaveLength(1);
+    expect(
+      whenProblems([
+        ["headline", "Helicopter Santa, glowing parades and stars"],
+      ]),
+    ).toEqual([]);
+    expect(
+      whenProblems([["intro", "A whole week off and mornings in the 20s."]]),
+    ).toEqual([]);
+    // Words that only start like a month, and a price, say nothing of when.
+    for (const t of [
+      "Decorate 12 cookies",
+      "Markets 3 ways",
+      "Octopus 8 arms",
+      "Mary 5 and friends",
+      "Kids may 5 times",
+      "1/2 off swims",
+    ])
+      expect(whenProblems([["headline", t]]), t).toEqual([]);
+  });
+
+  it("the validator refuses a cover that isn't the one code makes", async () => {
+    const { composeUnpack, unpackCover } = await import("./compose");
     const { coverProblems } = await import("./validate");
     const items = ["2026-11-27", "2026-11-29"].map((day) => ({
       ref: `event:e-${day}@${day}`,
@@ -1856,7 +1953,9 @@ describe("the cover says what the list is, and when", () => {
       dms: false,
       slotDate: WED,
     });
-    expect(coverProblems(spec, { slotDate: WED })).toEqual([]);
+    const expected = unpackCover(items, WED, null);
+    const o = { expected, slotDate: WED };
+    expect(coverProblems(spec, o)).toEqual([]);
     const head = spec.slides[0] as Extract<
       (typeof spec.slides)[number],
       { t: "headline" }
@@ -1865,7 +1964,7 @@ describe("the cover says what the list is, and when", () => {
       ...spec,
       slides: [{ ...head, ...h }, ...spec.slides.slice(1)],
     });
-    // An item after the chip's span.
+    // An event after the chip's span.
     const later = {
       ...spec,
       facts: {
@@ -1873,43 +1972,36 @@ describe("the cover says what the list is, and when", () => {
         events: [...facts.events, { slug: "e", day: "2026-12-01" }],
       },
     };
-    expect(coverProblems(later, { slotDate: WED }).join(" ")).toMatch(
+    expect(coverProblems(later, o).join(" ")).toMatch(
       /2026-12-01 fall outside/,
     );
-    // "This weekend" over a Tuesday.
+    // A weekend line over a Tuesday.
+    const wide = { from: "2026-11-27", to: "2026-12-01" };
     expect(
-      coverProblems(
-        lie({
+      coverProblems(lie({ date: "Nov 27 to Dec 1", span: wide }), {
+        expected: {
+          kicker: "Events this weekend",
           date: "Nov 27 to Dec 1",
-          span: { from: "2026-11-27", to: "2026-12-01" },
-        }),
-        { slotDate: WED },
-      ).join(" "),
-    ).toMatch(/items' own dates/);
-    expect(
-      coverProblems(
-        {
-          ...later,
-          slides: [
-            {
-              ...head,
-              date: "Nov 27 to Dec 1",
-              span: { from: "2026-11-27", to: "2026-12-01" },
-            },
-          ],
+          span: wide,
         },
-        { slotDate: WED },
-      ).join(" "),
-    ).toMatch(/says "Events this weekend", but an item falls outside/);
-    // A chip that prints other days than it names.
-    expect(
-      coverProblems(lie({ date: "Nov 28 to 29" }), { slotDate: WED }).join(" "),
-    ).toMatch(/prints "Nov 28 to 29"/);
-    // The old fixed line is refused.
-    expect(
-      coverProblems(lie({ kicker: "Central Oregon kids" }), {
         slotDate: WED,
       }).join(" "),
-    ).toMatch(/isn't one of code's context lines/);
+    ).toMatch(/over days outside/);
+    // A chip that prints other days than it names.
+    expect(coverProblems(lie({ date: "Nov 28 to 29" }), o).join(" ")).toMatch(
+      /prints "Nov 28 to 29"/,
+    );
+    // Any other line, the old fixed one included.
+    expect(
+      coverProblems(lie({ kicker: "Central Oregon kids" }), o).join(" "),
+    ).toMatch(/says "Central Oregon kids", not "Events this weekend"/);
+    // A stored spec from before the chip is let be; a fresh one isn't.
+    const old = lie({
+      kicker: "Central Oregon kids",
+      date: undefined,
+      span: undefined,
+    });
+    expect(coverProblems(old, { ...o, stored: true })).toEqual([]);
+    expect(coverProblems(old, o)).not.toEqual([]);
   });
 });

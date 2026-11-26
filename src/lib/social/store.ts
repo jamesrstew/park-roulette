@@ -442,9 +442,8 @@ export async function socialPlan(now: Date, weekOf = planWeek(now)) {
   // Every other week the Wednesday carousel is code's park pairings; the
   // holiday Unpack (Sunday) may still take a school-break week.
   const mashupWeek = mashupParity(weekOf);
-  const sundayOk = mashupWeek
-    ? !!holidayBreak(CATALOG, weekOf)
-    : breaks.length > 0;
+  // Either way, only a whole-district break of 3 or more weekdays.
+  const sundayOk = !!holidayBreak(CATALOG, weekOf);
   return {
     week_of: weekOf,
     slots: {
@@ -2162,7 +2161,7 @@ export async function redrawQueued(
     draft.data.type === "unpack" && draft.data.slot === "sun"
       ? addDays(post.slotDate, 1)
       : mondayOf(post.slotDate);
-  const ctx = await socialCtx(weekOf, now);
+  const ctx = { ...(await socialCtx(weekOf, now)), redraw: true };
   let r = await validatePost(draft.data, weekOf, ctx);
   if (!r.ok || !r.spec)
     return {

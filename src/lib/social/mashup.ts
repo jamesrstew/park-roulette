@@ -137,16 +137,40 @@ export const HOLIDAY_BREAK = { minWeekdays: 3, maxDays: 21 } as const;
  * (Sunday 7:45 pm) instead, and the holiday Unpack wins.
  */
 export function holidayBreak(catalog: Pick<Catalog, "breaks">, weekOf: string) {
+  return catalog.breaks.find((b) => sundayBreakOk(b, weekOf)) ?? null;
+}
+
+/**
+ * Can this break have the Sunday carousel the week of `weekOf`? Verified,
+ * whole-district (not a day off for some grades), 3 or more of the
+ * week's weekdays off, and not a long vacation.
+ */
+export function sundayBreakOk(
+  b: Catalog["breaks"][number],
+  weekOf: string,
+): boolean {
   const days = [0, 1, 2, 3, 4].map((i) => addDays(weekOf, i));
   return (
-    catalog.breaks.find(
-      (b) =>
-        b.verified &&
-        daysBetween(b.from, b.to) + 1 <= HOLIDAY_BREAK.maxDays &&
-        days.filter((d) => d >= b.from && d <= b.to).length >=
-          HOLIDAY_BREAK.minWeekdays,
-    ) ?? null
+    b.verified &&
+    !isPartialBreak(b) &&
+    daysBetween(b.from, b.to) + 1 <= HOLIDAY_BREAK.maxDays &&
+    days.filter((d) => d >= b.from && d <= b.to).length >=
+      HOLIDAY_BREAK.minWeekdays
   );
+}
+
+/** A summer row ("summer break begins"): it has no end a cover can name. */
+export function isSummer(b: { label: string; id?: string }): boolean {
+  return /\bsummer\b/i.test(`${b.id ?? ""} ${b.label}`);
+}
+
+/**
+ * A day off for only some grades or schools ("no school for elementary",
+ * "middle and high school", "parent conferences"): never a whole-district
+ * break, so never the Sunday carousel's.
+ */
+export function isPartialBreak(b: { label: string }): boolean {
+  return /\b(elementary|middle|high school|conferences?)\b/i.test(b.label);
 }
 
 // --- Places --------------------------------------------------------------------
