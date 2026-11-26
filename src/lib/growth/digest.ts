@@ -1,5 +1,6 @@
 import "server-only";
 import { ALERT_FROM, alertEmail, alertLater } from "@/lib/alerts";
+import { digestRecipients } from "./recipients";
 import { sendOne } from "@/lib/news/resend";
 import { SITE_URL } from "@/lib/site";
 import { buildView, type DigestView } from "./analyze";
@@ -141,7 +142,7 @@ export async function runDigest(
   const res = await sendOne(
     {
       from: ALERT_FROM,
-      to: [alertEmail()],
+      to: digestRecipients(process.env.GROWTH_DIGEST_TO ?? "", alertEmail()),
       subject: frozen.email.subject,
       html: frozen.email.html,
       text: frozen.email.text,

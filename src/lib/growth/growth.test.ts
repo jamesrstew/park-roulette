@@ -343,3 +343,16 @@ describe("without Vercel connected", () => {
     ).toContain("not connected yet");
   });
 });
+
+describe("digestRecipients", () => {
+  it("sends to the alerts address plus GROWTH_DIGEST_TO, deduped, bad entries dropped", async () => {
+    const { digestRecipients } = await import("./recipients");
+    expect(
+      digestRecipients(
+        " a@example.com, HELLO@x.test ,not-an-email,, b@example.org ",
+        "hello@x.test",
+      ),
+    ).toEqual(["hello@x.test", "a@example.com", "b@example.org"]);
+    expect(digestRecipients("", "hello@x.test")).toEqual(["hello@x.test"]);
+  });
+});
