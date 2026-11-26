@@ -42,6 +42,20 @@ vi.mock("@/db", () => ({ db: {} }));
 vi.mock("@/lib/pairing-guides-data", () => ({
   allPairingGuides: async () => [],
 }));
+// One pairing page born from a post (its view, as the loader returns it).
+vi.mock("@/lib/pairing-pages-data", () => ({
+  allPairingPages: async () => [
+    {
+      slug: "coffee-near-pine-nursery-larkspur-hollinshead",
+      title:
+        "Coffee near Pine Nursery, Larkspur and Hollinshead parks in Bend, Oregon",
+      pairs: [{}, {}, {}],
+      bornLabel: "December 2, 2026",
+      updatedLabel: "December 2026",
+      changed: "2026-12-03T03:45:00.000Z",
+    },
+  ],
+}));
 
 import { GUIDES } from "@/lib/guides";
 import sitemap from "../sitemap";
@@ -59,6 +73,27 @@ describe("guides in the sitemap and llms.txt", () => {
     expect(splash?.lastModified).toBeInstanceOf(Date);
     expect((splash!.lastModified as Date).toISOString().slice(0, 10)).toMatch(
       /^2026-(10-02|11-\d\d)$/,
+    );
+  });
+
+  it("lists the pairing pages and their hub, lastmod from what they show", async () => {
+    const map = await sitemap();
+    const page = map.find((e) =>
+      e.url.endsWith(
+        "/guides/pairings/coffee-near-pine-nursery-larkspur-hollinshead",
+      ),
+    );
+    expect((page?.lastModified as Date).toISOString()).toBe(
+      "2026-12-03T03:45:00.000Z",
+    );
+    const hub = map.find((e) => e.url.endsWith("/guides/pairings"));
+    expect((hub?.lastModified as Date).toISOString()).toBe(
+      "2026-12-03T03:45:00.000Z",
+    );
+    const text = await (await llms()).text();
+    expect(text).toContain("## Park pairings from our posts");
+    expect(text).toContain(
+      "/guides/pairings/coffee-near-pine-nursery-larkspur-hollinshead",
     );
   });
 

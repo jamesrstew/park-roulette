@@ -12,6 +12,8 @@ import { guidePath, guidesInOrder, type GuideSlug } from "@/lib/guides";
 import { allGuides } from "@/lib/guides-data";
 import { pairingGuidePath } from "@/lib/pairing-guides";
 import { allPairingGuides } from "@/lib/pairing-guides-data";
+import { pairingPagePath, PAIRINGS_HUB } from "@/lib/pairing-pages";
+import { allPairingPages } from "@/lib/pairing-pages-data";
 import { SITE_URL } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -70,8 +72,11 @@ export default function GuidesPage() {
 /** Park pairings guides: a place for you and a playground for them. */
 async function Pairings() {
   await connection();
-  const views = await allPairingGuides(new Date());
-  if (!views.length) return null;
+  const [views, pages] = await Promise.all([
+    allPairingGuides(new Date()),
+    allPairingPages(new Date()).catch(() => []),
+  ]);
+  if (!views.length && !pages.length) return null;
   return (
     <section className="flex flex-col gap-3">
       <h2 className="font-hand text-3xl leading-tight">Park pairings</h2>
@@ -103,6 +108,27 @@ async function Pairings() {
           </li>
         ))}
       </ul>
+      {pages.length ? (
+        <p className="flex flex-col gap-1 leading-snug">
+          <span>From our posts, newest first:</span>
+          {pages.slice(0, 3).map((v) => (
+            <Link
+              key={v.slug}
+              href={pairingPagePath(v.slug)}
+              className="flex min-h-11 items-center gap-2 underline"
+            >
+              <Icon name="star" size={22} className="shrink-0" />
+              {v.name}
+            </Link>
+          ))}
+          <Link
+            href={PAIRINGS_HUB}
+            className="flex min-h-11 items-center gap-2 font-hand text-xl underline"
+          >
+            Every park pairing <Icon name="arrow_right" size={22} />
+          </Link>
+        </p>
+      ) : null}
     </section>
   );
 }

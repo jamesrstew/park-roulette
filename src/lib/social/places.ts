@@ -141,6 +141,54 @@ export async function placeHours(
   return body.regularOpeningHours?.periods ?? null;
 }
 
+/**
+ * A place's current name and status by its id (Place Details, the
+ * pairing pages' 30-day refresh): `gone` when Google no longer knows the
+ * id. Nothing else is asked for (field mask: displayName, businessStatus).
+ */
+export async function placeNameNow(
+  placeId: string,
+  { key, fetchImpl = fetch, spend, deadline }: PlacesOpts,
+): Promise<
+  | { gone: true }
+  | { gone: false; name: string | null; businessStatus: string | null }
+> {
+  if (deadline != null && Date.now() > deadline)
+    throw new PlacesError("Places: out of time for this run", false, true);
+  await spend?.();
+  const res = await fetchImpl(
+    `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}`,
+    {
+      headers: {
+        "x-goog-api-key": key,
+        "x-goog-fieldmask": "displayName,businessStatus",
+      },
+      signal: AbortSignal.timeout(10_000),
+      cache: "no-store",
+    },
+  );
+  const body = (await res.json().catch(() => null)) as {
+    displayName?: { text?: string };
+    businessStatus?: string;
+    error?: { status?: string };
+  } | null;
+  if (res.status === 404 || body?.error?.status === "NOT_FOUND")
+    return { gone: true };
+  if (!res.ok || !body || body.error) {
+    const daily = JSON.stringify(body?.error ?? "").includes("PerDay");
+    throw new PlacesError(
+      `Places details failed (${res.status} ${body?.error?.status ?? ""}${daily ? ", daily quota" : ""})`.trim(),
+      res.status === 429 || res.status >= 500,
+      daily || (res.status >= 400 && res.status < 500 && res.status !== 429),
+    );
+  }
+  return {
+    gone: false,
+    name: body.displayName?.text?.trim() || null,
+    businessStatus: body.businessStatus ?? null,
+  };
+}
+
 export class PlacesError extends Error {
   constructor(
     message: string,

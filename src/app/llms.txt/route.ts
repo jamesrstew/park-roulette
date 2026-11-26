@@ -14,6 +14,8 @@ import { guidePath } from "@/lib/guides";
 import { allGuides } from "@/lib/guides-data";
 import { pairingGuidePath } from "@/lib/pairing-guides";
 import { allPairingGuides } from "@/lib/pairing-guides-data";
+import { pairingPagePath, PAIRINGS_HUB } from "@/lib/pairing-pages";
+import { allPairingPages } from "@/lib/pairing-pages-data";
 
 /**
  * /llms.txt (llmstxt.org): a plain Markdown map of the site for AI
@@ -21,10 +23,11 @@ import { allPairingGuides } from "@/lib/pairing-guides-data";
  */
 export async function GET() {
   await connection();
-  const [parks, guides, pairings] = await Promise.all([
+  const [parks, guides, pairings, outings] = await Promise.all([
     publicParks(),
     allGuides(new Date()),
     allPairingGuides(new Date()),
+    allPairingPages(new Date()).catch(() => []),
   ]);
   const towns = townsOf(parks);
   const features = FEATURE_PAGES.filter(
@@ -69,6 +72,20 @@ export async function GET() {
             (g) =>
               `- [${g.title}](${SITE_URL}${pairingGuidePath(g.def.slug)}): ${g.def.blurb} ${g.pairs.length} pairs. Updated ${g.updatedLabel}.`,
           ),
+          "",
+        ]
+      : []),
+    ...(outings.length
+      ? [
+          "## Park pairings from our posts",
+          "",
+          `- [All park pairings, newest first](${SITE_URL}${PAIRINGS_HUB})`,
+          ...outings
+            .filter((v) => !v.superseded)
+            .map(
+              (v) =>
+                `- [${v.title}](${SITE_URL}${pairingPagePath(v.slug)}): ${v.pairs.length} pairs, first shared ${v.bornLabel}. Updated ${v.changedLabel}.`,
+            ),
           "",
         ]
       : []),

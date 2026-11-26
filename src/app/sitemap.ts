@@ -22,6 +22,8 @@ import { guidePath } from "@/lib/guides";
 import { allGuides } from "@/lib/guides-data";
 import { pairingGuidePath } from "@/lib/pairing-guides";
 import { allPairingGuides } from "@/lib/pairing-guides-data";
+import { pairingPagePath, PAIRINGS_HUB } from "@/lib/pairing-pages";
+import { allPairingPages } from "@/lib/pairing-pages-data";
 
 /**
  * Every public page. lastmod is when its data really changed (a park added,
@@ -30,16 +32,19 @@ import { allPairingGuides } from "@/lib/pairing-guides-data";
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   await connection(); // fresh data, not a build-time snapshot
   const now = new Date();
-  const [parks, issues, events, guides, pairings] = await Promise.all([
+  const [parks, issues, events, guides, pairings, born] = await Promise.all([
     publicParks(),
     sentIssues(),
     allEvents(),
     allGuides(now),
     allPairingGuides(now),
+    allPairingPages(now).catch(() => []),
   ]);
   // Upcoming event pages only: lastmod is when their facts last changed
   // (a status change counts), never the nightly check.
   const liveEvents = events.filter((e) => listed(e, now));
+  // Pairing pages to index: not those a newer page mostly repeats.
+  const outings = born.filter((v) => !v.superseded);
   const eventsChanged = listingChangedAt(events, now);
   /** A town page: the later of its parks' and its events' changes. */
   const townChanged = (slug: string, parkDay: string) => {
@@ -80,6 +85,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...pairings.map((g) => ({
       url: `${SITE_URL}${pairingGuidePath(g.def.slug)}`,
       lastModified: new Date(g.changed),
+    })),
+    // Pairing pages born from our posts, and their hub (only with pages):
+    // lastmod is when what each one shows last changed.
+    ...(outings.length
+      ? [
+          {
+            url: `${SITE_URL}${PAIRINGS_HUB}`,
+            lastModified: new Date(
+              Math.max(...outings.map((v) => new Date(v.changed).getTime())),
+            ),
+          },
+        ]
+      : []),
+    ...outings.map((v) => ({
+      url: `${SITE_URL}${pairingPagePath(v.slug)}`,
+      lastModified: new Date(v.changed),
     })),
     ...guides.map((g) => ({
       url: `${SITE_URL}${guidePath(g.def.slug)}`,

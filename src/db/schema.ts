@@ -1274,6 +1274,12 @@ export const newsletterIssues = pgTable(
 export const placesUsage = pgTable("places_usage", {
   day: date("day").primaryKey(),
   requests: integer("requests").notNull().default(0),
+  /**
+   * Place Details requests that refresh the pairing pages' names
+   * (lib/pairing-pages-data.ts): Google counts Place Details apart from
+   * Text Search, so they have their own small daily cap.
+   */
+  details: integer("details").notNull().default(0),
 });
 
 /**
@@ -1298,4 +1304,51 @@ export const pairingGuides = pgTable("pairing_guides", {
     .array()
     .notNull()
     .default(sql`'{}'::text[]`),
+});
+
+/**
+ * Pairing pages (/guides/pairings/<slug>, lib/pairing-pages.ts): one
+ * evergreen page per published park pairings post, born when the post
+ * goes out. `pairs` is fixed at birth and holds Google's place ids and our
+ * own data only (the anchor, our distance, our line); the businesses'
+ * names live in pairing_places, refreshed or purged within 30 days.
+ */
+export const pairingPages = pgTable(
+  "pairing_pages",
+  {
+    slug: text("slug").primaryKey(),
+    /** The social post it was born from (one page per post). */
+    postId: integer("post_id").notNull(),
+    theme: text("theme").notNull(),
+    /** PagePairDef[] (lib/pairing-pages.ts): ids and our words, no names. */
+    pairs: jsonb("pairs").notNull().default([]),
+    bornAt: timestamp("born_at", { withTimezone: true }).notNull(),
+    /** When what the page shows last changed (its sitemap lastmod). */
+    changedAt: timestamp("changed_at", { withTimezone: true }),
+    /**
+     * A hash of what it showed at the last check ("" when hidden), to see
+     * changes. A hash, so no business name outlives its 30 days here.
+     */
+    shownKey: text("shown_key").notNull().default(""),
+    /** The post's own headline (our words): the page's one-line angle. */
+    angle: text("angle").notNull().default(""),
+  },
+  (t) => [uniqueIndex("pairing_pages_post").on(t.postId)],
+);
+
+/**
+ * The businesses on the pairing pages, by Google's place id (ids may be
+ * kept). `name` is the one piece of Places content we print: refreshed by
+ * Place Details within 30 days, else purged to null (the pair hides).
+ */
+export const pairingPlaces = pgTable("pairing_places", {
+  placeId: text("place_id").primaryKey(),
+  /** The printed name (cleaned), or null: purged, closed or gone. */
+  name: text("name"),
+  /** ok | closed (for now) | unfit (its name fails our rules) | gone */
+  status: text("status").notNull().default("ok"),
+  /** When `name` was read from Google (shown 30 days at most). */
+  refreshedAt: timestamp("refreshed_at", { withTimezone: true }),
+  /** The last refresh tried, good or not. */
+  triedAt: timestamp("tried_at", { withTimezone: true }),
 });

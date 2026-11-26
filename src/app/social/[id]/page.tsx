@@ -23,6 +23,8 @@ import {
 import { COPY, type MashupTheme } from "@/lib/social/model";
 import { pairingGuidePath } from "@/lib/pairing-guides";
 import { themeGuide } from "@/lib/pairing-guides-data";
+import { pairingPagePath } from "@/lib/pairing-pages";
+import { pageForPost } from "@/lib/pairing-pages-data";
 import {
   atHomeIdeas,
   headlineOf,
@@ -351,6 +353,8 @@ async function Mashup({
     ? ((await themeGuide(theme as MashupTheme, town, new Date())) ??
       (await themeGuide(theme as MashupTheme, "Bend", new Date())))
     : null;
+  // The guide page this post was born as, when it shows now.
+  const page = await pageForPost(post.id, new Date()).catch(() => null);
   return (
     <>
       <ol className="flex flex-col gap-4" aria-label="In this post">
@@ -359,6 +363,14 @@ async function Mashup({
         ))}
       </ol>
       <p className="text-sm text-ink-soft">{COPY.mashupHours}</p>
+      {page ? (
+        <Link
+          href={pairingPagePath(page.slug)}
+          className="flex min-h-11 items-center gap-2 font-hand text-xl underline"
+        >
+          <Icon name="star" size={24} /> Keep this list: {page.name}
+        </Link>
+      ) : null}
       {guide ? (
         <Link
           href={pairingGuidePath(guide.def.slug)}

@@ -23,6 +23,8 @@ import {
 import { loadGuide } from "@/lib/guides-data";
 import { pairingGuideDef, pairingGuidePath } from "@/lib/pairing-guides";
 import { allPairingGuides, loadPairingGuide } from "@/lib/pairing-guides-data";
+import { pagesForGuide } from "@/lib/pairing-pages";
+import { allPairingPages } from "@/lib/pairing-pages-data";
 import { PairingGuide } from "@/components/seo/PairingGuide";
 import { longDate } from "@/lib/seo-data";
 import { SITE_URL } from "@/lib/site";
@@ -40,7 +42,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (pairingGuideDef(slug)) {
     await connection();
     const p = await loadPairingGuide(slug, new Date());
-    if (!p) return { title: "No guide here", robots: { index: false } };
+    // Here, before the page streams, so a gone page is a real 404.
+    if (!p) notFound();
     return {
       title: { absolute: `${p.title} · Park Roulette` },
       description: p.description,
@@ -53,7 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
   const v = await load(slug);
-  if (!v) return { title: "No guide here", robots: { index: false } };
+  if (!v) notFound();
   return {
     title: { absolute: `${v.title} · Park Roulette` },
     description: v.description,
@@ -74,12 +77,19 @@ async function Guide({ params }: Props) {
   if (pairingGuideDef(slug)) {
     await connection();
     const now = new Date();
-    const [p, all] = await Promise.all([
+    const [p, all, pages] = await Promise.all([
       loadPairingGuide(slug, now),
       allPairingGuides(now),
+      allPairingPages(now).catch(() => []),
     ]);
     if (!p) notFound();
-    return <PairingGuide v={p} existing={all.map((x) => x.def.slug)} />;
+    return (
+      <PairingGuide
+        v={p}
+        existing={all.map((x) => x.def.slug)}
+        outings={pagesForGuide(p.def, pages).slice(0, 4)}
+      />
+    );
   }
   const v = await load(slug);
   if (!v) notFound();

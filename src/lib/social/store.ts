@@ -1147,6 +1147,9 @@ export async function pruneMashup(
     : "no longer queued";
 }
 
+/** A social run past this long leaves pairing page births to the next. */
+const BIRTH_BEFORE_MS = 180_000;
+
 /** Places requests at most per make, and per Pacific day (the key's quota is about 100). */
 export const PLACES_PER_MAKE = 15;
 export const PLACES_PER_DAY = 60;
@@ -1711,6 +1714,20 @@ export async function runSocial(
       if (post.status === "publishing")
         await resolvePublishing(post, live, notes, now);
     }
+    // A park pairings post that just went out is born as its own guide
+    // page (lib/pairing-pages-data.ts). After the feed posts, and any
+    // trouble only waits for the next run: it never holds a post up. A
+    // long run leaves it to the next one (or the daily guides cron), so it
+    // never pushes the run past its time with the lease held.
+    if (Date.now() - startedAt < BIRTH_BEFORE_MS)
+      await import("@/lib/pairing-pages-data")
+        .then((m) => m.birthPairingPages(now))
+        .then((r) => {
+          if (r.born.length) notes.push(`pairing pages: ${r.born.join(", ")}`);
+        })
+        .catch((e) =>
+          notes.push(`pairing pages: failed (${(e as Error).message})`),
+        );
     // After the feed posts, never before: an echo can't hold one up.
     await runEchoes(now, live, notes, startedAt).catch((e) =>
       notes.push(`echo: failed (${(e as Error).message})`),

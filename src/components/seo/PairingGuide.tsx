@@ -13,6 +13,12 @@ import {
   pairingGuidePath,
   type PairingGuideView,
 } from "@/lib/pairing-guides";
+import {
+  pairAnchorId,
+  pairingPagePath,
+  PAIRINGS_HUB,
+  type PairingPageView,
+} from "@/lib/pairing-pages";
 import { SITE_URL } from "@/lib/site";
 
 const COLOR = {
@@ -30,10 +36,13 @@ const COLOR = {
 export function PairingGuide({
   v,
   existing,
+  outings = [],
 }: {
   v: PairingGuideView;
   /** The other pairing guides that exist now (links at the foot). */
   existing: readonly string[];
+  /** Pairing pages from our posts in its theme and town, newest first. */
+  outings?: readonly PairingPageView[];
 }) {
   const c = v.def.rainy
     ? ({ color: "purple", underline: "teal" } as const)
@@ -71,7 +80,7 @@ export function PairingGuide({
       <Section title="The pairs" id="pairs">
         <ol className="flex flex-col gap-3">
           {v.pairs.map((p, i) => (
-            <PairCard key={p.placeId} p={p} n={i + 1} />
+            <PairCard key={p.placeId} p={p} n={i + 1} id={pairAnchorId(i)} />
           ))}
         </ol>
       </Section>
@@ -90,37 +99,42 @@ export function PairingGuide({
           ))}
         </ul>
       </Section>
+      {outings.length ? (
+        <Section title="From our posts" id="outings">
+          <ul className="flex flex-col gap-1">
+            {outings.map((o) => (
+              <li key={o.slug}>
+                <Link
+                  href={pairingPagePath(o.slug)}
+                  className="flex min-h-11 items-center gap-2 leading-tight underline"
+                >
+                  <Icon name="star" size={22} className="shrink-0" />
+                  {o.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <Link href={PAIRINGS_HUB} className="underline">
+            Every park pairing, newest first
+          </Link>
+        </Section>
+      ) : null}
       <SpinCta />
-      <nav
-        aria-label="More guides"
-        className="text-center text-sm leading-relaxed"
-      >
-        More guides:{" "}
-        {others.map((g, i) => (
-          <span key={g.slug}>
-            {i > 0 && " · "}
-            <Link href={pairingGuidePath(g.slug)} className="underline">
-              {g.name}
-            </Link>
-          </span>
-        ))}
-        {others.length ? " · " : ""}
-        {GUIDES.filter((g) =>
-          v.def.rainy
-            ? g.slug === "indoor-play-bend"
-            : g.slug === "sledding-hills-bend",
-        ).map((g) => (
-          <span key={g.slug}>
-            <Link href={guidePath(g.slug)} className="underline">
-              {g.name}
-            </Link>
-            {" · "}
-          </span>
-        ))}
-        <Link href="/guides" className="underline">
-          All guides
-        </Link>
-      </nav>
+      <FooterLinks
+        label="More guides"
+        links={[
+          ...others.map((g) => ({
+            href: pairingGuidePath(g.slug),
+            name: g.name,
+          })),
+          ...GUIDES.filter((g) =>
+            v.def.rainy
+              ? g.slug === "indoor-play-bend"
+              : g.slug === "sledding-hills-bend",
+          ).map((g) => ({ href: guidePath(g.slug), name: g.name })),
+          { href: "/guides", name: "All guides" },
+        ]}
+      />
       <p className="text-center text-sm leading-snug text-ink">
         Places come from their own sites and Google Maps; park details from park
         pages and local families.
@@ -132,11 +146,52 @@ export function PairingGuide({
 const CHIP =
   "inline-flex min-h-11 items-center gap-1.5 rounded-[12px_14px_10px_16px] border-2 border-ink bg-white/70 px-3 text-[0.95rem]";
 
-function PairCard({ p, n }: { p: GuidePair; n: number }) {
+/**
+ * Links at a guide's foot, each a full 44 px tap target, wrapping in rows.
+ */
+export function FooterLinks({
+  label,
+  links,
+}: {
+  label: string;
+  links: readonly { href: string; name: string }[];
+}) {
+  return (
+    <nav aria-label={label} className="flex flex-col items-center gap-1">
+      <h2 className="font-hand text-xl text-ink-soft">{label}</h2>
+      <ul className="flex flex-wrap justify-center gap-x-4 text-sm">
+        {links.map((l) => (
+          <li key={l.href}>
+            <Link
+              href={l.href}
+              className="inline-flex min-h-11 items-center underline"
+            >
+              {l.name}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+export function PairCard({
+  p,
+  n,
+  id,
+}: {
+  p: GuidePair;
+  n: number;
+  /** The card's anchor (its ItemList url points here). */
+  id?: string;
+}) {
   const external = !p.anchorHref.startsWith("/");
   const anchorIcon = p.anchorKind === "park" ? "playground" : "home";
   return (
-    <li className="doodle-box flex flex-col gap-2 px-4 py-3">
+    <li
+      id={id}
+      className="doodle-box flex scroll-mt-6 flex-col gap-2 px-4 py-3"
+    >
       <h3 className="flex flex-col gap-0.5 font-hand text-2xl leading-tight">
         <span className="flex items-start gap-2">
           <span className="text-ink-soft">{n}.</span>
@@ -166,7 +221,10 @@ function PairCard({ p, n }: { p: GuidePair; n: number }) {
       <div className="flex flex-wrap gap-2">
         {external ? (
           <a href={p.anchorHref} className={CHIP}>
-            <Icon name={anchorIcon} size={20} /> Their page
+            <Icon name={anchorIcon} size={20} />{" "}
+            {/^At the /.test(p.anchorLabel)
+              ? p.anchorLabel.replace(/^At the /, "See the ")
+              : "Their page"}
           </a>
         ) : (
           <Link href={p.anchorHref} className={CHIP}>

@@ -173,7 +173,7 @@ describe("the pages", () => {
       "@type": "ListItem",
       position: 1,
       name: "Cafe 1 + Park 1",
-      url: "https://parkroulette.quest/parks/park-1",
+      url: "https://parkroulette.quest/guides/coffee-shops-near-playgrounds-bend#pair-1",
     });
     expect(faq["@type"]).toBe("FAQPage");
     expect(faq.mainEntity[0].name).toBe(

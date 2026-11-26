@@ -225,6 +225,13 @@
       "when": 1795649982459,
       "tag": "0031_pairing_guides",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1795669769389,
+      "tag": "0032_pairing_pages",
+      "breakpoints": true
     }
   ]
 }

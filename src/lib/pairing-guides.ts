@@ -419,14 +419,12 @@ export function pairingGuideJsonLd(
       mainEntity: {
         "@type": "ItemList",
         numberOfItems: v.pairs.length,
-        // Our own pages only (an indoor place's site gives us nothing).
+        // Every item points at its own card on this page.
         itemListElement: v.pairs.map((p, i) => ({
           "@type": "ListItem",
           position: i + 1,
           name: `${p.place} + ${p.anchorName}`,
-          ...(p.anchorHref.startsWith("/")
-            ? { url: `${site}${p.anchorHref}` }
-            : {}),
+          url: `${url}#pair-${i + 1}`,
         })),
       },
     },
