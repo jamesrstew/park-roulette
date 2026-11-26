@@ -558,8 +558,11 @@ describe("the park's operator", () => {
       d,
       [item("a"), item("b")],
       { parks: [], events: [], venues: [], issue: null },
-      false,
-      [tag(1, "place"), tag(2, "park"), tag(1, "host")],
+      {
+        dms: false,
+        slotDate: "2026-11-25",
+        tags: [tag(1, "place"), tag(2, "park"), tag(1, "host")],
+      },
     );
     expect(spec.caption).toContain("On this list: @host1 @host2");
     expect(spec.fbCaption).not.toMatch(/@/);

@@ -158,6 +158,10 @@ export const COPY = {
   /** The park pairings' caption line: we print no hours, so they check. */
   mashupHours: "Hours change with the seasons, so check before you go.",
   mashupKicker: "Park pairings",
+  /** A bad weekend: the cover says what the set is for. */
+  mashupWet: "Rainy-day pairings",
+  mashupSnow: "Snow-day pairings",
+  mashupCold: "Cold-day pairings",
   /** The teaser's closing line (it goes out the morning the email does). */
   teaserClose: "The whole plan is in today's email. It's free.",
   /**
@@ -175,6 +179,13 @@ export const COPY = {
   /** Holiday hours that a venue's page doesn't print as one clear span. */
   holidayVaries: "Holiday hours vary, check before you go",
   atHomeKicker: "At home this weekend",
+  /** The Unpack cover's context line (compose.ts unpackCover picks one). */
+  coverWeekendEvents: "Events this weekend",
+  coverWeekend: "This weekend",
+  coverWeek: "This week",
+  coverNextWeek: "Next week",
+  coverWeekAndNext: "This week and next",
+  coverPlaces: "Places to go with kids",
   eventsHeadline: "Family events this week in Central Oregon",
   eventsHighlight: "week",
   eventsDetails: "Details and more at parkroulette.quest/events",
@@ -525,7 +536,18 @@ export type SlideSpec =
       /** The headline as written; `highlight` is one of its words. */
       words: string;
       highlight: string;
+      /**
+       * The context line: what the list is ("This weekend", "Winter
+       * break", "Places to go with kids"). Code writes it, never the model.
+       */
       kicker: string;
+      /**
+       * The date chip under it ("Nov 28 to 29"), and the days it names
+       * (validate.ts checks them against the items). Posts stored before
+       * the chip have neither.
+       */
+      date?: string;
+      span?: { from: string; to: string };
       swipe: boolean;
       /** The top-right icon (default: the wheel). */
       icon?: string;

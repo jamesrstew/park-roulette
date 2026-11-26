@@ -1215,7 +1215,7 @@ export function mashupCopy(
     wordsIn(`${n(k)} ${places} ${tail}`) <= 8
       ? `${n(k)} ${places} ${tail}`
       : `${n(k)} ${places} ${fallback}`;
-  // The weather goes in the cover's kicker (mashupKicker), not the title.
+  // The weather goes in the cover's kicker ("Rainy-day pairings"), not the title.
   const highlight = f.allParks
     ? "playground"
     : f.anyEvent

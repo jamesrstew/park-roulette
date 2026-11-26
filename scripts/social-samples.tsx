@@ -561,7 +561,11 @@ async function main() {
         },
       ],
       { parks: [], events: [], venues: [], issue: null },
-      false,
+      {
+        dms: false,
+        slotDate: "2026-11-22",
+        brk: CATALOG.breaks.find((b) => b.id === "break-bls-fall") ?? null,
+      },
     ),
     teaser: composeTeaser(issue, harvest, false),
     story: composeStory(issue, harvest, false),

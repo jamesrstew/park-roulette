@@ -573,6 +573,7 @@ describe("the post", () => {
           month: 12,
           cycle: 1,
           dms: true,
+          slotDate: "2026-12-02",
         });
         expect(
           mashupProblems(spec, pairs, {
@@ -608,6 +609,7 @@ describe("the post", () => {
         month: 12,
         cycle: 1,
         dms: false,
+        slotDate: "2026-12-02",
       },
     );
     expect(spec.caption).toMatch(
@@ -647,6 +649,7 @@ describe("the post", () => {
         month: 12,
         cycle: 1,
         dms: true,
+        slotDate: "2026-12-02",
       },
     );
     const o = { month: 12, recent: [], slotDate: "2026-12-02" };
@@ -700,6 +703,7 @@ describe("the post", () => {
         month: 12,
         cycle: 1,
         dms: true,
+        slotDate: "2026-12-02",
         sites: new Map([[pairs[0].place.placeId, "https://example.com/"]]),
       },
     );

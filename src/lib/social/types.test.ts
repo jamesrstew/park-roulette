@@ -431,7 +431,10 @@ describe("validateAtHome", () => {
   });
 
   it("composeAtHome writes the Facebook caption with the live link", () => {
-    const spec = composeAtHome(atHome(), false);
+    const spec = composeAtHome(atHome(), {
+      dms: false,
+      slotDate: "2026-11-28",
+    });
     expect(spec.fbCaption).toContain(
       "https://parkroulette.quest/social?from=fb",
     );

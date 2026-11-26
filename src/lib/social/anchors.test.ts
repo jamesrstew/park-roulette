@@ -294,9 +294,10 @@ describe("the mix", () => {
       cycle: 1,
       dms: true,
       weather: "wet",
+      slotDate: WED,
     });
     const head = spec.slides[0];
-    expect(head.t === "headline" && head.kicker).toBe("Rain this weekend");
+    expect(head.t === "headline" && head.kicker).toBe("Rainy-day pairings");
     expect(head.t === "headline" && head.pairIcon2).toBe("rain");
     expect(
       spec.slides.every(
@@ -447,7 +448,7 @@ describe("the post", () => {
         12,
         0,
       ),
-      { month: 12, cycle: 1, dms: true, tags: made.spec.tags },
+      { month: 12, cycle: 1, dms: true, tags: made.spec.tags, slotDate: WED },
     );
     expect(again.caption).toBe(made.spec.caption);
   });
@@ -494,6 +495,7 @@ describe("the post", () => {
         month: 12,
         cycle: 1,
         dms: true,
+        slotDate: WED,
       },
     );
     const o = { month: 12, recent: [], slotDate: WED };

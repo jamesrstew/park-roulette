@@ -1110,6 +1110,7 @@ export async function pruneMashup(
         variant: m.variant ?? 0,
         weather: facts.weather,
         shops: m.shops ?? null,
+        slotDate: post.slotDate,
       }),
       post.id,
       post.slotDate,

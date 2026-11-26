@@ -563,6 +563,84 @@ function Picture({
 
 // --- Feed slides -------------------------------------------------------------
 
+/** The cover's context line: as big as fits its width, 44 px at least. */
+const LABEL_SIZES = [56, 52, 48, 44] as const;
+
+/**
+ * What the list is, and when: the context line in ink on a strip of
+ * crayon-tinted tape ("This weekend"), and under it the date chip ("Nov 28 to 29"), so
+ * the cover says it at a glance. The headline stays the hero.
+ */
+function CoverLabel({
+  kicker,
+  date,
+  color,
+  width,
+}: {
+  kicker: string;
+  date?: string;
+  color: string;
+  width: number;
+}) {
+  const pad = 26;
+  const size =
+    LABEL_SIZES.find((z) => textWidth(kicker, z) + 2 * pad <= width) ?? 44;
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "flex-start",
+        gap: 20,
+        maxWidth: width,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          position: "relative",
+          padding: `2px ${pad}px 10px`,
+          fontSize: size,
+          color: INK,
+        }}
+      >
+        <div
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: size * 0.18,
+            bottom: 2,
+            // The slide's crayon, not the marker's yellow: the headline's
+            // highlighted word stays the one marked thing on the cover.
+            background: tint(color, 0.34),
+            transform: "rotate(-2deg)",
+            display: "flex",
+          }}
+        />
+        <span style={{ position: "relative" }}>{kicker}</span>
+      </div>
+      {date ? (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            fontSize: 52,
+            padding: "4px 24px 10px 16px",
+            border: `5px solid ${INK}`,
+            borderRadius: "26px 18px 28px 16px",
+            background: CARD,
+          }}
+        >
+          <SlideIcon name="calendar" size={54} />
+          <span>{date}</span>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function HeadlineSlide({
   s,
   page,
@@ -581,9 +659,12 @@ function HeadlineSlide({
           marginTop: 20,
         }}
       >
-        <div style={{ display: "flex", fontSize: 50, color: SOFT }}>
-          {s.kicker}
-        </div>
+        <CoverLabel
+          kicker={s.kicker}
+          date={s.date}
+          color={color}
+          width={CONTENT.width - (s.pairIcon && s.icon ? 400 : 190)}
+        />
         {s.pairIcon && s.icon ? (
           <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
             <AnyIcon name={s.icon} size={160} />
@@ -603,9 +684,12 @@ function HeadlineSlide({
           <AnyIcon name={s.icon ?? "spin"} size={170} />
         )}
       </div>
-      <div style={{ display: "flex", marginTop: 6 }}>
-        <Scribble width={300} color={color} />
-      </div>
+      {/* The date chip does the scribble's work: one mark up there, not two. */}
+      {s.date ? null : (
+        <div style={{ display: "flex", marginTop: 6 }}>
+          <Scribble width={300} color={color} />
+        </div>
+      )}
       <div
         style={{
           display: "flex",

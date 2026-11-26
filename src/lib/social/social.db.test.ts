@@ -2451,7 +2451,7 @@ describe.skipIf(!local)("Instagram, against Postgres", () => {
       };
       // The weather is the cover's kicker; an event makes it "something for the kids".
       expect(spec.headline).toMatch(/\+ something for the kids$/);
-      expect(spec.slides[0]).toMatchObject({ kicker: "Rain this weekend" });
+      expect(spec.slides[0]).toMatchObject({ kicker: "Rainy-day pairings" });
       expect(spec.facts.mashup.weather).toBe("wet");
       const pairs = spec.slides.filter((x) => x.t === "pair");
       expect(pairs[0]).toMatchObject({ kind: "event", label: "This weekend" });

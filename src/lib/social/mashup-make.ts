@@ -181,6 +181,7 @@ export async function makeMashup(o: {
           variant,
           weather: facts.weather,
           shops: facts.shops,
+          slotDate: o.slotDate,
         });
       let spec = compose(tags);
       let problems = mashupProblems(spec, pairs, o);

@@ -50,14 +50,20 @@ import {
   tagFor,
 } from "./handles";
 import {
+  atHomeCover,
+  type BreakSpan,
+  breakName,
   composeAtHome,
   composeParkPost,
   composeUnpack,
+  fridayToSunday,
   hostOf,
+  itemDays,
   type ParkInfo,
   placeLine,
   type ResolvedItem,
   sentencesOf,
+  spanText,
 } from "./compose";
 import {
   apart,
@@ -1053,6 +1059,7 @@ async function resolveItem(
         what: it.what,
         icon: it.icon ?? venueIcon(v),
         facts: [dayChip, v.ages_label, VENUE_COST[v.cost], v.town],
+        open: v.open_days,
       },
       fact: { venues: [v.id] },
     };
@@ -1314,6 +1321,97 @@ export function introProblems(
   return out;
 }
 
+/**
+ * The cover's context line and date chip against what the post holds:
+ * the chip prints its own span, the span is the items' own dates (an
+ * Unpack: its events' first and last day; a holiday carousel: its break;
+ * "at home": the Saturday and Sunday it goes out; park pairings: Friday to
+ * Sunday after it, with every event anchor inside), and the line never
+ * says "this weekend" for a day outside it. Pure: it reads only the spec.
+ */
+export function coverProblems(
+  spec: PostSpec,
+  o: { slotDate: string; brk?: BreakSpan | null },
+): string[] {
+  const head = spec.slides[0];
+  if (!head || head.t !== "headline") return ["No cover slide."];
+  const out: string[] = [];
+  const { span, date } = head;
+  const want = (k: string, from: string, to: string) => {
+    if (head.kicker !== k)
+      out.push(`cover: the context line says "${head.kicker}", not "${k}".`);
+    if (!span || span.from !== from || span.to !== to)
+      out.push(
+        `cover: the date chip covers ${span ? `${span.from} to ${span.to}` : "nothing"}, not ${from} to ${to}.`,
+      );
+  };
+  if (span && date !== spanText(span.from, span.to))
+    out.push(
+      `cover: the date chip prints "${date ?? ""}" for ${span.from} to ${span.to}.`,
+    );
+  if (!span && date) out.push("cover: a date chip with no days behind it.");
+  const days = (
+    spec.kind === "mashup"
+      ? (spec.facts.mashup?.pairs ?? []).flatMap((p) =>
+          p.event ? [p.event.day] : [],
+        )
+      : spec.facts.events.map((e) => e.day)
+  ).sort();
+  const outside =
+    span && days.filter((d) => d < span.from || d > span.to).join(", ");
+  if (outside)
+    out.push(`cover: the dates ${outside} fall outside the cover's ${date}.`);
+  if (spec.kind === "at_home") {
+    const c = atHomeCover(o.slotDate);
+    want(c.kicker, c.span!.from, c.span!.to);
+  } else if (spec.kind === "mashup") {
+    const w = fridayToSunday(o.slotDate);
+    if (!span || span.from !== w.from || span.to !== w.to)
+      out.push(
+        `cover: park pairings name the weekend after the post (${w.from} to ${w.to}).`,
+      );
+  } else if (spec.kind === "unpack") {
+    if (o.brk) want(breakName(o.brk.label), o.brk.from, o.brk.to);
+    else if (!days.length) {
+      if (head.kicker !== COPY.coverPlaces || span)
+        out.push(
+          `cover: with no dated items it says "${COPY.coverPlaces}", with no dates.`,
+        );
+    } else {
+      const [from, to] = [days[0], days[days.length - 1]];
+      const w = fridayToSunday(o.slotDate);
+      if (!span || span.from !== from || span.to !== to)
+        out.push(
+          `cover: the date chip must span the items' own dates (${from} to ${to}).`,
+        );
+      const k = head.kicker;
+      const weekendLine =
+        k === COPY.coverWeekend || k === COPY.coverWeekendEvents;
+      if (weekendLine && (from < w.from || to > w.to))
+        out.push(
+          `cover: says "${k}", but an item falls outside ${w.from} to ${w.to}.`,
+        );
+      else if (k === COPY.coverWeek && to > w.to)
+        out.push(`cover: says "${k}", but an item falls after ${w.to}.`);
+      else if (k === COPY.coverNextWeek && from <= w.to)
+        out.push(`cover: says "${k}", but an item falls by ${w.to}.`);
+      else if (
+        k === COPY.coverWeekendEvents &&
+        spec.facts.parks.length + spec.facts.venues.length > 0
+      )
+        out.push(`cover: says "${k}", but the list has places too.`);
+      else if (
+        !weekendLine &&
+        ![COPY.coverWeek, COPY.coverNextWeek, COPY.coverWeekAndNext].includes(
+          k as never,
+        )
+      )
+        out.push(`cover: "${k}" isn't one of code's context lines.`);
+    }
+  }
+  return out;
+}
+
 export async function validateParkPost(
   d: ParkPostDraft,
   weekOf: string,
@@ -1477,7 +1575,10 @@ export async function validateUnpack(
       "No intro: a line or two setting the week reads better than a bare list.",
     );
   const friday = slotFor("story", weekOf).date;
-  if (holiday && !breakCovering(ctx.catalog, d.break_id, weekOf, friday))
+  const brk = holiday
+    ? breakCovering(ctx.catalog, d.break_id, weekOf, friday)
+    : null;
+  if (holiday && !brk)
     r.errors.push(
       "A Sunday carousel is for school-break weeks: give break_id, a verified catalog break in that week.",
     );
@@ -1501,6 +1602,14 @@ export async function validateUnpack(
     const got = await resolveItem(it, ctx, publishAt, date);
     if (!got.ok) {
       r.cut.push(got.cut);
+      continue;
+    }
+    // The cover names the break and its dates: an event outside it is cut.
+    const day = itemDays([it])[0];
+    if (brk && day && (day < brk.from || day > brk.to)) {
+      r.cut.push(
+        `${got.item.name}: ${day} is outside ${brk.label} (${brk.from} to ${brk.to}), which the cover names.`,
+      );
       continue;
     }
     if (it.ref.startsWith("park:")) {
@@ -1529,9 +1638,16 @@ export async function validateUnpack(
     );
   const spec = untaggedIfLong(
     r,
-    (t) => composeUnpack(d, items, facts, ctx.dms, t),
+    (t) =>
+      composeUnpack(d, items, facts, {
+        dms: ctx.dms,
+        slotDate: date,
+        brk,
+        tags: t,
+      }),
     tags,
   );
+  r.errors.push(...coverProblems(spec, { slotDate: date, brk }));
   common(r, spec, ctx, d.hashtags);
   r.spec = spec;
   r.ok = r.errors.length === 0;
@@ -1642,7 +1758,8 @@ export async function validateAtHome(
       )
         r.errors.push(`${label} repeats "${other.title}" in this post.`);
   });
-  const spec = composeAtHome(d, ctx.dms);
+  const spec = composeAtHome(d, { dms: ctx.dms, slotDate: date });
+  r.errors.push(...coverProblems(spec, { slotDate: date }));
   r.errors.push(
     ...postTextProblems(
       d.headline,
@@ -1680,6 +1797,7 @@ export function mashupProblems(
   );
   if (spec.kind !== "mashup") out.push("Not a park pairings post.");
   if (!head || head.t !== "headline") out.push("No cover slide.");
+  else out.push(...coverProblems(spec, { slotDate: o.slotDate }));
   if (slides.length < PAIRS_MIN || slides.length > PAIRS_MAX)
     out.push(
       `${slides.length} pairs: a carousel needs ${PAIRS_MIN} to ${PAIRS_MAX}.`,

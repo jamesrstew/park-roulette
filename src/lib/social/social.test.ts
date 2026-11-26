@@ -1740,12 +1740,176 @@ describe("where and who on event slides (James, Nov 22)", () => {
         },
       ],
       { parks: [], events: [], venues: [], issue: null },
-      false,
+      { dms: false, slotDate: "2026-11-25" },
     );
     const item = spec.slides.find((x) => x.t === "item");
     expect(item).toMatchObject({
       facts: ["Fri, Nov 27 · 1 pm to 3 pm", "Central Library, Bend"],
     });
     expect(item && "place" in item ? item.place : undefined).toBeUndefined();
+  });
+});
+
+describe("the cover says what the list is, and when", () => {
+  const WED = "2026-11-25";
+  const ev = (day: string) => ({ ref: `event:x-${day}@${day}` });
+  const daily = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+  it("prints a span in our date style", async () => {
+    const { spanText } = await import("./compose");
+    expect(spanText("2026-11-28", "2026-11-28")).toBe("Sat, Nov 28");
+    expect(spanText("2026-11-27", "2026-11-29")).toBe("Nov 27 to 29");
+    expect(spanText("2026-11-30", "2026-12-02")).toBe("Nov 30 to Dec 2");
+    expect(spanText("2026-12-21", "2027-01-01")).toBe("Dec 21 to Jan 1");
+  });
+
+  it("says this weekend only for Friday to Sunday after the post", async () => {
+    const { unpackCover } = await import("./compose");
+    expect(
+      unpackCover(
+        [ev("2026-11-28"), ev("2026-11-29"), { ref: "park:a" }],
+        WED,
+        null,
+      ),
+    ).toEqual({
+      kicker: "This weekend",
+      date: "Nov 28 to 29",
+      span: { from: "2026-11-28", to: "2026-11-29" },
+    });
+    // Thursday is this week, not this weekend.
+    expect(
+      unpackCover([ev("2026-11-26"), ev("2026-11-28")], WED, null),
+    ).toMatchObject({ kicker: "This week", date: "Nov 26 to 28" });
+    // Into next week: "This week and next".
+    expect(
+      unpackCover([ev("2026-11-28"), ev("2026-12-01")], WED, null),
+    ).toMatchObject({ kicker: "This week and next", date: "Nov 28 to Dec 1" });
+    // A venue closed on the weekend: not "this weekend".
+    expect(
+      unpackCover(
+        [ev("2026-11-28"), { ref: "venue:v", open: ["tue", "wed"] }],
+        WED,
+        null,
+      ),
+    ).toMatchObject({ kicker: "This week" });
+    expect(
+      unpackCover(
+        [ev("2026-11-28"), { ref: "venue:v", open: daily }],
+        WED,
+        null,
+      ),
+    ).toMatchObject({ kicker: "This weekend", date: "Sat, Nov 28" });
+  });
+
+  it("names places with no dates, and a break by its own name and days", async () => {
+    const { breakName, unpackCover } = await import("./compose");
+    expect(
+      unpackCover(
+        [{ ref: "park:a" }, { ref: "venue:v", open: daily }],
+        WED,
+        null,
+      ),
+    ).toEqual({ kicker: "Places to go with kids" });
+    const winter = CATALOG.breaks.find((b) => b.id === "break-bls-winter")!;
+    expect(unpackCover([ev("2026-12-22")], "2026-12-20", winter)).toEqual({
+      kicker: "Winter break",
+      date: "Dec 21 to Jan 1",
+      span: { from: "2026-12-21", to: "2027-01-01" },
+    });
+    expect(breakName("Redmond Thanksgiving break")).toBe("Thanksgiving break");
+    expect(breakName("Redmond no school (MLK Day)")).toBe("No school");
+  });
+
+  it("at home and park pairings name their weekend", async () => {
+    const { atHomeCover, fridayToSunday } = await import("./compose");
+    expect(atHomeCover("2026-11-28")).toMatchObject({
+      kicker: "At home this weekend",
+      date: "Nov 28 to 29",
+    });
+    expect(fridayToSunday(WED)).toEqual({
+      from: "2026-11-27",
+      to: "2026-11-29",
+    });
+    expect(fridayToSunday("2026-12-20")).toEqual({
+      from: "2026-12-25",
+      to: "2026-12-27",
+    });
+  });
+
+  it("the validator refuses a cover whose dates don't match the items", async () => {
+    const { composeUnpack } = await import("./compose");
+    const { coverProblems } = await import("./validate");
+    const items = ["2026-11-27", "2026-11-29"].map((day) => ({
+      ref: `event:e-${day}@${day}`,
+      name: "Parade",
+      what: "Kids wave at the floats as they go by.",
+      icon: "calendar" as const,
+      facts: [],
+    }));
+    const facts = {
+      parks: [],
+      events: items.map((i) => ({ slug: "e", day: i.ref.split("@")[1] })),
+      venues: [],
+      issue: null,
+    };
+    const spec = composeUnpack(unpack(), items, facts, {
+      dms: false,
+      slotDate: WED,
+    });
+    expect(coverProblems(spec, { slotDate: WED })).toEqual([]);
+    const head = spec.slides[0] as Extract<
+      (typeof spec.slides)[number],
+      { t: "headline" }
+    >;
+    const lie = (h: Partial<typeof head>) => ({
+      ...spec,
+      slides: [{ ...head, ...h }, ...spec.slides.slice(1)],
+    });
+    // An item after the chip's span.
+    const later = {
+      ...spec,
+      facts: {
+        ...facts,
+        events: [...facts.events, { slug: "e", day: "2026-12-01" }],
+      },
+    };
+    expect(coverProblems(later, { slotDate: WED }).join(" ")).toMatch(
+      /2026-12-01 fall outside/,
+    );
+    // "This weekend" over a Tuesday.
+    expect(
+      coverProblems(
+        lie({
+          date: "Nov 27 to Dec 1",
+          span: { from: "2026-11-27", to: "2026-12-01" },
+        }),
+        { slotDate: WED },
+      ).join(" "),
+    ).toMatch(/items' own dates/);
+    expect(
+      coverProblems(
+        {
+          ...later,
+          slides: [
+            {
+              ...head,
+              date: "Nov 27 to Dec 1",
+              span: { from: "2026-11-27", to: "2026-12-01" },
+            },
+          ],
+        },
+        { slotDate: WED },
+      ).join(" "),
+    ).toMatch(/says "Events this weekend", but an item falls outside/);
+    // A chip that prints other days than it names.
+    expect(
+      coverProblems(lie({ date: "Nov 28 to 29" }), { slotDate: WED }).join(" "),
+    ).toMatch(/prints "Nov 28 to 29"/);
+    // The old fixed line is refused.
+    expect(
+      coverProblems(lie({ kicker: "Central Oregon kids" }), {
+        slotDate: WED,
+      }).join(" "),
+    ).toMatch(/isn't one of code's context lines/);
   });
 });

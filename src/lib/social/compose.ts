@@ -1,4 +1,6 @@
+import { monthDay, shortDate } from "@/lib/events/model";
 import type { ForecastDay, Issue } from "@/lib/news/issue";
+import { addDays, weekdayOf } from "@/lib/news/time";
 import {
   commonBody,
   eventFit,
@@ -76,7 +78,112 @@ export type ResolvedItem = {
   host?: string | null;
   /** The venue as a chip, used when the venue line doesn't fit. */
   venueChip?: string;
+  /** A venue's open weekdays ("sat", "sun"), for the cover's claim. */
+  open?: readonly string[];
 };
+
+// --- The cover's context line -------------------------------------------------
+
+/**
+ * What the cover says the list is, and when: the context line ("This
+ * weekend") and its date chip ("Nov 28 to 29"), with the days it names.
+ * Code's words, from the items' own dates, so it's always right.
+ */
+export type Cover = {
+  kicker: string;
+  date?: string;
+  span?: { from: string; to: string };
+};
+
+/** A catalog school break, as the holiday cover names it. */
+export type BreakSpan = { label: string; from: string; to: string };
+
+/**
+ * "Sat, Nov 28", "Nov 28 to 29", "Nov 30 to Dec 2": "to", as the roundup
+ * says it (Gochi Hand draws a dash as long as a word, or into the digits).
+ */
+export function spanText(from: string, to: string): string {
+  if (from === to) return shortDate(from);
+  if (from.slice(0, 7) === to.slice(0, 7))
+    return `${monthDay(from)} to ${Number(to.slice(8, 10))}`;
+  return `${monthDay(from)} to ${monthDay(to)}`;
+}
+
+/** A cover's chip for these days, with the span itself. */
+function dated(kicker: string, from: string, to: string): Cover {
+  return { kicker, date: spanText(from, to), span: { from, to } };
+}
+
+/**
+ * A break's short name: "Bend-La Pine winter break" is "Winter break";
+ * a one-off day off ("Redmond no school (MLK Day)") is "No school".
+ */
+export function breakName(label: string): string {
+  const m = /\b(winter|spring|fall|summer|thanksgiving|november) break\b/i.exec(
+    label,
+  );
+  if (!m) return "No school";
+  const w = m[1].toLowerCase();
+  return `${w[0].toUpperCase()}${w.slice(1)} break`;
+}
+
+/** The days of an Unpack's event items (refs "event:<slug>@<day>"). */
+export function itemDays(items: readonly { ref: string }[]): string[] {
+  return items
+    .filter((i) => i.ref.startsWith("event:"))
+    .map((i) => i.ref.slice(i.ref.lastIndexOf("@") + 1))
+    .sort();
+}
+
+/**
+ * The Unpack's cover. A school-break carousel names the break and its
+ * dates. Otherwise, with dated items (events), the span of their days:
+ * "This weekend" only when every one falls Friday to Sunday after the
+ * post and every venue on the list opens on the weekend ("Events this
+ * weekend" when the list is all events), "This week" when they end by
+ * Sunday, "Next week" when they all fall after it, else "This week and
+ * next". No dated items: "Places to go with kids", with no chip (places
+ * keep no dates).
+ */
+export function unpackCover(
+  items: readonly { ref: string; open?: readonly string[] }[],
+  slotDate: string,
+  brk: BreakSpan | null,
+): Cover {
+  if (brk) return dated(breakName(brk.label), brk.from, brk.to);
+  const days = itemDays(items);
+  if (!days.length) return { kicker: COPY.coverPlaces };
+  const allEvents = items.every((i) => i.ref.startsWith("event:"));
+  const [from, to] = [days[0], days[days.length - 1]];
+  const weekend = fridayToSunday(slotDate);
+  const venuesOpen = items.every(
+    (i) =>
+      !i.ref.startsWith("venue:") ||
+      (i.open ?? []).some((d) => /^(sat|sun)/i.test(d)),
+  );
+  const kicker =
+    from >= weekend.from && to <= weekend.to && venuesOpen
+      ? allEvents
+        ? COPY.coverWeekendEvents
+        : COPY.coverWeekend
+      : to <= weekend.to
+        ? COPY.coverWeek
+        : from > weekend.to
+          ? COPY.coverNextWeek
+          : COPY.coverWeekAndNext;
+  return dated(kicker, from, to);
+}
+
+/** The first Friday to Sunday after a day (a Wednesday: two days on). */
+export function fridayToSunday(day: string): { from: string; to: string } {
+  const fri = addDays(day, (5 - weekdayOf(day) + 7) % 7 || 7);
+  return { from: fri, to: addDays(fri, 2) };
+}
+
+/** Saturday's "at home" cover: that Saturday and Sunday. */
+export function atHomeCover(slotDate: string): Cover {
+  return dated(COPY.atHomeKicker, slotDate, addDays(slotDate, 1));
+}
 
 const strip = (s: string) => s.trim().replace(/[\s.:;,!-]+$/u, "");
 
@@ -203,10 +310,18 @@ export function composeUnpack(
   d: UnpackDraft,
   items: ResolvedItem[],
   facts: PostFacts,
-  dms: boolean,
-  /** The items' verified hosts, places and park operators, in item order. */
-  tags: readonly Tag[] = [],
+  o: {
+    dms: boolean;
+    /** The post's own day (slotFor): the cover's "this weekend". */
+    slotDate: string;
+    /** The school break a Sunday carousel is for (its cover names it). */
+    brk?: BreakSpan | null;
+    /** The items' verified hosts, places and park operators, in item order. */
+    tags?: readonly Tag[];
+  },
 ): PostSpec {
+  const { dms } = o;
+  const tags = o.tags ?? [];
   const cta = ctaLine(dms, "unpack");
   // Names, places, hosts and chips come from event pages and the catalog:
   // no "@" in them (the model's own words were checked for one).
@@ -224,7 +339,7 @@ export function composeUnpack(
       t: "headline",
       words: headline,
       highlight: d.highlight.trim(),
-      kicker: "Central Oregon kids",
+      ...unpackCover(items, o.slotDate, o.brk ?? null),
       swipe: true,
     },
     ...items.map((it, i): SlideSpec => {
@@ -317,7 +432,15 @@ export function ideaSafety(i: AtHomeDraft["ideas"][number]): string | null {
   return i.ages.from < 6 && WATER.test(text) ? COPY.waterSafety : null;
 }
 
-export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
+export function composeAtHome(
+  d: AtHomeDraft,
+  o: {
+    dms: boolean;
+    /** The Saturday it goes out (slotFor): the cover's dates. */
+    slotDate: string;
+  },
+): PostSpec {
+  const { dms } = o;
   const cta = ctaLine(dms, "at_home");
   const headline = d.headline.trim();
   const ideas = d.ideas.map((i) => ({
@@ -343,7 +466,7 @@ export function composeAtHome(d: AtHomeDraft, dms: boolean): PostSpec {
       t: "headline",
       words: headline,
       highlight: d.highlight.trim(),
-      kicker: COPY.atHomeKicker,
+      ...atHomeCover(o.slotDate),
       swipe: true,
       icon: "home",
     },
@@ -894,9 +1017,12 @@ export function composeMashup(
     variant?: number;
     weather?: "wet" | "snow" | "cold" | null;
     shops?: string | null;
+    /** The Wednesday it goes out: the cover's weekend dates. */
+    slotDate: string;
   },
 ): PostSpec {
   const tags = o.tags ?? [];
+  const weekend = fridayToSunday(o.slotDate);
   const cta = ctaLine(o.dms, "mashup");
   const icon = THEME_ICON[theme];
   const fitOf = (r: MashupRow) => ({
@@ -931,12 +1057,14 @@ export function composeMashup(
       highlight: copy.highlight,
       kicker:
         o.weather === "wet"
-          ? "Rain this weekend"
+          ? COPY.mashupWet
           : o.weather === "snow"
-            ? "Snow this weekend"
+            ? COPY.mashupSnow
             : o.weather === "cold"
-              ? "Cold this weekend"
+              ? COPY.mashupCold
               : COPY.mashupKicker,
+      date: spanText(weekend.from, weekend.to),
+      span: weekend,
       swipe: true,
       icon,
       pairIcon: true,
@@ -1208,7 +1336,7 @@ function dayWords(d: {
 export function slideAlt(s: SlideSpec): string {
   switch (s.t) {
     case "headline":
-      return `${s.kicker}: ${s.words}.${s.sub?.length ? ` ${s.sub.join(", ")}.` : ""}${s.swipe ? " Swipe for more." : ""}`;
+      return `${s.kicker}${s.date ? `, ${s.date}` : ""}: ${s.words}.${s.sub?.length ? ` ${s.sub.join(", ")}.` : ""}${s.swipe ? " Swipe for more." : ""}`;
     case "item":
       return `${s.n} of ${s.of}: ${s.name}. ${strip(s.what)}.${s.place ? ` ${s.place}.` : ""}${s.place && s.host ? ` Hosted by ${s.host}.` : ""} ${s.facts.join(", ")}.`;
     case "idea":
