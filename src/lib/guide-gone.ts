@@ -15,15 +15,22 @@ import { FRESH_DAYS, GUIDE_MIN, pairingGuideDef } from "@/lib/pairing-guides";
  * gone, and the page decides as before.
  */
 export async function guideGone(pathname: string): Promise<boolean> {
+  const any = /^\/guides\/(?:pairings\/)?([^/]+)\/?$/.exec(pathname);
+  if (!any) return false;
   const m = /^\/guides\/(?:(pairings)\/)?([a-z0-9-]+)\/?$/.exec(pathname);
-  if (!m) return false;
+  // A slug no page could have ("Nope", "Sledding-Hills-Bend"): gone.
+  if (!m) return true;
   const [, pairings, slug] = m;
   if (pairings) {
     const [r] = await db
-      .select({ key: pairingPages.shownKey })
+      .select({ key: pairingPages.shownKey, changed: pairingPages.changedAt })
       .from(pairingPages)
       .where(eq(pairingPages.slug, slug));
-    return !r || r.key === "";
+    if (!r) return true;
+    // Born but not settled yet (its first check failed or hasn't run):
+    // unknown, so the page decides, never a 404 for a page just born.
+    if (!r.changed) return false;
+    return r.key === "";
   }
   if (slug === "pairings" || guideDef(slug)) return false;
   if (!pairingGuideDef(slug)) return true;

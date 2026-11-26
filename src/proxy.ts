@@ -9,8 +9,22 @@ export const config = {
   matcher: ["/guides/:slug", "/guides/pairings/:slug"],
 };
 
+/**
+ * A slow database (a new connection through Railway's proxy can hang for
+ * seconds) must never hold up a page: after this long, the page renders
+ * as before and decides for itself.
+ */
+const GONE_CHECK_MS = 1_500;
+
 export async function proxy(req: NextRequest) {
-  const gone = await guideGone(req.nextUrl.pathname).catch(() => false);
+  // Link prefetches and client navigations (RSC requests) don't need a
+  // status: only crawlers and first loads do. No query for them.
+  if (req.headers.get("rsc") || req.nextUrl.searchParams.has("_rsc"))
+    return NextResponse.next();
+  const gone = await Promise.race([
+    guideGone(req.nextUrl.pathname).catch(() => false),
+    new Promise<boolean>((r) => setTimeout(() => r(false), GONE_CHECK_MS)),
+  ]);
   if (gone)
     return NextResponse.rewrite(new URL("/_not-found", req.url), {
       status: 404,
