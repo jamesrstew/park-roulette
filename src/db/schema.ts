@@ -705,6 +705,47 @@ export const newsPlans = pgTable("news_plans", {
 });
 
 /**
+ * Parents' corner posts James suggests by Instagram DM (lib/news/
+ * suggestions.ts): one row per shared post, from an allow-listed sender
+ * only (data/ig-suggesters.json). A suggestion raises a post's priority;
+ * every check still decides whether it can run. Used once, and expired
+ * after 60 days. No words of the DM are kept, only the shared link.
+ */
+export const newsIgSuggestions = pgTable(
+  "news_ig_suggestions",
+  {
+    id: serial("id").primaryKey(),
+    /** The Instagram message id that shared it (one row per message). */
+    messageId: text("message_id").notNull(),
+    /** Who sent it (an allow-listed username, lowercase). */
+    sender: text("sender").notNull(),
+    /** The shared post's link and its shortcode. */
+    permalink: text("permalink").notNull(),
+    shortcode: text("shortcode").notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+    /** The post's account and media id, once code has found them. */
+    account: text("account"),
+    mediaId: text("media_id"),
+    /** open | used | expired */
+    status: text("status").notNull().default("open"),
+    /** The last time code couldn't use it, and why (for the plan's report). */
+    note: text("note"),
+    usedIssueDate: date("used_issue_date"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("news_ig_suggestions_message").on(t.messageId, t.shortcode),
+    index("news_ig_suggestions_status").on(t.status, t.sentAt),
+    check(
+      "news_ig_suggestions_status_check",
+      sql`${t.status} in ('open', 'used', 'expired')`,
+    ),
+  ],
+);
+
+/**
  * Clicks on /n/<issue>/<slug>: the same link for everyone, counted in
  * total. No person, cookie or IP is recorded.
  */

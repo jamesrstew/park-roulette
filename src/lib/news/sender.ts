@@ -41,6 +41,7 @@ import {
   sendBatch,
   sendOne,
 } from "./resend";
+import { listedEventsCount } from "./events-count";
 import {
   NEWS_NAME,
   postImageUrl,
@@ -287,6 +288,8 @@ function render(
       catalog: CATALOG,
       site: SITE_URL,
       number,
+      // Frozen with the rest of the email at snapshot time.
+      eventsCount: await listedEventsCount(),
       park: (slug: string) => names.get(slug),
       links: dryRun ? ("direct" as const) : ("track" as const),
       unsubscribeUrl: `${SITE_URL}/news/unsubscribe?t=${UNSUB}`,

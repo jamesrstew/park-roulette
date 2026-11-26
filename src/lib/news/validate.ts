@@ -217,7 +217,7 @@ export function blockedLink(url: string): boolean {
 /** Naming another newsletter (even "via Bend Family Loop") is out too. */
 // Any spacing or case ("BendBuzz", "Bend-Family-Loop"), as the events
 // checker's COMPETITOR_NAMES.
-const MENTIONS = /bend[\s_.-]*(family[\s_.-]*loop|buzz)/i;
+export const MENTIONS = /bend[\s_.-]*(family[\s_.-]*loop|buzz)/i;
 
 /**
  * The site a link belongs to, for "the link and its evidence come from
@@ -356,6 +356,25 @@ const EMOJI = new RegExp("\\p{Extended_Pictographic}", "u");
 function shouting(s: string): boolean {
   const ok = new Set(["SHARC", "OMSI", "BPRD", "RAPRD", "USFS"]);
   return (s.match(/\b[A-Z]{4,}\b/g) ?? []).some((w) => !ok.has(w));
+}
+
+/** Does the opener greet the week's occasion (its name or the opener)? */
+export function greetingIn(
+  hello: string,
+  g: { occasion: string; opener: string },
+): boolean {
+  const h = hello.toLowerCase().replace(/’/g, "'");
+  const words = (t: string) =>
+    t
+      .toLowerCase()
+      .replace(/^happy\s+|^merry\s+/, "")
+      .replace(/[!.]/g, "")
+      .replace(/\s+weekend$/, "")
+      .trim();
+  return [g.occasion, g.opener].some((t) => {
+    const w = words(t);
+    return w.length > 0 && h.includes(w);
+  });
 }
 
 export function styleProblems(text: string): string[] {
@@ -1130,6 +1149,16 @@ export async function validateIssue(
         `The opener must name the disruptive day (${names.map((n) => n[0].toUpperCase() + n.slice(1)).join(" or ")}).`,
       );
   }
+
+  // A holiday week opens warmly (James, November 2026): a nudge, never a
+  // cut. The greeting may be the writer's own words.
+  const greet = plan?.calendar?.greeting;
+  if (greet && !greetingIn(issue.hello.text, greet))
+    warnings.push({
+      rule: "style",
+      path: "hello",
+      message: `This week has ${greet.occasion}: open with a short, warm greeting ("${greet.opener}") before the weather.`,
+    });
 
   // December to February: no cold words in the subject unless a day is
   // disruptive.

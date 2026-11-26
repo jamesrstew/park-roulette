@@ -29,10 +29,10 @@ The plan is code's half of the issue. Treat it as the truth:
 - `season`: this month's theme, its normal state (never news) and tip.
 - `plan_b.tips`: clear-week tips for "Best time to go" when the gate is shut.
 - `deltas`: park changes on our map since the last issue that change a visit (closed, reopened, a feature added or removed, a seasonal status). `deltas.changes` is the only source for Heads up. A park that joined the map is never news: the plan doesn't list them and the checker refuses them.
-- `forecast`, `weather.labels` and `calendar` (holidays, school breaks, daylight saving time).
+- `forecast`, `weather.labels` and `calendar` (holidays, school breaks, daylight saving time). `calendar.greeting`, when set, is this week's occasion and a warm opener for it (`{ "occasion": "Thanksgiving", "opener": "Happy Thanksgiving!" }`): open `hello.text` with it (see Voice).
 - `cooldowns`, `challenges` (the passport challenges you may use), `event_series` and `seasonal_defaults` (never report these as news).
 - `events`: kids' events on /events with a date from the issue date through 14 days out, soonest first. Each has its `slug`, `title`, `dates`, `weekend` (true when a date falls this Friday to Sunday), `setting`, `ages`, `ages_text`, `cost`, `free`, `venue`, `town`, `park`, `url` and the stored `evidence` for its first date. The daily events harvest keeps this list full.
-- `parents_corner.candidates` (X) and `parents_corner.instagram`, with `rules`. `parents_corner.instagram_status` says why the Instagram list is what it is: `ok`, `no_token` (Meta keys missing), `api_error` (Meta failed: say so in your retro as a `source` problem) or `none_passed` (Meta answered, nothing cleared the bar).
+- `parents_corner.candidates` (X) and `parents_corner.instagram`, with `rules`. Instagram posts with `suggested_by` were shared by James by DM; they lead the list and passed every check a found post passes. `parents_corner.suggestions.posts` lists every open suggestion, with why any was skipped. `parents_corner.instagram_status` says why the Instagram list is what it is: `ok`, `no_token` (Meta keys missing), `api_error` (Meta failed: say so in your retro as a `source` problem) or `none_passed` (Meta answered, nothing cleared the bar).
 - `lessons`: read first (above).
 - `rules`: the limits the checker enforces, the weekend's dates, `link_domains` (the issue's link allowlist), `lead_domains` (leads only, never a link or evidence) and `event_domains` (the events allowlist).
 
@@ -70,7 +70,7 @@ Write one JSON object. Unknown keys are refused, so use exactly these:
 - `issue_date`: DATE (the plan's `next_issue_date`).
 - `subject`: 8 to 45 characters. It names something in the issue, has no emoji and no all-caps words, and never repeats a recent subject.
 - `preview`: 20 to 110 characters.
-- `hello.text`: 40 to 500 characters. A warm, short opener from James, with the weather first. No first-person experience claims ("we went", "I saw", "my kids love").
+- `hello.text`: 40 to 500 characters. A warm, short opener in James's voice, a Bend dad writing to other parents. On a holiday week (`calendar.greeting`), the first words greet it ("Happy Thanksgiving!"), then one short, genuine line, then the weather. On an ordinary week, start with the weather. No first-person experience claims ("we went", "I saw", "my kids love", "our family"): warmth comes from wishes and plain kindness, not invented outings.
 - `weekend_ahead`: `{ "note": "Best park window: Sunday morning" }` at most (80 characters). Code fills in the days from the plan.
 - `bullets`: up to 3 short lines (90 characters each) on what's inside.
 - `wheel_pick`: `{ "park": <plan.wheel_pick.slug>, "why_now" (300 characters at most; open with a signature trait from `plan.wheel_pick.profile` when it has one), "who_for" (200), "bring" (200) }`, plus `photo` only from `plan.wheel_pick.photo`.
@@ -89,13 +89,19 @@ Write one JSON object. Unknown keys are refused, so use exactly these:
 - `meme` (Parents' corner): optional. Pick at most one post, under the safety bar: kind, no identifiable child in a humiliating spot, nothing political, sexual, medical-scare, brand-run or cruel. Look at the media too.
   - From X: `{ "platform": "x", "url", "postId" }`, using a post from `parents_corner.candidates`.
   - From Instagram: `{ "platform": "instagram", "url": <permalink>, "postId": <id>, "account": <username> }`, using a post from `parents_corner.instagram`.
-  - Prefer Instagram when an Instagram and an X post are about as good. With no Instagram candidates, use X. If nothing clears the bar, leave the section out.
-- `signoff.text`: the reply ask ("Spotted a closure? Hit reply."), 240 characters at most.
+  - **James's suggestions come first.** Posts in `parents_corner.instagram` with `suggested_by` were shared by James by DM. Look at each one's media; use the first that clears the safety bar above, over any found post. A suggestion never lowers the bar: if one doesn't clear it, pass on it and say why in your report.
+  - Otherwise, prefer Instagram when an Instagram and an X post are about as good. With no Instagram candidates, use X. If nothing clears the bar, leave the section out.
+- `signoff.text`: the reply ask ("Spotted a closure? Hit reply."), 240 characters at most. No name: the email signs itself "See you at the park, James" with his photo, so don't end with "James".
 - Every evidence quote in the issue is copied verbatim from its page, 20 to 300 characters. An outing's quote may be as short as 8 when it prints a price or "free" together with a date or time ("Free · Dec 6"); a bare "Free" next to the outing's date proves a free cost.
 
 ### Voice
 
 - One named human, James: a warm greeting, a real reason this week matters (weather first, because in Central Oregon the weather _is_ the plan), and short practical sentences of 12 to 20 words.
+- **Holiday weeks open warmly.** When `calendar.greeting` is set, lead with it, in a few words and in your own way, then the weather. Short and genuine, never saccharine: one greeting, one kind line at most, no gushing. The greeting spends the issue's one exclamation point, so use none elsewhere. Examples:
+  - Thanksgiving: "Happy Thanksgiving! I hope today is slow, full and warm. The forecast calls for rain Friday (an 88% chance), so Saturday is the park day."
+  - Winter break: "Happy winter break! Two weeks of kids at home starts now, so here's a plan for the first weekend. The forecast calls for..."
+  - New Year: "Happy New Year! Here's to more park days in 2027. The forecast calls for..."
+  - An ordinary week has no greeting line: "Saturday is the dry day in the forecast, partly sunny with a high of 49."
 - One kind parenthetical aside per item at most, and no snark.
 - Our ground, not the competitors': playground conditions, weather-matched outings, towns beyond Bend (Redmond, Sisters, Madras, Prineville, La Pine, Sunriver), indoor backups, and the spin and passport rituals.
 - **The reader test:** every item must change what a parent might do this week. Heads up holds changes only, never the expected seasonal state.
@@ -199,7 +205,7 @@ End with a short report (your final message, after the retro):
 - the Wheel Pick;
 - the weather mode, and the Indoor pick (venue and day) or the Best time to go tip;
 - which outings came from `plan.events`, and any event you had to hand in yourself (stored or cut, with one-line reasons);
-- which outings and Parents' corner post you used;
+- which outings and Parents' corner post you used, and for each of James's suggestions (`suggested_by`) whether you used it or why you passed;
 - the word count;
 - any warnings left;
 - anything that needs James (a broken source, a site behind a bot check, a missing plan field, a 409), or "no issue due this week" when `next_issue_date` is more than 7 days out.

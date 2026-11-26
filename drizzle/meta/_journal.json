@@ -232,6 +232,13 @@
       "when": 1795669769389,
       "tag": "0032_pairing_pages",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1795714898814,
+      "tag": "0033_news_ig_suggestions",
+      "breakpoints": true
     }
   ]
 }

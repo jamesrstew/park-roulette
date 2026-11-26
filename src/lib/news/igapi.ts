@@ -80,6 +80,12 @@ export type IgCandidate = {
   caption: string;
   score: number;
   baseline: number | null;
+  /**
+   * Set when James (an allow-listed sender) suggested the post by DM: it
+   * leads the list. It passed every check a found post passes.
+   */
+  suggested_by?: string;
+  suggested_at?: string;
 };
 
 const FIELDS = `username,profile_picture_url,followers_count,media.limit(${IG_MEDIA_LIMIT}){id,caption,media_type,media_product_type,media_url,thumbnail_url,permalink,timestamp,like_count,comments_count,children{id,media_type}}`;
@@ -197,16 +203,23 @@ export function mentionsOthers(caption: string, owner: string): boolean {
     .some((h) => h !== owner.toLowerCase());
 }
 
-/** Why a post can't be offered, or null if it can. */
+/**
+ * Why a post can't be offered, or null if it can. `maxAgeDays` is the
+ * only thing a caller may change: a post James suggested by DM may be up
+ * to SUGGESTION_MAX_AGE_DAYS old (lib/news/suggest.ts); every other rule
+ * is the same for every post.
+ */
 export function igIneligible(
   m: IgMedia,
   owner: string,
   now: Date,
+  maxAgeDays: number = IG_MAX_AGE_DAYS,
 ): string | null {
   if (m.like_count == null) return "likes hidden";
   if (m.like_count < IG_LIKES_FLOOR) return "under the likes floor";
   const age = now.getTime() - Date.parse(m.timestamp);
-  if (!(age >= 0 && age < IG_MAX_AGE_DAYS * 86_400_000)) return "not this week";
+  if (!(age >= 0 && age < maxAgeDays * 86_400_000))
+    return maxAgeDays === IG_MAX_AGE_DAYS ? "not this week" : "too old";
   if (m.media_product_type === "REELS" && !m.media_url)
     return "reel without media";
   if (
@@ -352,6 +365,56 @@ export async function igLookup(
     if (Date.parse(oldest) < Date.parse(opts.timestamp)) return null;
   }
   return null;
+}
+
+/**
+ * A post by its shortcode (the code in its link): its page's media, paged
+ * back at most 4 times, until a post older than `since`. With the page's
+ * own median likes (the score's baseline). Null when it isn't found.
+ */
+export async function igFindByShortcode(
+  username: string,
+  shortcode: string,
+  opts: IgOpts & { since: Date },
+): Promise<{
+  media: IgMedia;
+  avatar: string | null;
+  baseline: number | null;
+} | null> {
+  if (!/^[A-Za-z0-9_-]{5,40}$/.test(shortcode)) return null;
+  let after: string | undefined;
+  const likes: number[] = [];
+  for (let page = 0; page < 4; page++) {
+    const p = await discoverPage(username, { ...opts, after });
+    const data = p?.media?.data ?? [];
+    for (const m of data) if (m.like_count != null) likes.push(m.like_count);
+    const media = data.find((m) => igShortcode(m.permalink) === shortcode);
+    if (media)
+      return {
+        media,
+        avatar: p?.profile_picture_url ?? null,
+        baseline: median(likes),
+      };
+    const oldest = data[data.length - 1]?.timestamp;
+    after = p?.media?.paging?.cursors?.after;
+    if (!after || !oldest || Date.parse(oldest) < opts.since.getTime())
+      return null;
+  }
+  return null;
+}
+
+/** The shortcode in an Instagram post link (/p/, /reel/, /tv/), or null. */
+export function igShortcode(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (!/^(www\.)?instagram\.com$/.test(u.hostname)) return null;
+    const m = u.pathname.match(
+      /^\/(?:[a-z0-9._]{1,30}\/)?(?:p|reels?|tv)\/([A-Za-z0-9_-]{5,40})\/?$/,
+    );
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 /** "https://www.instagram.com/p/<code>/" (the permalink is the canonical link). */

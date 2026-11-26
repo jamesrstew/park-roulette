@@ -22,7 +22,6 @@ import {
   renderText,
   visitLength,
   renderWelcome,
-  shortParkName,
   weatherImageUrl,
 } from "./template";
 import { calendarFlags, issueDateFor, pacificInstant, sendGate } from "./time";
@@ -957,13 +956,12 @@ describe("the template", () => {
     expect(html).toContain("Juniper &lt;Park&gt; &amp; the rain");
     expect(html).not.toContain("<b>there</b>");
     for (const name of [
-      "Featured park: Juniper",
+      "Featured park: Juniper&nbsp;Park",
       "The weekend ahead",
       "Passport challenge",
       "Parents&#39; corner",
     ])
       expect(html).toContain(name);
-    expect(html).not.toContain("Featured park: Juniper Park");
     expect(html).toContain("https://parkroulette.quest/n/2026-12-03/pick");
     expect(html).toContain("/parks/juniper-park-bend/opengraph-image");
     // Parents' corner: one linked image of the post, its words in the alt.
@@ -1018,7 +1016,7 @@ describe("the template", () => {
     expect(text).toContain("PO Box 1, Hillsboro, OR");
     expect(text).toContain("THE WEEKEND AHEAD");
     expect(text).toContain("Weekend forecast for Bend. Friday: sunny");
-    expect(text).toContain("Featured park: Juniper (Bend)");
+    expect(text).toContain("Featured park: Juniper Park (Bend)");
   });
   it("offers the Weekend Pick in one quiet footer line, HTML and text", () => {
     const link = "https://parkroulette.quest/texts?from=email_footer";
@@ -1181,22 +1179,16 @@ describe("the Indoor pick in the email (weather-season v1)", () => {
 });
 
 describe("the Featured park heading", () => {
-  it("never says park twice", () => {
-    expect(shortParkName("Larkspur Park")).toBe("Larkspur");
-    expect(featuredHeading("Larkspur Park")).toBe("Featured park: Larkspur");
-    expect(shortParkName("Pine Nursery Park")).toBe("Pine Nursery");
-    expect(shortParkName("Farewell Bend Park  ")).toBe("Farewell Bend");
-    expect(shortParkName("Big Sky park")).toBe("Big Sky");
-  });
-  it("keeps names that don't end in Park", () => {
+  it("uses the park's full name, park and all (James, Nov 2026)", () => {
+    expect(featuredHeading("Larkspur Park")).toBe(
+      "Featured park: Larkspur Park",
+    );
+    expect(featuredHeading("Farewell Bend Park  ")).toBe(
+      "Featured park: Farewell Bend Park",
+    );
     expect(featuredHeading("Hollinshead Barn")).toBe(
       "Featured park: Hollinshead Barn",
     );
-    expect(shortParkName("Park at the Pines")).toBe("Park at the Pines");
-    expect(shortParkName("Parkway Commons")).toBe("Parkway Commons");
-    expect(shortParkName("Skatepark")).toBe("Skatepark");
-    // A name that is only "Park" stays whole.
-    expect(shortParkName("Park")).toBe("Park");
   });
 });
 

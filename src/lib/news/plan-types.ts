@@ -5,6 +5,7 @@ import type { CooldownKind } from "./cooldowns";
 import type { CalendarFlags } from "./time";
 import type { UniverseReport } from "./universe-store";
 import type { IgCandidate } from "./igapi";
+import type { SuggestionReport, SuggestionStatus } from "./suggestions";
 import type { Candidate } from "./xapi";
 import type { ForecastDay, Issue } from "./issue";
 import type { planProfile } from "@/lib/park-profiles";
@@ -195,6 +196,16 @@ export type Plan = {
      * api_error (Meta failed) or none_passed (no post cleared the bar).
      */
     instagram_status?: "ok" | "no_token" | "api_error" | "none_passed";
+    /**
+     * Posts allow-listed senders (James) shared with us by Instagram DM.
+     * Those that passed every check lead instagram[] (suggested_by set);
+     * the rest are listed here with why they were skipped.
+     */
+    suggestions?: {
+      status: SuggestionStatus;
+      senders: string[];
+      posts: SuggestionReport[];
+    };
     universe?: UniverseReport;
     rules: string;
   };

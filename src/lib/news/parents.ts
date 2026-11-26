@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { igImageUrl } from "@/components/news/InstagramCard";
-import { igIneligible, igLookup } from "./igapi";
+import { IG_MAX_AGE_DAYS, igIneligible, igLookup } from "./igapi";
 import { imageSize } from "./image-size";
 import { blockedAccounts, snapshotTakenDown, takenDown } from "./takedowns";
 import { get, put } from "@vercel/blob";
@@ -52,6 +52,12 @@ export type CardMode =
 export async function memeSnapshot(
   meme: Meme,
   cards: CardMode = { mode: "store" },
+  /**
+   * Instagram only: how old the post may be. The default week, or longer
+   * for a post James suggested by DM (the caller reads that from the
+   * stored plan; lib/news/suggest.ts).
+   */
+  igMaxAgeDays: number = IG_MAX_AGE_DAYS,
 ): Promise<MemeSnapshot | null> {
   const drafted =
     cards.mode === "reuse" && cards.snapshot.id === meme.postId
@@ -61,7 +67,7 @@ export async function memeSnapshot(
   // down: its age and likes were judged at plan and draft time.
   if (drafted?.kind === "instagram")
     return (await igStillThere(drafted)) ? drafted : null;
-  const snap = await fetchSnapshot(meme);
+  const snap = await fetchSnapshot(meme, igMaxAgeDays);
   if (!snap) return null;
   if (drafted?.card && drafted.kind === snap.kind)
     return { ...snap, card: drafted.card };
@@ -113,11 +119,24 @@ export function sniffImageType(b: Uint8Array): string | null {
   return null;
 }
 
-async function igSnapshot(meme: Meme): Promise<MemeSnapshot | null> {
+async function igSnapshot(
+  meme: Meme,
+  maxAge: number,
+): Promise<MemeSnapshot | null> {
   if (!meme.account || takenDown("instagram", meme.postId)) return null;
   if (blockedAccounts("instagram").has(meme.account)) return null;
-  const got = await igLookup(meme.account, meme.postId, igOpts());
-  if (!got || igIneligible(got.media, meme.account, new Date())) return null;
+  const now = new Date();
+  // A post James suggested by DM may be older than a week (suggest.ts);
+  // every other rule is the same.
+  const older = maxAge > IG_MAX_AGE_DAYS;
+  const got = await igLookup(meme.account, meme.postId, {
+    ...igOpts(),
+    // Page back far enough to find an older suggested post.
+    timestamp: older
+      ? new Date(now.getTime() - maxAge * 86_400_000).toISOString()
+      : undefined,
+  });
+  if (!got || igIneligible(got.media, meme.account, now, maxAge)) return null;
   const url = igImageUrl(got.media);
   const img = url ? await fetchImage(url, IG_IMAGES) : null;
   const size = img ? imageSize(img.bytes) : null;
@@ -153,8 +172,11 @@ async function igSnapshot(meme: Meme): Promise<MemeSnapshot | null> {
   };
 }
 
-async function fetchSnapshot(meme: Meme): Promise<MemeSnapshot | null> {
-  if (meme.platform === "instagram") return igSnapshot(meme);
+async function fetchSnapshot(
+  meme: Meme,
+  igMaxAgeDays: number,
+): Promise<MemeSnapshot | null> {
+  if (meme.platform === "instagram") return igSnapshot(meme, igMaxAgeDays);
   if (takenDown(meme.platform, meme.postId)) return null;
   const snap = await fetchOther(meme);
   // Blocked accounts (by handle, and for X by permanent id) never show.

@@ -104,15 +104,12 @@ function photoCredit(p: PhotoCredit): { html: string; text: string } {
   };
 }
 
-/** "Larkspur Park" -> "Larkspur"; "Hollinshead Barn" stays as it is. */
-export function shortParkName(name: string): string {
-  const short = name.trim().replace(/\s+park$/i, "");
-  return short && short !== name.trim() ? short : name.trim();
-}
-
-/** "Featured park: Larkspur", never "park" twice. */
+/**
+ * "Featured park: Larkspur Park": the park's full name, even when that
+ * says "park" twice (James, November 2026, reverting the short name).
+ */
 export function featuredHeading(name: string): string {
-  return `${SECTIONS.pick}: ${shortParkName(name)}`;
+  return `${SECTIONS.pick}: ${name.trim()}`;
 }
 
 /** How wide the email shows a Parents' corner card (CSS px). */
@@ -216,7 +213,48 @@ export type RenderOptions = {
    * weather and the Indoor pick.
    */
   landing?: "park" | "indoor";
+  /**
+   * How many kids' events /events lists right now (lib/events/programs.ts
+   * buildPrograms), for the link at the end of This weekend. Null or
+   * missing: the link shows without a number.
+   */
+  eventsCount?: number | null;
 };
+
+/** James's photo after the sign-off (a pre-masked circle, 192 px square). */
+export const SIGNOFF_PHOTO = {
+  path: "/brand/james.png",
+  alt: "James and his little one on a trail in Bend",
+  size: 56,
+} as const;
+
+/**
+ * The sign-off line without a trailing "James": the template signs every
+ * issue itself ("See you at the park, James"), so a name the writer adds
+ * would print twice. Only a name after a finished sentence (or a dash) is
+ * cut, never one inside a sentence ("tell James").
+ */
+export function signoffText(text: string): string {
+  return text
+    .trim()
+    .replace(/([.!?])\s+(?:[-–—]\s*)?James[.!]?$/u, "$1")
+    .replace(/\s*[-–—]\s*James[.!]?$/u, "")
+    .trim();
+}
+
+/** Below this many listed events, the link leaves the number out. */
+export const EVENTS_COUNT_MIN = 10;
+
+/**
+ * The link at the end of This weekend: "See all 129 Central Oregon kids'
+ * events", or without the number when there are only a few (or we don't
+ * know how many).
+ */
+export function eventsLinkText(count: number | null | undefined): string {
+  return count != null && count >= EVENTS_COUNT_MIN
+    ? `See all ${count} Central Oregon kids' events`
+    : "See more Central Oregon kids' events";
+}
 
 /** Where renderArchiveSplit cuts the card for the page's own slot. */
 const SLOT = "<!--parents-corner-slot-->";
@@ -421,7 +459,15 @@ function view(issue: Issue, o: RenderOptions) {
           }
         : null,
     memeSlot: !!o.memeSlot && !!issue.meme?.snapshot,
-    signoff: issue.signoff.text,
+    signoff: signoffText(issue.signoff.text),
+    photo: `${o.site}${SIGNOFF_PHOTO.path}`,
+    // Only after the outings: the way to the rest of the calendar.
+    events: issue.weekend?.length
+      ? {
+          href: link("events", `${o.site}/events`),
+          text: eventsLinkText(o.eventsCount),
+        }
+      : null,
     site: o.site,
     unsubscribeUrl: o.unsubscribeUrl,
     postal: o.postalAddress,
@@ -432,12 +478,16 @@ function view(issue: Issue, o: RenderOptions) {
 
 // --- HTML ----------------------------------------------------------------
 
-function label(text: string, color: string) {
-  return `<div class="txt" style="font-family:${BODY}; font-size:13px; line-height:18px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; color:${C.ink};"><span style="border-bottom:4px solid ${color}; padding-bottom:1px;">${esc(text)}</span></div>`;
+/**
+ * A section title. `onNote`: it sits on the yellow passport note, which
+ * stays yellow in dark mode, so its ink stays dark too (no .txt).
+ */
+function label(text: string, color: string, onNote = false) {
+  return `<div${onNote ? "" : ' class="txt"'} style="margin:0 0 12px 0; font-family:${BODY}; font-size:13px; line-height:18px; font-weight:bold; letter-spacing:1px; text-transform:uppercase; color:${C.ink};"><span style="border-bottom:4px solid ${color}; padding-bottom:1px;">${esc(text)}</span></div>`;
 }
 
 function heading(text: string, size = 22) {
-  return `<h2 class="txt" style="margin:4px 0 8px 0; font-family:${HAND}; font-size:${size}px; line-height:${size + 6}px; color:${C.ink};">${esc(text)}</h2>`;
+  return `<h2 class="txt" style="margin:0 0 16px 0; font-family:${HAND}; font-size:${size}px; line-height:${size + 6}px; color:${C.ink};">${esc(text)}</h2>`;
 }
 
 function para(html: string, extra = "") {
@@ -450,6 +500,14 @@ function button(href: string, text: string, color: string) {
 <!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="${esc(href)}" style="height:44px;v-text-anchor:middle;width:${width}px;" arcsize="50%" strokecolor="${C.ink}" strokeweight="2px" fillcolor="${color}"><w:anchorlock/><center style="color:#ffffff;font-family:${BODY};font-size:16px;font-weight:bold;">${esc(text)}</center></v:roundrect><![endif]-->
 <!--[if !mso]><!--><a href="${esc(href)}" style="display:inline-block; background-color:${color}; border:2px solid ${C.ink}; border-radius:22px; color:#ffffff; font-family:${BODY}; font-size:16px; font-weight:bold; line-height:40px; padding:0 24px; text-decoration:none;">${esc(text)}</a><!--<![endif]-->
 </td></tr></table>`;
+}
+
+/** Escaped text whose last two words never split across lines. */
+function keepLastWords(text: string): string {
+  const i = text.lastIndexOf(" ");
+  return i < 0
+    ? esc(text)
+    : `${esc(text.slice(0, i))}&nbsp;${esc(text.slice(i + 1))}`;
 }
 
 const row = (html: string, pad = "32px 32px 0 32px", cls = "px") =>
@@ -495,7 +553,7 @@ export function renderCard(v: View): string {
   // the image, the same words show as text.
   if (!v.landing && (v.weather || v.weatherNote || v.dress))
     parts.push(
-      row(label(SECTIONS.weather, C.blue), "24px 32px 6px 32px") +
+      row(label(SECTIONS.weather, C.blue), "24px 32px 0 32px") +
         bodyRow(
           (v.weather?.image
             ? `<img src="${esc(v.weather.image)}" width="${v.weather.size.width}" height="${v.weather.size.height}" alt="${esc(v.weather.words)}" style="display:block; width:100%; max-width:${v.weather.size.width}px; height:auto; margin:0 0 10px 0; font-family:${BODY}; font-size:15px; line-height:22px; color:${C.ink};">`
@@ -523,10 +581,10 @@ export function renderCard(v: View): string {
   if (v.landing !== "park") {
     parts.push(
       row(
-        `<h1 class="h1 txt" style="margin:4px 0 2px 0; font-family:${HAND}; font-size:30px; line-height:36px; color:${C.ink};">${esc(featuredHeading(v.pick.name))}</h1>` +
+        `<h1 class="h1 txt" style="margin:4px 0 2px 0; font-family:${HAND}; font-size:30px; line-height:36px; color:${C.ink};">${keepLastWords(featuredHeading(v.pick.name))}</h1>` +
           (v.pick.city
-            ? `<div class="txt-soft" style="margin:0 0 12px 0; font-family:${BODY}; font-size:15px; line-height:22px; color:${C.soft};">${esc(v.pick.city)}</div>`
-            : `<div style="height:10px; line-height:10px; font-size:0;">&nbsp;</div>`) +
+            ? `<div class="txt-soft" style="margin:0 0 14px 0; font-family:${BODY}; font-size:15px; line-height:22px; color:${C.soft};">${esc(v.pick.city)}</div>`
+            : `<div style="height:14px; line-height:14px; font-size:0;">&nbsp;</div>`) +
           `<a href="${esc(v.pick.href)}" style="text-decoration:none;"><img src="${esc(v.pick.image)}" width="536" alt="${esc(v.pick.alt)}" style="width:100%; max-width:536px; height:auto; border-radius:12px; font-family:${BODY}; font-size:14px; color:${C.ink};"></a>`,
       ),
     );
@@ -542,7 +600,7 @@ export function renderCard(v: View): string {
         para(`<b>Why now.</b> ${esc(v.pick.why)}`) +
           para(`<b>Who it's for.</b> ${esc(v.pick.who)}`) +
           para(`<b>Bring.</b> ${esc(v.pick.bring)}`),
-        "12px 32px 0 32px",
+        "14px 32px 0 32px",
       ),
     );
     parts.push(
@@ -564,7 +622,7 @@ export function renderCard(v: View): string {
           )
         : row(
             label(`${SECTIONS.backup}, for ${v.indoor.day}`, C.orange) +
-              `<div style="margin:4px 0 6px 0; font-family:${BODY}; font-size:17px; line-height:25px; color:${C.ink};"><b>${a(v.indoor.href, v.indoor.name)}</b>${v.indoor.where ? `, ${esc(v.indoor.where)}` : ""}.${v.indoor.drive ? ` ${esc(v.indoor.drive)}` : ""}</div>`,
+              `<div class="txt" style="margin:0 0 12px 0; font-family:${BODY}; font-size:17px; line-height:25px; color:${C.ink};"><b>${a(v.indoor.href, v.indoor.name)}</b>${v.indoor.where ? `, ${esc(v.indoor.where)}` : ""}.${v.indoor.drive ? ` ${esc(v.indoor.drive)}` : ""}</div>`,
           ) +
             bodyRow(
               v.indoor.lines
@@ -615,12 +673,18 @@ export function renderCard(v: View): string {
             .map((w) =>
               para(
                 `<b>${a(w.href, w.name)}</b><br>` +
-                  `<span style="color:${C.soft}; font-size:14px;">${esc(w.line)}</span><br>` +
+                  `<span class="txt-soft" style="color:${C.soft}; font-size:14px;">${esc(w.line)}</span><br>` +
                   `${esc(w.place)}<br>${esc(w.what)}`,
                 " margin-bottom:14px;",
               ),
             )
-            .join(""),
+            .join("") +
+            (v.events
+              ? para(
+                  `<b><a class="link" href="${esc(v.events.href)}" style="color:${C.link}; text-decoration:none;">${keepLastWords(v.events.text)}&nbsp;&rarr;</a></b>`,
+                  " margin-top:4px;",
+                )
+              : ""),
         ),
     );
   // Passport
@@ -628,8 +692,8 @@ export function renderCard(v: View): string {
     row(
       `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
 <td bgcolor="${C.note}" style="background-color:${C.note}; border:2px dashed ${C.ink}; border-radius:12px; padding:20px 22px;">
-${label(SECTIONS.passport, C.pink)}
-<div style="margin:4px 0 8px 0; font-family:${HAND}; font-size:22px; line-height:28px; font-weight:bold; color:${C.ink};">${esc(v.challenge ?? "This week's stamp")}</div>
+${label(SECTIONS.passport, C.pink, true)}
+<div style="margin:0 0 10px 0; font-family:${HAND}; font-size:22px; line-height:28px; font-weight:bold; color:${C.ink};">${esc(v.challenge ?? "This week's stamp")}</div>
 <div style="font-family:${BODY}; font-size:16px; line-height:25px; color:${C.ink};">${esc(v.passport)}</div>
 <div style="margin-top:14px;">${button(v.passportHref, "Open your passport", C.buttonRed)}</div>
 </td></tr></table>`,
@@ -639,16 +703,22 @@ ${label(SECTIONS.passport, C.pink)}
   if (v.memeSlot) parts.push(SLOT);
   else if (v.meme)
     parts.push(
-      row(label(SECTIONS.meme, C.purple), "32px 32px 10px 32px") +
+      row(label(SECTIONS.meme, C.purple), "32px 32px 0 32px") +
         row(
           `<a href="${esc(v.meme.href)}" style="text-decoration:none;"><img src="${esc(v.meme.image)}" width="${v.meme.width}" height="${v.meme.height}" alt="${esc(v.meme.alt)}" style="display:block; width:100%; max-width:${v.meme.width}px; height:auto; margin:0 auto; border-radius:12px; font-family:${BODY}; font-size:15px; line-height:22px; color:${C.ink};"></a>`,
           "0 32px 0 32px",
         ),
     );
-  // Sign-off
+  // Sign-off: the writer's line, then one signature with James's photo
+  // (a pre-masked circle, so clients that ignore border-radius still
+  // draw it round).
   parts.push(
     bodyRow(
-      `${esc(v.signoff)}<br><br>See you at the park,<br><span style="font-family:${HAND}; font-size:20px; font-weight:bold;">James</span>`,
+      `${v.signoff ? `${esc(v.signoff)}<br><br>` : ""}See you at the park,` +
+        `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;"><tr>
+<td valign="middle" width="${SIGNOFF_PHOTO.size}" style="width:${SIGNOFF_PHOTO.size}px; padding-right:12px;"><img src="${esc(v.photo)}" width="${SIGNOFF_PHOTO.size}" height="${SIGNOFF_PHOTO.size}" alt="${esc(SIGNOFF_PHOTO.alt)}" style="display:block; width:${SIGNOFF_PHOTO.size}px; height:${SIGNOFF_PHOTO.size}px; border-radius:50%; font-family:${BODY}; font-size:11px; line-height:14px; color:${C.soft};"></td>
+<td valign="middle" class="txt" style="font-family:${HAND}; font-size:20px; line-height:24px; font-weight:bold; color:${C.ink};">James</td>
+</tr></table>`,
       "28px 32px 28px 32px",
     ),
   );
@@ -801,6 +871,7 @@ export function renderText(issue: Issue, o: RenderOptions): string {
         `  ${w.what}`,
         `  ${w.href}`,
       );
+    if (v.events) out.push("", `${v.events.text}: ${v.events.href}`);
   }
   out.push(
     "",
@@ -811,8 +882,7 @@ export function renderText(issue: Issue, o: RenderOptions): string {
   if (v.meme)
     out.push("", SECTIONS.meme.toUpperCase(), v.meme.alt, v.meme.href);
   out.push(
-    "",
-    v.signoff,
+    ...(v.signoff ? ["", v.signoff] : []),
     "",
     "See you at the park,",
     "James",

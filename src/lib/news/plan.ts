@@ -35,6 +35,8 @@ import { igCandidatesWithStatus } from "./igapi";
 import { type PlanLesson, planLessons } from "./lessons-store";
 import { blockedAccounts, blockedIds, takenDown } from "./takedowns";
 import { igCooling } from "./universe";
+import { SUGGESTION_SENDERS, withSuggestionsFirst } from "./suggest";
+import { suggestedCandidates } from "./suggestions";
 import { allEvents } from "@/lib/events/store";
 import { planEvents } from "@/lib/events/plan-events";
 import { eventDomains } from "@/lib/events/validate";
@@ -90,15 +92,27 @@ async function buildPlan(
       !xIds.has(c.authorId) &&
       !takenDown("x", c.id),
   );
-  const ig = await igCandidatesWithStatus({
-    now,
-    token: process.env.IG_ACCESS_TOKEN,
-    igUserId: process.env.IG_USER_ID,
-    appSecret: process.env.IG_APP_SECRET || undefined,
-    blocked: blockedAccounts("instagram"),
-    cooling: igCooling(history, issueDate),
-  });
-  const instagram = ig.candidates;
+  const cooling = igCooling(history, issueDate);
+  const [ig, suggested] = await Promise.all([
+    igCandidatesWithStatus({
+      now,
+      token: process.env.IG_ACCESS_TOKEN,
+      igUserId: process.env.IG_USER_ID,
+      appSecret: process.env.IG_APP_SECRET || undefined,
+      blocked: blockedAccounts("instagram"),
+      cooling,
+    }),
+    // Posts James shared by DM: first in line, under the same checks.
+    suggestedCandidates({ now, history, cooling }).catch((e) => {
+      console.error("[news] suggestions failed", (e as Error)?.message);
+      return {
+        candidates: [],
+        report: [],
+        status: "api_error" as const,
+      };
+    }),
+  ]);
+  const instagram = withSuggestionsFirst(suggested.candidates, ig.candidates);
   const wkEnd = weekendOf(issueDate);
   // The next 14 days of stored events: the writer picks outings from
   // these (it no longer discovers events; the daily harvest does).
@@ -270,10 +284,16 @@ async function buildPlan(
     parents_corner: {
       candidates: xCandidates,
       instagram,
-      instagram_status: ig.status,
+      instagram_status:
+        suggested.candidates.length && ig.status !== "ok" ? "ok" : ig.status,
+      suggestions: {
+        status: suggested.status,
+        senders: [...SUGGESTION_SENDERS],
+        posts: suggested.report,
+      },
       universe: corner.report,
       rules:
-        'Candidates come from our universe of parent-humor accounts, best first by how far each post beats its author\'s usual numbers (score), plus any roundup picks you passed as ?picks=. Pick at most one, or none: kind, no identifiable child in a humiliating spot, nothing political, sexual, medical-scare, brand-run or cruel. Look at the media too. Send {platform: "x", url, postId}; code fetches and draws it. A TikTok video may be sent as {platform: "tiktok", url, postId}. Nothing clears the bar: leave the section out. Report accounts that turned political, commercial or adult to POST /api/news/universe. Instagram candidates (instagram[]) are scored the same way against each page\'s median likes, and only original posts are offered: when an Instagram and an X post are about as good, pick Instagram; with no Instagram candidates, use X. Send an Instagram pick as {platform: "instagram", url: permalink, postId: id, account: username}.',
+        'Candidates come from our universe of parent-humor accounts, best first by how far each post beats its author\'s usual numbers (score), plus any roundup picks you passed as ?picks=. Pick at most one, or none: kind, no identifiable child in a humiliating spot, nothing political, sexual, medical-scare, brand-run or cruel. Look at the media too. Send {platform: "x", url, postId}; code fetches and draws it. A TikTok video may be sent as {platform: "tiktok", url, postId}. Nothing clears the bar: leave the section out. Report accounts that turned political, commercial or adult to POST /api/news/universe. Instagram candidates (instagram[]) are scored the same way against each page\'s median likes, and only original posts are offered: when an Instagram and an X post are about as good, pick Instagram; with no Instagram candidates, use X. Send an Instagram pick as {platform: "instagram", url: permalink, postId: id, account: username}. Posts with suggested_by were shared by James by DM: they lead instagram[] and passed every check a found post passes; use the first one that clears your own safety bar (look at the media) before anything else, and say in your report which suggestion you used or why you passed on it.',
     },
     rules: {
       subject_max_chars: LIMITS.subjectMax,

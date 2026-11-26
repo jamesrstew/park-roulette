@@ -321,7 +321,10 @@ export const IssueSchema = z.strictObject({
   }),
   meme: Meme.optional(),
   signoff: z.strictObject({
-    /** The reply ask ("Spotted a closure? Hit reply."). */
+    /**
+     * The reply ask ("Spotted a closure? Hit reply."). No name: the
+     * template signs every issue "See you at the park, James".
+     */
     text: Text(240),
   }),
 });
@@ -484,6 +487,13 @@ export function issueLinks(
   (issue.weekend ?? []).forEach((w, i) =>
     links.push({ slug: `weekend-${i + 1}`, url: w.url, label: w.name }),
   );
+  // The way to the rest of the calendar, after the outings.
+  if (issue.weekend?.length)
+    links.push({
+      slug: "events",
+      url: `${site}/events`,
+      label: "All kids' events",
+    });
   links.push({ slug: "passport", url: `${site}/passport`, label: "Passport" });
   if (issue.meme)
     links.push({ slug: "meme", url: issue.meme.url, label: "Parents' corner" });

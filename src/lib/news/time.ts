@@ -186,6 +186,83 @@ export const SEASON_MARKERS: Record<string, string> = {
   "2028-12-21": "Winter solstice (shortest day)",
 };
 
+/**
+ * A warm, holiday-aware hello for the issue's opener (James, November
+ * 2026: "Happy Thanksgiving!"), from the same holiday calendar and the
+ * catalog's verified school breaks. One per issue, the first that
+ * applies: a holiday on the issue's Thursday or this coming weekend
+ * (Friday to Monday), then a school break that touches the weekend, then
+ * the first issue of a new year. Quiet days (Veterans Day, Juneteenth)
+ * get none. The writer may put it in its own words; the opener spends the
+ * issue's one exclamation point.
+ */
+export type Greeting = {
+  /** "Thanksgiving", "winter break", "New Year". */
+  occasion: string;
+  /** A short opener to start hello.text with ("Happy Thanksgiving!"). */
+  opener: string;
+};
+
+const HOLIDAY_GREETINGS: Record<string, string> = {
+  Thanksgiving: "Happy Thanksgiving!",
+  "Christmas Eve": "Merry Christmas!",
+  "Christmas Day": "Merry Christmas!",
+  "New Year's Eve": "Happy New Year!",
+  "New Year's Day": "Happy New Year!",
+  Halloween: "Happy Halloween!",
+  "Independence Day": "Happy Fourth of July!",
+  "Memorial Day": "Happy Memorial Day weekend!",
+  "Labor Day": "Happy Labor Day weekend!",
+  "Martin Luther King Jr. Day": "Happy long weekend!",
+  "Presidents' Day": "Happy long weekend!",
+};
+
+/** The occasion each greeting names (for the checker's reminder). */
+const HOLIDAY_OCCASION: Record<string, string> = {
+  "Christmas Eve": "Christmas",
+  "Christmas Day": "Christmas",
+  "New Year's Eve": "New Year",
+  "New Year's Day": "New Year",
+  "Independence Day": "Fourth of July",
+  "Martin Luther King Jr. Day": "long weekend",
+  "Presidents' Day": "long weekend",
+};
+
+export function greetingFor(
+  issueDate: string,
+  hol: Record<string, string>,
+  breaks: { label: string; from: string; to: string }[],
+): Greeting | null {
+  // Thursday (the issue) through Monday (a long weekend's holiday).
+  const days = [0, 1, 2, 3, 4].map((i) => addDays(issueDate, i));
+  for (const d of days) {
+    const name = hol[d];
+    if (name && HOLIDAY_GREETINGS[name])
+      return {
+        occasion: HOLIDAY_OCCASION[name] ?? name,
+        opener: HOLIDAY_GREETINGS[name],
+      };
+  }
+  const weekend = { from: days[1], to: days[3] };
+  for (const kind of ["winter", "spring"] as const) {
+    const b = breaks.find(
+      (b) =>
+        new RegExp(`\\b${kind} break\\b`, "i").test(b.label) &&
+        b.from <= weekend.to &&
+        b.to >= weekend.from,
+    );
+    if (b)
+      return {
+        occasion: `${kind} break`,
+        opener: `Happy ${kind} break!`,
+      };
+  }
+  // The first issue of the year.
+  if (issueDate.slice(5) <= "01-07")
+    return { occasion: "New Year", opener: "Happy New Year!" };
+  return null;
+}
+
 export type CalendarFlags = {
   /** No issue this week, and why. */
   skip: string | null;
@@ -194,6 +271,11 @@ export type CalendarFlags = {
   breaks: { id: string; label: string; from: string; to: string }[];
   dst: { date: string; change: "starts" | "ends" } | null;
   season: { date: string; name: string } | null;
+  /**
+   * The holiday-aware hello for the opener, or null on an ordinary week.
+   * Plans stored before November 2026 have none.
+   */
+  greeting?: Greeting | null;
 };
 
 export function calendarFlags(
@@ -223,6 +305,7 @@ export function calendarFlags(
     ];
   });
   const skip = catalog.skip_dates.find((s) => s.date === issueDate);
+  const verified = catalog.breaks.filter((b) => b.verified);
   return {
     skip: skip ? skip.reason : null,
     holidays: week
@@ -236,5 +319,6 @@ export function calendarFlags(
       week
         .filter((d) => SEASON_MARKERS[d])
         .map((d) => ({ date: d, name: SEASON_MARKERS[d] }))[0] ?? null,
+    greeting: greetingFor(issueDate, hol, verified),
   };
 }

@@ -40,7 +40,7 @@ export function IssueCard({
       <div dangerouslySetInnerHTML={{ __html: before }} />
       <section
         aria-label={MEME_SECTION}
-        className="flex flex-col gap-2 px-8 pt-8"
+        className="flex flex-col gap-3 px-8 pt-8"
       >
         <p className="text-[13px] font-bold tracking-wider uppercase">
           <span className="border-b-4 border-crayon-purple">

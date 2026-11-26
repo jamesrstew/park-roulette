@@ -23,6 +23,7 @@ import { snapshotTakenDown } from "./takedowns";
 import { eventsForIssues } from "@/lib/events/store";
 import { type CardMode, memeSnapshot } from "./parents";
 import type { MemeSnapshot } from "./issue";
+import { igMaxAgeDays } from "./suggest";
 import { postUrl } from "./xapi";
 import { audienceCount } from "./audience";
 
@@ -186,7 +187,12 @@ export async function validateContext(
     plan,
     fetcher: opts.network ? fetchPage : undefined,
     memeSource: opts.network
-      ? (meme) => memeSnapshot(meme, opts.cards ?? { mode: "memory" })
+      ? (meme) =>
+          memeSnapshot(
+            meme,
+            opts.cards ?? { mode: "memory" },
+            igMaxAgeDays(plan, meme, opts.now ?? new Date()),
+          )
       : undefined,
     memeFallback:
       opts.network && opts.fallback
