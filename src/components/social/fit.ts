@@ -482,7 +482,7 @@ export const COVER = {
   labelSizes: [56, 52, 48, 44] as const,
   /** A label that won't fit one line at the last size wraps to two at this. */
   wrapSize: 48,
-  chipSizes: [52, 48, 44] as const,
+  chipSizes: [64, 60, 56, 52, 48, 44] as const,
   /** Chip padding (24 + 16), border (2 x 5) and the icon's gap (12). */
   chipChrome: 62,
 } as const;
