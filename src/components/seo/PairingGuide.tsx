@@ -80,7 +80,13 @@ export function PairingGuide({
       <Section title="The pairs" id="pairs">
         <ol className="flex flex-col gap-3">
           {v.pairs.map((p, i) => (
-            <PairCard key={p.placeId} p={p} n={i + 1} id={pairAnchorId(i)} />
+            <PairCard
+              key={p.placeId}
+              p={p}
+              n={i + 1}
+              id={pairAnchorId(i)}
+              town={v.def.town}
+            />
           ))}
         </ol>
       </Section>
@@ -179,11 +185,14 @@ export function PairCard({
   p,
   n,
   id,
+  town,
 }: {
   p: GuidePair;
   n: number;
   /** The card's anchor (its ItemList url points here). */
   id?: string;
+  /** The guide's town, to help Maps find the place. */
+  town?: string;
 }) {
   const external = !p.anchorHref.startsWith("/");
   const anchorIcon = p.anchorKind === "park" ? "playground" : "home";
@@ -232,7 +241,7 @@ export function PairCard({
           </Link>
         )}
         <a
-          href={p.site ?? mapsHref(p.placeId)}
+          href={p.site ?? mapsHref(p.placeId, p.place, town)}
           className={CHIP}
           rel={p.site ? undefined : "nofollow"}
         >

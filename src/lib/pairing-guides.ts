@@ -1,3 +1,4 @@
+import { mapsPlaceUrl } from "@/lib/geo";
 import { apartChip, cleanName, type MashupTheme } from "@/lib/social/mashup";
 import type { Anchor, Pairing } from "@/lib/social/mashup";
 import { noAt } from "@/lib/social/handles";
@@ -220,9 +221,9 @@ function guidePair(
   };
 }
 
-/** Google Maps for a place by its id alone. */
-export const mapsHref = (placeId: string) =>
-  `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
+/** Google Maps for a place: its name, pinned by its id (lib/geo.ts). */
+export const mapsHref = (placeId: string, name: string, town?: string) =>
+  mapsPlaceUrl(name, placeId, town);
 
 export type PairingGuideView = {
   def: PairingGuideDef;

@@ -716,10 +716,17 @@ describe("the post", () => {
       label: "Their website",
       to: "venue",
     });
-    expect(got[1].placeLink.href).toBe(mapsLink(pairs[1].place.placeId));
+    const href = new URL(got[1].placeLink.href);
     expect(got[1].placeLink.href).toBe(
-      `https://www.google.com/maps/place/?q=place_id:${pairs[1].place.placeId}`,
+      mapsLink(pairs[1].place.placeId, got[1].place, got[1].town),
     );
+    // The Maps URLs form the app opens (q=place_id:... opened nothing).
+    expect(href.pathname).toBe("/maps/search/");
+    expect(href.searchParams.get("api")).toBe("1");
+    expect(href.searchParams.get("query_place_id")).toBe(
+      pairs[1].place.placeId,
+    );
+    expect(href.searchParams.get("query")).toContain(got[1].place);
     expect(
       got.find((p) => p.park === "Farewell Bend Park")?.parkHref,
     ).toBeNull();

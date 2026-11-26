@@ -1,3 +1,4 @@
+import { mapsPlaceUrl } from "@/lib/geo";
 import type { SlideSpec } from "./model";
 
 /**
@@ -228,9 +229,9 @@ export type PagePair = {
   placeLink: { href: string; label: string; to: "venue" | "maps" };
 };
 
-/** Google Maps for a place, by its place id alone (no Google content kept). */
-export function mapsLink(placeId: string): string {
-  return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
+/** Google Maps for a place: its name, pinned by its place id (lib/geo.ts). */
+export function mapsLink(placeId: string, name: string, town?: string): string {
+  return mapsPlaceUrl(name, placeId, town);
 }
 
 const SITE_RE = /^https:\/\/[a-z0-9.-]+\.[a-z]{2,}\/$/i;
@@ -301,7 +302,7 @@ export function mashupPairs(
         s.site && SITE_RE.test(s.site)
           ? { href: s.site, label: "Their website", to: "venue" }
           : {
-              href: mapsLink(s.placeId),
+              href: mapsLink(s.placeId, s.place, s.town),
               label: "Open in Maps",
               to: "maps",
             },

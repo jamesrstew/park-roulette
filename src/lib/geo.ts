@@ -36,3 +36,18 @@ export function placeUrl(p: LatLng & { name: string; city: string }): string {
   });
   return `https://www.google.com/maps/search/?${q}`;
 }
+
+/**
+ * Google Maps for a business by its place id (Maps URLs, api=1). The
+ * "q=place_id:..." form opens nothing in the Maps app (Nov 26), so: a
+ * search whose query is the name (and town), pinned by query_place_id,
+ * which Maps opens directly and falls back to the query if it can't.
+ */
+export function mapsPlaceUrl(name: string, placeId: string, town?: string) {
+  const q = new URLSearchParams({
+    api: "1",
+    query: [name, town, town ? "OR" : "Oregon"].filter(Boolean).join(", "),
+    query_place_id: placeId,
+  });
+  return `https://www.google.com/maps/search/?${q}`;
+}
