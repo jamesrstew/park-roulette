@@ -717,8 +717,10 @@ export const newsIgSuggestions = pgTable(
     id: serial("id").primaryKey(),
     /** The Instagram message id that shared it (one row per message). */
     messageId: text("message_id").notNull(),
-    /** Who sent it (an allow-listed username, lowercase). */
+    /** Who sent it: the allow-listed sender's username (display only). */
     sender: text("sender").notNull(),
+    /** The sender's page-scoped Instagram id (what the allow-list pins). */
+    senderId: text("sender_id").notNull(),
     /** The shared post's link and its shortcode. */
     permalink: text("permalink").notNull(),
     shortcode: text("shortcode").notNull(),
@@ -726,8 +728,10 @@ export const newsIgSuggestions = pgTable(
     /** The post's account and media id, once code has found them. */
     account: text("account"),
     mediaId: text("media_id"),
-    /** open | used | expired */
+    /** open | used | expired | retired (2 failed lookups or checks) */
     status: text("status").notNull().default("open"),
+    /** Plans that couldn't use it (lookup or check failed); 2 retires it. */
+    failures: integer("failures").notNull().default(0),
     /** The last time code couldn't use it, and why (for the plan's report). */
     note: text("note"),
     usedIssueDate: date("used_issue_date"),
@@ -740,10 +744,19 @@ export const newsIgSuggestions = pgTable(
     index("news_ig_suggestions_status").on(t.status, t.sentAt),
     check(
       "news_ig_suggestions_status_check",
-      sql`${t.status} in ('open', 'used', 'expired')`,
+      sql`${t.status} in ('open', 'used', 'expired', 'retired')`,
     ),
   ],
 );
+
+/**
+ * Every DM message id the suggestions reader has handled, with or without
+ * a shared post, so no message is fetched twice. Ids only: no words.
+ */
+export const newsIgDmSeen = pgTable("news_ig_dm_seen", {
+  messageId: text("message_id").primaryKey(),
+  seenAt: timestamp("seen_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 /**
  * Clicks on /n/<issue>/<slug>: the same link for everyone, counted in

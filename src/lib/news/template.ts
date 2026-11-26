@@ -228,17 +228,24 @@ export const SIGNOFF_PHOTO = {
   size: 56,
 } as const;
 
+/** A closing before the name ("Cheers, James", "Thanks,\nJames", "xo James"). */
+const CLOSING_NAME =
+  /(^|[.!?])\s*(?:cheers|thanks|thank you|many thanks|xo+|xoxo|love|best|all the best|warmly|warm wishes|talk soon|see you soon|until next week)[,.!]?\s+James[.!]?$/iu;
+
 /**
  * The sign-off line without a trailing "James": the template signs every
  * issue itself ("See you at the park, James"), so a name the writer adds
- * would print twice. Only a name after a finished sentence (or a dash) is
- * cut, never one inside a sentence ("tell James").
+ * would print twice. Cut: a name after a finished sentence ("... tell me.
+ * James"), after a spaced dash ("Hit reply. - James"), or with its
+ * closing ("Cheers, James", "Thanks,\nJames", "xo James"). Kept: a name
+ * inside a sentence ("tell James") or a hyphenated one ("Mary-James").
  */
 export function signoffText(text: string): string {
   return text
     .trim()
+    .replace(CLOSING_NAME, "$1")
     .replace(/([.!?])\s+(?:[-–—]\s*)?James[.!]?$/u, "$1")
-    .replace(/\s*[-–—]\s*James[.!]?$/u, "")
+    .replace(/\s+[-–—]\s*James[.!]?$/u, "")
     .trim();
 }
 

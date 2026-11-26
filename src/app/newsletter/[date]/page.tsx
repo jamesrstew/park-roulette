@@ -33,7 +33,6 @@ import { PARK_NEWS } from "@/lib/park-news";
 import { type IgSource, igSourceOrNull } from "@/lib/social/model";
 import { SITE_URL } from "@/lib/site";
 import { textsOn } from "@/lib/texts-store";
-import { listedEventsCount } from "@/lib/news/events-count";
 import { TEXTS_FROM } from "@/lib/texts";
 import { townHref } from "@/lib/towns";
 import { betterDay, roughTier } from "@/lib/weekend-pick";
@@ -331,7 +330,8 @@ async function Issue({ params, searchParams }: Props) {
     unsubscribeUrl: null,
     postalAddress: null,
     landing: indoor ? "indoor" : "park",
-    eventsCount: await listedEventsCount(),
+    // The number the email showed, frozen with it.
+    eventsCount: sent.eventsCount,
     ...sent.images,
   } satisfies RenderOptions;
   const pick = parks.get(issue.wheel_pick.park);

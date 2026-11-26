@@ -367,25 +367,50 @@ export async function igLookup(
   return null;
 }
 
+/** Meta refused or failed (a rate limit, an error, a timeout): not "not found". */
+export class IgApiError extends Error {}
+
 /**
  * A post by its shortcode (the code in its link): its page's media, paged
  * back at most 4 times, until a post older than `since`. With the page's
- * own median likes (the score's baseline). Null when it isn't found.
+ * own median likes (the score's baseline). Null when Meta answered and it
+ * isn't there; throws IgApiError when Meta refused or failed (a rate
+ * limit isn't "not found"), or when `deadline` (ms) passes.
  */
 export async function igFindByShortcode(
   username: string,
   shortcode: string,
-  opts: IgOpts & { since: Date },
+  opts: IgOpts & { since: Date; deadline?: number },
 ): Promise<{
   media: IgMedia;
   avatar: string | null;
   baseline: number | null;
 } | null> {
   if (!/^[A-Za-z0-9_-]{5,40}$/.test(shortcode)) return null;
+  let failed: string | null = null;
+  const watched: typeof fetch = async (...a) => {
+    try {
+      const res = await (opts.fetchImpl ?? fetch)(...a);
+      if (!res.ok) failed = `Meta said ${res.status}`;
+      return res;
+    } catch (e) {
+      failed = `Meta didn't answer (${(e as Error)?.name ?? "error"})`;
+      throw e;
+    }
+  };
   let after: string | undefined;
   const likes: number[] = [];
   for (let page = 0; page < 4; page++) {
-    const p = await discoverPage(username, { ...opts, after });
+    if (opts.deadline != null && Date.now() > opts.deadline)
+      throw new IgApiError("out of time");
+    const p = await discoverPage(username, {
+      ...opts,
+      after,
+      fetchImpl: watched,
+    });
+    // A 400 for a personal or unknown account is Meta's answer ("not a
+    // business account"), not a failure; anything else is.
+    if (!p && failed && !/ 400$/.test(failed)) throw new IgApiError(failed);
     const data = p?.media?.data ?? [];
     for (const m of data) if (m.like_count != null) likes.push(m.like_count);
     const media = data.find((m) => igShortcode(m.permalink) === shortcode);

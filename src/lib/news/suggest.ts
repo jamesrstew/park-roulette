@@ -19,20 +19,37 @@ import { blockedLink, MENTIONS } from "./validate";
  * the post still passes every rule a found post passes (likes showing and
  * over the floor, the page's own content, no other creator credited, no
  * politics or profanity, a still image or cover, not blocked, not taken
- * down, its account not featured in the last 8 weeks, no competitor
- * newsletter named or linked). The one difference: it may be up to
- * max_age_days old, not 7, because James shares what he sees when he
- * sees it (decision, November 2026). Suggestions older than that expire.
+ * down, not dropped or flagged from the universe, its account not
+ * featured in the last 8 weeks, no competitor newsletter named or
+ * linked). It may bring in an account outside data/ig-universe.json (that
+ * is the point), with no meme-page discount. The one difference in the
+ * rules: it may be up to max_age_days old, not 7, because James shares
+ * what he sees when he sees it (decision, November 2026). Suggestions
+ * older than that expire.
+ *
+ * The allow-list pins each sender's page-scoped Instagram id (from.id on
+ * the message, fixed for that account): a username can change hands, the
+ * id can't. The username is for display only.
  */
 
 const Config = z.strictObject({
-  /** Instagram usernames whose shared posts count (lowercase). */
-  senders: z.array(z.string().regex(/^[a-z0-9._]{1,30}$/)).min(1),
+  note: z.string().optional(),
+  senders: z
+    .array(
+      z.strictObject({
+        /** The sender's page-scoped id, as Meta puts it in from.id. */
+        id: z.string().regex(/^\d{5,25}$/),
+        /** Display only (reports, suggested_by). */
+        username: z.string().regex(/^[a-z0-9._]{1,30}$/),
+      }),
+    )
+    .min(1),
   max_age_days: z.number().int().min(1).max(90),
 });
 export const SUGGESTERS = Config.parse(raw);
-export const SUGGESTION_SENDERS: ReadonlySet<string> = new Set(
-  SUGGESTERS.senders,
+/** Allow-listed sender ids to their display usernames. */
+export const SUGGESTION_SENDERS: ReadonlyMap<string, string> = new Map(
+  SUGGESTERS.senders.map((s) => [s.id, s.username]),
 );
 export const SUGGESTION_MAX_AGE_DAYS = SUGGESTERS.max_age_days;
 /** At most this many open suggestions are looked up per plan (Meta calls). */
@@ -78,12 +95,15 @@ export function suggestionIneligible(
   now: Date,
   o: {
     blocked: ReadonlySet<string>;
+    /** Accounts dropped or flagged from the universe (lowercase). */
+    excluded: ReadonlySet<string>;
     cooling: ReadonlySet<string>;
     takenDown: (id: string) => boolean;
   },
 ): string | null {
   const who = owner.toLowerCase();
   if (o.blocked.has(who)) return "blocked account";
+  if (o.excluded.has(who)) return "dropped or flagged from the universe";
   if (o.takenDown(m.id)) return "taken down";
   if (o.cooling.has(who)) return "account featured in the last 8 weeks";
   const rule = igIneligible(m, who, now, SUGGESTION_MAX_AGE_DAYS);

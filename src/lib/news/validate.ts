@@ -369,7 +369,6 @@ export function greetingIn(
       .toLowerCase()
       .replace(/^happy\s+|^merry\s+/, "")
       .replace(/[!.]/g, "")
-      .replace(/\s+weekend$/, "")
       .trim();
   return [g.occasion, g.opener].some((t) => {
     const w = words(t);

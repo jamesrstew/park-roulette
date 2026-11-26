@@ -205,6 +205,8 @@ export type Plan = {
       status: SuggestionStatus;
       senders: string[];
       posts: SuggestionReport[];
+      /** Shared links in allow-listed DMs that weren't an Instagram post. */
+      unparsed?: number;
     };
     universe?: UniverseReport;
     rules: string;

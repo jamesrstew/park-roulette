@@ -401,31 +401,36 @@ export async function recentMessages(
   return (r.data ?? []).flatMap((c) => c.messages?.data ?? []);
 }
 
-/** One DM from an allow-listed sender that shared posts (no words kept). */
+/** One DM from an allow-listed sender (no words kept). */
 export type DmShare = {
   messageId: string;
-  /** The sender's username, lowercase, as Meta reports it on the message. */
+  /** The sender's page-scoped id (the allow-list's key). */
+  senderId: string;
+  /** The sender's username from the allow-list (display only). */
   sender: string;
   sentAt: string;
-  /** The shared links, as Meta returns them (shares{link}). */
+  /** The shared links, as Meta returns them (shares{link}); may be empty. */
   links: string[];
 };
 
 /**
- * Posts that allow-listed people shared with us by DM (Parents' corner
- * suggestions, lib/news/suggestions.ts). Read only. The conversation list
- * narrows by participant; each message's own `from` decides, so a message
- * from anyone else in a thread never counts. Messages already handled
- * (`seen`) and those before `since` aren't fetched again. Meta's message
- * node returns a share's link only (no author or caption).
+ * Messages allow-listed people sent us by DM, with any posts they shared
+ * (Parents' corner suggestions, lib/news/suggestions.ts). Read only. A
+ * message counts only when its own from.id is an allow-listed id (a
+ * page-scoped id is fixed for an account; a username can change hands),
+ * so nobody else in a thread, and no renamed account, ever counts.
+ * Messages already handled (`seen`) and those before `since` aren't
+ * fetched again, and nothing starts after `deadline` (ms since epoch).
+ * Meta's message node returns a share's link only (no author or caption).
  */
 export async function suggestionShares(
   page: string,
-  senders: ReadonlySet<string>,
+  senders: ReadonlyMap<string, string>,
   since: Date,
   seen: ReadonlySet<string>,
-  o: GraphOpts,
+  o: GraphOpts & { deadline?: number },
 ): Promise<DmShare[]> {
+  const late = () => o.deadline != null && Date.now() > o.deadline;
   const convs = await call<{
     data?: {
       id: string;
@@ -439,11 +444,8 @@ export async function suggestionShares(
   );
   const out: DmShare[] = [];
   for (const c of convs.data ?? []) {
-    if (
-      !(c.participants?.data ?? []).some((p) =>
-        senders.has((p.username ?? "").toLowerCase()),
-      )
-    )
+    if (late()) break;
+    if (!(c.participants?.data ?? []).some((p) => senders.has(p.id ?? "")))
       continue;
     const r = await call<{
       messages?: {
@@ -455,9 +457,11 @@ export async function suggestionShares(
       };
     }>("GET", c.id, { fields: "messages.limit(50){id,created_time,from}" }, o);
     for (const m of r.messages?.data ?? []) {
-      const sender = (m.from?.username ?? "").toLowerCase();
+      if (late()) break;
+      const senderId = m.from?.id ?? "";
+      const sender = senders.get(senderId);
       const at = Date.parse(m.created_time ?? "");
-      if (!senders.has(sender) || seen.has(m.id)) continue;
+      if (!sender || seen.has(m.id)) continue;
       if (!Number.isFinite(at) || at < since.getTime()) continue;
       // Asking for shares alone: Meta refuses bigger field sets here.
       const d = await call<{ shares?: { data?: { link?: string }[] } }>(
@@ -466,16 +470,15 @@ export async function suggestionShares(
         { fields: "shares" },
         o,
       );
-      const links = (d.shares?.data ?? [])
-        .map((x) => x.link)
-        .filter((l): l is string => !!l);
-      if (links.length)
-        out.push({
-          messageId: m.id,
-          sender,
-          sentAt: new Date(at).toISOString(),
-          links,
-        });
+      out.push({
+        messageId: m.id,
+        senderId,
+        sender,
+        sentAt: new Date(at).toISOString(),
+        links: (d.shares?.data ?? [])
+          .map((x) => x.link)
+          .filter((l): l is string => !!l),
+      });
     }
   }
   return out;

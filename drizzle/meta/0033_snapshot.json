@@ -1,5 +1,5 @@
 {
-  "id": "b37e3bf1-0915-4586-bdea-6bef8e0224a3",
+  "id": "b6ac8801-c037-4331-8a88-2cd9b66f1276",
   "prevId": "8c15968c-9a66-4556-9de1-499db59a8cf9",
   "version": "7",
   "dialect": "postgresql",
@@ -1356,6 +1356,32 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.news_ig_dm_seen": {
+      "name": "news_ig_dm_seen",
+      "schema": "",
+      "columns": {
+        "message_id": {
+          "name": "message_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "seen_at": {
+          "name": "seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.news_ig_suggestions": {
       "name": "news_ig_suggestions",
       "schema": "",
@@ -1374,6 +1400,12 @@
         },
         "sender": {
           "name": "sender",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sender_id": {
+          "name": "sender_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1414,6 +1446,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'open'"
+        },
+        "failures": {
+          "name": "failures",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "note": {
           "name": "note",
@@ -1486,7 +1525,7 @@
       "checkConstraints": {
         "news_ig_suggestions_status_check": {
           "name": "news_ig_suggestions_status_check",
-          "value": "\"news_ig_suggestions\".\"status\" in ('open', 'used', 'expired')"
+          "value": "\"news_ig_suggestions\".\"status\" in ('open', 'used', 'expired', 'retired')"
         }
       },
       "isRLSEnabled": false

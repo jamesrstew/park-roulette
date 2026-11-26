@@ -17,7 +17,6 @@ import {
   sentIssues,
 } from "@/lib/news/data";
 import { subscriptionFor } from "@/lib/news/subscribers";
-import { listedEventsCount } from "@/lib/news/events-count";
 import type { RenderOptions } from "@/lib/news/template";
 import { IssueCard } from "@/components/news/IssueCard";
 import { longDate } from "@/lib/news/time";
@@ -92,7 +91,6 @@ async function Latest() {
   await connection(); // the date and time matter here
   const [issues, next] = await Promise.all([sentIssues(), nextIssueDate()]);
   const latest = issues[0] ? await sentIssue(issues[0].issueDate) : null;
-  const eventsCount = latest ? await listedEventsCount() : null;
   const parks = latest
     ? new Map(
         (await loadParks()).map((p) => [
@@ -113,7 +111,7 @@ async function Latest() {
           eventPages: true,
           unsubscribeUrl: null,
           postalAddress: null,
-          eventsCount,
+          eventsCount: latest.eventsCount,
           ...latest.images,
         } satisfies RenderOptions)
       : null;

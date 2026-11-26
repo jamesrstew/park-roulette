@@ -1,4 +1,5 @@
 {
-  "senders": ["jamesrstewart"],
+  "note": "Parents' corner suggestions by Instagram DM. A message counts only when its sender's page-scoped id (from.id, fixed for this account) matches; the username is for display. Add a sender by reading their id from our conversation with them.",
+  "senders": [{ "id": "1441606531378643", "username": "jamesrstewart" }],
   "max_age_days": 60
 }

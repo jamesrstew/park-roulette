@@ -93,25 +93,28 @@ async function buildPlan(
       !takenDown("x", c.id),
   );
   const cooling = igCooling(history, issueDate);
-  const [ig, suggested] = await Promise.all([
-    igCandidatesWithStatus({
-      now,
-      token: process.env.IG_ACCESS_TOKEN,
-      igUserId: process.env.IG_USER_ID,
-      appSecret: process.env.IG_APP_SECRET || undefined,
-      blocked: blockedAccounts("instagram"),
-      cooling,
-    }),
-    // Posts James shared by DM: first in line, under the same checks.
-    suggestedCandidates({ now, history, cooling }).catch((e) => {
+  const ig = await igCandidatesWithStatus({
+    now,
+    token: process.env.IG_ACCESS_TOKEN,
+    igUserId: process.env.IG_USER_ID,
+    appSecret: process.env.IG_APP_SECRET || undefined,
+    blocked: blockedAccounts("instagram"),
+    cooling,
+  });
+  // Posts James shared by DM: first in line, under the same checks. After
+  // the regular discovery (so they don't share its Meta budget), and
+  // bounded by their own deadline: the plan never waits on them.
+  const suggested = await suggestedCandidates({ now, history, cooling }).catch(
+    (e) => {
       console.error("[news] suggestions failed", (e as Error)?.message);
       return {
         candidates: [],
         report: [],
         status: "api_error" as const,
+        unparsed: 0,
       };
-    }),
-  ]);
+    },
+  );
   const instagram = withSuggestionsFirst(suggested.candidates, ig.candidates);
   const wkEnd = weekendOf(issueDate);
   // The next 14 days of stored events: the writer picks outings from
@@ -284,12 +287,13 @@ async function buildPlan(
     parents_corner: {
       candidates: xCandidates,
       instagram,
-      instagram_status:
-        suggested.candidates.length && ig.status !== "ok" ? "ok" : ig.status,
+      // The regular discovery's own status; suggestions report theirs.
+      instagram_status: ig.status,
       suggestions: {
         status: suggested.status,
-        senders: [...SUGGESTION_SENDERS],
+        senders: [...SUGGESTION_SENDERS.values()],
         posts: suggested.report,
+        unparsed: suggested.unparsed,
       },
       universe: corner.report,
       rules:

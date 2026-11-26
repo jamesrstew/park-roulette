@@ -438,6 +438,10 @@ export async function sentIssue(issueDate: string) {
             images?: { weatherImage: boolean; memeImage: boolean };
           } | null
         )?.images ?? { weatherImage: true, memeImage: true },
+        /** The kids' events count the email showed (null: older sends). */
+        eventsCount:
+          (r.rendered as { eventsCount?: number | null } | null)?.eventsCount ??
+          null,
         prev: r.prev,
         next: r.next,
         /** The stored plan (tiers; a Friday update line, if any). */

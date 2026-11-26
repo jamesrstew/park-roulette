@@ -72,6 +72,22 @@ describe("one sign-off", () => {
       "Spotted a closure? Tell James",
     );
     expect(signoffText("Hit reply.")).toBe("Hit reply.");
+    // A hyphenated name stays; a dash needs a space before it.
+    expect(signoffText("Say hi to Mary-James")).toBe("Say hi to Mary-James");
+    expect(signoffText("Hit reply. Mary-James")).toBe("Hit reply. Mary-James");
+  });
+  it("drops a closing with the name", () => {
+    expect(signoffText("Hit reply and tell me. Cheers, James")).toBe(
+      "Hit reply and tell me.",
+    );
+    expect(signoffText("Hit reply and tell me.\nThanks,\nJames")).toBe(
+      "Hit reply and tell me.",
+    );
+    expect(signoffText("Hit reply! xo James")).toBe("Hit reply!");
+    expect(signoffText("Spotted a closure? Hit reply. Love, James.")).toBe(
+      "Spotted a closure? Hit reply.",
+    );
+    expect(signoffText("Thanks, James")).toBe("");
   });
   it("signs once, with James's photo, in the HTML and the text", () => {
     const html = renderHtml(issue, opts());
@@ -188,6 +204,10 @@ describe("a holiday-aware hello", () => {
     expect(greetingIn("Happy Thanksgiving! Rain Friday.", g)).toBe(true);
     expect(greetingIn("Happy Thanksgiving. Rain Friday.", g)).toBe(true);
     expect(greetingIn("Rain is forecast Friday.", g)).toBe(false);
+    const lw = { occasion: "long weekend", opener: "Happy long weekend!" };
+    expect(greetingIn("Happy long weekend! Monday is off.", lw)).toBe(true);
+    // The whole phrase, not just "long".
+    expect(greetingIn("A long, dry Saturday is forecast.", lw)).toBe(false);
     const w = { occasion: "winter break", opener: "Happy winter break!" };
     expect(greetingIn("Winter break starts Monday.", w)).toBe(true);
   });

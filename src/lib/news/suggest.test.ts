@@ -31,13 +31,17 @@ const media = (extra: Partial<IgMedia> = {}): IgMedia => ({
 
 const none = {
   blocked: new Set<string>(),
+  excluded: new Set<string>(),
   cooling: new Set<string>(),
   takenDown: () => false,
 };
 
 describe("the suggestion allow-list", () => {
   it("is only James for now, and expires at 60 days", () => {
-    expect(SUGGESTERS.senders).toEqual(["jamesrstewart"]);
+    // Pinned by James's page-scoped id; the username is display only.
+    expect(SUGGESTERS.senders).toEqual([
+      { id: "1441606531378643", username: "jamesrstewart" },
+    ]);
     expect(SUGGESTION_MAX_AGE_DAYS).toBe(60);
     expect(suggestionExpired(days(59), NOW)).toBe(false);
     expect(suggestionExpired(days(61), NOW)).toBe(true);
@@ -166,6 +170,25 @@ describe("a suggestion passes every check a found post passes", () => {
   });
 });
 
+describe("the universe gate", () => {
+  it("lets in an account outside the universe, never a dropped or flagged one", () => {
+    expect(suggestionIneligible(media(), "someone.new", NOW, none)).toBeNull();
+    expect(
+      suggestionIneligible(media(), "Dropped.Acct", NOW, {
+        ...none,
+        excluded: new Set(["dropped.acct"]),
+      }),
+    ).toBe("dropped or flagged from the universe");
+  });
+  it("gives a meme page's suggestion no discount", () => {
+    const c = suggestedCandidate(media(), "parentnormal", null, 10_000, {
+      sender: "jamesrstewart",
+      sentAt: NOW,
+    });
+    expect(c.score).toBe(4.9);
+  });
+});
+
 describe("suggested candidates lead the list", () => {
   const cand = (id: string, at: string) =>
     suggestedCandidate(
@@ -213,7 +236,17 @@ describe("reading James's shared posts from the DMs", () => {
               participants: {
                 data: [
                   { id: "1", username: "park_roulette" },
-                  { id: "2", username: "JamesRStewart" },
+                  { id: "1441606531378643", username: "jamesrstewart" },
+                ],
+              },
+            },
+            {
+              // A renamed account took James's old username: different id.
+              id: "c-imposter",
+              participants: {
+                data: [
+                  { id: "1", username: "park_roulette" },
+                  { id: "999999999", username: "jamesrstewart" },
                 ],
               },
             },
@@ -228,6 +261,18 @@ describe("reading James's shared posts from the DMs", () => {
             },
           ],
         });
+      if (path === "c-imposter")
+        return Response.json({
+          messages: {
+            data: [
+              {
+                id: "m9",
+                created_time: "2026-11-23T21:19:17+0000",
+                from: { id: "999999999", username: "jamesrstewart" },
+              },
+            ],
+          },
+        });
       if (path === "c-james")
         return Response.json({
           messages: {
@@ -235,22 +280,28 @@ describe("reading James's shared posts from the DMs", () => {
               {
                 id: "m1",
                 created_time: "2026-11-23T21:19:17+0000",
-                from: { username: "jamesrstewart" },
+                from: { id: "1441606531378643", username: "jamesrstewart" },
+              },
+              {
+                // The right username with the wrong id never counts.
+                id: "m5",
+                created_time: "2026-11-23T21:20:00+0000",
+                from: { id: "999999999", username: "jamesrstewart" },
               },
               {
                 id: "m2",
                 created_time: "2026-11-23T14:21:41+0000",
-                from: { username: "park_roulette" },
+                from: { id: "1", username: "park_roulette" },
               },
               {
                 id: "m3",
                 created_time: "2026-08-01T00:00:00+0000",
-                from: { username: "jamesrstewart" },
+                from: { id: "1441606531378643", username: "jamesrstewart" },
               },
               {
                 id: "m4",
                 created_time: "2026-11-24T00:00:00+0000",
-                from: { username: "jamesrstewart" },
+                from: { id: "1441606531378643", username: "jamesrstewart" },
               },
             ],
           },
@@ -268,7 +319,7 @@ describe("reading James's shared posts from the DMs", () => {
     const calls: string[] = [];
     const out = await suggestionShares(
       "page1",
-      new Set(["jamesrstewart"]),
+      new Map([["1441606531378643", "jamesrstewart"]]),
       new Date("2026-10-01T00:00:00Z"),
       new Set(["m4"]),
       { token: "tok", igUserId: "1789", fetchImpl: graphFetch(calls) },
@@ -276,6 +327,7 @@ describe("reading James's shared posts from the DMs", () => {
     expect(out).toEqual([
       {
         messageId: "m1",
+        senderId: "1441606531378643",
         sender: "jamesrstewart",
         sentAt: "2026-11-23T21:19:17.000Z",
         links: ["https://www.instagram.com/reel/DaUF_fJyd3H/"],
@@ -284,7 +336,8 @@ describe("reading James's shared posts from the DMs", () => {
     // Our own reply, the old message and the seen one are never fetched,
     // and the stranger's conversation is never opened.
     expect(calls.some((c) => c.includes("c-other"))).toBe(false);
-    expect(calls.some((c) => /\/m[234]\?/.test(c))).toBe(false);
+    expect(calls.some((c) => c.includes("c-imposter"))).toBe(false);
+    expect(calls.some((c) => /\/m[2345]\?/.test(c))).toBe(false);
     // Read only: every call is a GET.
   });
 });

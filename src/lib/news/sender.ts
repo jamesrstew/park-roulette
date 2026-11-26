@@ -80,7 +80,22 @@ export type Rendered = {
   html: string;
   text: string;
   images?: { weatherImage: boolean; memeImage: boolean };
+  /**
+   * The kids' events count the email's This weekend link showed (null:
+   * unknown, or older sends); the web archive shows the same number.
+   */
+  eventsCount?: number | null;
 };
+
+/**
+ * The frozen email as Resend gets it: eventsCount is the archive's, never
+ * sent (images rode along before it, so they stay byte-for-byte).
+ */
+function forResend(r: Rendered): Omit<Rendered, "eventsCount"> {
+  const { eventsCount: _count, ...rest } = r;
+  void _count;
+  return rest;
+}
 
 export async function runNewsSend(now = new Date()): Promise<SenderResult> {
   await beat();
@@ -284,12 +299,13 @@ function render(
           { name: p.name, city: p.city },
         ]),
       );
+    // Frozen with the rest of the email at snapshot time.
+    const eventsCount = await listedEventsCount();
     const o = {
       catalog: CATALOG,
       site: SITE_URL,
       number,
-      // Frozen with the rest of the email at snapshot time.
-      eventsCount: await listedEventsCount(),
+      eventsCount,
       park: (slug: string) => names.get(slug),
       links: dryRun ? ("direct" as const) : ("track" as const),
       unsubscribeUrl: `${SITE_URL}/news/unsubscribe?t=${UNSUB}`,
@@ -306,6 +322,7 @@ function render(
       html: renderHtml(body, o),
       text: renderText(body, o),
       images,
+      eventsCount,
     };
   })();
 }
@@ -319,7 +336,7 @@ async function dryRun(
   const r = await sendOne(
     personalize(
       {
-        ...(await rendered),
+        ...forResend(await rendered),
         from: NEWS_FROM(),
         to: [to],
         reply_to: NEWS_REPLY_TO(),
@@ -508,7 +525,7 @@ async function resume(issue: Row, owner: string): Promise<SenderResult> {
       memeImage: false,
     }));
   const base: OutEmail = {
-    ...frozen,
+    ...forResend(frozen),
     from: NEWS_FROM(),
     to: [],
     reply_to: NEWS_REPLY_TO(),
