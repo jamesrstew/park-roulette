@@ -74,7 +74,8 @@ ${inner}
 }
 
 function changeWords(h: Headline): string {
-  if (h.change === "not measured") return "not measured";
+  if (h.change === "not measured")
+    return h.key === "visitors" ? "not connected yet" : "not measured";
   if (h.change === "no prior week") return "new this week";
   if (h.change === "same") return "same as last week";
   return `${h.change.startsWith("+") ? "▲" : "▼"} ${h.change} vs last week`;
@@ -156,7 +157,7 @@ function tableHtml(v: DigestView): string {
     );
   }).join("");
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${head}${body}</table>
-<div class="txt-soft" style="${F}font-size:12px;line-height:17px;color:${C.soft};padding-top:8px;">Rows that were 0 both weeks are left out. Every other number is in the full view.</div>`;
+<div class="txt-soft" style="${F}font-size:12px;line-height:17px;color:${C.soft};padding-top:8px;">Rows that were 0 both weeks or aren't measured yet are left out. Every number is in the full view.</div>`;
 }
 
 export type RenderOptions = {
@@ -175,7 +176,12 @@ export function renderSubject(v: DigestView): string {
         ? ` (${h.change.split(" ")[0]})`
         : ""
     }`;
-  return `Growth, ${v.week.label}: ${part(fam.value === 1 ? "new family" : "new families", fam)}, ${part("visitors", vis)}, ${part("reach", aud)}`;
+  const parts = [
+    part(fam.value === 1 ? "new family" : "new families", fam),
+    vis.value == null ? null : part("visitors", vis),
+    aud.value == null ? null : part("reach", aud),
+  ].filter(Boolean);
+  return `Growth, ${v.week.label}: ${parts.join(", ")}`;
 }
 
 export function renderHtml(v: DigestView, opts: RenderOptions): string {

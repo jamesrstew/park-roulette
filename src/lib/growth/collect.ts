@@ -27,6 +27,16 @@ import type { Week } from "./week";
  * digest still goes.
  */
 
+/** Metrics that only mean something when read at the time (see above). */
+export const AS_OF_NOW = [
+  "email_clicks",
+  "text_clicks",
+  "email_pending",
+  "event_saves",
+  "event_hides",
+  "both_lists",
+] as const;
+
 /** Vercel Web Analytics began counting (components/SiteAnalytics.tsx). */
 export const ANALYTICS_SINCE = new Date("2026-11-13T08:00:00Z");
 
@@ -299,15 +309,28 @@ export async function collectWeek(
   });
 
   task("health", async () => {
-    const keys = await rows(sql`
-      select key from alert_log
-      where key <> '_hour' and ${inWeek(sql`sent_at`)} order by sent_at`);
-    // Keys can carry ids and dates ("report:123"): keep only the kind.
-    details.alertKeys = [...new Set(keys.map((k) => alertKind(String(k.key))))];
-    metrics.alerts = keys.length;
-    metrics.cron_errors = keys.filter((k) =>
-      String(k.key).startsWith("error:cron-"),
-    ).length;
+    // alert_log keeps only each kind's LAST email, not history, so it's
+    // read on live runs only: kinds that emailed since the week began (to
+    // now, so this morning counts too). A job that keeps failing re-emails
+    // at least daily (every cron alert's window is 23 hours or less), so
+    // it always shows. Counter rows (_hour, inbox:tempfail:<id>) aren't
+    // alerts.
+    if (o.live) {
+      const keys = await rows(sql`
+        select key from alert_log
+        where key <> '_hour' and key not like 'inbox:tempfail:%'
+          and sent_at >= ${F}
+        order by sent_at`);
+      const kinds = [...new Set(keys.map((k) => alertKind(String(k.key))))];
+      details.alertKeys = kinds;
+      metrics.alerts = kinds.length;
+      metrics.cron_errors = kinds.filter((k) =>
+        k.startsWith("error:cron-"),
+      ).length;
+    } else {
+      metrics.alerts = null;
+      metrics.cron_errors = null;
+    }
     const p = await one(sql`
       select coalesce(sum(requests + details), 0) as total,
              coalesce(max(requests), 0) as peak
@@ -323,7 +346,7 @@ export async function collectWeek(
     missing.push("Visitors: Web Analytics wasn't on yet that week");
   else if (!vc)
     missing.push(
-      "Visitors: Vercel Web Analytics isn't connected (set VERCEL_ANALYTICS_TOKEN and VERCEL_ANALYTICS_TEAM_ID)",
+      "Visitors, sources and browser events (spins, sign-in codes, asks): not connected yet. They start once VERCEL_ANALYTICS_TOKEN and VERCEL_ANALYTICS_TEAM_ID are set in Vercel.",
     );
   else
     task("Vercel Web Analytics", async () => {
@@ -361,8 +384,14 @@ export async function collectWeek(
 
   await Promise.all(tasks);
 
+  // Numbers that are "so far" or "right now" (link taps keep counting,
+  // saves get undone, pending rows change, accounts change numbers): a
+  // rebuilt week can't know what they were, so it leaves them unmeasured
+  // rather than invite a false week-over-week change.
+  if (!o.live) for (const k of AS_OF_NOW) metrics[k] = null;
+
   // Per-post numbers need the week's posts first (lifetime, so far).
-  if (go && published.length) {
+  if (o.live && go && published.length) {
     details.posts = await Promise.all(
       published.map(async (p) => {
         const i = await postInsights(go, p.ig);

@@ -57,7 +57,7 @@ export const METRICS: readonly MetricDef[] = [
     "Visitors",
     "flow",
     VERCEL,
-    "Daily unique browsers, added up over the week (a family that came on 3 days counts 3). No cookies.",
+    "Vercel's unique visitors for the week. Its visitor code resets daily (no cookies), so someone who comes on several days can count more than once.",
   ),
   m(
     "pageviews",
@@ -563,11 +563,11 @@ export const METRICS: readonly MetricDef[] = [
   // Health
   m(
     "alerts",
-    "Alert emails",
+    "Alert kinds",
     "Health",
     "flow",
     "alert_log",
-    "Alert kinds that last emailed James this week (repeats roll into one email; older ones in the same kind aren't kept).",
+    "Kinds of alert that emailed James since the week began (a job that keeps failing re-emails at least daily). alert_log keeps only each kind's last email, so this is read live; rebuilt weeks show it as not measured.",
     { lowerIsBetter: true },
   ),
   m(
@@ -576,7 +576,7 @@ export const METRICS: readonly MetricDef[] = [
     "Health",
     "flow",
     "alert_log",
-    "Scheduled jobs whose failure alert last fired this week.",
+    "Scheduled jobs whose failure alert emailed since the week began.",
     { lowerIsBetter: true },
   ),
   m(
@@ -589,11 +589,11 @@ export const METRICS: readonly MetricDef[] = [
   ),
   m(
     "places_peak_pct",
-    "Places busiest day",
+    "Places requests, busiest day (% of cap)",
     "Health",
     "flow",
     "places_usage",
-    "The week's busiest day as a share of the 60-a-day Text Search cap.",
+    "Text Search requests on the week's busiest day, as a share of the 60-a-day cap.",
     { lowerIsBetter: true },
   ),
 ];

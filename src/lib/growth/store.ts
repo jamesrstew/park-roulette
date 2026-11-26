@@ -79,7 +79,8 @@ export async function saveSnapshot(s: Snapshot): Promise<void> {
         backfilled: s.backfilled,
         computedAt: sql`now()`,
       },
-      setWhere: isNull(growthSnapshots.emailSentAt),
+      // Frozen once the email is rendered: what's stored is what was sent.
+      setWhere: isNull(growthSnapshots.renderedAt),
     });
 }
 
@@ -103,6 +104,52 @@ export async function claimSend(week: string): Promise<boolean> {
     )
     .returning({ w: growthSnapshots.weekStart });
   return rs.length === 1;
+}
+
+export type RenderedEmail = { subject: string; html: string; text: string };
+
+/**
+ * Render once: store the email and the snapshot it was made from, in one
+ * write, unless an earlier run already did (then its bytes win). Returns
+ * the email to send and the key attempt it's on.
+ */
+export async function freezeEmail(
+  s: Snapshot,
+  email: RenderedEmail,
+): Promise<{ email: RenderedEmail; attempt: number }> {
+  await db
+    .update(growthSnapshots)
+    .set({
+      metrics: s.metrics,
+      details: s.details,
+      backfilled: s.backfilled,
+      computedAt: sql`now()`,
+      renderedAt: sql`now()`,
+      emailSubject: email.subject,
+      emailHtml: email.html,
+      emailText: email.text,
+    })
+    .where(
+      and(
+        eq(growthSnapshots.weekStart, s.weekStart),
+        isNull(growthSnapshots.renderedAt),
+      ),
+    );
+  const r = await snapshotRow(s.weekStart);
+  if (!r?.emailSubject || r.emailHtml == null || r.emailText == null)
+    throw new Error("growth digest: rendered email missing after freeze");
+  return {
+    email: { subject: r.emailSubject, html: r.emailHtml, text: r.emailText },
+    attempt: r.emailAttempt,
+  };
+}
+
+/** Resend clearly didn't take the last key: the next try uses a new one. */
+export async function bumpAttempt(week: string) {
+  await db
+    .update(growthSnapshots)
+    .set({ emailAttempt: sql`${growthSnapshots.emailAttempt} + 1` })
+    .where(eq(growthSnapshots.weekStart, week));
 }
 
 export async function markSent(week: string, resendId: string | null) {

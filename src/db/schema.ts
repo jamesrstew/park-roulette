@@ -1436,6 +1436,21 @@ export const growthSnapshots = pgTable(
     emailSentAt: timestamp("email_sent_at", { withTimezone: true }),
     /** Resend's id for the digest email. */
     resendId: text("resend_id"),
+    /**
+     * The email exactly as rendered, once, after the send was claimed:
+     * every retry sends these bytes, and the snapshot above is frozen from
+     * then on, so what's stored is what was emailed.
+     */
+    renderedAt: timestamp("rendered_at", { withTimezone: true }),
+    emailSubject: text("email_subject"),
+    emailHtml: text("email_html"),
+    emailText: text("email_text"),
+    /**
+     * Which Idempotency-Key the send is on (growth-digest-<week>-a<n>):
+     * kept after a "later" (Resend may have taken it), bumped after a
+     * server, invalid or fatal answer (it clearly didn't).
+     */
+    emailAttempt: integer("email_attempt").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

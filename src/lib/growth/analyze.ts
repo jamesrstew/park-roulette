@@ -125,7 +125,7 @@ export const HEADLINES = [
   {
     key: "visitors",
     label: "Weekly visitors",
-    note: "daily unique browsers, added up",
+    note: "unique per day, as Vercel counts",
   },
 ] as const;
 
@@ -395,7 +395,14 @@ const shortDate = (iso: string) =>
 export type FunnelStep = { label: string; n: number | null; note?: string };
 export type Funnel = { name: string; steps: FunnelStep[] };
 
+/** The funnels with their measured steps only (a funnel needs two). */
 export function funnels(cur: Snapshot): Funnel[] {
+  return allFunnels(cur)
+    .map((f) => ({ ...f, steps: f.steps.filter((s) => s.n != null) }))
+    .filter((f) => f.steps.length >= 2);
+}
+
+function allFunnels(cur: Snapshot): Funnel[] {
   const e = cur.details.events;
   const ev = (name: string) => (e ? (e[name] ?? 0) : null);
   const ask = cur.details.askShownBy;
@@ -718,6 +725,8 @@ export function buildView(cur: Snapshot, history: Snapshot[]): DigestView {
       source: d.source,
       inEmail:
         (EMAIL_ROWS as readonly string[]).includes(d.key) &&
+        // Nothing to say: 0 both weeks, or not measured this week.
+        v(cur, d.key) != null &&
         !(v(cur, d.key) === 0 && (v(prev, d.key) ?? 0) === 0),
     })),
   };

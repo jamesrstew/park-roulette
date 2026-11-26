@@ -22,6 +22,18 @@ describe.skipIf(!local)("the growth digest, against Postgres", () => {
   let weekOf: typeof import("./week").weekOf;
   const sent: { key: string | null; to: string[]; subject: string }[] = [];
   const q = (t: string) => db.execute(sql.raw(t));
+  const resendOk = async (url: string | URL | Request, init?: RequestInit) => {
+    if (String(url).startsWith("https://api.resend.com/emails")) {
+      const body = JSON.parse(String(init?.body));
+      sent.push({
+        key: new Headers(init?.headers).get("idempotency-key"),
+        to: body.to,
+        subject: body.subject,
+      });
+      return Response.json({ id: `re_${sent.length}` });
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
 
   beforeAll(async () => {
     process.env.DATABASE_URL = URL_;
@@ -29,21 +41,7 @@ describe.skipIf(!local)("the growth digest, against Postgres", () => {
     process.env.ALERT_EMAIL = "owner@example.test";
     delete process.env.VERCEL_ANALYTICS_TOKEN;
     delete process.env.IG_ACCESS_TOKEN;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (url: string, init: RequestInit) => {
-        if (String(url).startsWith("https://api.resend.com/emails")) {
-          const body = JSON.parse(String(init.body));
-          sent.push({
-            key: new Headers(init.headers).get("idempotency-key"),
-            to: body.to,
-            subject: body.subject,
-          });
-          return Response.json({ id: `re_${sent.length}` });
-        }
-        throw new Error(`unexpected fetch ${url}`);
-      }),
-    );
+    vi.stubGlobal("fetch", vi.fn(resendOk));
     ({ db } = await import("@/db"));
     ({ sql } = await import("drizzle-orm"));
     ({ collectWeek } = await import("./collect"));
@@ -53,6 +51,7 @@ describe.skipIf(!local)("the growth digest, against Postgres", () => {
 
   beforeEach(async () => {
     sent.length = 0;
+    vi.mocked(fetch).mockImplementation(resendOk);
     await q(
       `truncate growth_snapshots, contact_consents, sms_opt_outs, email_subscribers, visits, reviews, media, event_saves, event_hides, park_votes, explorers, crews, parks, alert_log, places_usage, social_posts, social_dm_replies, news_sends, news_issues, news_clicks, sms_program_sends, kid_events, pairing_pages restart identity cascade`,
     );
@@ -85,12 +84,15 @@ describe.skipIf(!local)("the growth digest, against Postgres", () => {
       insert into alert_log (key, sent_at, suppressed) values
         ('error:cron-social', '2026-11-24T12:00:00Z', 0),
         ('report:12', '2026-11-25T12:00:00Z', 0),
-        ('_hour', '2026-11-25T12:00:00Z', 1);
+        ('_hour', '2026-11-25T12:00:00Z', 1),
+        ('inbox:tempfail:abc', '2026-11-25T12:00:00Z', 1),
+        ('error:cron-cleanup', '2026-11-29T12:00:00Z', 4),
+        ('error:cron-events-check', '2026-11-10T12:00:00Z', 2);
     `);
   });
 
   it("counts the week", async () => {
-    const s = await collectWeek(weekOf("2026-11-23"), { live: false });
+    const s = await collectWeek(weekOf("2026-11-23"), { live: true });
     const m = s.metrics;
     expect(m.families_new).toBe(1);
     expect(m.families_total).toBe(2);
@@ -108,9 +110,15 @@ describe.skipIf(!local)("the growth digest, against Postgres", () => {
     expect(m.texts_new).toBe(2);
     expect(m.texts_stop_replies).toBe(1);
     expect(m.both_lists).toBe(1);
-    expect(m.alerts).toBe(2);
-    expect(m.cron_errors).toBe(1);
-    expect(s.details.alertKeys).toEqual(["error:cron-social", "report"]);
+    // Kinds, not keys; counter rows (_hour, inbox:tempfail:<id>) aren't alerts.
+    expect(m.alerts).toBe(3);
+    expect(m.cron_errors).toBe(2);
+    // Sent since the week began (so this morning's too); not older ones.
+    expect(s.details.alertKeys).toEqual([
+      "error:cron-social",
+      "report",
+      "error:cron-cleanup",
+    ]);
     expect(s.details.emailBySource).toEqual({ welcome_sheet: 1 });
     // Not connected here: null, never 0, and named as a gap.
     expect(m.visitors ?? null).toBeNull();
@@ -122,6 +130,10 @@ describe.skipIf(!local)("the growth digest, against Postgres", () => {
     const s = await collectWeek(weekOf("2026-11-16"), { live: false });
     expect(s.metrics.texts_list).toBe(1);
     expect(s.metrics.email_list).toBe(2);
+    // A rebuilt week can't know "so far" or "right now" numbers.
+    expect(s.metrics.alerts).toBeNull();
+    expect(s.metrics.email_clicks).toBeNull();
+    expect(s.metrics.both_lists).toBeNull();
   });
 
   it("sends once per week, however many runs", async () => {
@@ -131,7 +143,7 @@ describe.skipIf(!local)("the growth digest, against Postgres", () => {
     expect(first.action === "sent" && first.backfilled).toHaveLength(4);
     expect(sent).toHaveLength(1);
     expect(sent[0].to).toEqual(["owner@example.test"]);
-    expect(sent[0].key).toBe("growth-digest-2026-11-23");
+    expect(sent[0].key).toBe("growth-digest-2026-11-23-a0");
     const again = await Promise.all([
       runDigest(new Date(MONDAY.getTime() + 30 * 60_000), live),
       runDigest(new Date(MONDAY.getTime() + 30 * 60_000), live),
@@ -169,6 +181,46 @@ describe.skipIf(!local)("the growth digest, against Postgres", () => {
       `select metrics->>'families_new' as n from growth_snapshots where week_start = '2026-11-23'`,
     )) as unknown as { n: string }[];
     expect(r.n).toBe("1");
+  });
+
+  it("retries with the stored bytes, and a new key only when Resend clearly refused", async () => {
+    // First try: Resend times out ("later"), then a 500, then it works.
+    const answers = [0, 500, 200];
+    const keys: string[] = [];
+    const bodies: string[] = [];
+    vi.mocked(fetch).mockImplementation(async (_url, init) => {
+      const key = new Headers(init?.headers).get("idempotency-key");
+      // The failure alert itself (no key): let it through.
+      if (!key) return Response.json({ id: "alert" });
+      keys.push(new Headers(init?.headers).get("idempotency-key") ?? "");
+      bodies.push(String(init?.body));
+      const status = answers.shift()!;
+      if (status === 0) throw new Error("timeout");
+      return status === 200
+        ? Response.json({ id: "re_ok" })
+        : Response.json({ name: "internal_server_error" }, { status });
+    });
+    const r1 = await runDigest(MONDAY, {});
+    expect(r1.action).toBe("failed");
+    // More happens between runs: the stored email must not change.
+    await q(
+      `insert into crews (id, name, color, join_code, friend_code, created_at) values (8, 'Later', 'red', 'j8', 'f8', '2026-11-26T12:00:00Z')`,
+    );
+    const r2 = await runDigest(new Date(MONDAY.getTime() + 30 * 60_000), {});
+    expect(r2.action).toBe("failed");
+    const r3 = await runDigest(new Date(MONDAY.getTime() + 60 * 60_000), {});
+    expect(r3.action).toBe("sent");
+    expect(keys).toEqual([
+      "growth-digest-2026-11-23-a0",
+      "growth-digest-2026-11-23-a0",
+      "growth-digest-2026-11-23-a1",
+    ]);
+    expect(new Set(bodies).size).toBe(1);
+    const [r] = (await q(
+      `select metrics->>'families_new' as n, email_sent_at is not null as sent from growth_snapshots where week_start = '2026-11-23'`,
+    )) as unknown as { n: string; sent: boolean }[];
+    // The stored snapshot is the one that was emailed (1, not 2).
+    expect(r).toMatchObject({ n: "1", sent: true });
   });
 
   it("does nothing outside Monday morning", async () => {

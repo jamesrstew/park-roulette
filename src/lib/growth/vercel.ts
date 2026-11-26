@@ -10,8 +10,9 @@ import type { Details, Metrics } from "./model";
  * VERCEL_ANALYTICS_TEAM_ID; the project defaults to "park-roulette".
  * Unset: traffic shows as "not connected" in the digest's gaps.
  *
- * "Visitors" is Vercel's count: a browser is one visitor per day (its hash
- * rotates daily), so over a week a family that came on 3 days counts 3.
+ * "Visitors" is Vercel's own unique count over the week. Its visitor code
+ * resets daily, so someone who comes on several days can count more than
+ * once; sources are counted the same way, per referrer.
  * Query strings never reach Vercel (lib/analytics-url.ts), so ?from= is
  * read from the "Arrived" event instead. Pure: config and fetch come in.
  */
@@ -100,20 +101,43 @@ export type Traffic = {
   daily: { day: string; visitors: number; pageviews: number }[];
 };
 
-const num = (v: unknown) => (typeof v === "number" ? v : Number(v) || 0);
+/** A count Vercel must have sent: a missing or odd one fails the source. */
+function count(r: Row, key: string): number {
+  const v = r[key];
+  if (typeof v !== "number" || !Number.isFinite(v) || v < 0)
+    throw new VercelAnalyticsError(`Vercel's answer has no ${key}`, 200);
+  return v;
+}
 
-/** Everything the digest reads from Vercel for [from, to). */
+/** A dimension Vercel must have sent ("" is a real value: no referrer). */
+function label(r: Row, key: string): string {
+  const v = r[key];
+  if (typeof v !== "string")
+    throw new VercelAnalyticsError(`Vercel's answer has no ${key}`, 200);
+  return v;
+}
+
+/** Vercel folds rows past `limit` into one "Others" row. */
+export const OTHERS = "Others";
+
+/**
+ * Everything the digest reads from Vercel for [from, to). Any malformed
+ * answer throws, so the digest shows the source as missing, never zeros.
+ */
 export async function readTraffic(
   c: VercelConfig,
   from: Date,
   to: Date,
 ): Promise<Traffic> {
-  // A dimension keeps the exact hours; a time-only query snaps to UTC days.
+  // A dimension keeps the exact hours (a time-only query snaps to UTC
+  // days). The total comes from the one-value environment dimension, not
+  // a sum over referrers (a visitor with two referrers would count twice).
   const range = {
     since: from.toISOString(),
     until: new Date(to.getTime() - 1000).toISOString(),
   };
-  const [refs, paths, events, asks, arrived, daily] = await Promise.all([
+  const [total, refs, paths, events, asks, arrived, daily] = await Promise.all([
+    query(c, "visits/aggregate", { ...range, by: "environment" }),
     query(c, "visits/aggregate", {
       ...range,
       by: "referrerHostname",
@@ -135,38 +159,44 @@ export async function readTraffic(
     }),
     query(c, "visits/aggregate", { ...range, by: "day" }),
   ]);
-  const referrers = refs.map((r) => ({
-    host: String(r.referrerHostname ?? ""),
-    visitors: num(r.visitors),
-    pageviews: num(r.pageviews),
-  }));
-  const byData = (rows: Row[], key: string) =>
-    Object.fromEntries(
-      rows
-        .map((r) => [String(r[key] ?? r.eventData ?? ""), num(r.count)])
-        .filter(([k]) => k !== ""),
-    ) as Record<string, number>;
+  const prod = total.filter((r) => r.environment === "production");
+  const byData = (rows: Row[], key: string) => {
+    const out: Record<string, number> = {};
+    for (const r of rows) {
+      // Vercel names the column "eventData/<key>" (or plain "eventData").
+      const k =
+        typeof r[key] === "string" ? String(r[key]) : label(r, "eventData");
+      if (k && k !== OTHERS) out[k] = count(r, "count");
+    }
+    return out;
+  };
   return {
-    visitors: referrers.reduce((n, r) => n + r.visitors, 0),
-    pageviews: referrers.reduce((n, r) => n + r.pageviews, 0),
-    referrers,
+    visitors: prod.reduce((n, r) => n + count(r, "visitors"), 0),
+    pageviews: prod.reduce((n, r) => n + count(r, "pageviews"), 0),
+    referrers: refs.map((r) => ({
+      host: label(r, "referrerHostname"),
+      visitors: count(r, "visitors"),
+      pageviews: count(r, "pageviews"),
+    })),
     paths: paths.map((r) => ({
-      path: String(r.requestPath ?? ""),
-      visitors: num(r.visitors),
-      pageviews: num(r.pageviews),
+      path: label(r, "requestPath"),
+      visitors: count(r, "visitors"),
+      pageviews: count(r, "pageviews"),
     })),
     events: Object.fromEntries(
-      events.map((r) => [
-        String(r.eventName ?? ""),
-        { count: num(r.count), visitors: num(r.visitors) },
-      ]),
+      events
+        .filter((r) => label(r, "eventName") !== OTHERS)
+        .map((r) => [
+          label(r, "eventName"),
+          { count: count(r, "count"), visitors: count(r, "visitors") },
+        ]),
     ),
     askShownBy: byData(asks, "eventData/channel"),
     arrivedBy: byData(arrived, "eventData/from"),
     daily: daily.map((r) => ({
-      day: String(r.timestamp ?? "").slice(0, 10),
-      visitors: num(r.visitors),
-      pageviews: num(r.pageviews),
+      day: label(r, "timestamp").slice(0, 10),
+      visitors: count(r, "visitors"),
+      pageviews: count(r, "pageviews"),
     })),
   };
 }
@@ -244,7 +274,7 @@ export function applyTraffic(t: Traffic, metrics: Metrics, details: Details) {
   for (const [k, v] of Object.entries(sources)) metrics[`src_${k}`] = v;
   details.sources = sources;
   details.referrers = t.referrers
-    .filter((r) => r.host)
+    .filter((r) => r.host && r.host !== OTHERS)
     .slice(0, 12)
     .map((r) => ({ host: r.host, visitors: r.visitors }));
   const groups = new Map<string, { visitors: number; pageviews: number }>();
@@ -260,7 +290,7 @@ export function applyTraffic(t: Traffic, metrics: Metrics, details: Details) {
   // Family invite codes never reach Vercel (lib/analytics-url.ts); admin
   // pages stay out of the list anyway.
   details.topPaths = t.paths
-    .filter((p) => !p.path.startsWith("/admin"))
+    .filter((p) => !p.path.startsWith("/admin") && p.path !== OTHERS)
     .slice(0, 15);
   details.daily = t.daily;
   details.events = Object.fromEntries(

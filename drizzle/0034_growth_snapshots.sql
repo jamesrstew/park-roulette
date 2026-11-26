@@ -7,6 +7,11 @@ CREATE TABLE "growth_snapshots" (
 	"email_claimed_at" timestamp with time zone,
 	"email_sent_at" timestamp with time zone,
 	"resend_id" text,
+	"rendered_at" timestamp with time zone,
+	"email_subject" text,
+	"email_html" text,
+	"email_text" text,
+	"email_attempt" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "growth_snapshots_monday" CHECK (extract(isodow from "growth_snapshots"."week_start") = 1)
 );

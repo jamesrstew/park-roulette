@@ -264,3 +264,82 @@ describe("the email", () => {
     expect(b.match(/<td/g)).toHaveLength(4);
   });
 });
+
+describe("reading Vercel", () => {
+  const cfg = (data: Record<string, unknown>[] | ((u: URL) => unknown)) => ({
+    token: "t",
+    teamId: "team",
+    projectId: "p",
+    fetchImpl: (async (u: string) =>
+      Response.json({
+        data: typeof data === "function" ? data(new URL(u)) : data,
+      })) as unknown as typeof fetch,
+  });
+
+  it("takes the total from one row, not a sum over referrers", async () => {
+    const { readTraffic } = await import("./vercel");
+    const t = await readTraffic(
+      cfg((u) => {
+        const by = u.searchParams.get("by");
+        if (by === "environment")
+          return [{ environment: "production", visitors: 105, pageviews: 328 }];
+        if (by === "referrerHostname")
+          return [
+            { referrerHostname: "", visitors: 80, pageviews: 300 },
+            { referrerHostname: "Others", visitors: 36, pageviews: 28 },
+          ];
+        if (by === "day") return [];
+        if (by === "requestPath") return [];
+        if (by === "eventName")
+          return [{ eventName: "Spin", count: 3, visitors: 2 }];
+        return [
+          {
+            [by!]: by === "eventData/from" ? "ig" : "email",
+            count: 2,
+            visitors: 2,
+          },
+        ];
+      }),
+      new Date("2026-11-23T08:00:00Z"),
+      new Date("2026-11-30T08:00:00Z"),
+    );
+    expect(t.visitors).toBe(105);
+    expect(t.events.Spin.count).toBe(3);
+    expect(t.arrivedBy.ig).toBe(2);
+  });
+
+  it("fails the source on a malformed answer instead of reading zeros", async () => {
+    const { readTraffic } = await import("./vercel");
+    await expect(
+      readTraffic(
+        cfg([{ referrerHostname: "x" }]),
+        new Date("2026-11-23T08:00:00Z"),
+        new Date("2026-11-30T08:00:00Z"),
+      ),
+    ).rejects.toThrow(/no /);
+  });
+});
+
+describe("without Vercel connected", () => {
+  it("drops unmeasured funnel steps and leaves visitors out of the subject", async () => {
+    const { funnels } = await import("./analyze");
+    const cur = snap("2026-11-23", {
+      families_new: 2,
+      first_stamps: 1,
+      email_new: 1,
+    });
+    const f = funnels(cur);
+    expect(f.map((x) => x.name)).toEqual(["Families"]);
+    expect(f[0].steps.map((s) => s.label)).toEqual([
+      "Started a family",
+      "Stamped a first park",
+    ]);
+    const view = buildView(cur, [snap("2026-11-16", { families_new: 1 })]);
+    expect(renderSubject(view)).toBe(
+      "Growth, Nov 23 to 29: 2 new families (+1)",
+    );
+    expect(
+      renderHtml(view, { webUrl: "https://x.test/admin/growth" }),
+    ).toContain("not connected yet");
+  });
+});

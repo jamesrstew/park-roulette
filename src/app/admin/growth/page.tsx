@@ -42,6 +42,23 @@ async function Growth({ params }: { params: Promise<{ week?: string }> }) {
       ? asked
       : (weeks[0] ?? lastFullWeek(now).start);
   const [stored] = so ? [] : await loadSnapshots([start]);
+  // Gathering live is for this week or last week only: an older week that
+  // was never stored has nothing live worth reading.
+  const gatherable =
+    start === mondayOn(now) || start === lastFullWeek(now).start;
+  if (!stored && !gatherable)
+    return (
+      <div className="flex flex-col gap-4 pb-32">
+        <h1 className="font-hand text-4xl">Weekly growth</h1>
+        <p>
+          The week of {weekLabel(weekOf(start))} wasn&apos;t stored.{" "}
+          <Link className="underline" href="/admin/growth">
+            See the latest week
+          </Link>
+          .
+        </p>
+      </div>
+    );
   const cur =
     stored ??
     (await collectWeek(weekOf(start), { live: true, ...liveSources }));

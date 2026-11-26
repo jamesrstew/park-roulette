@@ -1,5 +1,5 @@
 {
-  "id": "a22e401b-5a1c-482b-b3d8-2255f6fcc36e",
+  "id": "389fcec4-8395-4667-95ae-e97b0d1c814d",
   "prevId": "b6ac8801-c037-4331-8a88-2cd9b66f1276",
   "version": "7",
   "dialect": "postgresql",
@@ -954,6 +954,37 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false
+        },
+        "rendered_at": {
+          "name": "rendered_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_subject": {
+          "name": "email_subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_html": {
+          "name": "email_html",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_text": {
+          "name": "email_text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "email_attempt": {
+          "name": "email_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
         },
         "created_at": {
           "name": "created_at",
